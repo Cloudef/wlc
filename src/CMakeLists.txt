@@ -4,9 +4,10 @@ SET(SRC
    compositor/region.c
    compositor/buffer.c
    compositor/callback.c
+   context/context.c
    context/egl.c
-   context/glx.c
-   context/x11.c
+   context/x11/x11.c
+   render/render.c
    render/gles2.c
    shell/shell.c
    shell/surface.c
@@ -27,6 +28,7 @@ ENDIF (UNIX)
 FIND_PACKAGE(Wayland REQUIRED)
 FIND_PACKAGE(Pixman REQUIRED)
 
+ADD_DEFINITIONS(-std=c99)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${WAYLAND_INCLUDE_DIR} ${PIXMAN_INCLUDE_DIRS})
 ADD_LIBRARY(wlc ${SRC})
 TARGET_LINK_LIBRARIES(wlc ${WAYLAND_LIBRARIES} ${DL_LIBRARY})

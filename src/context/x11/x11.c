@@ -53,7 +53,6 @@ x11_load(void)
 
 function_pointer_exception:
    fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
-   wlc_x11_terminate();
    return false;
 }
 
@@ -90,8 +89,10 @@ wlc_x11_terminate(void)
 bool
 wlc_x11_init(void)
 {
-   if (!x11_load())
+   if (!x11_load()) {
+      wlc_x11_terminate();
       return false;
+   }
 
    if (!(x11.display = x11.api.XOpenDisplay(NULL))) {
       fprintf(stderr, "-!- Failed to open X11 display");
