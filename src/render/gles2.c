@@ -1,18 +1,23 @@
 #include "gles2.h"
+#include "render.h"
+
+#include "context/context.h"
+#include "compositor/surface.h"
+#include "compositor/buffer.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <dlfcn.h>
+
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-#include "compositor/surface.h"
-#include "compositor/buffer.h"
-#include "compositor/callback.h"
+#include <wayland-server.h>
 
 static struct {
-   void (*swap)(void);
+   struct wlc_context *context;
    const char *extensions;
 
    struct {
@@ -45,57 +50,10 @@ static struct {
    } api;
 } gl;
 
-static const char *vert_shader_text =
-   "mat4 ortho = mat4("
-   "  2.0/800.0,  0,      0, 0,"
-   "     0,   -2.0/480.0, 0, 0,"
-   "     0,       0,     -1, 0,"
-   "    -1,       1,      0, 1"
-   ");\n"
-   "attribute vec4 pos;\n"
-   "attribute vec2 uv;\n"
-   "varying vec2 v_uv;\n"
-   "void main() {\n"
-   "  gl_Position = ortho * pos;\n"
-   "  v_uv = uv;\n"
-   "}\n";
-
-static const char *frag_shader_text =
-   "precision mediump float;\n"
-   "uniform sampler2D texture0;\n"
-   "varying vec2 v_uv;\n"
-   "void main() {\n"
-   "  gl_FragColor = texture2D(texture0, v_uv);\n"
-   "}\n";
-
-static GLuint
-create_shader(const char *source, GLenum shader_type)
-{
-   GLuint shader = gl.api.glCreateShader(shader_type);
-   assert(shader != 0);
-
-   gl.api.glShaderSource(shader, 1, (const char **)&source, NULL);
-   gl.api.glCompileShader(shader);
-
-   GLint status;
-   gl.api.glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-   if (!status) {
-      GLsizei len;
-      char log[1000];
-      gl.api.glGetShaderInfoLog(shader, sizeof(log), &len, log);
-      fprintf(stderr, "Error: compiling %s: %*s\n",
-            shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
-            len, log);
-      abort();
-   }
-
-   return shader;
-}
-
 static bool
-gles2_load(bool uses_glx)
+gles2_load(void)
 {
-   const char *lib = (uses_glx ? "libGL.so" : "libGLESv2.so"), *func = NULL;
+   const char *lib = "libGLESv2.so", *func = NULL;
 
    if (!(gl.api.handle = dlopen(lib, RTLD_LAZY)))
       return false;
@@ -159,12 +117,11 @@ gles2_load(bool uses_glx)
 
 function_pointer_exception:
    fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
-   wlc_gles2_terminate();
    return false;
 }
 
-bool
-wlc_gles2_has_extension(const char *extension)
+static bool
+has_extension(const char *extension)
 {
    assert(extension);
 
@@ -182,15 +139,6 @@ wlc_gles2_has_extension(const char *extension)
       s += next;
    }
    return false;
-}
-
-void
-wlc_gles2_terminate(void)
-{
-   if (gl.api.handle)
-      dlclose(gl.api.handle);
-
-   memset(&gl, 0, sizeof(gl));
 }
 
 static void
@@ -244,19 +192,10 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    gl.api.glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitch, buffer->height, 0, gl_format, gl_pixel_type, data);
    wl_shm_buffer_end_access(buffer->shm_buffer);
    wl_resource_queue_event(buffer->resource, WL_BUFFER_RELEASE);
-
-   /* TODO: move to composer and do after render */
-   puts("FRAME");
-   uint32_t msec;
-   struct timeval tv;
-   gettimeofday(&tv, NULL);
-   msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-   wl_callback_send_done(surface->frame_cb->resource, msec);
-   wl_resource_destroy(surface->frame_cb->resource);
 }
 
-void
-wlc_gles2_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
+static void
+surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
    if (!buffer) {
       /* TODO: cleanup */
@@ -273,8 +212,8 @@ wlc_gles2_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
    }
 }
 
-void
-wlc_gles2_surface_render(struct wlc_surface *surface)
+static void
+surface_render(struct wlc_surface *surface)
 {
    gl.api.glClear(GL_COLOR_BUFFER_BIT);
 
@@ -292,21 +231,78 @@ wlc_gles2_surface_render(struct wlc_surface *surface)
       0, 1
    };
 
-   printf("%ux%u\n", surface->width, surface->height);
    gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices);
    gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords);
    gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-   gl.swap();
+   gl.context->api.swap();
+}
+
+static void
+terminate(void)
+{
+   if (gl.api.handle)
+      dlclose(gl.api.handle);
+
+   memset(&gl, 0, sizeof(gl));
+}
+
+static GLuint
+create_shader(const char *source, GLenum shader_type)
+{
+   GLuint shader = gl.api.glCreateShader(shader_type);
+   assert(shader != 0);
+
+   gl.api.glShaderSource(shader, 1, (const char **)&source, NULL);
+   gl.api.glCompileShader(shader);
+
+   GLint status;
+   gl.api.glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+   if (!status) {
+      GLsizei len;
+      char log[1000];
+      gl.api.glGetShaderInfoLog(shader, sizeof(log), &len, log);
+      fprintf(stderr, "Error: compiling %s: %*s\n",
+            shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
+            len, log);
+      abort();
+   }
+
+   return shader;
 }
 
 bool
-wlc_gles2_init(void (*swap_func)(void), bool uses_glx)
+wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
 {
-   if (!gles2_load(uses_glx))
+   if (!gles2_load()) {
+      terminate();
       return false;
+   }
 
-   gl.swap = swap_func;
+   gl.context = context;
    gl.extensions = (const char*)gl.api.glGetString(GL_EXTENSIONS);
+
+   static const char *vert_shader_text =
+      "mat4 ortho = mat4("
+      "  2.0/800.0,  0,      0, 0,"
+      "     0,   -2.0/480.0, 0, 0,"
+      "     0,       0,     -1, 0,"
+      "    -1,       1,      0, 1"
+      ");\n"
+      "attribute vec4 pos;\n"
+      "attribute vec2 uv;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  gl_Position = ortho * pos;\n"
+      "  v_uv = uv;\n"
+      "}\n";
+
+   static const char *frag_shader_text =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  gl_FragColor = texture2D(texture0, v_uv);\n"
+      "}\n";
 
    GLuint frag = create_shader(frag_shader_text, GL_FRAGMENT_SHADER);
    GLuint vert = create_shader(vert_shader_text, GL_VERTEX_SHADER);
@@ -336,8 +332,10 @@ wlc_gles2_init(void (*swap_func)(void), bool uses_glx)
    gl.api.glEnable(GL_BLEND);
    gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
    gl.api.glClearColor(0.2, 0.2, 0.2, 1);
-   gl.api.glClear(GL_COLOR_BUFFER_BIT);
-   gl.swap();
+
+   out_render->terminate = terminate;
+   out_render->api.attach = surface_attach;
+   out_render->api.render = surface_render;
 
    fprintf(stdout, "-!- GLES2 renderer initialized\n");
    return true;

@@ -1,18 +1,26 @@
 #include "compositor.h"
+#include "callback.h"
 #include "surface.h"
 #include "region.h"
 #include "macros.h"
-#include "context/egl.h"
-#include "context/glx.h"
-#include "render/gles2.h"
 
+#include "shell/shell.h"
+#include "shell/xdg-shell.h"
+
+#include "context/context.h"
+#include "render/render.h"
+
+#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <wayland-server.h>
 
 static void
 wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, unsigned int id)
 {
    (void)client;
+   struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
 
    struct wl_resource *surface_resource;
    if (!(surface_resource = wl_resource_create(client, &wl_surface_interface, 1, id))) {
@@ -21,7 +29,7 @@ wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uns
    }
 
    struct wlc_surface *surface;
-   if (!(surface = wlc_surface_new())) {
+   if (!(surface = wlc_surface_new(compositor))) {
       wl_resource_destroy(surface_resource);
       wl_resource_post_no_memory(resource);
       return;
@@ -71,6 +79,40 @@ wl_compositor_bind(struct wl_client *client, void *data, unsigned int version, u
    wl_resource_set_implementation(resource, &wl_compositor_implementation, data, NULL);
 }
 
+static void
+start_repaint_loop(struct wlc_compositor *compositor)
+{
+   struct timeval tv;
+   gettimeofday(&tv, NULL);
+   uint32_t msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
+   struct wlc_surface *surface;
+   wl_list_for_each(surface, &compositor->surfaces, link) {
+      compositor->render->api.render(surface);
+      wl_callback_send_done(surface->frame_cb->resource, msec);
+   }
+
+   wl_event_source_timer_update(compositor->finish_frame_timer, 16);
+   compositor->repaint_scheduled = false;
+}
+
+static int
+cb_finish_frame(void *data)
+{
+   start_repaint_loop(data);
+   return 1;
+}
+
+static void
+schedule_repaint(struct wlc_compositor *compositor)
+{
+   if (compositor->repaint_scheduled)
+      return;
+
+   wl_event_loop_add_idle(compositor->event_loop, start_repaint_loop, compositor);
+   compositor->repaint_scheduled = true;
+}
+
 void
 wlc_compositor_run(struct wlc_compositor *compositor)
 {
@@ -80,9 +122,13 @@ wlc_compositor_run(struct wlc_compositor *compositor)
 void
 wlc_compositor_free(struct wlc_compositor *compositor)
 {
-   wlc_gles2_terminate();
-   wlc_glx_terminate();
-   wlc_egl_terminate();
+   wl_event_source_remove(compositor->finish_frame_timer);
+
+   if (compositor->render)
+      wlc_render_terminate(compositor->render);
+
+   if (compositor->context)
+      wlc_context_terminate(compositor->context);
 
    if (compositor->shell)
       wlc_shell_free(compositor->shell);
@@ -122,16 +168,17 @@ wlc_compositor_new(void)
    if (!(compositor->event_loop = wl_display_get_event_loop(compositor->display)))
       goto no_event_loop;
 
-   bool use_glx = false;
-   if (!wlc_egl_init(compositor->display)) {
-      use_glx = true;
-      if (!getenv("DISPLAY") || !wlc_glx_init(compositor->display))
-         goto fail;
-   }
-
-   if (!wlc_gles2_init((use_glx ? wlc_glx_swap_buffers : wlc_egl_swap_buffers), use_glx))
+   if (!(compositor->context = wlc_context_init(compositor->display)))
       goto fail;
 
+   if (!(compositor->render = wlc_render_init(compositor->context)))
+      goto fail;
+
+   compositor->finish_frame_timer = wl_event_loop_add_timer(compositor->event_loop, cb_finish_frame, compositor);
+
+   compositor->api.schedule_repaint = schedule_repaint;
+
+   wl_list_init(&compositor->surfaces);
    return compositor;
 
 out_of_memory:

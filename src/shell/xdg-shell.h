@@ -1,7 +1,7 @@
 #ifndef _WLC_XDG_SHELL_H_
 #define _WLC_XDG_SHELL_H_
 
-#include <wayland-server.h>
+struct wl_display;
 
 struct wlc_xdg_shell {
    void *user_data;

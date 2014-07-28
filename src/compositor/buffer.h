@@ -1,8 +1,11 @@
 #ifndef _WLC_BUFFER_H_
 #define _WLC_BUFFER_H_
 
-#include <wayland-server.h>
 #include <stdbool.h>
+#include <stdint.h>
+
+struct wl_resource;
+struct wl_shm_buffer;
 
 struct wlc_buffer {
    struct wl_resource *resource;

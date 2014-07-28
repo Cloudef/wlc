@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include <wayland-server.h>
+
 static void
 wl_cb_callback_destructor(struct wl_resource *resource)
 {

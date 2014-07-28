@@ -1,8 +1,12 @@
 #ifndef _WLC_XDG_SURFACE_H_
 #define _WLC_XDG_SURFACE_H_
 
-#include "surface.h"
+#include "types/string.h"
 #include <stdbool.h>
+
+struct wl_resource;
+struct wlc_surface;
+struct wlc_shell_surface;
 
 struct wlc_xdg_surface {
    struct wlc_shell_surface *shell_surface;

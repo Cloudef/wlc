@@ -1,8 +1,9 @@
 #ifndef _WLC_REGION_H_
 #define _WLC_REGION_H_
 
-#include <wayland-server.h>
 #include <pixman.h>
+
+struct wl_resource;
 
 struct wlc_region {
    struct wl_resource *resource;

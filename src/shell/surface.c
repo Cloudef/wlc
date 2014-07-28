@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include <wayland-server.h>
+
 static void
 wl_cb_shell_surface_pong(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
 {

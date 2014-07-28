@@ -1,10 +1,14 @@
 #include "egl.h"
-#include "x11.h"
+#include "context.h"
+
+#include "x11/x11.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <assert.h>
+
 #include <EGL/egl.h>
 
 static struct {
@@ -76,7 +80,6 @@ egl_load(void)
 
 function_pointer_exception:
    fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
-   wlc_egl_terminate();
    return false;
 }
 
@@ -127,8 +130,8 @@ egl_error_string(const EGLint error)
     return "UNKNOWN EGL ERROR";
 }
 
-bool
-wlc_egl_has_extension(const char *extension)
+static bool
+has_extension(const char *extension)
 {
    assert(extension);
 
@@ -148,14 +151,14 @@ wlc_egl_has_extension(const char *extension)
    return false;
 }
 
-void
-wlc_egl_swap_buffers(void)
+static void
+swap_buffers(void)
 {
    egl.api.eglSwapBuffers(egl.display, egl.surface);
 }
 
-void
-wlc_egl_terminate(void)
+static void
+terminate(void)
 {
    if (egl.display) {
       if (egl.has_current)
@@ -180,7 +183,7 @@ wlc_egl_terminate(void)
 }
 
 bool
-wlc_egl_init(struct wl_display *display)
+wlc_egl_init(struct wl_display *display, struct wlc_context *out_context)
 {
    (void)display;
 
@@ -192,8 +195,10 @@ wlc_egl_init(struct wl_display *display)
       use_x11 = true;
    }
 
-   if (!egl_load())
+   if (!egl_load()) {
+      terminate();
       return false;
+   }
 
    static const EGLint context_attribs[] = {
       EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -241,6 +246,10 @@ wlc_egl_init(struct wl_display *display)
       goto fail;
 
    egl.has_current = true;
+
+   out_context->terminate = terminate;
+   out_context->api.swap = swap_buffers;
+
    fprintf(stdout, "-!- EGL (%s) context created\n", (use_x11 ? "X11" : "FB"));
    return true;
 

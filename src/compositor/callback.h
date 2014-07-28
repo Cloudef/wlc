@@ -1,7 +1,7 @@
 #ifndef _WLC_CALLBACK_H_
 #define _WLC_CALLBACK_H_
 
-#include <wayland-server.h>
+struct wl_resource;
 
 struct wlc_callback {
    struct wl_resource *resource;

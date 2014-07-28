@@ -1,12 +1,17 @@
 #include "surface.h"
+#include "compositor.h"
 #include "region.h"
 #include "buffer.h"
 #include "callback.h"
 #include "macros.h"
 
+#include "render/render.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+
+#include <wayland-server.h>
 
 static void
 wlc_surface_state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer *buffer)
@@ -42,7 +47,7 @@ wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
       /* TODO: unmap surface if mapped */
    }
 
-   wlc_gles2_surface_attach(surface, buffer);
+   surface->compositor->render->api.attach(surface, buffer);
 
    int32_t width = 0, height = 0;
    if (buffer) {
@@ -98,7 +103,7 @@ wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *
 
    pixman_region32_intersect_rect(&surface->commit.input, &state->input, 0, 0, surface->width, surface->height);
 
-   wlc_gles2_surface_render(surface);
+   surface->compositor->api.schedule_repaint(surface->compositor);
 }
 
 static void
@@ -269,16 +274,21 @@ wlc_surface_release(struct wlc_surface *surface)
    if (surface->resource)
       wl_resource_destroy(surface->resource);
 
+   if (surface->compositor)
+      wl_list_remove(&surface->link);
+
    free(surface);
 }
 
 struct wlc_surface*
-wlc_surface_new(void)
+wlc_surface_new(struct wlc_compositor *compositor)
 {
    struct wlc_surface *surface;
    if (!(surface = calloc(1, sizeof(struct wlc_surface))))
       return NULL;
 
+   wl_list_insert(&compositor->surfaces, &surface->link);
+   surface->compositor = compositor;
    surface->ref_count = 1;
    return surface;
 }

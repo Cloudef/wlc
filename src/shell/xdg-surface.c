@@ -1,10 +1,13 @@
 #include "xdg-surface.h"
-#include "xdg-shell-server-protocol.h"
+#include "surface.h"
 #include "macros.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+
+#include <wayland-server.h>
+#include "xdg-shell-server-protocol.h"
 
 static void
 xdg_cb_surface_destroy(struct wl_client *client, struct wl_resource *resource)

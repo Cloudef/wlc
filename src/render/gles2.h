@@ -3,8 +3,9 @@
 
 #include <stdbool.h>
 
-bool wlc_gles2_has_extension(const char *extension);
-void wlc_gles2_terminate(void);
-bool wlc_gles2_init(void (*swap_func)(void), bool uses_glx);
+struct wlc_context;
+struct wlc_render;
+
+bool wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render);
 
 #endif /* _WLC_GLES2_H_ */

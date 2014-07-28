@@ -1,8 +1,13 @@
 #ifndef _WLC_SHELL_SURFACE_H_
 #define _WLC_SHELL_SURFACE_H_
 
-#include <wayland-server.h>
 #include "types/string.h"
+#include <stdint.h>
+#include <stdbool.h>
+
+struct wl_resource;
+struct wlc_surface;
+struct wlc_shell_surface;
 
 struct wlc_shell_surface {
    struct wl_resource *resource;
