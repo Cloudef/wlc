@@ -22,8 +22,7 @@ struct wlc_compositor {
    struct wlc_render *render;
 
    struct wl_list surfaces;
-   struct wl_event_source *finish_frame_timer;
-
+   struct wl_event_source *repaint_timer;
    bool repaint_scheduled;
 
    struct {

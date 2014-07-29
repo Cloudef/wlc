@@ -81,7 +81,7 @@ wl_compositor_bind(struct wl_client *client, void *data, unsigned int version, u
 }
 
 static void
-start_repaint_loop(struct wlc_compositor *compositor)
+repaint(struct wlc_compositor *compositor)
 {
    struct timeval tv;
    gettimeofday(&tv, NULL);
@@ -98,14 +98,20 @@ start_repaint_loop(struct wlc_compositor *compositor)
    compositor->render->api.swap();
    compositor->render->api.clear();
 
-   wl_event_source_timer_update(compositor->finish_frame_timer, 16);
+   wl_event_source_timer_update(compositor->repaint_timer, 16);
    compositor->repaint_scheduled = false;
 }
 
-static int
-cb_finish_frame(void *data)
+static void
+cb_repaint_idle(void *data)
 {
-   start_repaint_loop(data);
+   repaint(data);
+}
+
+static int
+cb_repaint_timer(void *data)
+{
+   cb_repaint_idle(data);
    return 1;
 }
 
@@ -115,7 +121,7 @@ schedule_repaint(struct wlc_compositor *compositor)
    if (compositor->repaint_scheduled)
       return;
 
-   wl_event_loop_add_idle(compositor->event_loop, start_repaint_loop, compositor);
+   wl_event_loop_add_idle(compositor->event_loop, cb_repaint_idle, compositor);
    compositor->repaint_scheduled = true;
 }
 
@@ -130,7 +136,7 @@ wlc_compositor_free(struct wlc_compositor *compositor)
 {
    assert(compositor);
 
-   wl_event_source_remove(compositor->finish_frame_timer);
+   wl_event_source_remove(compositor->repaint_timer);
 
    if (compositor->render)
       wlc_render_terminate(compositor->render);
@@ -187,12 +193,12 @@ wlc_compositor_new(void)
    if (!(compositor->render = wlc_render_init(compositor->context)))
       goto fail;
 
-   compositor->finish_frame_timer = wl_event_loop_add_timer(compositor->event_loop, cb_finish_frame, compositor);
+   compositor->repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
 
    compositor->api.schedule_repaint = schedule_repaint;
 
    wl_list_init(&compositor->surfaces);
-   start_repaint_loop(compositor);
+   repaint(compositor);
    return compositor;
 
 out_of_memory:
