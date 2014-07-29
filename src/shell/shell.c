@@ -2,6 +2,8 @@
 #include "surface.h"
 #include "macros.h"
 
+#include "compositor/compositor.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -63,16 +65,16 @@ wlc_shell_free(struct wlc_shell *shell)
 }
 
 struct wlc_shell*
-wlc_shell_new(struct wl_display *display, void *user_data)
+wlc_shell_new(struct wlc_compositor *compositor)
 {
    struct wlc_shell *shell;
    if (!(shell = calloc(1, sizeof(struct wlc_shell))))
       goto out_of_memory;
 
-   if (!(shell->global = wl_global_create(display, &wl_shell_interface, 1, shell, wl_shell_bind)))
+   if (!(shell->global = wl_global_create(compositor->display, &wl_shell_interface, 1, shell, wl_shell_bind)))
       goto shell_interface_fail;
 
-   shell->user_data = user_data;
+   shell->compositor = compositor;
    return shell;
 
 out_of_memory:

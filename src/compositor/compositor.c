@@ -166,10 +166,10 @@ wlc_compositor_new(void)
    if (!(compositor->global = wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
       goto compositor_interface_fail;
 
-   if (!(compositor->shell = wlc_shell_new(compositor->display, compositor)))
+   if (!(compositor->shell = wlc_shell_new(compositor)))
       goto fail;
 
-   if (!(compositor->xdg_shell = wlc_xdg_shell_new(compositor->display, compositor)))
+   if (!(compositor->xdg_shell = wlc_xdg_shell_new(compositor)))
       goto fail;
 
    if (wl_display_init_shm(compositor->display) != 0)

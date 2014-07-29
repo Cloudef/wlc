@@ -2,6 +2,8 @@
 #include "xdg-surface.h"
 #include "macros.h"
 
+#include "compositor/compositor.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -87,16 +89,16 @@ wlc_xdg_shell_free(struct wlc_xdg_shell *xdg_shell)
 }
 
 struct wlc_xdg_shell*
-wlc_xdg_shell_new(struct wl_display *display, void *user_data)
+wlc_xdg_shell_new(struct wlc_compositor *compositor)
 {
    struct wlc_xdg_shell *xdg_shell;
    if (!(xdg_shell = calloc(1, sizeof(struct wlc_xdg_shell))))
       goto out_of_memory;
 
-   if (!(xdg_shell->global = wl_global_create(display, &xdg_shell_interface, 1, xdg_shell, xdg_shell_bind)))
+   if (!(xdg_shell->global = wl_global_create(compositor->display, &xdg_shell_interface, 1, xdg_shell, xdg_shell_bind)))
       goto xdg_shell_interface_fail;
 
-   xdg_shell->user_data = user_data;
+   xdg_shell->compositor = compositor;
    return xdg_shell;
 
 out_of_memory:
