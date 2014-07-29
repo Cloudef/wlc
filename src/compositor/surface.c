@@ -110,7 +110,6 @@ static void
 wl_cb_surface_destroy(struct wl_client *client, struct wl_resource *resource)
 {
    (void)client;
-   STUBL(resource);
    wl_resource_destroy(resource);
 }
 
