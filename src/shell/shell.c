@@ -83,5 +83,7 @@ out_of_memory:
 shell_interface_fail:
    fprintf(stderr, "-!- failed to bind shell interface\n");
 fail:
+   if (shell)
+      wlc_shell_free(shell);
    return shell;
 }

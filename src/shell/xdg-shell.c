@@ -107,5 +107,7 @@ out_of_memory:
 xdg_shell_interface_fail:
    fprintf(stderr, "-!- failed to bind xdg_shell interface\n");
 fail:
+   if (xdg_shell)
+      wlc_xdg_shell_free(xdg_shell);
    return xdg_shell;
 }
