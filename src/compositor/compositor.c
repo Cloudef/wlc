@@ -4,6 +4,7 @@
 #include "region.h"
 #include "macros.h"
 
+#include "seat/seat.h"
 #include "shell/shell.h"
 #include "shell/xdg-shell.h"
 
@@ -150,6 +151,8 @@ wlc_compositor_free(struct wlc_compositor *compositor)
    if (compositor->shell)
       wlc_shell_free(compositor->shell);
 
+   if (compositor->seat)
+      wlc_seat_free(compositor->seat);
 
    if (compositor->global)
       wl_global_destroy(compositor->global);
@@ -172,6 +175,9 @@ wlc_compositor_new(void)
 
    if (!(compositor->global = wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
       goto compositor_interface_fail;
+
+   if (!(compositor->seat = wlc_seat_new(compositor)))
+      goto fail;
 
    if (!(compositor->shell = wlc_shell_new(compositor)))
       goto fail;

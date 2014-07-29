@@ -9,6 +9,7 @@ SET(SRC
    context/x11/x11.c
    render/render.c
    render/gles2.c
+   seat/seat.c
    shell/shell.c
    shell/surface.c
    shell/xdg-shell.c

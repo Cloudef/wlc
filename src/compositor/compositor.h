@@ -16,6 +16,7 @@ struct wlc_compositor {
    struct wl_global *global;
    struct wl_display *display;
    struct wl_event_loop *event_loop;
+   struct wlc_seat *seat;
    struct wlc_shell *shell;
    struct wlc_xdg_shell *xdg_shell;
    struct wlc_context *context;
