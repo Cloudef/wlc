@@ -144,11 +144,12 @@ wlc_compositor_free(struct wlc_compositor *compositor)
    if (compositor->context)
       wlc_context_terminate(compositor->context);
 
+   if (compositor->xdg_shell)
+      wlc_xdg_shell_free(compositor->xdg_shell);
+
    if (compositor->shell)
       wlc_shell_free(compositor->shell);
 
-   if (compositor->xdg_shell)
-      wlc_xdg_shell_free(compositor->xdg_shell);
 
    if (compositor->global)
       wl_global_destroy(compositor->global);
