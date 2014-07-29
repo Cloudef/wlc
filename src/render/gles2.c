@@ -213,10 +213,14 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 }
 
 static void
-surface_render(struct wlc_surface *surface)
+clear(void)
 {
    gl.api.glClear(GL_COLOR_BUFFER_BIT);
+}
 
+static void
+surface_render(struct wlc_surface *surface)
+{
    const GLint vertices[8] = {
       surface->width, 0,
       0, 0,
@@ -234,7 +238,6 @@ surface_render(struct wlc_surface *surface)
    gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices);
    gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords);
    gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-   gl.context->api.swap();
 }
 
 static void
@@ -336,6 +339,8 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    out_render->terminate = terminate;
    out_render->api.attach = surface_attach;
    out_render->api.render = surface_render;
+   out_render->api.clear = clear;
+   out_render->api.swap = context->api.swap;
 
    fprintf(stdout, "-!- GLES2 renderer initialized\n");
    return true;

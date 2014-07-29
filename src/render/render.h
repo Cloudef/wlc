@@ -13,6 +13,8 @@ struct wlc_render {
    struct {
       void (*attach)(struct wlc_surface *surface, struct wlc_buffer *buffer);
       void (*render)(struct wlc_surface *surface);
+      void (*clear)(void);
+      void (*swap)(void);
    } api;
 };
 

@@ -88,9 +88,14 @@ start_repaint_loop(struct wlc_compositor *compositor)
 
    struct wlc_surface *surface;
    wl_list_for_each(surface, &compositor->surfaces, link) {
-      compositor->render->api.render(surface);
-      wl_callback_send_done(surface->frame_cb->resource, msec);
+      if (surface->frame_cb) {
+         compositor->render->api.render(surface);
+         wl_callback_send_done(surface->frame_cb->resource, msec);
+      }
    }
+
+   compositor->render->api.swap();
+   compositor->render->api.clear();
 
    wl_event_source_timer_update(compositor->finish_frame_timer, 16);
    compositor->repaint_scheduled = false;
@@ -179,6 +184,7 @@ wlc_compositor_new(void)
    compositor->api.schedule_repaint = schedule_repaint;
 
    wl_list_init(&compositor->surfaces);
+   start_repaint_loop(compositor);
    return compositor;
 
 out_of_memory:
