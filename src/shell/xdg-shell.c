@@ -79,6 +79,10 @@ void
 wlc_xdg_shell_free(struct wlc_xdg_shell *xdg_shell)
 {
    assert(xdg_shell);
+
+   if (xdg_shell->global)
+      wl_global_destroy(xdg_shell->global);
+
    free(xdg_shell);
 }
 
@@ -89,7 +93,7 @@ wlc_xdg_shell_new(struct wl_display *display, void *user_data)
    if (!(xdg_shell = calloc(1, sizeof(struct wlc_xdg_shell))))
       goto out_of_memory;
 
-   if (!wl_global_create(display, &xdg_shell_interface, 1, xdg_shell, xdg_shell_bind))
+   if (!(xdg_shell->global = wl_global_create(display, &xdg_shell_interface, 1, xdg_shell, xdg_shell_bind)))
       goto xdg_shell_interface_fail;
 
    xdg_shell->user_data = user_data;

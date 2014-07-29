@@ -13,6 +13,7 @@ struct wlc_context;
 struct wlc_render;
 
 struct wlc_compositor {
+   struct wl_global *global;
    struct wl_display *display;
    struct wl_event_loop *event_loop;
    struct wlc_shell *shell;

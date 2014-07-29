@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include <wayland-server.h>
 
@@ -127,6 +128,8 @@ wlc_compositor_run(struct wlc_compositor *compositor)
 void
 wlc_compositor_free(struct wlc_compositor *compositor)
 {
+   assert(compositor);
+
    wl_event_source_remove(compositor->finish_frame_timer);
 
    if (compositor->render)
@@ -141,8 +144,13 @@ wlc_compositor_free(struct wlc_compositor *compositor)
    if (compositor->xdg_shell)
       wlc_xdg_shell_free(compositor->xdg_shell);
 
+   if (compositor->global)
+      wl_global_destroy(compositor->global);
+
    if (compositor->display)
       wl_display_destroy(compositor->display);
+
+   free(compositor);
 }
 
 struct wlc_compositor*
@@ -155,7 +163,7 @@ wlc_compositor_new(void)
    if (!(compositor->display = wl_display_create()))
       goto display_create_fail;
 
-   if (!wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind))
+   if (!(compositor->global = wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
       goto compositor_interface_fail;
 
    if (!(compositor->shell = wlc_shell_new(compositor->display, compositor)))

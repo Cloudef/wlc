@@ -4,6 +4,7 @@
 struct wl_display;
 
 struct wlc_shell {
+   struct wl_global *global;
    void *user_data;
 };
 

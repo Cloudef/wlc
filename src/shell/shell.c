@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <assert.h>
 
 #include <wayland-server.h>
 #include "xdg-shell-server-protocol.h"
@@ -53,6 +54,11 @@ wl_shell_bind(struct wl_client *client, void *data, unsigned int version, unsign
 void
 wlc_shell_free(struct wlc_shell *shell)
 {
+   assert(shell);
+
+   if (shell->global)
+      wl_global_destroy(shell->global);
+
    free(shell);
 }
 
@@ -63,7 +69,7 @@ wlc_shell_new(struct wl_display *display, void *user_data)
    if (!(shell = calloc(1, sizeof(struct wlc_shell))))
       goto out_of_memory;
 
-   if (!wl_global_create(display, &wl_shell_interface, 1, shell, wl_shell_bind))
+   if (!(shell->global = wl_global_create(display, &wl_shell_interface, 1, shell, wl_shell_bind)))
       goto shell_interface_fail;
 
    shell->user_data = user_data;
