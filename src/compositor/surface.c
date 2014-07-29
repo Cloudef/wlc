@@ -273,8 +273,11 @@ wlc_surface_release(struct wlc_surface *surface)
    if (surface->resource)
       wl_resource_destroy(surface->resource);
 
-   if (surface->compositor)
+   if (surface->compositor) {
+      if (surface->compositor->render)
+         surface->compositor->render->api.destroy(surface);
       wl_list_remove(&surface->link);
+   }
 
    free(surface);
 }

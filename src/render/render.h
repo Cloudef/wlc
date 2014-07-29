@@ -11,6 +11,7 @@ struct wlc_render {
    void (*terminate)(void);
 
    struct {
+      void (*destroy)(struct wlc_surface *surface);
       void (*attach)(struct wlc_surface *surface, struct wlc_buffer *buffer);
       void (*render)(struct wlc_surface *surface);
       void (*clear)(void);

@@ -43,6 +43,7 @@ static struct {
       void (*glVertexAttribPointer)(GLuint, GLint, GLenum, GLboolean, GLsizei, const GLvoid*);
       void (*glDrawArrays)(GLenum, GLint, GLsizei);
       void (*glGenTextures)(GLsizei, GLuint*);
+      void (*glDeleteTextures)(GLsizei, GLuint*);
       void (*glBindTexture)(GLenum, GLuint);
       void (*glTexParameteri)(GLenum, GLenum, GLenum);
       void (*glPixelStorei)(GLenum, GLint);
@@ -101,6 +102,8 @@ gles2_load(void)
    if (!(load(glDrawArrays)))
       goto function_pointer_exception;
    if (!(load(glGenTextures)))
+      goto function_pointer_exception;
+   if (!(load(glDeleteTextures)))
       goto function_pointer_exception;
    if (!(load(glBindTexture)))
       goto function_pointer_exception;
@@ -174,14 +177,15 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
          return;
    }
 
-   static GLuint texture = 0;
-   if (!texture) {
-      gl.api.glGenTextures(1, &texture);
-      gl.api.glBindTexture(GL_TEXTURE_2D, texture);
+   if (!surface->texture) {
+      gl.api.glGenTextures(1, &surface->texture);
+      gl.api.glBindTexture(GL_TEXTURE_2D, surface->texture);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+   } else {
+      gl.api.glBindTexture(GL_TEXTURE_2D, surface->texture);
    }
 
    gl.api.glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, pitch);
@@ -235,9 +239,17 @@ surface_render(struct wlc_surface *surface)
       0, 1
    };
 
+   gl.api.glBindTexture(GL_TEXTURE_2D, surface->texture);
    gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices);
    gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords);
    gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+static void
+surface_destroy(struct wlc_surface *surface)
+{
+   if (surface->texture)
+      gl.api.glDeleteTextures(1, &surface->texture);
 }
 
 static void
@@ -337,6 +349,7 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    gl.api.glClearColor(0.2, 0.2, 0.2, 1);
 
    out_render->terminate = terminate;
+   out_render->api.destroy = surface_destroy;
    out_render->api.attach = surface_attach;
    out_render->api.render = surface_render;
    out_render->api.clear = clear;

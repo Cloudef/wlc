@@ -26,6 +26,13 @@ struct wlc_surface {
    struct wlc_callback *frame_cb;
    struct wlc_surface_state pending;
    struct wlc_surface_state commit;
+
+   /**
+    * "Texture" as we use OpenGL terminology, but can be id to anything.
+    * Managed by the renderer.
+    */
+   uint32_t texture;
+
    int32_t width, height;
    int32_t width_from_buffer, height_from_buffer;
    int32_t ref_count;
