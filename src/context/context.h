@@ -2,12 +2,15 @@
 #define _WLC_CONTEXT_H_
 
 struct wl_display;
+struct wlc_seat;
 
 struct wlc_context {
    void (*terminate)(void);
 
    struct {
       void (*swap)(void);
+      int (*poll_events)(struct wlc_seat *seat);
+      int (*event_fd)(void);
    } api;
 };
 

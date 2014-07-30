@@ -81,12 +81,19 @@ wl_compositor_bind(struct wl_client *client, void *data, unsigned int version, u
    wl_resource_set_implementation(resource, &wl_compositor_implementation, data, NULL);
 }
 
+static uint32_t
+get_time(void)
+{
+   /* TODO: change to monotonic time */
+   struct timeval tv;
+   gettimeofday(&tv, NULL);
+   return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
+
 static void
 repaint(struct wlc_compositor *compositor)
 {
-   struct timeval tv;
-   gettimeofday(&tv, NULL);
-   uint32_t msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+   uint32_t msec = get_time();
 
    struct wlc_surface *surface;
    wl_list_for_each(surface, &compositor->surfaces, link) {
@@ -126,6 +133,14 @@ schedule_repaint(struct wlc_compositor *compositor)
    compositor->repaint_scheduled = true;
 }
 
+static int
+poll_for_events(int fd, uint32_t mask, void *data)
+{
+   (void)fd, (void)mask;
+   struct wlc_compositor *compositor = data;
+   return compositor->context->api.poll_events(compositor->seat);
+}
+
 void
 wlc_compositor_run(struct wlc_compositor *compositor)
 {
@@ -137,7 +152,11 @@ wlc_compositor_free(struct wlc_compositor *compositor)
 {
    assert(compositor);
 
-   wl_event_source_remove(compositor->repaint_timer);
+   if (compositor->repaint_timer)
+      wl_event_source_remove(compositor->repaint_timer);
+
+   if (compositor->event_source)
+      wl_event_source_remove(compositor->event_source);
 
    if (compositor->render)
       wlc_render_terminate(compositor->render);
@@ -200,9 +219,15 @@ wlc_compositor_new(void)
    if (!(compositor->render = wlc_render_init(compositor->context)))
       goto fail;
 
+   if (!(compositor->event_source = wl_event_loop_add_fd(compositor->event_loop, compositor->context->api.event_fd(), WL_EVENT_READABLE, poll_for_events, compositor)))
+      goto event_source_fail;
+
+   wl_event_source_check(compositor->event_source);
+
    compositor->repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
 
    compositor->api.schedule_repaint = schedule_repaint;
+   compositor->api.get_time = get_time;
 
    wl_list_init(&compositor->surfaces);
    repaint(compositor);
@@ -225,6 +250,9 @@ display_init_shm_fail:
    goto fail;
 no_event_loop:
    fprintf(stderr, "-!- display has no event loop\n");
+   goto fail;
+event_source_fail:
+   fprintf(stderr, "-!- failed to add context event source\n");
 fail:
    if (compositor)
       wlc_compositor_free(compositor);

@@ -16,6 +16,7 @@ struct wlc_compositor {
    struct wl_global *global;
    struct wl_display *display;
    struct wl_event_loop *event_loop;
+   struct wl_event_source *event_source;
    struct wlc_seat *seat;
    struct wlc_shell *shell;
    struct wlc_xdg_shell *xdg_shell;
@@ -28,6 +29,7 @@ struct wlc_compositor {
 
    struct {
       void (*schedule_repaint)(struct wlc_compositor *compositor);
+      uint32_t (*get_time)(void);
    } api;
 };
 

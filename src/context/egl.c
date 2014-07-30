@@ -249,12 +249,15 @@ wlc_egl_init(struct wl_display *display, struct wlc_context *out_context)
 
    out_context->terminate = terminate;
    out_context->api.swap = swap_buffers;
+   out_context->api.poll_events = wlc_x11_poll_events;
+   out_context->api.event_fd = wlc_x11_event_fd;
 
    fprintf(stdout, "-!- EGL (%s) context created\n", (use_x11 ? "X11" : "FB"));
    return true;
 
 fail:
    fprintf(stderr, "-!- %s\n", egl_error_string(egl.api.eglGetError()));
+   terminate();
    return false;
 }
 

@@ -10,6 +10,7 @@ SET(SRC
    render/render.c
    render/gles2.c
    seat/seat.c
+   seat/pointer.c
    shell/shell.c
    shell/surface.c
    shell/xdg-shell.c
