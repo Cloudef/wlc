@@ -183,10 +183,8 @@ terminate(void)
 }
 
 bool
-wlc_egl_init(struct wl_display *display, struct wlc_context *out_context)
+wlc_egl_init(struct wlc_context *out_context)
 {
-   (void)display;
-
    bool use_x11 = false;
    if (getenv("DISPLAY")) {
       if (!wlc_x11_init())
@@ -216,12 +214,16 @@ wlc_egl_init(struct wl_display *display, struct wlc_context *out_context)
    };
 
    if (use_x11) {
+      /* X11 */
       if (!(egl.display = egl.api.eglGetDisplay((EGLNativeDisplayType)wlc_x11_display())))
          goto fail;
    } else {
-      if (!(egl.display = egl.api.eglGetDisplay((EGLNativeDisplayType)display)))
+      /* fbdev */
+      if (!(egl.display = egl.api.eglGetDisplay(EGL_DEFAULT_DISPLAY)))
          goto fail;
    }
+
+   /* TODO: add drm, maybe rpi? */
 
    EGLint major, minor;
    if (!egl.api.eglInitialize(egl.display, &major, &minor))
