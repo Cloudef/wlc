@@ -1,6 +1,8 @@
 #include "surface.h"
 #include "macros.h"
 
+#include "compositor/surface.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -149,11 +151,6 @@ wlc_shell_surface_set_class(struct wlc_shell_surface *shell_surface, const char 
    wlc_string_set(&shell_surface->class, class_, true);
 }
 
-void
-wlc_shell_surface_set_geometry(struct wlc_shell_surface *shell_surface, int32_t x, int32_t y, int32_t width, int32_t height)
-{
-   shell_surface->geometry = (struct wlc_geometry){x, y, width, height};
-}
 void
 wlc_shell_surface_set_fullscreen(struct wlc_shell_surface *shell_surface, bool fullscreen)
 {

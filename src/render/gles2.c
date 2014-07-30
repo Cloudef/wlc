@@ -226,10 +226,10 @@ static void
 surface_render(struct wlc_surface *surface)
 {
    const GLint vertices[8] = {
-      surface->width, 0,
-      0, 0,
-      surface->width, surface->height,
-      0, surface->height,
+      surface->geometry.x + surface->geometry.w, surface->geometry.y,
+      surface->geometry.x, surface->geometry.y,
+      surface->geometry.x + surface->geometry.w, surface->geometry.y + surface->geometry.h,
+      surface->geometry.x, surface->geometry.y + surface->geometry.h,
    };
 
    const GLint coords[8] = {

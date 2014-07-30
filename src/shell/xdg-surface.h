@@ -2,6 +2,7 @@
 #define _WLC_XDG_SURFACE_H_
 
 #include "types/string.h"
+#include "compositor/surface.h"
 #include <stdbool.h>
 
 struct wl_resource;
@@ -10,6 +11,7 @@ struct wlc_shell_surface;
 
 struct wlc_xdg_surface {
    struct wlc_shell_surface *shell_surface;
+   struct wlc_geometry visible_geometry;
    struct wlc_string app_id;
    bool minimized;
 };

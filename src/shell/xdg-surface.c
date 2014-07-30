@@ -2,6 +2,10 @@
 #include "surface.h"
 #include "macros.h"
 
+#include "seat/seat.h"
+#include "seat/pointer.h"
+#include "compositor/surface.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -48,10 +52,18 @@ xdg_cb_surface_show_window_menu(struct wl_client *client, struct wl_resource *re
 }
 
 static void
-xdg_cb_surface_move(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial)
+xdg_cb_surface_move(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial)
 {
-   (void)client, (void)resource, (void)seat, (void)serial;
-   STUB(resource);
+   (void)client, (void)resource, (void)serial;
+   STUBL(resource);
+
+   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
+   struct wlc_seat *seat = wl_resource_get_user_data(seat_resource);
+
+   if (!seat->pointer || !seat->pointer->focus)
+      return;
+
+   seat->pointer->moving = true;
 }
 
 static void
@@ -73,7 +85,7 @@ xdg_cb_surface_set_window_geometry(struct wl_client *client, struct wl_resource 
 {
    (void)client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_geometry(xdg_surface->shell_surface, x, y, width, height);
+   xdg_surface->visible_geometry = (struct wlc_geometry){x, y, width, height};
 }
 
 static void

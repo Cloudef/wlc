@@ -131,8 +131,8 @@ pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
 
    struct wlc_surface *surface, *focused = NULL;
    wl_list_for_each(surface, &seat->compositor->surfaces, link) {
-      if (x >= surface->commit.x && x <= surface->commit.x + surface->width &&
-          y >= surface->commit.y && y <= surface->commit.y + surface->height) {
+      if (x >= surface->geometry.x && x <= surface->geometry.x + surface->geometry.w &&
+          y >= surface->geometry.y && y <= surface->geometry.y + surface->geometry.h) {
          focused = surface;
          break;
       }
@@ -141,19 +141,29 @@ pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
    if (focused) {
       struct wl_resource *r;
       uint32_t msec = seat->compositor->api.get_time();
+      wl_fixed_t fx = wl_fixed_from_int(x - focused->geometry.x);
+      wl_fixed_t fy = wl_fixed_from_int(y - focused->geometry.y);
       wl_list_for_each(r, &seat->pointer->resource_list, link) {
          if (wl_resource_get_client(r) == wl_resource_get_client(focused->resource)) {
             if (r != seat->pointer->focus) {
                if (seat->pointer->focus)
                   wl_pointer_send_leave(r, wl_display_next_serial(seat->compositor->display), focused->resource);
-               wl_pointer_send_enter(r, wl_display_next_serial(seat->compositor->display), focused->resource, seat->pointer->x, seat->pointer->y);
+               wl_pointer_send_enter(r, wl_display_next_serial(seat->compositor->display), focused->resource, fx, fy);
                seat->pointer->focus = r;
             }
-            wl_pointer_send_motion(r, msec, seat->pointer->x, seat->pointer->y);
+
+            wl_pointer_send_motion(r, msec, fx, fy);
+
+            if (seat->pointer->grabbing && seat->pointer->moving) {
+               focused->geometry.x += x - wl_fixed_to_int(seat->pointer->gx);
+               focused->geometry.y += y - wl_fixed_to_int(seat->pointer->gy);
+               seat->pointer->gx = seat->pointer->x;
+               seat->pointer->gy = seat->pointer->y;
+            }
             break;
          }
       }
-   } else if (focused != seat->pointer->focus) {
+   } else {
       seat->pointer->focus = NULL;
    }
 }
@@ -163,6 +173,14 @@ pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_st
 {
    if (!seat->pointer || !seat->pointer->focus)
       return;
+
+   if (state == WL_POINTER_BUTTON_STATE_PRESSED && !seat->pointer->grabbing) {
+      seat->pointer->grabbing = true;
+      seat->pointer->gx = seat->pointer->x;
+      seat->pointer->gy = seat->pointer->y;
+   } else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
+      seat->pointer->moving = seat->pointer->grabbing = false;
+   }
 
    wl_pointer_send_button(seat->pointer->focus, wl_display_next_serial(seat->compositor->display), seat->compositor->api.get_time(), button, state);
 }

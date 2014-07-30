@@ -25,11 +25,11 @@ wlc_surface_state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer 
 static void
 wlc_surface_set_size(struct wlc_surface *surface, int32_t width, int32_t height)
 {
-   if (surface->width == width && surface->height == height)
+   if (surface->geometry.w == width && surface->geometry.h == height)
       return;
 
-   surface->width = width;
-   surface->height = height;
+   surface->geometry.w = width;
+   surface->geometry.h = height;
 }
 
 static void
@@ -84,24 +84,23 @@ wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *
    if (state->newly_attached)
       wlc_surface_update_size(surface);
 
-   state->x = 0;
-   state->y = 0;
+   state->sx = state->sy = 0;
    state->newly_attached = false;
 
    pixman_region32_union(&surface->commit.damage, &surface->commit.damage, &state->damage);
-   pixman_region32_intersect_rect(&surface->commit.damage, &surface->commit.damage, 0, 0, surface->width, surface->height);
+   pixman_region32_intersect_rect(&surface->commit.damage, &surface->commit.damage, 0, 0, surface->geometry.w, surface->geometry.h);
    pixman_region32_clear(&surface->pending.damage);
 
    pixman_region32_t opaque;
    pixman_region32_init(&opaque);
-   pixman_region32_intersect_rect(&opaque, &state->opaque, 0, 0, surface->width, surface->height);
+   pixman_region32_intersect_rect(&opaque, &state->opaque, 0, 0, surface->geometry.w, surface->geometry.h);
 
    if (!pixman_region32_equal(&opaque, &surface->commit.opaque))
       pixman_region32_copy(&surface->commit.opaque, &opaque);
 
    pixman_region32_fini(&opaque);
 
-   pixman_region32_intersect_rect(&surface->commit.input, &state->input, 0, 0, surface->width, surface->height);
+   pixman_region32_intersect_rect(&surface->commit.input, &state->input, 0, 0, surface->geometry.w, surface->geometry.h);
 
    surface->compositor->api.schedule_repaint(surface->compositor);
 }
@@ -128,8 +127,8 @@ wl_cb_surface_attach(struct wl_client *client, struct wl_resource *resource, str
 
    wlc_surface_state_set_buffer(&surface->pending, buffer);
 
-   surface->pending.x = x;
-   surface->pending.y = y;
+   surface->pending.sx = x;
+   surface->pending.sy = y;
    surface->pending.newly_attached = true;
 }
 
