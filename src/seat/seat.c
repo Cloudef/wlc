@@ -154,9 +154,29 @@ pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
 
             wl_pointer_send_motion(r, msec, fx, fy);
 
-            if (seat->pointer->grabbing && seat->pointer->moving) {
-               focused->geometry.x += x - wl_fixed_to_int(seat->pointer->gx);
-               focused->geometry.y += y - wl_fixed_to_int(seat->pointer->gy);
+            if (seat->pointer->grabbing) {
+               int32_t dx = x - wl_fixed_to_int(seat->pointer->gx);
+               int32_t dy = y - wl_fixed_to_int(seat->pointer->gy);
+
+               if (seat->pointer->action == WLC_GRAB_ACTION_MOVE) {
+                  focused->geometry.x += dx;
+                  focused->geometry.y += dy;
+               } else if (seat->pointer->action == WLC_GRAB_ACTION_RESIZE) {
+                  if (seat->pointer->action_edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
+                     focused->geometry.w -= dx;
+                     focused->geometry.x += dx;
+                  } else if (seat->pointer->action_edges & WL_SHELL_SURFACE_RESIZE_RIGHT) {
+                     focused->geometry.w += dx;
+                  }
+
+                  if (seat->pointer->action_edges & WL_SHELL_SURFACE_RESIZE_TOP) {
+                     focused->geometry.h -= dy;
+                     focused->geometry.y += dy;
+                  } else if (seat->pointer->action_edges & WL_SHELL_SURFACE_RESIZE_BOTTOM) {
+                     focused->geometry.h += dy;
+                  }
+               }
+
                seat->pointer->gx = seat->pointer->x;
                seat->pointer->gy = seat->pointer->y;
             }
@@ -179,7 +199,9 @@ pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_st
       seat->pointer->gx = seat->pointer->x;
       seat->pointer->gy = seat->pointer->y;
    } else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
-      seat->pointer->moving = seat->pointer->grabbing = false;
+      seat->pointer->grabbing = false;
+      seat->pointer->action = WLC_GRAB_ACTION_NONE;
+      seat->pointer->action_edges = 0;
    }
 
    wl_pointer_send_button(seat->pointer->focus, wl_display_next_serial(seat->compositor->display), seat->compositor->api.get_time(), button, state);
