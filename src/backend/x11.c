@@ -1,4 +1,5 @@
 #include "x11.h"
+#include "backend.h"
 
 #include "seat/seat.h"
 
@@ -151,26 +152,26 @@ function_pointer_exception:
    return false;
 }
 
-Display*
-wlc_x11_display(void)
+static EGLNativeDisplayType
+get_display(void)
 {
-   return x11.display;
+   return (EGLNativeDisplayType)x11.display;
 }
 
-Window
-wlc_x11_window(void)
+static EGLNativeWindowType
+get_window(void)
 {
-   return x11.window;
+   return (EGLNativeWindowType)x11.window;
 }
 
-int
-wlc_x11_event_fd(void)
+static int
+get_event_fd(void)
 {
    return x11.api.xcb_get_file_descriptor(x11.connection);
 }
 
-int
-wlc_x11_poll_events(struct wlc_seat *seat)
+static int
+poll_events(struct wlc_seat *seat)
 {
    int count = 0;
    xcb_generic_event_t *event;
@@ -199,8 +200,8 @@ wlc_x11_poll_events(struct wlc_seat *seat)
    return count;
 }
 
-void
-wlc_x11_terminate(void)
+static void
+terminate(void)
 {
    if (x11.cursor)
       x11.api.xcb_free_cursor(x11.connection, x11.cursor);
@@ -224,22 +225,16 @@ wlc_x11_terminate(void)
 }
 
 bool
-wlc_x11_init(void)
+wlc_x11_init(struct wlc_backend *out_backend)
 {
-   if (!x11_load()) {
-      wlc_x11_terminate();
-      return false;
-   }
+   if (!x11_load())
+      goto fail;
 
-   if (!x11_xcb_load()) {
-      wlc_x11_terminate();
-      return false;
-   }
+   if (!x11_xcb_load())
+      goto fail;
 
-   if (!xcb_load()) {
-      wlc_x11_terminate();
-      return false;
-   }
+   if (!xcb_load())
+      goto fail;
 
    if (!(x11.display = x11.api.XOpenDisplay(NULL)))
       goto display_open_fail;
@@ -295,6 +290,13 @@ wlc_x11_init(void)
    /* set this to root to run as x11 "wm"
     * TODO: check atom for wm and if it doesn't exist, set as root and skip window creation. */
    x11.window = window;
+
+   out_backend->name = "X11";
+   out_backend->terminate = terminate;
+   out_backend->api.display = get_display;
+   out_backend->api.window = get_window;
+   out_backend->api.poll_events = poll_events;
+   out_backend->api.event_fd = get_event_fd;
    return true;
 
 display_open_fail:
@@ -309,6 +311,6 @@ cursor_fail:
 window_fail:
    fprintf(stderr, "-!- Failed to create X11 window\n");
 fail:
-   wlc_x11_terminate();
+   terminate();
    return false;
 }

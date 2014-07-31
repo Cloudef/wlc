@@ -213,16 +213,18 @@ wlc_compositor_new(void)
    if (!(compositor->event_loop = wl_display_get_event_loop(compositor->display)))
       goto no_event_loop;
 
-   if (!(compositor->context = wlc_context_init(compositor->display)))
+   if (!(compositor->context = wlc_context_init()))
       goto fail;
 
    if (!(compositor->render = wlc_render_init(compositor->context)))
       goto fail;
 
-   if (!(compositor->event_source = wl_event_loop_add_fd(compositor->event_loop, compositor->context->api.event_fd(), WL_EVENT_READABLE, poll_for_events, compositor)))
-      goto event_source_fail;
+   if (compositor->context->api.event_fd) {
+      if (!(compositor->event_source = wl_event_loop_add_fd(compositor->event_loop, compositor->context->api.event_fd(), WL_EVENT_READABLE, poll_for_events, compositor)))
+         goto event_source_fail;
 
-   wl_event_source_check(compositor->event_source);
+      wl_event_source_check(compositor->event_source);
+   }
 
    compositor->repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
 

@@ -16,7 +16,7 @@ wlc_context_terminate(struct wlc_context *context)
 }
 
 struct wlc_context*
-wlc_context_init(struct wl_display *display)
+wlc_context_init(void)
 {
    struct wlc_context *context;
 

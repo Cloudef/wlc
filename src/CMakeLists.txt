@@ -6,7 +6,9 @@ SET(SRC
    compositor/callback.c
    context/context.c
    context/egl.c
-   context/x11/x11.c
+   backend/x11.c
+   backend/drm.c
+   backend/backend.c
    render/render.c
    render/gles2.c
    seat/seat.c
@@ -27,13 +29,20 @@ IF (UNIX)
    ENDIF ()
 ENDIF (UNIX)
 
+# Required
 FIND_PACKAGE(Wayland REQUIRED)
 FIND_PACKAGE(Pixman REQUIRED)
 
+# These are optional runtime (loaded dynamically)
+# But are needed for compilation (headers)
+FIND_PACKAGE(GLESv2 REQUIRED)
+FIND_PACKAGE(EGL REQUIRED)
+FIND_PACKAGE(DRM REQUIRED)
+
 ADD_DEFINITIONS(-std=c99)
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${WAYLAND_INCLUDE_DIR} ${PIXMAN_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${WAYLAND_INCLUDE_DIR} ${PIXMAN_INCLUDE_DIRS} ${GBM_INCLUDE_DIR} ${DRM_INCLUDE_DIR})
 ADD_LIBRARY(wlc ${SRC})
-TARGET_LINK_LIBRARIES(wlc ${WAYLAND_LIBRARIES} ${DL_LIBRARY})
+TARGET_LINK_LIBRARIES(wlc ${WAYLAND_LIBRARIES} ${PIXMAN_LIBRARIES} ${DL_LIBRARY})
 
 SET(WLC_LIBRARIES ${WAYLAND_LIBRARIES} ${PIXMAN_LIBRARIES} ${DL_LIBRARY} CACHE STRING "Dependencies of wlc")
 SET(WLC_INCLUDE_DIRS "${wlc_SOURCE_DIR}/include" CACHE STRING "Include directories of wlc")

@@ -1,7 +1,7 @@
 #include "egl.h"
 #include "context.h"
 
-#include "x11/x11.h"
+#include "backend/backend.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +12,8 @@
 #include <EGL/egl.h>
 
 static struct {
+   struct wlc_backend *backend;
+
    EGLDisplay display;
    EGLContext context;
    EGLSurface surface;
@@ -155,6 +157,9 @@ static void
 swap_buffers(void)
 {
    egl.api.eglSwapBuffers(egl.display, egl.surface);
+
+   if (egl.backend->api.page_flip)
+      egl.backend->api.page_flip();
 }
 
 static void
@@ -176,27 +181,20 @@ terminate(void)
    if (egl.api.handle)
       dlclose(egl.api.handle);
 
-   memset(&egl, 0, sizeof(egl));
+   if (egl.backend)
+      egl.backend->terminate();
 
-   if (getenv("DISPLAY"))
-      wlc_x11_terminate();
+   memset(&egl, 0, sizeof(egl));
 }
 
 bool
 wlc_egl_init(struct wlc_context *out_context)
 {
-   bool use_x11 = false;
-   if (getenv("DISPLAY")) {
-      if (!wlc_x11_init())
-         return false;
+   if (!(egl.backend = wlc_backend_init()))
+      goto fail;
 
-      use_x11 = true;
-   }
-
-   if (!egl_load()) {
-      terminate();
-      return false;
-   }
+   if (!egl_load())
+      goto fail;
 
    static const EGLint context_attribs[] = {
       EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -208,57 +206,54 @@ wlc_egl_init(struct wlc_context *out_context)
       EGL_RED_SIZE, 1,
       EGL_GREEN_SIZE, 1,
       EGL_BLUE_SIZE, 1,
+      EGL_ALPHA_SIZE, 0,
       EGL_DEPTH_SIZE, 1,
       EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
       EGL_NONE
    };
 
-   if (use_x11) {
-      /* X11 */
-      if (!(egl.display = egl.api.eglGetDisplay((EGLNativeDisplayType)wlc_x11_display())))
-         goto fail;
-   } else {
-      /* fbdev */
-      if (!(egl.display = egl.api.eglGetDisplay(EGL_DEFAULT_DISPLAY)))
-         goto fail;
-   }
-
-   /* TODO: add drm, maybe rpi? */
+   if (!(egl.display = egl.api.eglGetDisplay(egl.backend->api.display())))
+      goto egl_fail;
 
    EGLint major, minor;
    if (!egl.api.eglInitialize(egl.display, &major, &minor))
-      goto fail;
+      goto egl_fail;
 
    if (!egl.api.eglBindAPI(EGL_OPENGL_ES_API))
-      goto fail;
+      goto egl_fail;
 
    egl.extensions = egl.api.eglQueryString(egl.display, EGL_EXTENSIONS);
 
    EGLint n;
    if (!egl.api.eglChooseConfig(egl.display, config_attribs, &egl.config, 1, &n) || n < 1)
-      goto fail;
+      goto egl_fail;
 
    if ((egl.context = egl.api.eglCreateContext(egl.display, egl.config, EGL_NO_CONTEXT, context_attribs)) == EGL_NO_CONTEXT)
-      goto fail;
+      goto egl_fail;
 
-   if ((egl.surface = egl.api.eglCreateWindowSurface(egl.display, egl.config, (NativeWindowType)(use_x11 ? wlc_x11_window() : 0), NULL)) == EGL_NO_SURFACE)
-      goto fail;
+   if ((egl.surface = egl.api.eglCreateWindowSurface(egl.display, egl.config, egl.backend->api.window(), NULL)) == EGL_NO_SURFACE)
+      goto egl_fail;
 
    if (!egl.api.eglMakeCurrent(egl.display, egl.surface, egl.surface, egl.context))
-      goto fail;
+      goto egl_fail;
 
    egl.has_current = true;
 
    out_context->terminate = terminate;
    out_context->api.swap = swap_buffers;
-   out_context->api.poll_events = wlc_x11_poll_events;
-   out_context->api.event_fd = wlc_x11_event_fd;
+   out_context->api.poll_events = egl.backend->api.poll_events;
+   out_context->api.event_fd = egl.backend->api.event_fd;
 
-   fprintf(stdout, "-!- EGL (%s) context created\n", (use_x11 ? "X11" : "FB"));
+   fprintf(stdout, "-!- EGL (%s) context created\n", egl.backend->name);
    return true;
 
+egl_fail:
+   {
+      EGLint error;
+      if ((error = egl.api.eglGetError()) != EGL_SUCCESS)
+         fprintf(stderr, "-!- %s\n", egl_error_string(error));
+   }
 fail:
-   fprintf(stderr, "-!- %s\n", egl_error_string(egl.api.eglGetError()));
    terminate();
    return false;
 }
