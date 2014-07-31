@@ -31,8 +31,12 @@ wl_cb_pointer_release(struct wl_client *client, struct wl_resource *resource)
    (void)client;
    struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
 
-   if (pointer->focus == resource)
+   if (pointer->focus == resource) {
       pointer->focus = NULL;
+      pointer->grabbing = false;
+      pointer->action = WLC_GRAB_ACTION_NONE;
+      pointer->action_edges = 0;
+   }
 
    wl_resource_destroy(resource);
 }
@@ -150,6 +154,9 @@ pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
                   wl_pointer_send_leave(r, wl_display_next_serial(seat->compositor->display), focused->resource);
                wl_pointer_send_enter(r, wl_display_next_serial(seat->compositor->display), focused->resource, fx, fy);
                seat->pointer->focus = r;
+               seat->pointer->grabbing = false;
+               seat->pointer->action = WLC_GRAB_ACTION_NONE;
+               seat->pointer->action_edges = 0;
             }
 
             wl_pointer_send_motion(r, msec, fx, fy);
@@ -185,6 +192,9 @@ pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
       }
    } else {
       seat->pointer->focus = NULL;
+      seat->pointer->grabbing = false;
+      seat->pointer->action = WLC_GRAB_ACTION_NONE;
+      seat->pointer->action_edges = 0;
    }
 }
 
