@@ -194,6 +194,16 @@ poll_events(struct wlc_seat *seat)
             seat->notify.pointer_button(seat, button, WL_POINTER_BUTTON_STATE_RELEASED);
          }
          break;
+         case XCB_KEY_PRESS: {
+            xcb_key_press_event_t *ev = (xcb_key_press_event_t *)event;
+            seat->notify.keyboard_key(seat, ev->detail - 8, WL_KEYBOARD_KEY_STATE_PRESSED);
+         }
+         break;
+         case XCB_KEY_RELEASE: {
+            xcb_key_press_event_t *ev = (xcb_key_release_event_t *)event;
+            seat->notify.keyboard_key(seat, ev->detail - 8, WL_KEYBOARD_KEY_STATE_RELEASED);
+         }
+         break;
       }
       count += 1;
    }
@@ -272,7 +282,11 @@ wlc_x11_init(struct wlc_backend *out_backend)
 
    uint32_t mask = XCB_CW_EVENT_MASK; // | XCB_CW_CURSOR;
    uint32_t values[] = {
-      XCB_EVENT_MASK_POINTER_MOTION | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
+      XCB_EVENT_MASK_POINTER_MOTION |
+      XCB_EVENT_MASK_BUTTON_PRESS |
+      XCB_EVENT_MASK_BUTTON_RELEASE |
+      XCB_EVENT_MASK_KEY_PRESS |
+      XCB_EVENT_MASK_KEY_RELEASE,
       x11.cursor,
    };
 

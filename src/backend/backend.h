@@ -4,6 +4,7 @@
 #include "EGL/egl.h"
 
 struct wlc_seat;
+struct wlc_keymap;
 
 struct wlc_backend {
    const char *name;
