@@ -284,8 +284,10 @@ wlc_x11_init(struct wlc_backend *out_backend)
    xcb_void_cookie_t map_cookie = x11.api.xcb_map_window_checked(x11.connection, window);
 
    xcb_generic_error_t *error;
-   if ((error = x11.api.xcb_request_check(x11.connection, create_cookie)) || (error = x11.api.xcb_request_check(x11.connection, map_cookie)))
+   if ((error = x11.api.xcb_request_check(x11.connection, create_cookie)) || (error = x11.api.xcb_request_check(x11.connection, map_cookie))) {
+      free(error);
       goto window_fail;
+   }
 
    /* set this to root to run as x11 "wm"
     * TODO: check atom for wm and if it doesn't exist, set as root and skip window creation. */
