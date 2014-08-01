@@ -2,7 +2,11 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 PROJECT(wlc)
 SET(WLC_NAME "wlc")
 SET(WLC_DESCRIPTION "Wayland compositor library")
+SET(WLC_VERSION "0.0.1")
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${wlc_SOURCE_DIR}/CMake)
+
+# Options
+OPTION(WLC_BUILD_STATIC "Build wlc as static library" OFF)
 
 # Warnings
 IF (MSVC)
