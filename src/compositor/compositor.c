@@ -8,6 +8,7 @@
 #include "shell/shell.h"
 #include "shell/xdg-shell.h"
 
+#include "backend/backend.h"
 #include "context/context.h"
 #include "render/render.h"
 
@@ -138,7 +139,7 @@ poll_for_events(int fd, uint32_t mask, void *data)
 {
    (void)fd, (void)mask;
    struct wlc_compositor *compositor = data;
-   return compositor->context->api.poll_events(compositor->seat);
+   return compositor->backend->api.poll_events(compositor->seat);
 }
 
 void
@@ -163,6 +164,9 @@ wlc_compositor_free(struct wlc_compositor *compositor)
 
    if (compositor->context)
       wlc_context_terminate(compositor->context);
+
+   if (compositor->backend)
+      wlc_backend_terminate(compositor->backend);
 
    if (compositor->xdg_shell)
       wlc_xdg_shell_free(compositor->xdg_shell);
@@ -213,14 +217,17 @@ wlc_compositor_new(void)
    if (!(compositor->event_loop = wl_display_get_event_loop(compositor->display)))
       goto no_event_loop;
 
-   if (!(compositor->context = wlc_context_init()))
+   if (!(compositor->backend = wlc_backend_init()))
+      goto fail;
+
+   if (!(compositor->context = wlc_context_init(compositor->backend)))
       goto fail;
 
    if (!(compositor->render = wlc_render_init(compositor->context)))
       goto fail;
 
-   if (compositor->context->api.event_fd) {
-      if (!(compositor->event_source = wl_event_loop_add_fd(compositor->event_loop, compositor->context->api.event_fd(), WL_EVENT_READABLE, poll_for_events, compositor)))
+   if (compositor->backend->api.event_fd) {
+      if (!(compositor->event_source = wl_event_loop_add_fd(compositor->event_loop, compositor->backend->api.event_fd(), WL_EVENT_READABLE, poll_for_events, compositor)))
          goto event_source_fail;
 
       wl_event_source_check(compositor->event_source);

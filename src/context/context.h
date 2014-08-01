@@ -2,18 +2,17 @@
 #define _WLC_CONTEXT_H_
 
 struct wlc_seat;
+struct wlc_backend;
 
 struct wlc_context {
    void (*terminate)(void);
 
    struct {
       void (*swap)(void);
-      int (*poll_events)(struct wlc_seat *seat);
-      int (*event_fd)(void);
    } api;
 };
 
 void wlc_context_terminate(struct wlc_context *context);
-struct wlc_context* wlc_context_init(void);
+struct wlc_context* wlc_context_init(struct wlc_backend *backend);
 
 #endif /* _WLC_CONTEXT_H_ */

@@ -9,6 +9,7 @@ struct wl_event_loop;
 struct wl_event_source;
 struct wlc_shell;
 struct wlc_xdg_shell;
+struct wlc_backend;
 struct wlc_context;
 struct wlc_render;
 
@@ -20,6 +21,7 @@ struct wlc_compositor {
    struct wlc_seat *seat;
    struct wlc_shell *shell;
    struct wlc_xdg_shell *xdg_shell;
+   struct wlc_backend *backend;
    struct wlc_context *context;
    struct wlc_render *render;
 

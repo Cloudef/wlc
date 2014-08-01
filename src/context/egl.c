@@ -181,18 +181,12 @@ terminate(void)
    if (egl.api.handle)
       dlclose(egl.api.handle);
 
-   if (egl.backend)
-      egl.backend->terminate();
-
    memset(&egl, 0, sizeof(egl));
 }
 
 bool
-wlc_egl_init(struct wlc_context *out_context)
+wlc_egl_init(struct wlc_backend *backend, struct wlc_context *out_context)
 {
-   if (!(egl.backend = wlc_backend_init()))
-      goto fail;
-
    if (!egl_load())
       goto fail;
 
@@ -211,6 +205,8 @@ wlc_egl_init(struct wlc_context *out_context)
       EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
       EGL_NONE
    };
+
+   egl.backend = backend;
 
    if (!(egl.display = egl.api.eglGetDisplay(egl.backend->api.display())))
       goto egl_fail;
@@ -241,9 +237,6 @@ wlc_egl_init(struct wlc_context *out_context)
 
    out_context->terminate = terminate;
    out_context->api.swap = swap_buffers;
-   out_context->api.poll_events = egl.backend->api.poll_events;
-   out_context->api.event_fd = egl.backend->api.event_fd;
-
    fprintf(stdout, "-!- EGL (%s) context created\n", egl.backend->name);
    return true;
 
