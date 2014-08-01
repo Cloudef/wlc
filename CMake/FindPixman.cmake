@@ -30,6 +30,7 @@ find_path(PIXMAN_INCLUDE_DIR NAMES pixman.h PATH_SUFFIXES pixman-1)
 
 find_library(PIXMAN_LIBRARY NAMES pixman-1)
 
+include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(pixman-1 DEFAULT_MSG PIXMAN_LIBRARY PIXMAN_INCLUDE_DIR)
 
 if(PIXMAN-1_FOUND)
