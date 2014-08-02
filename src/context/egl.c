@@ -132,6 +132,7 @@ egl_error_string(const EGLint error)
     return "UNKNOWN EGL ERROR";
 }
 
+#if 0
 static bool
 has_extension(const char *extension)
 {
@@ -152,6 +153,7 @@ has_extension(const char *extension)
    }
    return false;
 }
+#endif
 
 static void
 swap_buffers(void)

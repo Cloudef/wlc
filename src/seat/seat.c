@@ -18,12 +18,12 @@
 static void
 wl_cb_pointer_set_cursor(struct wl_client *client, struct wl_resource *resource, uint32_t serial, struct wl_resource *surface_resource, int32_t hotspot_x, int32_t hotspot_y)
 {
-   (void)client, (void)serial, (void)hotspot_x, (void)hotspot_y;
+   (void)client, (void)resource, (void)serial, (void)hotspot_x, (void)hotspot_y;
    // struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
    STUBL(resource);
 
    if (surface_resource) {
-      struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
+      // struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
       /* TODO: change pointer surface */
    }
 }
@@ -325,6 +325,7 @@ keyboard_key(struct wlc_seat *seat, uint32_t key, uint32_t state)
    wl_keyboard_send_key(seat->keyboard->focus, wl_display_next_serial(seat->compositor->display), seat->compositor->api.get_time(), key, state);
 }
 
+#if 0
 static void
 keyboard_modifiers(struct wlc_seat *seat, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group)
 {
@@ -337,11 +338,14 @@ keyboard_modifiers(struct wlc_seat *seat, uint32_t mods_depressed, uint32_t mods
 static void
 keyboard_keymap(struct wlc_seat *seat, uint32_t format, int32_t fd, uint32_t size)
 {
-   if (!seat->keyboard || !seat->keyboard->focus)
+   if (!seat->keyboard)
       return;
 
-   wl_keyboard_send_keymap(seat->keyboard->focus, format, fd, size);
+   struct wl_resource *r;
+   wl_list_for_each(r, &seat->keyboard->resource_list, link)
+      wl_keyboard_send_keymap(r, format, fd, size);
 }
+#endif
 
 void
 wlc_seat_free(struct wlc_seat *seat)

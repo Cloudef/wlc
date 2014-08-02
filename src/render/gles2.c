@@ -123,6 +123,7 @@ function_pointer_exception:
    return false;
 }
 
+#if 0
 static bool
 has_extension(const char *extension)
 {
@@ -143,6 +144,7 @@ has_extension(const char *extension)
    }
    return false;
 }
+#endif
 
 static void
 shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm_buffer *shm_buffer)

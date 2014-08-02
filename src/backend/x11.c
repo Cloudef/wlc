@@ -259,18 +259,22 @@ wlc_x11_init(struct wlc_backend *out_backend)
 
    xcb_screen_iterator_t s = x11.api.xcb_setup_roots_iterator(x11.api.xcb_get_setup(x11.connection));
    x11.screen = s.data;
+
+#if 0
    int width = x11.screen->width_in_pixels;
    int height = x11.screen->height_in_pixels;
-   width = 800;
-   height = 480;
+#else
+   int width = 800;
+   int height = 480;
+#endif
 
+#if 0
    xcb_gc_t gc = x11.api.xcb_generate_id(x11.connection);
    xcb_pixmap_t pixmap = x11.api.xcb_generate_id(x11.connection);
 
    if (!(x11.cursor = x11.api.xcb_generate_id(x11.connection)))
       goto cursor_fail;
 
-#if 0
    uint8_t data[] = { 0, 0, 0, 0 };
    x11.api.xcb_create_pixmap(x11.connection, 1, pixmap, x11.screen->root, 1, 1);
    x11.api.xcb_create_gc(x11.connection, gc, pixmap, 0, NULL);
@@ -278,6 +282,9 @@ wlc_x11_init(struct wlc_backend *out_backend)
    x11.api.xcb_create_cursor(x11.connection, x11.cursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 1, 1);
    x11.api.xcb_free_gc(x11.connection, gc);
    x11.api.xcb_free_pixmap(x11.connection, pixmap);
+#else
+   if (0)
+      goto cursor_fail;
 #endif
 
    uint32_t mask = XCB_CW_EVENT_MASK; // | XCB_CW_CURSOR;
