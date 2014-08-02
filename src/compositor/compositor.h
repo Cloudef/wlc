@@ -1,5 +1,5 @@
 #ifndef _WLC_COMPOSITOR_H_
-#define _WLC_COMPOSTIOR_H_
+#define _WLC_COMPOSITOR_H_
 
 #include "visibility.h"
 #include <stdbool.h>
