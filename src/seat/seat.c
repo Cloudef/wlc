@@ -404,9 +404,6 @@ wlc_seat_new(struct wlc_compositor *compositor)
    {
       struct xkb_rule_names names;
       memset(&names, 0, sizeof(names));
-      names.rules = "evdev";
-      names.model = "pc105";
-      names.layout = "fi";
 
       if ((seat->keymap = wlc_keymap_new(&names, 0)))
          seat->keyboard = wlc_keyboard_new(seat->keymap);
