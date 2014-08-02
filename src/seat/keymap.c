@@ -15,21 +15,21 @@
 static char*
 csprintf(const char *fmt, ...)
 {
-        assert(fmt);
+   assert(fmt);
 
-        va_list args;
-        va_start(args, fmt);
-        size_t len = vsnprintf(NULL, 0, fmt, args) + 1;
-        va_end(args);
+   va_list args;
+   va_start(args, fmt);
+   size_t len = vsnprintf(NULL, 0, fmt, args) + 1;
+   va_end(args);
 
-        char *buffer;
-        if (!(buffer = calloc(1, len)))
-                return NULL;
+   char *buffer;
+   if (!(buffer = calloc(1, len)))
+      return NULL;
 
-        va_start(args, fmt);
-        vsnprintf(buffer, len, fmt, args);
-        va_end(args);
-        return buffer;
+   va_start(args, fmt);
+   vsnprintf(buffer, len, fmt, args);
+   va_end(args);
+   return buffer;
 }
 
 static int
