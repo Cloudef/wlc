@@ -1,6 +1,7 @@
 #ifndef _WLC_COMPOSITOR_H_
 #define _WLC_COMPOSTIOR_H_
 
+#include "visibility.h"
 #include <stdbool.h>
 #include <wayland-util.h>
 
@@ -35,8 +36,8 @@ struct wlc_compositor {
    } api;
 };
 
-void wlc_compositor_run(struct wlc_compositor *compositor);
-void wlc_compositor_free(struct wlc_compositor *compositor);
-struct wlc_compositor* wlc_compositor_new(void);
+WLC_API void wlc_compositor_run(struct wlc_compositor *compositor);
+WLC_API void wlc_compositor_free(struct wlc_compositor *compositor);
+WLC_API struct wlc_compositor* wlc_compositor_new(void);
 
 #endif /* _WLC_COMPOSITOR_H_ */

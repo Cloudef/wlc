@@ -142,13 +142,13 @@ poll_for_events(int fd, uint32_t mask, void *data)
    return compositor->backend->api.poll_events(compositor->seat);
 }
 
-void
+WLC_API void
 wlc_compositor_run(struct wlc_compositor *compositor)
 {
    wl_display_run(compositor->display);
 }
 
-void
+WLC_API void
 wlc_compositor_free(struct wlc_compositor *compositor)
 {
    assert(compositor);
@@ -186,7 +186,7 @@ wlc_compositor_free(struct wlc_compositor *compositor)
    free(compositor);
 }
 
-struct wlc_compositor*
+WLC_API struct wlc_compositor*
 wlc_compositor_new(void)
 {
    struct wlc_compositor *compositor;
