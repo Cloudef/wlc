@@ -19,7 +19,6 @@ struct wlc_seat {
       void (*pointer_motion)(struct wlc_seat *seat, int32_t x, int32_t y);
       void (*pointer_button)(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_state state);
       void (*keyboard_key)(struct wlc_seat *seat, uint32_t key, uint32_t state);
-      void (*keyboard_modifier)(struct wlc_seat *seat, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group);
       void (*keyboard_keymap)(struct wlc_seat *seat, uint32_t format, int32_t fd, uint32_t size);
    } notify;
 };

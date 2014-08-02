@@ -317,24 +317,49 @@ pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_st
 }
 
 static void
-keyboard_key(struct wlc_seat *seat, uint32_t key, uint32_t state)
+keyboard_modifiers(struct wlc_seat *seat)
 {
-   if (!seat->keyboard || !seat->keyboard->focus)
+   if (!seat->keyboard)
       return;
 
+   uint32_t depressed = xkb_state_serialize_mods(seat->keyboard->state, XKB_STATE_DEPRESSED);
+   uint32_t latched = xkb_state_serialize_mods(seat->keyboard->state, XKB_STATE_LATCHED);
+   uint32_t locked = xkb_state_serialize_mods(seat->keyboard->state, XKB_STATE_LOCKED);
+   uint32_t group = xkb_state_serialize_group(seat->keyboard->state, XKB_STATE_EFFECTIVE);
+
+   if (depressed == seat->keyboard->mods.depressed &&
+       latched == seat->keyboard->mods.latched &&
+       locked == seat->keyboard->mods.locked &&
+       group == seat->keyboard->mods.group)
+      return;
+
+   seat->keyboard->mods.depressed = depressed;
+   seat->keyboard->mods.latched = latched;
+   seat->keyboard->mods.locked = locked;
+   seat->keyboard->mods.group = group;
+
+   if (!seat->keyboard->focus)
+      return;
+
+   wl_keyboard_send_modifiers(seat->keyboard->focus, wl_display_next_serial(seat->compositor->display), depressed, latched, locked, group);
+}
+
+static void
+keyboard_key(struct wlc_seat *seat, uint32_t key, uint32_t state)
+{
+   if (!seat->keyboard)
+      return;
+
+   xkb_state_update_key(seat->keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
+
+   if (!seat->keyboard->focus)
+      return;
+
+   keyboard_modifiers(seat);
    wl_keyboard_send_key(seat->keyboard->focus, wl_display_next_serial(seat->compositor->display), seat->compositor->api.get_time(), key, state);
 }
 
 #if 0
-static void
-keyboard_modifiers(struct wlc_seat *seat, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group)
-{
-   if (!seat->keyboard || !seat->keyboard->focus)
-      return;
-
-   wl_keyboard_send_modifiers(seat->keyboard->focus, wl_display_next_serial(seat->compositor->display), mods_depressed, mods_latched, mods_locked, group);
-}
-
 static void
 keyboard_keymap(struct wlc_seat *seat, uint32_t format, int32_t fd, uint32_t size)
 {
@@ -374,9 +399,18 @@ wlc_seat_new(struct wlc_compositor *compositor)
    if (!(seat = calloc(1, sizeof(struct wlc_seat))))
       goto out_of_memory;
 
-   seat->keymap = wlc_keymap_new();
    seat->pointer = wlc_pointer_new();
-   seat->keyboard = wlc_keyboard_new();
+
+   {
+      struct xkb_rule_names names;
+      memset(&names, 0, sizeof(names));
+      names.rules = "evdev";
+      names.model = "pc105";
+      names.layout = "fi";
+
+      if ((seat->keymap = wlc_keymap_new(&names, 0)))
+         seat->keyboard = wlc_keyboard_new(seat->keymap);
+   }
 
    if (!(seat->global = wl_global_create(compositor->display, &wl_seat_interface, 3, seat, wl_seat_bind)))
       goto shell_interface_fail;

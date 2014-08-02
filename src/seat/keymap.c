@@ -9,8 +9,24 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#include <xkbcommon/xkbcommon.h>
 #include <wayland-server.h>
+
+const char* WLC_MOD_NAMES[WLC_MOD_LAST] = {
+   XKB_MOD_NAME_SHIFT,
+   XKB_MOD_NAME_CAPS,
+   XKB_MOD_NAME_CTRL,
+   XKB_MOD_NAME_ALT,
+   "Mod2",
+   "Mod3",
+   XKB_MOD_NAME_LOGO,
+   "Mod5",
+};
+
+const char* WLC_LED_NAMES[WLC_LED_LAST] = {
+   XKB_LED_NAME_NUM,
+   XKB_LED_NAME_CAPS,
+   XKB_LED_NAME_SCROLL
+};
 
 static char*
 csprintf(const char *fmt, ...)
@@ -128,23 +144,17 @@ wlc_keymap_free(struct wlc_keymap *keymap)
 }
 
 struct wlc_keymap*
-wlc_keymap_new(void)
+wlc_keymap_new(const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags)
 {
    struct wlc_keymap *keymap;
    if (!(keymap = calloc(1, sizeof(struct wlc_keymap))))
       goto fail;
 
-   struct xkb_rule_names names;
-   memset(&names, 0, sizeof(names));
-   names.rules = "evdev";
-   names.model = "pc105";
-   names.layout = "fi";
-
    struct xkb_context *context;
    if (!(context = xkb_context_new(0)))
       goto context_fail;
 
-   if (!(keymap->keymap = xkb_map_new_from_names(context, &names, 0)))
+   if (!(keymap->keymap = xkb_map_new_from_names(context, names, flags)))
       goto keymap_fail;
 
    char *keymap_str;
@@ -157,6 +167,12 @@ wlc_keymap_new(void)
 
    if (!(keymap->area = mmap(NULL, keymap->size, PROT_READ | PROT_WRITE, MAP_SHARED, keymap->fd, 0)))
       goto mmap_fail;
+
+   for (int i = 0; i < WLC_MOD_LAST; ++i)
+      keymap->mods[i] = xkb_map_mod_get_index(keymap->keymap, WLC_MOD_NAMES[i]);
+
+   for (int i = 0; i < WLC_LED_LAST; ++i)
+      keymap->leds[i] = xkb_map_led_get_index(keymap->keymap, WLC_LED_NAMES[i]);
 
    keymap->format = WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1;
    strcpy(keymap->area, keymap_str);
