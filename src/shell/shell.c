@@ -85,5 +85,5 @@ shell_interface_fail:
 fail:
    if (shell)
       wlc_shell_free(shell);
-   return shell;
+   return NULL;
 }

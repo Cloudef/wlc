@@ -109,5 +109,5 @@ xdg_shell_interface_fail:
 fail:
    if (xdg_shell)
       wlc_xdg_shell_free(xdg_shell);
-   return xdg_shell;
+   return NULL;
 }
