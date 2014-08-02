@@ -11,7 +11,6 @@
 #include <assert.h>
 
 #include <wayland-server.h>
-#include "xdg-shell-server-protocol.h"
 
 static void
 wl_cb_shell_get_shell_surface(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)

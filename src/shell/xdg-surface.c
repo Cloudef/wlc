@@ -11,7 +11,7 @@
 #include <assert.h>
 
 #include <wayland-server.h>
-#include "xdg-shell-server-protocol.h"
+#include "wayland-xdg-shell-server-protocol.h"
 
 static void
 xdg_cb_surface_destroy(struct wl_client *client, struct wl_resource *resource)
