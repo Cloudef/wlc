@@ -170,41 +170,6 @@ get_event_fd(void)
    return x11.api.xcb_get_file_descriptor(x11.connection);
 }
 
-#if 0
-static uint32_t
-get_xkb_mod_mask(struct wlc_keymap *keymap, uint32_t in)
-{
-   static const struct {
-      uint32_t mask;
-      enum wlc_modifier mod;
-   } map[WLC_MOD_LAST] = {
-      { ShiftMask, WLC_MOD_SHIFT },
-      { LockMask, WLC_MOD_CAPS },
-      { ControlMask, WLC_MOD_CTRL },
-      { Mod1Mask, WLC_MOD_ALT },
-      { Mod2Mask, WLC_MOD_MOD2 },
-      { Mod3Mask, WLC_MOD_MOD3 },
-      { Mod4Mask, WLC_MOD_LOGO },
-      { Mod5Mask, WLC_MOD_MOD5 },
-   };
-
-   uint32_t ret = 0;
-   for (int i = 0; i < WLC_MOD_LAST; ++i) {
-      if ((in & map[i].mask) && keymap->mods[map[i].mod] != XKB_MOD_INVALID)
-         ret |= (1 << keymap->mods[map[i].mod]);
-   }
-
-   return ret;
-}
-
-static void
-send_keys_from_state(struct wlc_seat *seat, uint16_t state)
-{
-   uint32_t mask = get_xkb_mod_mask(seat->keymap, state);
-   seat->notify.keyboard_modifiers_from_x11_mask_and_state(seat, mask, state);
-}
-#endif
-
 static int
 poll_events(struct wlc_seat *seat)
 {

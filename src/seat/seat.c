@@ -359,19 +359,6 @@ keyboard_key(struct wlc_seat *seat, uint32_t key, uint32_t state)
    wl_keyboard_send_key(seat->keyboard->focus, wl_display_next_serial(seat->compositor->display), seat->compositor->api.get_time(), key, state);
 }
 
-#if 0
-static void
-keyboard_keymap(struct wlc_seat *seat, uint32_t format, int32_t fd, uint32_t size)
-{
-   if (!seat->keyboard)
-      return;
-
-   struct wl_resource *r;
-   wl_list_for_each(r, &seat->keyboard->resource_list, link)
-      wl_keyboard_send_keymap(r, format, fd, size);
-}
-#endif
-
 void
 wlc_seat_free(struct wlc_seat *seat)
 {
