@@ -6,6 +6,7 @@
 struct wlc_context;
 struct wlc_surface;
 struct wlc_buffer;
+struct wlc_view;
 
 struct wlc_render {
    void (*terminate)(void);
@@ -13,7 +14,7 @@ struct wlc_render {
    struct {
       void (*destroy)(struct wlc_surface *surface);
       void (*attach)(struct wlc_surface *surface, struct wlc_buffer *buffer);
-      void (*render)(struct wlc_surface *surface);
+      void (*render)(struct wlc_view *view);
       void (*clear)(void);
       void (*swap)(void);
    } api;

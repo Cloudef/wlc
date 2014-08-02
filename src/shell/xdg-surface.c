@@ -48,7 +48,7 @@ static void
 xdg_cb_surface_show_window_menu(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, int32_t x, int32_t y)
 {
    (void)client, (void)resource, (void)seat, (void)serial, (void)x, (void)y;
-   STUB(resource);
+   STUBL(resource);
 }
 
 static void
@@ -88,7 +88,7 @@ xdg_cb_surface_set_window_geometry(struct wl_client *client, struct wl_resource 
 {
    (void)client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   xdg_surface->visible_geometry = (struct wlc_geometry){x, y, width, height};
+   xdg_surface->visible_geometry = (struct wlc_geometry){ x, y, width, height };
 }
 
 static void

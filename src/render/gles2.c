@@ -2,6 +2,7 @@
 #include "render.h"
 
 #include "context/context.h"
+#include "compositor/view.h"
 #include "compositor/surface.h"
 #include "compositor/buffer.h"
 
@@ -219,19 +220,20 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 }
 
 static void
-clear(void)
+surface_destroy(struct wlc_surface *surface)
 {
-   gl.api.glClear(GL_COLOR_BUFFER_BIT);
+   if (surface->texture)
+      gl.api.glDeleteTextures(1, &surface->texture);
 }
 
 static void
-surface_render(struct wlc_surface *surface)
+view_render(struct wlc_view *view)
 {
    const GLint vertices[8] = {
-      surface->geometry.x + surface->geometry.w, surface->geometry.y,
-      surface->geometry.x, surface->geometry.y,
-      surface->geometry.x + surface->geometry.w, surface->geometry.y + surface->geometry.h,
-      surface->geometry.x, surface->geometry.y + surface->geometry.h,
+      view->x + view->surface->width, view->y,
+      view->x, view->y,
+      view->x + view->surface->width, view->y + view->surface->height,
+      view->x, view->y + view->surface->height,
    };
 
    const GLint coords[8] = {
@@ -241,17 +243,16 @@ surface_render(struct wlc_surface *surface)
       0, 1
    };
 
-   gl.api.glBindTexture(GL_TEXTURE_2D, surface->texture);
+   gl.api.glBindTexture(GL_TEXTURE_2D, view->surface->texture);
    gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices);
    gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords);
    gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 static void
-surface_destroy(struct wlc_surface *surface)
+clear(void)
 {
-   if (surface->texture)
-      gl.api.glDeleteTextures(1, &surface->texture);
+   gl.api.glClear(GL_COLOR_BUFFER_BIT);
 }
 
 static void
@@ -353,7 +354,7 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    out_render->terminate = terminate;
    out_render->api.destroy = surface_destroy;
    out_render->api.attach = surface_attach;
-   out_render->api.render = surface_render;
+   out_render->api.render = view_render;
    out_render->api.clear = clear;
    out_render->api.swap = context->api.swap;
 

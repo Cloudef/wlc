@@ -18,7 +18,7 @@ struct wlc_seat {
    struct {
       void (*pointer_motion)(struct wlc_seat *seat, int32_t x, int32_t y);
       void (*pointer_button)(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_state state);
-      void (*keyboard_key)(struct wlc_seat *seat, uint32_t key, uint32_t state);
+      void (*keyboard_key)(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_state state);
    } notify;
 };
 

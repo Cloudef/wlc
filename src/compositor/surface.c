@@ -5,6 +5,7 @@
 #include "callback.h"
 #include "macros.h"
 
+#include "compositor/view.h"
 #include "render/render.h"
 
 #include <stdlib.h>
@@ -25,19 +26,8 @@ wlc_surface_state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer 
 static void
 wlc_surface_set_size(struct wlc_surface *surface, int32_t width, int32_t height)
 {
-   if (surface->geometry.w == width && surface->geometry.h == height)
-      return;
-
-   surface->geometry.w = width;
-   surface->geometry.h = height;
-}
-
-static void
-wlc_surface_update_size(struct wlc_surface *surface)
-{
-   int32_t width = surface->width_from_buffer;
-   int32_t height = surface->height_from_buffer;
-   wlc_surface_set_size(surface, width, height);
+   surface->width = width;
+   surface->height = height;
 }
 
 static void
@@ -70,8 +60,7 @@ wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
       height = buffer->height;
    }
 
-   surface->width_from_buffer = width;
-   surface->height_from_buffer = height;
+   wlc_surface_set_size(surface, width, height);
 }
 
 static void
@@ -79,28 +68,26 @@ wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *
 {
    if (state->newly_attached)
       wlc_surface_attach(surface, state->buffer);
-   wlc_surface_state_set_buffer(state, NULL);
 
-   if (state->newly_attached)
-      wlc_surface_update_size(surface);
+   wlc_surface_state_set_buffer(state, NULL);
 
    state->sx = state->sy = 0;
    state->newly_attached = false;
 
    pixman_region32_union(&surface->commit.damage, &surface->commit.damage, &state->damage);
-   pixman_region32_intersect_rect(&surface->commit.damage, &surface->commit.damage, 0, 0, surface->geometry.w, surface->geometry.h);
+   pixman_region32_intersect_rect(&surface->commit.damage, &surface->commit.damage, 0, 0, surface->width, surface->height);
    pixman_region32_clear(&surface->pending.damage);
 
    pixman_region32_t opaque;
    pixman_region32_init(&opaque);
-   pixman_region32_intersect_rect(&opaque, &state->opaque, 0, 0, surface->geometry.w, surface->geometry.h);
+   pixman_region32_intersect_rect(&opaque, &state->opaque, 0, 0, surface->width, surface->height);
 
    if (!pixman_region32_equal(&opaque, &surface->commit.opaque))
       pixman_region32_copy(&surface->commit.opaque, &opaque);
 
    pixman_region32_fini(&opaque);
 
-   pixman_region32_intersect_rect(&surface->commit.input, &state->input, 0, 0, surface->geometry.w, surface->geometry.h);
+   pixman_region32_intersect_rect(&surface->commit.input, &state->input, 0, 0, surface->width, surface->height);
 
    surface->compositor->api.schedule_repaint(surface->compositor);
 }
@@ -269,14 +256,16 @@ wlc_surface_release(struct wlc_surface *surface)
    if (--surface->ref_count > 0)
       return;
 
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(surface, &surface->compositor->views)))
+      wlc_view_free(view);
+
    if (surface->resource)
       wl_resource_destroy(surface->resource);
 
    if (surface->compositor) {
       if (surface->compositor->render)
          surface->compositor->render->api.destroy(surface);
-
-      wl_list_remove(&surface->link);
    }
 
    free(surface);
@@ -289,7 +278,6 @@ wlc_surface_new(struct wlc_compositor *compositor)
    if (!(surface = calloc(1, sizeof(struct wlc_surface))))
       return NULL;
 
-   wl_list_insert(&compositor->surfaces, &surface->link);
    surface->compositor = compositor;
    surface->ref_count = 1;
    return surface;

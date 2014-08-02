@@ -3,6 +3,8 @@
 #include "macros.h"
 
 #include "compositor/compositor.h"
+#include "compositor/surface.h"
+#include "compositor/view.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,6 +28,12 @@ xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource,
 {
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
 
+   struct wlc_view *view;
+   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
+      wl_resource_post_error(resource, 1, "view was not found for client");
+      return;
+   }
+
    struct wl_resource *xdg_surface_resource;
    if (!(xdg_surface_resource = wl_resource_create(client, &xdg_surface_interface, 1, id))) {
       wl_resource_post_no_memory(resource);
@@ -39,6 +47,7 @@ xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource,
       return;
    }
 
+   wlc_view_set_xdg_surface(view, xdg_surface);
    wlc_xdg_surface_implement(xdg_surface, xdg_surface_resource);
 }
 

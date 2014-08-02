@@ -20,10 +20,6 @@ struct wlc_surface_state {
    bool newly_attached;
 };
 
-struct wlc_geometry {
-   int32_t x, y;
-   int32_t w, h;
-};
 
 struct wlc_surface {
    struct wl_resource *resource;
@@ -37,11 +33,9 @@ struct wlc_surface {
     * Managed by the renderer.
     */
    uint32_t texture;
-   struct wlc_geometry geometry;
 
-   int32_t width_from_buffer, height_from_buffer;
+   int32_t width, height;
    int32_t ref_count;
-   struct wl_list link;
 };
 
 void wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource);

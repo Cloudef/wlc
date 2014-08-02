@@ -1,5 +1,6 @@
 #include "compositor.h"
 #include "callback.h"
+#include "view.h"
 #include "surface.h"
 #include "region.h"
 #include "macros.h"
@@ -38,6 +39,14 @@ wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uns
       return;
    }
 
+   struct wlc_view *view;
+   if (!(view = wlc_view_new(surface))) {
+      wlc_surface_release(surface);
+      wl_resource_destroy(surface_resource);
+      wl_resource_post_no_memory(resource);
+   }
+
+   wl_list_insert(&compositor->views, &view->link);
    wlc_surface_implement(surface, surface_resource);
 }
 
@@ -96,11 +105,11 @@ repaint(struct wlc_compositor *compositor)
 {
    uint32_t msec = get_time();
 
-   struct wlc_surface *surface;
-   wl_list_for_each(surface, &compositor->surfaces, link) {
-      if (surface->frame_cb) {
-         compositor->render->api.render(surface);
-         wl_callback_send_done(surface->frame_cb->resource, msec);
+   struct wlc_view *view;
+   wl_list_for_each(view, &compositor->views, link) {
+      if (view->surface->frame_cb) {
+         compositor->render->api.render(view);
+         wl_callback_send_done(view->surface->frame_cb->resource, msec);
       }
    }
 
@@ -238,7 +247,7 @@ wlc_compositor_new(void)
    compositor->api.schedule_repaint = schedule_repaint;
    compositor->api.get_time = get_time;
 
-   wl_list_init(&compositor->surfaces);
+   wl_list_init(&compositor->views);
    repaint(compositor);
    return compositor;
 

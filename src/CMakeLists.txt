@@ -1,6 +1,7 @@
 SET(SRC
    compositor/compositor.c
    compositor/surface.c
+   compositor/view.c
    compositor/region.c
    compositor/buffer.c
    compositor/callback.c

@@ -9,6 +9,10 @@ struct wl_resource;
 struct wlc_surface;
 struct wlc_shell_surface;
 
+struct wlc_geometry {
+   int32_t x, y, w, h;
+};
+
 struct wlc_xdg_surface {
    struct wlc_shell_surface *shell_surface;
    struct wlc_geometry visible_geometry;
