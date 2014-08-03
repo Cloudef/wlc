@@ -59,10 +59,8 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
       return;
 
    if (!view) {
-      if (keyboard->focus) {
-         keyboard->focus->input[WLC_KEYBOARD] = NULL;
+      if (keyboard->focus)
          keyboard->focus = NULL;
-      }
       return;
    }
 
@@ -89,10 +87,10 @@ wlc_keyboard_remove_view_for_resource(struct wlc_keyboard *keyboard, struct wl_r
 
    struct wlc_view *view;
    if ((view = wlc_view_for_input_resource_in_list(resource, WLC_KEYBOARD, keyboard->views))) {
-      view->input[WLC_KEYBOARD] = NULL;
-
       if (keyboard->focus == view)
          wlc_keyboard_focus(keyboard, 0, NULL);
+
+      view->input[WLC_KEYBOARD] = NULL;
    }
 }
 

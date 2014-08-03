@@ -18,7 +18,6 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
 
    if (!view) {
       if (pointer->focus) {
-         pointer->focus->input[WLC_POINTER] = NULL;
          pointer->focus = NULL;
          pointer->grabbing = false;
          pointer->action = WLC_GRAB_ACTION_NONE;
@@ -74,7 +73,9 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
    pointer->y = wl_fixed_from_int(y);
 
    struct wlc_view *focused = NULL;
-   if (!pointer->focus || !pointer->grabbing) {
+   if (pointer->focus && pointer->grabbing) {
+      focused = pointer->focus;
+   } else {
       struct wlc_view *view;
       wl_list_for_each(view, pointer->views, link) {
          if (x >= view->x && x <= view->x + view->surface->width &&
@@ -83,8 +84,6 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
             break;
          }
       }
-   } else {
-      focused = pointer->focus;
    }
 
    if (!focused) {
@@ -138,10 +137,10 @@ wlc_pointer_remove_view_for_resource(struct wlc_pointer *pointer, struct wl_reso
 
    struct wlc_view *view;
    if ((view = wlc_view_for_input_resource_in_list(resource, WLC_POINTER, pointer->views))) {
-      view->input[WLC_POINTER] = NULL;
-
       if (pointer->focus == view)
          wlc_pointer_focus(pointer, 0, NULL, 0, 0);
+
+      view->input[WLC_POINTER] = NULL;
    }
 }
 
