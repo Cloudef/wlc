@@ -59,12 +59,14 @@ wlc_view_for_client_in_list(struct wl_client *client, struct wl_list *list)
 void
 wlc_view_set_xdg_surface(struct wlc_view *view, struct wlc_xdg_surface *xdg_surface)
 {
+   assert(view);
    view->xdg_surface = xdg_surface;
 }
 
 void
 wlc_view_set_shell_surface(struct wlc_view *view, struct wlc_shell_surface *shell_surface)
 {
+   assert(view);
    view->shell_surface = shell_surface;
 }
 
