@@ -80,7 +80,7 @@ static void
 xdg_cb_surface_ack_configure(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
 {
    (void)client, (void)resource, (void)serial;
-   STUB(resource);
+   STUBL(resource);
 }
 
 static void

@@ -33,15 +33,15 @@ wl_cb_shell_surface_resize(struct wl_client *client, struct wl_resource *resourc
 static void
 wl_cb_shell_surface_set_toplevel(struct wl_client *client, struct wl_resource *resource)
 {
-   (void)client;
-   STUB(resource);
+   (void)client, (void)resource;
+   STUBL(resource);
 }
 
 static void
 wl_cb_shell_surface_set_transient(struct wl_client *client, struct wl_resource *resource, struct wl_resource *parent, int32_t x, int32_t y, uint32_t flags)
 {
-   (void)client, (void)parent, (void)x, (void)y, (void)flags;
-   STUB(resource);
+   (void)client, (void)resource, (void)parent, (void)x, (void)y, (void)flags;
+   STUBL(resource);
 }
 
 static void
