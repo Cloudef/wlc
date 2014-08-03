@@ -50,9 +50,6 @@ wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uns
 
    wl_list_insert(&compositor->views, &view->link);
    wlc_surface_implement(surface, surface_resource);
-
-   if (compositor->interface.view.created)
-      compositor->interface.view.created(compositor, view);
 }
 
 static void

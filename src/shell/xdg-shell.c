@@ -26,6 +26,7 @@ xdg_cb_shell_use_unstable_version(struct wl_client *client, struct wl_resource *
 static void
 xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
 {
+   struct wlc_xdg_shell *xdg_shell = wl_resource_get_user_data(resource);
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
 
    struct wlc_view *view;
@@ -49,6 +50,9 @@ xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource,
 
    wlc_view_set_xdg_surface(view, xdg_surface);
    wlc_xdg_surface_implement(xdg_surface, xdg_surface_resource);
+
+   if (xdg_shell->compositor->interface.view.created)
+      xdg_shell->compositor->interface.view.created(xdg_shell->compositor, view);
 }
 
 static void
