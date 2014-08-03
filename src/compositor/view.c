@@ -1,9 +1,10 @@
 #include "view.h"
+#include "visibility.h"
 #include "compositor.h"
 #include "surface.h"
+
 #include "shell/surface.h"
 #include "shell/xdg-surface.h"
-#include "visibility.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -103,6 +104,32 @@ wlc_view_new(struct wlc_surface *surface)
    view->surface = surface;
    wl_array_init(&view->state);
    return view;
+}
+
+void
+wlc_view_set_active(struct wlc_view *view, bool active)
+{
+   assert(view);
+
+   struct wl_array array;
+   wl_array_init(&array);
+
+   uint32_t *state;
+   wl_array_for_each(state, &view->state) {
+      if (*state != XDG_SURFACE_STATE_ACTIVATED) {
+         uint32_t *s = wl_array_add(&array, sizeof(uint32_t));
+         *s = *state;
+      }
+   }
+
+   if (active) {
+      uint32_t *s = wl_array_add(&array, sizeof(uint32_t));
+      *s = XDG_SURFACE_STATE_ACTIVATED;
+   }
+
+   uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
+   xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, view->surface->width, view->surface->height, &array, serial);
+   wl_array_copy(&view->state, &array);
 }
 
 WLC_API void

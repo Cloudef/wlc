@@ -2,6 +2,7 @@
 #define _WLC_VIEW_H_
 
 #include <wayland-util.h>
+#include <stdbool.h>
 
 enum wlc_input_type {
    WLC_KEYBOARD,
@@ -34,5 +35,6 @@ void wlc_view_set_xdg_surface(struct wlc_view *view, struct wlc_xdg_surface *xdg
 void wlc_view_set_shell_surface(struct wlc_view *view, struct wlc_shell_surface *shell_surface);
 void wlc_view_free(struct wlc_view *view);
 struct wlc_view* wlc_view_new(struct wlc_surface *compositor);
+void wlc_view_set_active(struct wlc_view *view, bool active);
 
 #endif /* _WLC_VIEW_H_ */
