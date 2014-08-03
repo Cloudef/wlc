@@ -1,11 +1,16 @@
 #include "view.h"
+#include "compositor.h"
 #include "surface.h"
+#include "shell/surface.h"
+#include "shell/xdg-surface.h"
+#include "visibility.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 
 #include <wayland-server.h>
+#include "wayland-xdg-shell-server-protocol.h"
 
 struct wl_client*
 wlc_view_get_client(struct wlc_view *view)
@@ -88,5 +93,54 @@ wlc_view_new(struct wlc_surface *surface)
       return NULL;
 
    view->surface = surface;
+   wl_array_init(&view->state);
    return view;
+}
+
+WLC_API void
+wlc_view_set_state(struct wlc_view *view, const uint32_t *states, uint32_t memb)
+{
+   assert(view);
+
+   if (!view->xdg_surface)
+      return;
+
+   struct wl_array array;
+   wl_array_init(&array);
+
+   for (uint32_t i = 0; i < memb; ++i) {
+      uint32_t *s = wl_array_add(&array, sizeof(uint32_t));
+      *s = states[i];
+   }
+
+   uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
+   xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, view->surface->width, view->surface->height, &array, serial);
+   wl_array_copy(&view->state, &array);
+}
+
+WLC_API void
+wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height)
+{
+   assert(view);
+
+   if (!view->xdg_surface)
+      return;
+
+   uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
+   xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, width, height, &view->state, serial);
+}
+
+WLC_API void
+wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
+{
+   assert(view);
+
+   int32_t vx = 0, vy = 0;
+   if (view->xdg_surface) {
+      vx = view->xdg_surface->visible_geometry.x;
+      vy = view->xdg_surface->visible_geometry.y;
+   }
+
+   view->x = x - vx;
+   view->y = y - vy;
 }

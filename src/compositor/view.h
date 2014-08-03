@@ -21,6 +21,7 @@ struct wlc_view {
    struct wlc_shell_surface *shell_surface;
    struct wlc_xdg_surface *xdg_surface;
    struct wl_resource *input[WLC_INPUT_TYPE_LAST];
+   struct wl_array state;
    struct wl_list link;
    int32_t x, y;
 };
