@@ -52,7 +52,7 @@ wl_shell_bind(struct wl_client *client, void *data, unsigned int version, unsign
    (void)data;
 
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(client, &wl_data_device_manager_interface, MIN(version, 1), id))) {
+   if (!(resource = wl_resource_create(client, &wl_shell_interface, MIN(version, 1), id))) {
       wl_client_post_no_memory(client);
       fprintf(stderr, "-!- failed create resource or bad version (%u > %u)", version, 1);
       return;
