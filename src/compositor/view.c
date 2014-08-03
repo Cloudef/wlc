@@ -79,6 +79,14 @@ void
 wlc_view_free(struct wlc_view *view)
 {
    assert(view);
+
+   /* should wayland call destructor these automatically (?)
+    * seems to crash without these.. investigate later. */
+   for (int i = 0; i < WLC_INPUT_TYPE_LAST; ++i) {
+      if (view->input[i])
+         wl_resource_destroy(view->input[i]);
+   }
+
    wl_list_remove(&view->link);
    free(view);
 }
