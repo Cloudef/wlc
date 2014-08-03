@@ -65,8 +65,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
    }
 
    if (keyboard->focus && keyboard->focus->input[WLC_KEYBOARD]) {
-      struct wlc_view *focus = keyboard->focus;
-      wl_keyboard_send_leave(focus->input[WLC_KEYBOARD], serial, focus->surface->resource);
+      wl_keyboard_send_leave(keyboard->focus->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
    }
 
    if (view->input[WLC_KEYBOARD]) {

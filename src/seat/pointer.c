@@ -26,10 +26,8 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
       return;
    }
 
-   if (pointer->focus && pointer->focus->input[WLC_POINTER]) {
-      struct wlc_view *focus = pointer->focus;
-      wl_pointer_send_leave(focus->input[WLC_POINTER], serial, focus->surface->resource);
-   }
+   if (pointer->focus && pointer->focus->input[WLC_POINTER])
+      wl_pointer_send_leave(pointer->focus->input[WLC_POINTER], serial, pointer->focus->surface->resource);
 
    if (view->input[WLC_POINTER]) {
       wl_pointer_send_enter(view->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(x), wl_fixed_from_int(y));
