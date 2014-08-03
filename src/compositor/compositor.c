@@ -1,4 +1,5 @@
 #include "compositor.h"
+#include "visibility.h"
 #include "callback.h"
 #include "view.h"
 #include "surface.h"
@@ -16,6 +17,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #include <wayland-server.h>
@@ -48,6 +50,9 @@ wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uns
 
    wl_list_insert(&compositor->views, &view->link);
    wlc_surface_implement(surface, surface_resource);
+
+   if (compositor->interface.view.created)
+      compositor->interface.view.created(compositor, view);
 }
 
 static void
@@ -149,6 +154,18 @@ poll_for_events(int fd, uint32_t mask, void *data)
    (void)fd, (void)mask;
    struct wlc_compositor *compositor = data;
    return compositor->backend->api.poll_events(compositor->seat);
+}
+
+WLC_API void
+wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view)
+{
+   compositor->seat->notify.keyboard_focus(compositor->seat, view);
+}
+
+WLC_API void
+wlc_compositor_inject(struct wlc_compositor *compositor, const struct wlc_interface *interface)
+{
+   memcpy(&compositor->interface, interface, sizeof(struct wlc_interface));
 }
 
 WLC_API void

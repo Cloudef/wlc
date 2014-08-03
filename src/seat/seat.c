@@ -6,8 +6,6 @@
 
 #include "compositor/compositor.h"
 #include "compositor/view.h"
-#include "compositor/surface.h"
-#include "backend/backend.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -165,6 +163,10 @@ seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_butt
    if (!seat->pointer)
       return;
 
+   if (seat->compositor->interface.pointer.button &&
+      !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, button, state))
+      return;
+
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
    uint32_t time = seat->compositor->api.get_time();
    wlc_pointer_button(seat->pointer, serial, time, button, state);
@@ -174,6 +176,10 @@ static void
 seat_pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
 {
    if (!seat->pointer)
+      return;
+
+   if (seat->compositor->interface.pointer.motion &&
+      !seat->compositor->interface.pointer.motion(seat->compositor, seat->pointer->focus, x, y))
       return;
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
@@ -187,9 +193,23 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
    if (!seat->keyboard)
       return;
 
+   if (seat->compositor->interface.keyboard.key &&
+      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, key, state))
+      return;
+
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
    uint32_t time = seat->compositor->api.get_time();
    wlc_keyboard_key(seat->keyboard, serial, time, key, state);
+}
+
+static void
+seat_keyboard_focus(struct wlc_seat *seat, struct wlc_view *view)
+{
+   if (!seat->keyboard)
+      return;
+
+   uint32_t serial = wl_display_next_serial(seat->compositor->display);
+   wlc_keyboard_focus(seat->keyboard, serial, view);
 }
 
 void
@@ -235,6 +255,7 @@ wlc_seat_new(struct wlc_compositor *compositor)
    seat->notify.pointer_motion = seat_pointer_motion;
    seat->notify.pointer_button = seat_pointer_button;
    seat->notify.keyboard_key = seat_keyboard_key;
+   seat->notify.keyboard_focus = seat_keyboard_focus;
 
    seat->compositor = compositor;
    return seat;

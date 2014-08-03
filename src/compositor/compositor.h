@@ -1,7 +1,7 @@
 #ifndef _WLC_COMPOSITOR_H_
 #define _WLC_COMPOSITOR_H_
 
-#include "visibility.h"
+#include "wlc.h"
 #include <stdbool.h>
 #include <wayland-util.h>
 
@@ -25,6 +25,7 @@ struct wlc_compositor {
    struct wlc_backend *backend;
    struct wlc_context *context;
    struct wlc_render *render;
+   struct wlc_interface interface;
 
    struct wl_list views;
    struct wl_event_source *repaint_timer;
@@ -35,9 +36,5 @@ struct wlc_compositor {
       uint32_t (*get_time)(void);
    } api;
 };
-
-WLC_API void wlc_compositor_run(struct wlc_compositor *compositor);
-WLC_API void wlc_compositor_free(struct wlc_compositor *compositor);
-WLC_API struct wlc_compositor* wlc_compositor_new(void);
 
 #endif /* _WLC_COMPOSITOR_H_ */

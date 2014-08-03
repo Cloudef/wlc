@@ -5,7 +5,9 @@
 #include <wayland-server-protocol.h>
 
 struct wl_global;
+struct wlc_view;
 struct wlc_pointer;
+struct wlc_keyboard;
 struct wlc_compositor;
 
 struct wlc_seat {
@@ -19,6 +21,7 @@ struct wlc_seat {
       void (*pointer_motion)(struct wlc_seat *seat, int32_t x, int32_t y);
       void (*pointer_button)(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_state state);
       void (*keyboard_key)(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_state state);
+      void (*keyboard_focus)(struct wlc_seat *seat, struct wlc_view *view);
    } notify;
 };
 

@@ -257,8 +257,12 @@ wlc_surface_release(struct wlc_surface *surface)
       return;
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(surface, &surface->compositor->views)))
+   if ((view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
+      if (surface->compositor->interface.view.destroyed)
+         surface->compositor->interface.view.destroyed(surface->compositor, view);
+
       wlc_view_free(view);
+   }
 
    if (surface->resource)
       wl_resource_destroy(surface->resource);
