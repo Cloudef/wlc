@@ -110,6 +110,9 @@ wl_cb_seat_get_keyboard(struct wl_client *client, struct wl_resource *resource, 
 
    if (seat->keymap)
       wl_keyboard_send_keymap(keyboard_resource, seat->keymap->format, seat->keymap->fd, seat->keymap->size);
+
+   if (seat->compositor->interface.keyboard.init)
+      seat->compositor->interface.keyboard.init(seat->compositor, view);
 }
 
 static void
