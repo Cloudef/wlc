@@ -219,6 +219,8 @@ wlc_compositor_new(void)
    if (!(compositor->display = wl_display_create()))
       goto display_create_fail;
 
+   wl_list_init(&compositor->views);
+
    if (!(compositor->global = wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
       goto compositor_interface_fail;
 
@@ -261,7 +263,6 @@ wlc_compositor_new(void)
    compositor->api.schedule_repaint = schedule_repaint;
    compositor->api.get_time = get_time;
 
-   wl_list_init(&compositor->views);
    repaint(compositor);
    return compositor;
 
