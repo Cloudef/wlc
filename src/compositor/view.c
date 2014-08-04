@@ -179,3 +179,18 @@ wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
    view->x = x - vx;
    view->y = y - vy;
 }
+
+WLC_API struct wl_list*
+wlc_view_get_link(struct wlc_view *view)
+{
+   assert(view);
+   return &view->user_link;
+}
+
+WLC_API struct wlc_view*
+wlc_view_from_link(struct wl_list *view_link)
+{
+   assert(view_link);
+   struct wlc_view *view;
+   return wl_container_of(view_link, view, user_link);
+}

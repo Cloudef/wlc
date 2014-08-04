@@ -4,8 +4,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define wlc_view_for_each(view, list)                                \
+        for (view = 0, view = wlc_view_from_link((list)->next);      \
+             wlc_view_get_link(view) != (list);                      \
+             view = wlc_view_from_link(wlc_view_get_link(view)->next))
+
+#define wl_view_for_each_safe(view, tmp, list)                      \
+        for (view = 0, tmp = 0,                                     \
+             view = wlc_view_from_link((list)->next),               \
+             tmp = wlc_view_from_link((list)->next->next);          \
+             wlc_view_get_link(view) != (list);                     \
+             view = tmp,                                            \
+             tmp = wlc_view_from_link(wlc_view_get_link(view)->next))
+
 struct wlc_compositor;
 struct wlc_view;
+struct wl_list;
 
 enum wlc_key_state {
    WLC_KEY_STATE_RELEASED = 0,
@@ -44,6 +58,8 @@ struct wlc_interface {
 void wlc_view_set_state(struct wlc_view *view, const uint32_t *states, uint32_t memb);
 void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
 void wlc_view_position(struct wlc_view *view, int32_t x, int32_t y);
+struct wl_list* wlc_view_get_link(struct wlc_view *view);
+struct wlc_view* wlc_view_from_link(struct wl_list *view_link);
 
 void wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view);
 
