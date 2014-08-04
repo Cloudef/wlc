@@ -43,7 +43,7 @@ wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uns
 
    struct wlc_view *view;
    if (!(view = wlc_view_new(surface))) {
-      wlc_surface_release(surface);
+      wlc_surface_free(surface);
       wl_resource_destroy(surface_resource);
       wl_resource_post_no_memory(resource);
    }

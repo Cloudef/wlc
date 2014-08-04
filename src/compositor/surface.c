@@ -221,7 +221,7 @@ wl_cb_surface_destructor(struct wl_resource *resource)
 
    if (surface) {
       surface->resource = NULL;
-      wlc_surface_release(surface);
+      wlc_surface_free(surface);
    }
 }
 
@@ -249,12 +249,9 @@ wlc_surface_ref(struct wlc_surface *surface)
 }
 
 void
-wlc_surface_release(struct wlc_surface *surface)
+wlc_surface_free(struct wlc_surface *surface)
 {
    assert(surface);
-
-   if (--surface->ref_count > 0)
-      return;
 
    struct wlc_view *view;
    if ((view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {

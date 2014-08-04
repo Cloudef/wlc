@@ -40,7 +40,7 @@ struct wlc_surface {
 
 void wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource);
 struct wlc_surface* wlc_surface_ref(struct wlc_surface *surface);
-void wlc_surface_release(struct wlc_surface *surface);
+void wlc_surface_free(struct wlc_surface *surface);
 struct wlc_surface* wlc_surface_new(struct wlc_compositor *compositor);
 
 #endif /* _WLC_SURFACE_H_ */
