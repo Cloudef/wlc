@@ -147,9 +147,11 @@ wlc_pointer_free(struct wlc_pointer *pointer)
 {
    assert(pointer);
 
-   struct wlc_view *view;
-   wl_list_for_each(view, pointer->views, link)
-      view->input[WLC_POINTER] = NULL;
+   if (pointer->views) {
+      struct wlc_view *view;
+      wl_list_for_each(view, pointer->views, link)
+         view->input[WLC_POINTER] = NULL;
+   }
 
    free(pointer);
 }

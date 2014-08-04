@@ -111,9 +111,11 @@ wlc_keyboard_free(struct wlc_keyboard *keyboard)
 {
    assert(keyboard);
 
-   struct wlc_view *view;
-   wl_list_for_each(view, keyboard->views, link)
-      view->input[WLC_KEYBOARD] = NULL;
+   if (keyboard->views) {
+      struct wlc_view *view;
+      wl_list_for_each(view, keyboard->views, link)
+         view->input[WLC_KEYBOARD] = NULL;
+   }
 
    if (keyboard->state)
       xkb_state_unref(keyboard->state);
