@@ -21,6 +21,23 @@ struct wlc_compositor;
 struct wlc_view;
 struct wl_list;
 
+enum wlc_modifier_bit {
+   WLC_BIT_MOD_SHIFT = 1<<0,
+   WLC_BIT_MOD_CAPS = 1<<1,
+   WLC_BIT_MOD_CTRL = 1<<2,
+   WLC_BIT_MOD_ALT = 1<<3,
+   WLC_BIT_MOD_MOD2 = 1<<4,
+   WLC_BIT_MOD_MOD3 = 1<<5,
+   WLC_BIT_MOD_LOGO = 1<<6,
+   WLC_BIT_MOD_MOD5 = 1<<7,
+};
+
+enum wlc_led_bit {
+   WLC_BIT_LED_NUM = 1<<0,
+   WLC_BIT_LED_CAPS = 1<<1,
+   WLC_BIT_LED_SCROLL = 1<<2,
+};
+
 enum wlc_key_state {
    WLC_KEY_STATE_RELEASED = 0,
    WLC_KEY_STATE_PRESSED = 1
@@ -46,7 +63,7 @@ struct wlc_interface {
 
    struct {
       void (*init)(struct wlc_compositor*, struct wlc_view*);
-      bool (*key)(struct wlc_compositor*, struct wlc_view*, uint32_t key, enum wlc_key_state state);
+      bool (*key)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, uint32_t key, enum wlc_key_state state);
    } keyboard;
 
    struct {

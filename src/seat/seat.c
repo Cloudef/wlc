@@ -1,4 +1,5 @@
 #include "seat.h"
+#include "wlc.h"
 #include "pointer.h"
 #include "keyboard.h"
 #include "keymap.h"
@@ -196,8 +197,37 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
    if (!seat->keyboard)
       return;
 
+   static enum wlc_modifier_bit mod_bits[WLC_MOD_LAST] = {
+      WLC_BIT_MOD_SHIFT,
+      WLC_BIT_MOD_CAPS,
+      WLC_BIT_MOD_CTRL,
+      WLC_BIT_MOD_ALT,
+      WLC_BIT_MOD_MOD2,
+      WLC_BIT_MOD_MOD3,
+      WLC_BIT_MOD_LOGO,
+      WLC_BIT_MOD_MOD5,
+   };
+
+   static enum wlc_led_bit led_bits[WLC_LED_LAST] = {
+      WLC_BIT_LED_NUM,
+      WLC_BIT_LED_CAPS,
+      WLC_BIT_LED_SCROLL,
+   };
+
+   uint32_t mods = 0, lookup = seat->keyboard->mods.depressed | seat->keyboard->mods.latched;
+   for (int i = 0; i < WLC_MOD_LAST; ++i) {
+      if (lookup & (1 << seat->keymap->mods[i]))
+         mods |= mod_bits[i];
+   }
+
+   uint32_t leds = 0;
+   for (int i = 0; i < WLC_LED_LAST; ++i) {
+      if (xkb_state_led_index_is_active(seat->keyboard->state, seat->keymap->leds[i]))
+         leds |= led_bits[i];
+   }
+
    if (seat->compositor->interface.keyboard.key &&
-      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, key, state))
+      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, leds, mods, key, state))
       return;
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
