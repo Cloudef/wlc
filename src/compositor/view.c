@@ -197,6 +197,17 @@ wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
    view->y = y - vy;
 }
 
+WLC_API void
+wlc_view_close(struct wlc_view *view)
+{
+   assert(view);
+
+   if (!view->xdg_surface)
+      return;
+
+   xdg_surface_send_close(view->xdg_surface->shell_surface->resource);
+}
+
 WLC_API struct wl_list*
 wlc_view_get_link(struct wlc_view *view)
 {

@@ -59,6 +59,7 @@ void wlc_view_set_active(struct wlc_view *view, bool active);
 void wlc_view_set_state(struct wlc_view *view, const uint32_t *states, uint32_t memb);
 void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
 void wlc_view_position(struct wlc_view *view, int32_t x, int32_t y);
+void wlc_view_close(struct wlc_view *view);
 struct wl_list* wlc_view_get_link(struct wlc_view *view);
 struct wlc_view* wlc_view_from_link(struct wl_list *view_link);
 
