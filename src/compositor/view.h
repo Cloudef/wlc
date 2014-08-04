@@ -25,6 +25,7 @@ struct wlc_view {
    struct wl_array state;
    struct wl_list link, user_link;
    int32_t x, y;
+   bool active;
 };
 
 struct wl_client* wlc_view_get_client(struct wlc_view *view);
@@ -35,6 +36,5 @@ void wlc_view_set_xdg_surface(struct wlc_view *view, struct wlc_xdg_surface *xdg
 void wlc_view_set_shell_surface(struct wlc_view *view, struct wlc_shell_surface *shell_surface);
 void wlc_view_free(struct wlc_view *view);
 struct wlc_view* wlc_view_new(struct wlc_surface *compositor);
-void wlc_view_set_active(struct wlc_view *view, bool active);
 
 #endif /* _WLC_VIEW_H_ */

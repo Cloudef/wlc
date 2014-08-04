@@ -106,10 +106,13 @@ wlc_view_new(struct wlc_surface *surface)
    return view;
 }
 
-void
+WLC_API void
 wlc_view_set_active(struct wlc_view *view, bool active)
 {
    assert(view);
+
+   if (view->active == active)
+      return;
 
    struct wl_array array;
    wl_array_init(&array);
@@ -130,6 +133,8 @@ wlc_view_set_active(struct wlc_view *view, bool active)
    uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
    xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, view->surface->width, view->surface->height, &array, serial);
    wl_array_copy(&view->state, &array);
+
+   view->active = active;
 }
 
 WLC_API void
@@ -143,9 +148,18 @@ wlc_view_set_state(struct wlc_view *view, const uint32_t *states, uint32_t memb)
    struct wl_array array;
    wl_array_init(&array);
 
+   bool has_active = false;
    for (uint32_t i = 0; i < memb; ++i) {
       uint32_t *s = wl_array_add(&array, sizeof(uint32_t));
       *s = states[i];
+
+      if (states[i] == XDG_SURFACE_STATE_ACTIVATED)
+         has_active = true;
+   }
+
+   if (view->active && !has_active) {
+      uint32_t *s = wl_array_add(&array, sizeof(uint32_t));
+      *s = XDG_SURFACE_STATE_ACTIVATED;
    }
 
    uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
