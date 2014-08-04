@@ -42,11 +42,11 @@ wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t serial, uint32_t time, 
    assert(keyboard);
 
    xkb_state_update_key(keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
+   update_modifiers(keyboard, serial);
 
    if (!keyboard->focus)
       return;
 
-   update_modifiers(keyboard, serial);
    wl_keyboard_send_key(keyboard->focus->input[WLC_KEYBOARD], serial, time, key, state);
 }
 
