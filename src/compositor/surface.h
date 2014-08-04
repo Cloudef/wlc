@@ -36,6 +36,7 @@ struct wlc_surface {
 
    int32_t width, height;
    int32_t ref_count;
+   bool created;
 };
 
 void wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource);

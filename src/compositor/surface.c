@@ -148,6 +148,14 @@ wl_cb_surface_frame(struct wl_client *client, struct wl_resource *resource, uint
 
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    surface->frame_cb = callback;
+
+   if (!surface->created) {
+      struct wlc_view *view;
+      if (surface->compositor->interface.view.created && (view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
+         surface->compositor->interface.view.created(surface->compositor, view);
+         surface->created = true;
+      }
+   }
 }
 
 static void
@@ -255,7 +263,7 @@ wlc_surface_free(struct wlc_surface *surface)
 
    struct wlc_view *view;
    if ((view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
-      if (surface->compositor->interface.view.destroyed)
+      if (surface->created && surface->compositor->interface.view.destroyed)
          surface->compositor->interface.view.destroyed(surface->compositor, view);
 
       wlc_view_free(view);
