@@ -177,6 +177,9 @@ wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height)
 
    uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
    xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, width, height, &view->state, serial);
+
+   view->surface->width = width;
+   view->surface->height = height;
 }
 
 WLC_API void
