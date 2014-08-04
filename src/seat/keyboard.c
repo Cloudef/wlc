@@ -59,24 +59,20 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
       return;
 
    if (!view) {
-      if (keyboard->focus) {
-         wlc_view_set_active(keyboard->focus, 0);
+      if (keyboard->focus)
          keyboard->focus = NULL;
-      }
       return;
    }
 
-   if (keyboard->focus && keyboard->focus->input[WLC_KEYBOARD]) {
+   if (keyboard->focus && keyboard->focus->input[WLC_KEYBOARD])
       wl_keyboard_send_leave(keyboard->focus->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
-      wlc_view_set_active(keyboard->focus, 0);
-   }
 
    if (view->input[WLC_KEYBOARD]) {
       struct wl_array keys;
       wl_array_init(&keys);
 
       wl_keyboard_send_enter(view->input[WLC_KEYBOARD], serial, view->surface->resource, &keys);
-      wlc_view_set_active((keyboard->focus = view), 1);
+      keyboard->focus = view;
    } else {
       keyboard->focus = NULL;
    }
