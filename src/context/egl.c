@@ -44,8 +44,10 @@ egl_load(void)
 {
    const char *lib = "libEGL.so", *func = NULL;
 
-   if (!(egl.api.handle = dlopen(lib, RTLD_LAZY)))
+   if (!(egl.api.handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
       return false;
+   }
 
 #define load(x) (egl.api.x = dlsym(egl.api.handle, (func = #x)))
 

@@ -57,8 +57,10 @@ gles2_load(void)
 {
    const char *lib = "libGLESv2.so", *func = NULL;
 
-   if (!(gl.api.handle = dlopen(lib, RTLD_LAZY)))
+   if (!(gl.api.handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
       return false;
+   }
 
 #define load(x) (gl.api.x = dlsym(gl.api.handle, (func = #x)))
 

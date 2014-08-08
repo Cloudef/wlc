@@ -55,8 +55,10 @@ x11_load(void)
 {
    const char *lib = "libX11.so", *func = NULL;
 
-   if (!(x11.api.x11_handle = dlopen(lib, RTLD_LAZY)))
+   if (!(x11.api.x11_handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
       return false;
+   }
 
 #define load(x) (x11.api.x = dlsym(x11.api.x11_handle, (func = #x)))
 
@@ -79,8 +81,10 @@ x11_xcb_load(void)
 {
    const char *lib = "libX11-xcb.so", *func = NULL;
 
-   if (!(x11.api.x11_xcb_handle = dlopen(lib, RTLD_LAZY)))
+   if (!(x11.api.x11_xcb_handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
       return false;
+   }
 
 #define load(x) (x11.api.x = dlsym(x11.api.x11_xcb_handle, (func = #x)))
 
@@ -103,8 +107,10 @@ xcb_load(void)
 {
    const char *lib = "libxcb.so", *func = NULL;
 
-   if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY)))
+   if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
       return false;
+   }
 
 #define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
 

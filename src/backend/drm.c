@@ -63,8 +63,10 @@ gbm_load(void)
 {
    const char *lib = "libgbm.so", *func = NULL;
 
-   if (!(gbm.api.handle = dlopen(lib, RTLD_LAZY)))
+   if (!(gbm.api.handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
       return false;
+   }
 
 #define load(x) (gbm.api.x = dlsym(gbm.api.handle, (func = #x)))
 
@@ -101,8 +103,10 @@ drm_load(void)
 {
    const char *lib = "libdrm.so", *func = NULL;
 
-   if (!(kms.api.handle = dlopen(lib, RTLD_LAZY)))
+   if (!(kms.api.handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
       return false;
+   }
 
 #define load(x) (kms.api.x = dlsym(kms.api.handle, (func = #x)))
 
