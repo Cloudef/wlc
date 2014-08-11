@@ -222,3 +222,53 @@ wlc_view_from_link(struct wl_list *view_link)
    struct wlc_view *view;
    return wl_container_of(view_link, view, user_link);
 }
+
+WLC_API void
+wlc_view_send_below(struct wlc_view *view, struct wlc_view *below)
+{
+   assert(view && below);
+
+   if (below->link.next == &view->link)
+      return;
+
+   wl_list_remove(&view->link);
+   wl_list_insert(below->link.next, &view->link);
+}
+
+WLC_API void
+wlc_view_send_to_back(struct wlc_view *view)
+{
+   assert(view);
+
+   struct wl_list *views = &view->surface->compositor->views;
+   if (&view->link == views->prev)
+      return;
+
+   wl_list_remove(&view->link);
+   wl_list_insert(views->prev, &view->link);
+}
+
+WLC_API void
+wlc_view_bring_above(struct wlc_view *view, struct wlc_view *above)
+{
+   assert(view && above);
+
+   if (above->link.prev == &view->link)
+      return;
+
+   wl_list_remove(&view->link);
+   wl_list_insert(above->link.prev, &view->link);
+}
+
+WLC_API void
+wlc_view_bring_to_front(struct wlc_view *view)
+{
+   assert(view);
+
+   struct wl_list *views = &view->surface->compositor->views;
+   if (&view->link == views->prev)
+      return;
+
+   wl_list_remove(&view->link);
+   wl_list_insert(views->prev, &view->link);
+}
