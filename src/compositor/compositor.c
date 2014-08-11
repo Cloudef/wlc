@@ -48,7 +48,7 @@ wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uns
       wl_resource_post_no_memory(resource);
    }
 
-   wl_list_insert(&compositor->views, &view->link);
+   wl_list_insert(compositor->views.prev, &view->link);
    wlc_surface_implement(surface, surface_resource);
 }
 
