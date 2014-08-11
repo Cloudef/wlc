@@ -55,7 +55,7 @@ wlc_view_for_client_in_list(struct wl_client *client, struct wl_list *list)
 
    struct wlc_view *view;
    wl_list_for_each(view, list, link) {
-      if (wlc_view_get_client(view) == client)
+      if (view->surface->created && wlc_view_get_client(view) == client)
          return view;
    }
 
