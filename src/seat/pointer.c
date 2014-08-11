@@ -75,7 +75,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
       focused = pointer->focus;
    } else {
       struct wlc_view *view;
-      wl_list_for_each(view, pointer->views, link) {
+      wl_list_for_each_reverse(view, pointer->views, link) {
          if (x >= view->x && x <= view->x + view->surface->width &&
              y >= view->y && y <= view->y + view->surface->height) {
             focused = view;
