@@ -136,20 +136,19 @@ wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, 
    }
 
    struct wlc_client *client;
-   if (!(client = wlc_client_new(wl_client))) {
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &compositor->clients))) {
       wlc_surface_free(surface);
       wl_resource_destroy(surface_resource);
       wl_resource_post_no_memory(resource);
+      return;
    }
-
-   wl_list_insert(&compositor->clients, &client->link);
 
    struct wlc_view *view;
    if (!(view = wlc_view_new(client, surface))) {
       wlc_surface_free(surface);
-      wlc_client_free(client);
       wl_resource_destroy(surface_resource);
       wl_resource_post_no_memory(resource);
+      return;
    }
 
    wl_list_insert(compositor->views.prev, &view->link);
@@ -182,8 +181,32 @@ static const struct wl_compositor_interface wl_compositor_implementation = {
 };
 
 static void
+wl_cb_compositor_client_destructor(struct wl_resource *resource)
+{
+   assert(resource);
+   struct wl_client *wl_client = wl_resource_get_client(resource);
+   struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
+
+   struct wlc_client *client;
+   if ((client = wlc_client_for_client_with_wl_client_in_list(wl_client, &compositor->clients)))
+      wlc_client_free(client);
+
+   puts("KILL CLIETN");
+}
+
+static void
 wl_compositor_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
 {
+   struct wlc_compositor *compositor = data;
+
+   struct wlc_client *client;
+   if (!(client = wlc_client_new(wl_client))) {
+      wl_client_post_no_memory(wl_client);
+      return;
+   }
+
+   wl_list_insert(&compositor->clients, &client->link);
+
    struct wl_resource *resource;
    if (!(resource = wl_resource_create(wl_client, &wl_compositor_interface, MIN(version, 3), id))) {
       wl_client_post_no_memory(wl_client);
@@ -191,7 +214,7 @@ wl_compositor_bind(struct wl_client *wl_client, void *data, unsigned int version
       return;
    }
 
-   wl_resource_set_implementation(resource, &wl_compositor_implementation, data, NULL);
+   wl_resource_set_implementation(resource, &wl_compositor_implementation, data, wl_cb_compositor_client_destructor);
 }
 
 static uint32_t

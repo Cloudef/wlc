@@ -46,7 +46,7 @@ wl_cb_pointer_client_destructor(struct wl_resource *resource)
 {
    assert(resource);
    struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
-   wlc_pointer_remove_view_for_resource(pointer, resource);
+   wlc_pointer_remove_client_for_resource(pointer, resource);
 }
 
 static void
@@ -82,7 +82,7 @@ wl_cb_keyboard_client_destructor(struct wl_resource *resource)
 {
    assert(resource);
    struct wlc_keyboard *keyboard = wl_resource_get_user_data(resource);
-   wlc_keyboard_remove_view_for_resource(keyboard, resource);
+   wlc_keyboard_remove_client_for_resource(keyboard, resource);
 }
 
 static void

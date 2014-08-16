@@ -48,7 +48,7 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 {
    assert(pointer);
 
-   if (!pointer->focus)
+   if (!pointer->focus || !pointer->focus->client->input[WLC_POINTER])
       return;
 
    if (state == WL_POINTER_BUTTON_STATE_PRESSED && !pointer->grabbing) {
@@ -141,12 +141,20 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 }
 
 void
-wlc_pointer_remove_view_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource)
+wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource)
 {
    assert(pointer && resource);
 
-   if (pointer->focus && pointer->focus->client->input[WLC_POINTER] == resource)
-      wlc_pointer_focus(pointer, 0, NULL, 0, 0);
+   struct wlc_view *view;
+   wl_list_for_each(view, pointer->views, link) {
+      if (pointer->focus != view)
+         continue;
+
+      if (view->client->input[WLC_KEYBOARD] == resource)
+         wlc_pointer_focus(pointer, 0, NULL, 0, 0);
+      view->client->input[WLC_POINTER] = NULL;
+      break;
+   }
 }
 
 void

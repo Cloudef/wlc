@@ -28,7 +28,7 @@ struct wlc_keyboard {
 
 void wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t serial, uint32_t time, uint32_t key, enum wl_keyboard_key_state state);
 void wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_view *view);
-void wlc_keyboard_remove_view_for_resource(struct wlc_keyboard *keyboard, struct wl_resource *resource);
+void wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl_resource *resource);
 bool wlc_keyboard_set_keymap(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap);
 void wlc_keyboard_free(struct wlc_keyboard *keyboard);
 struct wlc_keyboard* wlc_keyboard_new(struct wlc_keymap *keymap, struct wl_list *clients, struct wl_list *views);

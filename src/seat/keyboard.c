@@ -31,7 +31,7 @@ update_modifiers(struct wlc_keyboard *keyboard, uint32_t serial)
    keyboard->mods.locked = locked;
    keyboard->mods.group = group;
 
-   if (!keyboard->focus)
+   if (!keyboard->focus || !keyboard->focus->client->input[WLC_KEYBOARD])
       return;
 
    wl_keyboard_send_modifiers(keyboard->focus->client->input[WLC_KEYBOARD], serial, depressed, latched, locked, group);
@@ -45,7 +45,7 @@ wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t serial, uint32_t time, 
    xkb_state_update_key(keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
    update_modifiers(keyboard, serial);
 
-   if (!keyboard->focus)
+   if (!keyboard->focus || !keyboard->focus->client->input[WLC_KEYBOARD])
       return;
 
    wl_keyboard_send_key(keyboard->focus->client->input[WLC_KEYBOARD], serial, time, key, state);
@@ -80,12 +80,20 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
 }
 
 void
-wlc_keyboard_remove_view_for_resource(struct wlc_keyboard *keyboard, struct wl_resource *resource)
+wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl_resource *resource)
 {
    assert(keyboard && resource);
 
-   if (keyboard->focus && keyboard->focus->client->input[WLC_KEYBOARD] == resource)
-      wlc_keyboard_focus(keyboard, 0, NULL);
+   struct wlc_view *view;
+   wl_list_for_each(view, keyboard->views, link) {
+      if (keyboard->focus != view)
+         continue;
+
+      if (view->client->input[WLC_KEYBOARD] == resource)
+         wlc_keyboard_focus(keyboard, 0, NULL);
+      view->client->input[WLC_KEYBOARD] = NULL;
+      break;
+   }
 }
 
 bool
