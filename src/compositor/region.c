@@ -8,24 +8,24 @@
 #include <wayland-server.h>
 
 static void
-wl_cb_region_destroy(struct wl_client *client, struct wl_resource *resource)
+wl_cb_region_destroy(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
    wl_resource_destroy(resource);
 }
 
 static void
-wl_cb_region_add(struct wl_client *client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
+wl_cb_region_add(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_region *region = wl_resource_get_user_data(resource);
    pixman_region32_union_rect(&region->region, &region->region, x, y, width, height);
 }
 
 static void
-wl_cb_region_substract(struct wl_client *client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
+wl_cb_region_substract(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_region *region = wl_resource_get_user_data(resource);
 
    pixman_region32_t rect;

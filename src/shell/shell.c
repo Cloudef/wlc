@@ -15,7 +15,7 @@
 #include <wayland-server.h>
 
 static void
-wl_cb_shell_get_shell_surface(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
+wl_cb_shell_get_shell_surface(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
 {
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
 
@@ -26,7 +26,7 @@ wl_cb_shell_get_shell_surface(struct wl_client *client, struct wl_resource *reso
    }
 
    struct wl_resource *shell_surface_resource;
-   if (!(shell_surface_resource = wl_resource_create(client, &wl_shell_surface_interface, 1, id))) {
+   if (!(shell_surface_resource = wl_resource_create(wl_client, &wl_shell_surface_interface, 1, id))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -47,14 +47,12 @@ static const struct wl_shell_interface wl_shell_implementation = {
 };
 
 static void
-wl_shell_bind(struct wl_client *client, void *data, unsigned int version, unsigned int id)
+wl_shell_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
 {
-   (void)data;
-
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(client, &wl_shell_interface, MIN(version, 1), id))) {
-      wl_client_post_no_memory(client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)", version, 1);
+   if (!(resource = wl_resource_create(wl_client, &wl_shell_interface, MIN(version, 1), id))) {
+      wl_client_post_no_memory(wl_client);
+      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 1);
       return;
    }
 

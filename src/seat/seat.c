@@ -1,5 +1,6 @@
 #include "seat.h"
 #include "wlc.h"
+#include "client.h"
 #include "pointer.h"
 #include "keyboard.h"
 #include "keymap.h"
@@ -16,9 +17,9 @@
 #include <wayland-server.h>
 
 static void
-wl_cb_pointer_set_cursor(struct wl_client *client, struct wl_resource *resource, uint32_t serial, struct wl_resource *surface_resource, int32_t hotspot_x, int32_t hotspot_y)
+wl_cb_pointer_set_cursor(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial, struct wl_resource *surface_resource, int32_t hotspot_x, int32_t hotspot_y)
 {
-   (void)client, (void)resource, (void)serial, (void)hotspot_x, (void)hotspot_y;
+   (void)wl_client, (void)resource, (void)serial, (void)hotspot_x, (void)hotspot_y;
    // struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
    STUBL(resource);
 
@@ -29,9 +30,9 @@ wl_cb_pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
 }
 
 static void
-wl_cb_input_resource_release(struct wl_client *client, struct wl_resource *resource)
+wl_cb_input_resource_release(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
    wl_resource_destroy(resource);
 }
 
@@ -49,27 +50,26 @@ wl_cb_pointer_client_destructor(struct wl_resource *resource)
 }
 
 static void
-wl_cb_seat_get_pointer(struct wl_client *client, struct wl_resource *resource, uint32_t id)
+wl_cb_seat_get_pointer(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id)
 {
-   (void)client;
    struct wlc_seat *seat = wl_resource_get_user_data(resource);
 
    if (!seat->pointer)
       return;
 
-   struct wlc_view *view;
-   if (!(view = wlc_view_for_client_in_list(client, &seat->compositor->views))) {
-      wl_resource_post_error(resource, 1, "view was not found for client");
+   struct wlc_client *client;
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &seat->compositor->clients))) {
+      wl_resource_post_error(resource, 1, "client was not found (out of memory?)");
       return;
    }
 
    struct wl_resource *pointer_resource;
-   if (!(pointer_resource = wl_resource_create(client, &wl_pointer_interface, wl_resource_get_version(resource), id))) {
-      wl_client_post_no_memory(client);
+   if (!(pointer_resource = wl_resource_create(wl_client, &wl_pointer_interface, wl_resource_get_version(resource), id))) {
+      wl_client_post_no_memory(wl_client);
       return;
    }
 
-   view->input[WLC_POINTER] = pointer_resource;
+   client->input[WLC_POINTER] = pointer_resource;
    wl_resource_set_implementation(pointer_resource, &wl_pointer_implementation, seat->pointer, wl_cb_pointer_client_destructor);
 }
 
@@ -86,40 +86,48 @@ wl_cb_keyboard_client_destructor(struct wl_resource *resource)
 }
 
 static void
-wl_cb_seat_get_keyboard(struct wl_client *client, struct wl_resource *resource, uint32_t id)
+wl_cb_seat_get_keyboard(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_seat *seat = wl_resource_get_user_data(resource);
 
    if (!seat->keyboard)
       return;
 
-   struct wlc_view *view;
-   if (!(view = wlc_view_for_client_in_list(client, &seat->compositor->views))) {
-      wl_resource_post_error(resource, 1, "view was not found for client");
+   struct wlc_client *client;
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &seat->compositor->clients))) {
+      wl_resource_post_error(resource, 1, "client was not found (out of memory?)");
       return;
    }
 
    struct wl_resource *keyboard_resource;
-   if (!(keyboard_resource = wl_resource_create(client, &wl_keyboard_interface, wl_resource_get_version(resource), id))) {
-      wl_client_post_no_memory(client);
+   if (!(keyboard_resource = wl_resource_create(wl_client, &wl_keyboard_interface, wl_resource_get_version(resource), id))) {
+      wl_client_post_no_memory(wl_client);
       return;
    }
 
-   view->input[WLC_KEYBOARD] = keyboard_resource;
+   client->input[WLC_KEYBOARD] = keyboard_resource;
    wl_resource_set_implementation(keyboard_resource, &wl_keyboard_implementation, seat->keyboard, wl_cb_keyboard_client_destructor);
 
    if (seat->keymap)
       wl_keyboard_send_keymap(keyboard_resource, seat->keymap->format, seat->keymap->fd, seat->keymap->size);
 
-   if (seat->compositor->interface.keyboard.init)
-      seat->compositor->interface.keyboard.init(seat->compositor, view);
+   if (seat->compositor->interface.keyboard.init) {
+      struct wlc_view *view;
+      wl_list_for_each_reverse(view, &seat->compositor->views, link) {
+         if (view->client != client)
+            continue;
+
+         seat->compositor->interface.keyboard.init(seat->compositor, view);
+         break;
+      }
+   }
 }
 
 static void
-wl_cb_seat_get_touch(struct wl_client *client, struct wl_resource *resource, uint32_t id)
+wl_cb_seat_get_touch(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id)
 {
-   (void)client, (void)id;
+   (void)wl_client, (void)id;
    STUB(resource);
 }
 
@@ -130,12 +138,12 @@ static const struct wl_seat_interface wl_seat_implementation = {
 };
 
 static void
-wl_seat_bind(struct wl_client *client, void *data, unsigned int version, unsigned int id)
+wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(client, &wl_seat_interface, MIN(version, 3), id))) {
-      wl_client_post_no_memory(client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)", version, 3);
+   if (!(resource = wl_resource_create(wl_client, &wl_seat_interface, MIN(version, 3), id))) {
+      wl_client_post_no_memory(wl_client);
+      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 3);
       return;
    }
 
@@ -158,7 +166,7 @@ wl_seat_bind(struct wl_client *client, void *data, unsigned int version, unsigne
    wl_seat_send_capabilities(resource, caps);
 
    if (version >= 2)
-      wl_seat_send_name(resource, "wlc seat");
+      wl_seat_send_name(resource, "wlc-seat");
 }
 
 static void
@@ -272,14 +280,14 @@ wlc_seat_new(struct wlc_compositor *compositor)
    if (!(seat = calloc(1, sizeof(struct wlc_seat))))
       goto out_of_memory;
 
-   seat->pointer = wlc_pointer_new(&compositor->views);
+   seat->pointer = wlc_pointer_new(&compositor->clients, &compositor->views);
 
    {
       struct xkb_rule_names names;
       memset(&names, 0, sizeof(names));
 
       if ((seat->keymap = wlc_keymap_new(&names, 0)))
-         seat->keyboard = wlc_keyboard_new(seat->keymap, &compositor->views);
+         seat->keyboard = wlc_keyboard_new(seat->keymap, &compositor->clients, &compositor->views);
    }
 
    if (!(seat->global = wl_global_create(compositor->display, &wl_seat_interface, 3, seat, wl_seat_bind)))

@@ -14,9 +14,9 @@
 #include "wayland-xdg-shell-server-protocol.h"
 
 static void
-xdg_cb_shell_use_unstable_version(struct wl_client *client, struct wl_resource *resource, int32_t version)
+xdg_cb_shell_use_unstable_version(struct wl_client *wl_client, struct wl_resource *resource, int32_t version)
 {
-   (void)client;
+   (void)wl_client;
    if (version > XDG_SHELL_VERSION_CURRENT) {
       wl_resource_post_error(resource, 1, "xdg-shell :: version not implemented yet.");
       return;
@@ -24,10 +24,8 @@ xdg_cb_shell_use_unstable_version(struct wl_client *client, struct wl_resource *
 }
 
 static void
-xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
+xdg_cb_shell_get_surface(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
 {
-   (void)resource;
-
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
 
    struct wlc_view *view;
@@ -37,7 +35,7 @@ xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource,
    }
 
    struct wl_resource *xdg_surface_resource;
-   if (!(xdg_surface_resource = wl_resource_create(client, &xdg_surface_interface, 1, id))) {
+   if (!(xdg_surface_resource = wl_resource_create(wl_client, &xdg_surface_interface, 1, id))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -54,17 +52,17 @@ xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource,
 }
 
 static void
-xdg_cb_shell_get_popup(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent, struct wl_resource *seat, uint32_t serial, int32_t x, int32_t y, uint32_t flags)
+xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent, struct wl_resource *seat, uint32_t serial, int32_t x, int32_t y, uint32_t flags)
 {
-   (void)client, (void)resource, (void)id, (void)parent, (void)seat, (void)serial, (void)x, (void)y, (void)flags;
+   (void)wl_client, (void)resource, (void)id, (void)parent, (void)seat, (void)serial, (void)x, (void)y, (void)flags;
    STUB(surface_resource);
 }
 
 
 static void
-xdg_cb_shell_pong(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
+xdg_cb_shell_pong(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
 {
-   (void)client, (void)serial;
+   (void)wl_client, (void)serial;
    STUB(resource);
 }
 
@@ -76,12 +74,12 @@ static const struct xdg_shell_interface xdg_shell_implementation = {
 };
 
 static void
-xdg_shell_bind(struct wl_client *client, void *data, unsigned int version, unsigned int id)
+xdg_shell_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(client, &xdg_shell_interface, MIN(version, 1), id))) {
-      wl_client_post_no_memory(client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)", version, 1);
+   if (!(resource = wl_resource_create(wl_client, &xdg_shell_interface, MIN(version, 1), id))) {
+      wl_client_post_no_memory(wl_client);
+      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 1);
       return;
    }
 

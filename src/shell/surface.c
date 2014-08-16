@@ -10,44 +10,44 @@
 #include <wayland-server.h>
 
 static void
-wl_cb_shell_surface_pong(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
+wl_cb_shell_surface_pong(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
 {
-   (void)client, (void)serial;
+   (void)wl_client, (void)serial;
    STUB(resource);
 }
 
 static void
-wl_cb_shell_surface_move(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial)
+wl_cb_shell_surface_move(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial)
 {
-   (void)client, (void)resource, (void)seat, (void)serial;
+   (void)wl_client, (void)resource, (void)seat, (void)serial;
    STUB(resource);
 }
 
 static void
-wl_cb_shell_surface_resize(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, uint32_t edges)
+wl_cb_shell_surface_resize(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, uint32_t edges)
 {
-   (void)client, (void)seat, (void)serial, (void)edges;
+   (void)wl_client, (void)seat, (void)serial, (void)edges;
    STUB(resource);
 }
 
 static void
-wl_cb_shell_surface_set_toplevel(struct wl_client *client, struct wl_resource *resource)
+wl_cb_shell_surface_set_toplevel(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client, (void)resource;
+   (void)wl_client, (void)resource;
    STUBL(resource);
 }
 
 static void
-wl_cb_shell_surface_set_transient(struct wl_client *client, struct wl_resource *resource, struct wl_resource *parent, int32_t x, int32_t y, uint32_t flags)
+wl_cb_shell_surface_set_transient(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *parent, int32_t x, int32_t y, uint32_t flags)
 {
-   (void)client, (void)resource, (void)parent, (void)x, (void)y, (void)flags;
+   (void)wl_client, (void)resource, (void)parent, (void)x, (void)y, (void)flags;
    STUBL(resource);
 }
 
 static void
-wl_cb_shell_surface_set_fullscreen(struct wl_client *client, struct wl_resource *resource, uint32_t method, uint32_t framerate, struct wl_resource *output_resource)
+wl_cb_shell_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resource *resource, uint32_t method, uint32_t framerate, struct wl_resource *output_resource)
 {
-   (void)client, (void)method, (void)framerate;
+   (void)wl_client, (void)method, (void)framerate;
    void *output = wl_resource_get_user_data(output_resource);
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_output(shell_surface, output);
@@ -55,16 +55,16 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *client, struct wl_resource 
 }
 
 static void
-wl_cb_shell_surface_set_popup(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, struct wl_resource *parent, int32_t x, int32_t y, uint32_t flags)
+wl_cb_shell_surface_set_popup(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, struct wl_resource *parent, int32_t x, int32_t y, uint32_t flags)
 {
-   (void)client, (void)seat, (void)serial, (void)parent, (void)x, (void)y, (void)flags;
+   (void)wl_client, (void)seat, (void)serial, (void)parent, (void)x, (void)y, (void)flags;
    STUB(resource);
 }
 
 static void
-wl_cb_shell_surface_set_maximized(struct wl_client *client, struct wl_resource *resource, struct wl_resource *output_resource)
+wl_cb_shell_surface_set_maximized(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *output_resource)
 {
-   (void)client;
+   (void)wl_client;
    void *output = wl_resource_get_user_data(output_resource);
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_output(shell_surface, output);
@@ -72,17 +72,17 @@ wl_cb_shell_surface_set_maximized(struct wl_client *client, struct wl_resource *
 }
 
 static void
-wl_cb_shell_surface_set_title(struct wl_client *client, struct wl_resource *resource, const char *title)
+wl_cb_shell_surface_set_title(struct wl_client *wl_client, struct wl_resource *resource, const char *title)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_title(shell_surface, title);
 }
 
 static void
-wl_cb_shell_surface_set_class(struct wl_client *client, struct wl_resource *resource, const char *class_)
+wl_cb_shell_surface_set_class(struct wl_client *wl_client, struct wl_resource *resource, const char *class_)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_class(shell_surface, class_);
 }

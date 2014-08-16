@@ -1,5 +1,6 @@
 #include "keyboard.h"
 #include "keymap.h"
+#include "client.h"
 
 #include "compositor/view.h"
 #include "compositor/surface.h"
@@ -33,7 +34,7 @@ update_modifiers(struct wlc_keyboard *keyboard, uint32_t serial)
    if (!keyboard->focus)
       return;
 
-   wl_keyboard_send_modifiers(keyboard->focus->input[WLC_KEYBOARD], serial, depressed, latched, locked, group);
+   wl_keyboard_send_modifiers(keyboard->focus->client->input[WLC_KEYBOARD], serial, depressed, latched, locked, group);
 }
 
 void
@@ -47,7 +48,7 @@ wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t serial, uint32_t time, 
    if (!keyboard->focus)
       return;
 
-   wl_keyboard_send_key(keyboard->focus->input[WLC_KEYBOARD], serial, time, key, state);
+   wl_keyboard_send_key(keyboard->focus->client->input[WLC_KEYBOARD], serial, time, key, state);
 }
 
 void
@@ -64,14 +65,14 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
       return;
    }
 
-   if (keyboard->focus && keyboard->focus->input[WLC_KEYBOARD])
-      wl_keyboard_send_leave(keyboard->focus->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
+   if (keyboard->focus && keyboard->focus->client->input[WLC_KEYBOARD])
+      wl_keyboard_send_leave(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
 
-   if (view->input[WLC_KEYBOARD]) {
+   if (view->client->input[WLC_KEYBOARD]) {
       struct wl_array keys;
       wl_array_init(&keys);
 
-      wl_keyboard_send_enter(view->input[WLC_KEYBOARD], serial, view->surface->resource, &keys);
+      wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keys);
       keyboard->focus = view;
    } else {
       keyboard->focus = NULL;
@@ -83,13 +84,8 @@ wlc_keyboard_remove_view_for_resource(struct wlc_keyboard *keyboard, struct wl_r
 {
    assert(keyboard && resource);
 
-   struct wlc_view *view;
-   if ((view = wlc_view_for_input_resource_in_list(resource, WLC_KEYBOARD, keyboard->views))) {
-      if (keyboard->focus == view)
-         wlc_keyboard_focus(keyboard, 0, NULL);
-
-      view->input[WLC_KEYBOARD] = NULL;
-   }
+   if (keyboard->focus->client->input[WLC_KEYBOARD] == resource)
+      wlc_keyboard_focus(keyboard, 0, NULL);
 }
 
 bool
@@ -111,10 +107,10 @@ wlc_keyboard_free(struct wlc_keyboard *keyboard)
 {
    assert(keyboard);
 
-   if (keyboard->views) {
-      struct wlc_view *view;
-      wl_list_for_each(view, keyboard->views, link)
-         view->input[WLC_KEYBOARD] = NULL;
+   if (keyboard->clients) {
+      struct wlc_client *client;
+      wl_list_for_each(client, keyboard->clients, link)
+         client->input[WLC_KEYBOARD] = NULL;
    }
 
    if (keyboard->state)
@@ -124,7 +120,7 @@ wlc_keyboard_free(struct wlc_keyboard *keyboard)
 }
 
 struct wlc_keyboard*
-wlc_keyboard_new(struct wlc_keymap *keymap, struct wl_list *views)
+wlc_keyboard_new(struct wlc_keymap *keymap, struct wl_list *clients, struct wl_list *views)
 {
    assert(keymap && views);
 
@@ -135,6 +131,7 @@ wlc_keyboard_new(struct wlc_keymap *keymap, struct wl_list *views)
    if (!wlc_keyboard_set_keymap(keyboard, keymap))
       goto fail;
 
+   keyboard->clients = clients;
    keyboard->views = views;
    return keyboard;
 

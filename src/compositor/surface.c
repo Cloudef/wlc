@@ -93,21 +93,21 @@ wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *
 }
 
 static void
-wl_cb_surface_destroy(struct wl_client *client, struct wl_resource *resource)
+wl_cb_surface_destroy(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
    wl_resource_destroy(resource);
 }
 
 static void
-wl_cb_surface_attach(struct wl_client *client, struct wl_resource *resource, struct wl_resource *buffer_resource, int32_t x, int32_t y)
+wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *buffer_resource, int32_t x, int32_t y)
 {
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    struct wlc_buffer *buffer = NULL;
 
    if (buffer_resource) {
       if (!(buffer = wlc_buffer_new(buffer_resource))) {
-         wl_client_post_no_memory(client);
+         wl_client_post_no_memory(wl_client);
          return;
       }
    }
@@ -120,19 +120,18 @@ wl_cb_surface_attach(struct wl_client *client, struct wl_resource *resource, str
 }
 
 static void
-wl_cb_surface_damage(struct wl_client *client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
+wl_cb_surface_damage(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    pixman_region32_union_rect(&surface->pending.damage, &surface->pending.damage, x, y, width, height);
 }
 
 static void
-wl_cb_surface_frame(struct wl_client *client, struct wl_resource *resource, uint32_t callback_id)
+wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, uint32_t callback_id)
 {
-   (void)client;
    struct wl_resource *callback_resource;
-   if (!(callback_resource = wl_resource_create(client, &wl_callback_interface, 1, callback_id))) {
+   if (!(callback_resource = wl_resource_create(wl_client, &wl_callback_interface, 1, callback_id))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -159,9 +158,9 @@ wl_cb_surface_frame(struct wl_client *client, struct wl_resource *resource, uint
 }
 
 static void
-wl_cb_surface_set_opaque_region(struct wl_client *client, struct wl_resource *resource, struct wl_resource *region_resource)
+wl_cb_surface_set_opaque_region(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *region_resource)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
 
    if (region_resource) {
@@ -173,9 +172,9 @@ wl_cb_surface_set_opaque_region(struct wl_client *client, struct wl_resource *re
 }
 
 static void
-wl_cb_surface_set_input_region(struct wl_client *client, struct wl_resource *resource, struct wl_resource *region_resource)
+wl_cb_surface_set_input_region(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *region_resource)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
 
    if (region_resource) {
@@ -188,24 +187,24 @@ wl_cb_surface_set_input_region(struct wl_client *client, struct wl_resource *res
 }
 
 static void
-wl_cb_surface_commit(struct wl_client *client, struct wl_resource *resource)
+wl_cb_surface_commit(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    wlc_surface_commit_state(surface, &surface->pending);
 }
 
 static void
-wl_cb_surface_set_buffer_transform(struct wl_client *client, struct wl_resource *resource, int32_t transform)
+wl_cb_surface_set_buffer_transform(struct wl_client *wl_client, struct wl_resource *resource, int32_t transform)
 {
-   (void)client, (void)resource, (void)transform;
+   (void)wl_client, (void)resource, (void)transform;
    STUBL(resource);
 }
 
 static void
-wl_cb_surface_set_buffer_scale(struct wl_client *client, struct wl_resource *resource, int32_t scale)
+wl_cb_surface_set_buffer_scale(struct wl_client *wl_client, struct wl_resource *resource, int32_t scale)
 {
-   (void)client, (void)resource, (void)scale;
+   (void)wl_client, (void)resource, (void)scale;
    STUBL(resource);
 }
 

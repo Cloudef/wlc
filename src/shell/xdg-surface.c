@@ -14,47 +14,47 @@
 #include "wayland-xdg-shell-server-protocol.h"
 
 static void
-xdg_cb_surface_destroy(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_surface_destroy(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client, (void)resource;
+   (void)wl_client, (void)resource;
    wl_resource_destroy(resource);
 }
 
 static void
-xdg_cb_surface_set_parent(struct wl_client *client, struct wl_resource *resource, struct wl_resource *parent_resource)
+xdg_cb_surface_set_parent(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *parent_resource)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_parent(xdg_surface->shell_surface, (parent_resource ? wl_resource_get_user_data(parent_resource) : NULL));
 }
 
 static void
-xdg_cb_surface_set_title(struct wl_client *client, struct wl_resource *resource, const char *title)
+xdg_cb_surface_set_title(struct wl_client *wl_client, struct wl_resource *resource, const char *title)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_title(xdg_surface->shell_surface, title);
 }
 
 static void
-xdg_cb_surface_set_app_id(struct wl_client *client, struct wl_resource *resource, const char *app_id)
+xdg_cb_surface_set_app_id(struct wl_client *wl_client, struct wl_resource *resource, const char *app_id)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_xdg_surface_set_app_id(xdg_surface, app_id);
 }
 
 static void
-xdg_cb_surface_show_window_menu(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, int32_t x, int32_t y)
+xdg_cb_surface_show_window_menu(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, int32_t x, int32_t y)
 {
-   (void)client, (void)resource, (void)seat, (void)serial, (void)x, (void)y;
+   (void)wl_client, (void)resource, (void)seat, (void)serial, (void)x, (void)y;
    STUBL(resource);
 }
 
 static void
-xdg_cb_surface_move(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial)
+xdg_cb_surface_move(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial)
 {
-   (void)client, (void)resource, (void)serial;
+   (void)wl_client, (void)resource, (void)serial;
    struct wlc_seat *seat = wl_resource_get_user_data(seat_resource);
 
    if (!seat->pointer || !seat->pointer->focus)
@@ -64,9 +64,9 @@ xdg_cb_surface_move(struct wl_client *client, struct wl_resource *resource, stru
 }
 
 static void
-xdg_cb_surface_resize(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial, uint32_t edges)
+xdg_cb_surface_resize(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial, uint32_t edges)
 {
-   (void)client, (void)resource, (void)serial, (void)edges;
+   (void)wl_client, (void)resource, (void)serial, (void)edges;
    struct wlc_seat *seat = wl_resource_get_user_data(seat_resource);
 
    if (!seat->pointer || !seat->pointer->focus)
@@ -77,40 +77,40 @@ xdg_cb_surface_resize(struct wl_client *client, struct wl_resource *resource, st
 }
 
 static void
-xdg_cb_surface_ack_configure(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
+xdg_cb_surface_ack_configure(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
 {
-   (void)client, (void)resource, (void)serial;
+   (void)wl_client, (void)resource, (void)serial;
    STUBL(resource);
 }
 
 static void
-xdg_cb_surface_set_window_geometry(struct wl_client *client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
+xdg_cb_surface_set_window_geometry(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    xdg_surface->visible_geometry = (struct wlc_geometry){ x, y, width, height };
 }
 
 static void
-xdg_cb_surface_set_maximized(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_surface_set_maximized(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_maximized(xdg_surface->shell_surface, true);
 }
 
 static void
-xdg_cb_surface_unset_maximized(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_surface_unset_maximized(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_maximized(xdg_surface->shell_surface, false);
 }
 
 static void
-xdg_cb_surface_set_fullscreen(struct wl_client *client, struct wl_resource *resource, struct wl_resource *output_resource)
+xdg_cb_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *output_resource)
 {
-   (void)client;
+   (void)wl_client;
    void *output = wl_resource_get_user_data(output_resource);
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_output(xdg_surface->shell_surface, output);
@@ -118,17 +118,17 @@ xdg_cb_surface_set_fullscreen(struct wl_client *client, struct wl_resource *reso
 }
 
 static void
-xdg_cb_surface_unset_fullscreen(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_surface_unset_fullscreen(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_fullscreen(xdg_surface->shell_surface, false);
 }
 
 static void
-xdg_cb_surface_set_minimized(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_surface_set_minimized(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_xdg_surface_set_minimized(xdg_surface, true);
 }

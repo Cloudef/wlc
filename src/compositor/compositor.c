@@ -6,7 +6,11 @@
 #include "region.h"
 #include "macros.h"
 
+#include "data-device/manager.h"
+
 #include "seat/seat.h"
+#include "seat/client.h"
+
 #include "shell/shell.h"
 #include "shell/xdg-shell.h"
 
@@ -23,13 +27,103 @@
 #include <wayland-server.h>
 
 static void
-wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, unsigned int id)
+wl_cb_subsurface_destroy(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)client;
+   (void)wl_client;
+   wl_resource_destroy(resource);
+}
+
+static void
+wl_cb_subsurface_set_position(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y)
+{
+   (void)wl_client, (void)resource, (void)x, (void)y;
+   STUBL(resource);
+}
+
+static void
+wl_cb_subsurface_place_above(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *sibling_resource)
+{
+   (void)wl_client, (void)resource, (void)sibling_resource;
+   STUBL(resource);
+}
+
+static void
+wl_cb_subsurface_place_below(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *sibling_resource)
+{
+   (void)wl_client, (void)resource, (void)sibling_resource;
+   STUBL(resource);
+}
+
+static void
+wl_cb_subsurface_set_sync(struct wl_client *wl_client, struct wl_resource *resource)
+{
+   (void)wl_client, (void)resource;
+   STUBL(resource);
+}
+
+static void
+wl_cb_subsurface_set_desync(struct wl_client *wl_client, struct wl_resource *resource)
+{
+   (void)wl_client, (void)resource;
+   STUBL(resource);
+}
+
+static const struct wl_subsurface_interface wl_subsurface_implementation = {
+   wl_cb_subsurface_destroy,
+   wl_cb_subsurface_set_position,
+   wl_cb_subsurface_place_above,
+   wl_cb_subsurface_place_below,
+   wl_cb_subsurface_set_sync,
+   wl_cb_subsurface_set_desync
+};
+
+static void
+wl_cb_subcompositor_get_subsurface(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent_resource)
+{
+   (void)surface_resource, (void)parent_resource;
+   STUBL(resource);
+
+   struct wl_resource *subsurface_resource;
+   if (!(subsurface_resource = wl_resource_create(wl_client, &wl_subsurface_interface, 1, id))) {
+      wl_resource_post_no_memory(resource);
+      return;
+   }
+
+   wl_resource_set_implementation(subsurface_resource, &wl_subsurface_implementation, NULL, NULL);
+}
+
+static void
+wl_cb_subcompositor_destroy(struct wl_client *wl_client, struct wl_resource *resource)
+{
+   (void)wl_client;
+   wl_resource_destroy(resource);
+}
+
+static const struct wl_subcompositor_interface wl_subcompositor_implementation = {
+   wl_cb_subcompositor_destroy,
+   wl_cb_subcompositor_get_subsurface
+};
+
+static void
+wl_subcompositor_bind(struct wl_client *wl_client, void *data, uint32_t version, uint32_t id)
+{
+   struct wl_resource *resource;
+   if (!(resource = wl_resource_create(wl_client, &wl_compositor_interface, MIN(version, 1), id))) {
+      wl_client_post_no_memory(wl_client);
+      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 1);
+      return;
+   }
+
+   wl_resource_set_implementation(resource, &wl_subcompositor_implementation, data, NULL);
+}
+
+static void
+wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, unsigned int id)
+{
    struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
 
    struct wl_resource *surface_resource;
-   if (!(surface_resource = wl_resource_create(client, &wl_surface_interface, 1, id))) {
+   if (!(surface_resource = wl_resource_create(wl_client, &wl_surface_interface, 1, id))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -41,24 +135,33 @@ wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uns
       return;
    }
 
-   struct wlc_view *view;
-   if (!(view = wlc_view_new(surface))) {
+   struct wlc_client *client;
+   if (!(client = wlc_client_new(wl_client))) {
       wlc_surface_free(surface);
       wl_resource_destroy(surface_resource);
       wl_resource_post_no_memory(resource);
    }
 
+   wl_list_insert(&compositor->clients, &client->link);
+
+   struct wlc_view *view;
+   if (!(view = wlc_view_new(client, surface))) {
+      wlc_surface_free(surface);
+      wlc_client_free(client);
+      wl_resource_destroy(surface_resource);
+      wl_resource_post_no_memory(resource);
+   }
+
    wl_list_insert(compositor->views.prev, &view->link);
+
    wlc_surface_implement(surface, surface_resource);
 }
 
 static void
-wl_cb_region_create(struct wl_client *client, struct wl_resource *resource, unsigned int id)
+wl_cb_region_create(struct wl_client *wl_client, struct wl_resource *resource, unsigned int id)
 {
-   (void)client;
-
    struct wl_resource *region_resource;
-   if (!(region_resource = wl_resource_create(client, &wl_region_interface, 1, id))) {
+   if (!(region_resource = wl_resource_create(wl_client, &wl_region_interface, 1, id))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -79,14 +182,12 @@ static const struct wl_compositor_interface wl_compositor_implementation = {
 };
 
 static void
-wl_compositor_bind(struct wl_client *client, void *data, unsigned int version, unsigned int id)
+wl_compositor_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
 {
-   (void)data;
-
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(client, &wl_compositor_interface, MIN(version, 3), id))) {
-      wl_client_post_no_memory(client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > 3)", version);
+   if (!(resource = wl_resource_create(wl_client, &wl_compositor_interface, MIN(version, 3), id))) {
+      wl_client_post_no_memory(wl_client);
+      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 3);
       return;
    }
 
@@ -200,6 +301,12 @@ wlc_compositor_free(struct wlc_compositor *compositor)
    if (compositor->seat)
       wlc_seat_free(compositor->seat);
 
+   if (compositor->manager)
+      wlc_data_device_manager_free(compositor->manager);
+
+   if (compositor->global_sub)
+      wl_global_destroy(compositor->global_sub);
+
    if (compositor->global)
       wl_global_destroy(compositor->global);
 
@@ -219,10 +326,17 @@ wlc_compositor_new(void)
    if (!(compositor->display = wl_display_create()))
       goto display_create_fail;
 
+   wl_list_init(&compositor->clients);
    wl_list_init(&compositor->views);
 
    if (!(compositor->global = wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
       goto compositor_interface_fail;
+
+   if (!(compositor->global_sub = wl_global_create(compositor->display, &wl_subcompositor_interface, 1, compositor, wl_subcompositor_bind)))
+      goto subcompositor_interface_fail;
+
+   if (!(compositor->manager = wlc_data_device_manager_new(compositor)))
+      goto fail;
 
    if (!(compositor->seat = wlc_seat_new(compositor)))
       goto fail;
@@ -277,6 +391,9 @@ display_add_socket_fail:
    goto fail;
 compositor_interface_fail:
    fprintf(stderr, "-!- failed to bind compositor interface\n");
+   goto fail;
+subcompositor_interface_fail:
+   fprintf(stderr, "-!- failed to bind subcompositor interface\n");
    goto fail;
 display_init_shm_fail:
    fprintf(stderr, "-!- failed to initialize shm display\n");

@@ -1,21 +1,23 @@
 SET(SRC
-   compositor/compositor.c
-   compositor/surface.c
-   compositor/view.c
-   compositor/region.c
+   backend/backend.c
+   backend/drm.c
+   backend/x11.c
    compositor/buffer.c
    compositor/callback.c
+   compositor/compositor.c
+   compositor/region.c
+   compositor/surface.c
+   compositor/view.c
    context/context.c
    context/egl.c
-   backend/x11.c
-   backend/drm.c
-   backend/backend.c
-   render/render.c
+   data-device/manager.c
    render/gles2.c
-   seat/seat.c
+   render/render.c
+   seat/client.c
+   seat/keyboard.c
    seat/keymap.c
    seat/pointer.c
-   seat/keyboard.c
+   seat/seat.c
    shell/shell.c
    shell/surface.c
    shell/xdg-shell.c

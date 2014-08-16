@@ -48,17 +48,12 @@ enum wlc_button_state {
    WLC_BUTTON_STATE_PRESSED = 1
 };
 
-enum wlc_view_state {
-   WLC_MAXIMIZED = 1,
-   WLC_FULLSCREEN = 2,
-   WLC_RESIZING = 3,
-   WLC_ACTIVATED = 4,
-};
-
 struct wlc_interface {
    struct {
       void (*created)(struct wlc_compositor*, struct wlc_view*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_view*);
+      void (*move)(struct wlc_compositor*, struct wlc_view*, float x, float y);
+      void (*resize)(struct wlc_compositor*, struct wlc_view*, float width, float height);
    } view;
 
    struct {
@@ -72,8 +67,10 @@ struct wlc_interface {
    } pointer;
 };
 
+void wlc_view_set_maximized(struct wlc_view *view, bool maximized);
+void wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen);
+void wlc_view_set_resizing(struct wlc_view *view, bool resizing);
 void wlc_view_set_active(struct wlc_view *view, bool active);
-void wlc_view_set_state(struct wlc_view *view, const uint32_t *states, uint32_t memb);
 void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
 void wlc_view_position(struct wlc_view *view, int32_t x, int32_t y);
 void wlc_view_close(struct wlc_view *view);
