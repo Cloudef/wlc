@@ -145,7 +145,7 @@ wlc_pointer_remove_view_for_resource(struct wlc_pointer *pointer, struct wl_reso
 {
    assert(pointer && resource);
 
-   if (pointer->focus->client->input[WLC_POINTER] == resource)
+   if (pointer->focus && pointer->focus->client->input[WLC_POINTER] == resource)
       wlc_pointer_focus(pointer, 0, NULL, 0, 0);
 }
 

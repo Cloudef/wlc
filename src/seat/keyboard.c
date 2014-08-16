@@ -84,7 +84,7 @@ wlc_keyboard_remove_view_for_resource(struct wlc_keyboard *keyboard, struct wl_r
 {
    assert(keyboard && resource);
 
-   if (keyboard->focus->client->input[WLC_KEYBOARD] == resource)
+   if (keyboard->focus && keyboard->focus->client->input[WLC_KEYBOARD] == resource)
       wlc_keyboard_focus(keyboard, 0, NULL);
 }
 
