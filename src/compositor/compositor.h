@@ -35,6 +35,7 @@ struct wlc_compositor {
    bool repaint_scheduled;
 
    struct {
+      void (*resolution)(struct wlc_compositor *compositor, int32_t width, int32_t height);
       void (*schedule_repaint)(struct wlc_compositor *compositor);
       uint32_t (*get_time)(void);
    } api;

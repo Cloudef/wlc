@@ -18,9 +18,22 @@
 
 #include <wayland-server.h>
 
+enum {
+   UNIFORM_WIDTH,
+   UNIFORM_HEIGHT,
+   UNIFORM_LAST,
+};
+
+static const char *uniform_names[UNIFORM_LAST] = {
+   "width",
+   "height"
+};
+
 static struct {
    struct wlc_context *context;
    const char *extensions;
+
+   GLint uniforms[UNIFORM_LAST];
 
    struct {
       void *handle;
@@ -28,6 +41,7 @@ static struct {
       void (*glEnable)(GLenum);
       void (*glClear)(GLbitfield);
       void (*glClearColor)(GLfloat, GLfloat, GLfloat, GLfloat);
+      void (*glViewport)(GLint, GLint, GLsizei, GLsizei);
       void (*glBlendFunc)(GLenum, GLenum);
       GLuint (*glCreateShader)(GLenum);
       void (*glShaderSource)(GLuint, GLsizei count, const GLchar **string, const GLint *length);
@@ -41,6 +55,8 @@ static struct {
       void (*glGetProgramiv)(GLuint, GLenum, GLint*);
       void (*glGetProgramInfoLog)(GLuint, GLsizei, GLsizei*, GLchar*);
       void (*glBindAttribLocation)(GLuint, GLuint, const GLchar*);
+      GLint (*glGetUniformLocation)(GLuint, const GLchar *name);
+      void (*glUniform1f)(GLint, GLfloat);
       void (*glEnableVertexAttribArray)(GLuint);
       void (*glVertexAttribPointer)(GLuint, GLint, GLenum, GLboolean, GLsizei, const GLvoid*);
       void (*glDrawArrays)(GLenum, GLint, GLsizei);
@@ -73,6 +89,8 @@ gles2_load(void)
       goto function_pointer_exception;
    if (!load(glClearColor))
       goto function_pointer_exception;
+   if (!load(glViewport))
+      goto function_pointer_exception;
    if (!load(glBlendFunc))
       goto function_pointer_exception;
    if (!(load(glCreateShader)))
@@ -100,6 +118,10 @@ gles2_load(void)
    if (!(load(glEnableVertexAttribArray)))
       goto function_pointer_exception;
    if (!(load(glBindAttribLocation)))
+      goto function_pointer_exception;
+   if (!(load(glGetUniformLocation)))
+      goto function_pointer_exception;
+   if (!(load(glUniform1f)))
       goto function_pointer_exception;
    if (!(load(glVertexAttribPointer)))
       goto function_pointer_exception;
@@ -271,6 +293,14 @@ clear(void)
 }
 
 static void
+resolution(int32_t width, int32_t height)
+{
+   gl.api.glUniform1f(gl.uniforms[UNIFORM_WIDTH], width);
+   gl.api.glUniform1f(gl.uniforms[UNIFORM_HEIGHT], height);
+   gl.api.glViewport(0, 0, width, height);
+}
+
+static void
 terminate(void)
 {
    if (gl.api.handle)
@@ -315,11 +345,14 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    gl.extensions = (const char*)gl.api.glGetString(GL_EXTENSIONS);
 
    static const char *vert_shader_text =
+      "precision mediump float;\n"
+      "uniform float width;\n"
+      "uniform float height;\n"
       "mat4 ortho = mat4("
-      "  2.0/800.0,  0,      0, 0,"
-      "     0,   -2.0/480.0, 0, 0,"
-      "     0,       0,     -1, 0,"
-      "    -1,       1,      0, 1"
+      "  2.0/width,  0,       0, 0,"
+      "     0,   -2.0/height, 0, 0,"
+      "     0,       0,      -1, 0,"
+      "    -1,       1,       0, 1"
       ");\n"
       "attribute vec4 pos;\n"
       "attribute vec2 uv;\n"
@@ -357,7 +390,9 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    gl.api.glUseProgram(program);
    gl.api.glBindAttribLocation(program, 0, "pos");
    gl.api.glBindAttribLocation(program, 1, "uv");
-   gl.api.glLinkProgram(program);
+
+   for (int i = 0; i < UNIFORM_LAST; ++i)
+      gl.uniforms[i] = gl.api.glGetUniformLocation(program, uniform_names[i]);
 
    gl.api.glEnableVertexAttribArray(0);
    gl.api.glEnableVertexAttribArray(1);
@@ -372,6 +407,7 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    out_render->api.render = view_render;
    out_render->api.clear = clear;
    out_render->api.swap = context->api.swap;
+   out_render->api.resolution = resolution;
 
    fprintf(stdout, "-!- GLES2 renderer initialized\n");
    return true;

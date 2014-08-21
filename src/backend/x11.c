@@ -2,6 +2,7 @@
 #include "backend.h"
 
 #include "seat/seat.h"
+#include "compositor/compositor.h"
 
 #include <xcb/xcb.h>
 #include <X11/Xlib-xcb.h>
@@ -184,6 +185,10 @@ poll_events(struct wlc_seat *seat)
 
    while ((event = x11.api.xcb_poll_for_event(x11.connection))) {
       switch (event->response_type & ~0x80) {
+         case XCB_CONFIGURE_NOTIFY: {
+            xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
+            seat->compositor->api.resolution(seat->compositor, ev->width, ev->height);
+         }
          case XCB_MOTION_NOTIFY: {
             xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t*)event;
             seat->notify.pointer_motion(seat, ev->event_x, ev->event_y);
@@ -297,6 +302,7 @@ wlc_x11_init(struct wlc_backend *out_backend)
 
    uint32_t mask = XCB_CW_EVENT_MASK; // | XCB_CW_CURSOR;
    uint32_t values[] = {
+      XCB_EVENT_MASK_STRUCTURE_NOTIFY |
       XCB_EVENT_MASK_POINTER_MOTION |
       XCB_EVENT_MASK_BUTTON_PRESS |
       XCB_EVENT_MASK_BUTTON_RELEASE |

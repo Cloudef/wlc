@@ -17,6 +17,7 @@ struct wlc_render {
       void (*render)(struct wlc_view *view);
       void (*clear)(void);
       void (*swap)(void);
+      void (*resolution)(int32_t width, int32_t height);
    } api;
 };
 

@@ -52,8 +52,8 @@ struct wlc_interface {
    struct {
       void (*created)(struct wlc_compositor*, struct wlc_view*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_view*);
-      void (*move)(struct wlc_compositor*, struct wlc_view*, float x, float y);
-      void (*resize)(struct wlc_compositor*, struct wlc_view*, float width, float height);
+      void (*move)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y);
+      void (*resize)(struct wlc_compositor*, struct wlc_view*, uint32_t width, uint32_t height);
    } view;
 
    struct {
@@ -65,6 +65,10 @@ struct wlc_interface {
       bool (*button)(struct wlc_compositor*, struct wlc_view*, uint32_t button, enum wlc_button_state state);
       bool (*motion)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y);
    } pointer;
+
+   struct {
+      void (*resolution)(struct wlc_compositor*, uint32_t width, uint32_t height);
+   } output;
 };
 
 void wlc_view_set_maximized(struct wlc_view *view, bool maximized);

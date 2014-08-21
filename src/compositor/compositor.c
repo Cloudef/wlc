@@ -258,6 +258,16 @@ cb_repaint_timer(void *data)
 }
 
 static void
+resolution(struct wlc_compositor *compositor, int32_t width, int32_t height)
+{
+   if (compositor->render)
+      compositor->render->api.resolution(width, height);
+
+   if (compositor->interface.output.resolution)
+      compositor->interface.output.resolution(compositor, width, height);
+}
+
+static void
 schedule_repaint(struct wlc_compositor *compositor)
 {
    if (compositor->repaint_scheduled)
@@ -395,6 +405,7 @@ wlc_compositor_new(void)
 
    compositor->repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
 
+   compositor->api.resolution = resolution;
    compositor->api.schedule_repaint = schedule_repaint;
    compositor->api.get_time = get_time;
 
