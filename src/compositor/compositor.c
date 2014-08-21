@@ -190,8 +190,6 @@ wl_cb_compositor_client_destructor(struct wl_resource *resource)
    struct wlc_client *client;
    if ((client = wlc_client_for_client_with_wl_client_in_list(wl_client, &compositor->clients)))
       wlc_client_free(client);
-
-   puts("KILL CLIETN");
 }
 
 static void
