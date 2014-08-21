@@ -37,5 +37,7 @@ void wlc_view_free(struct wlc_view *view);
 struct wlc_view* wlc_view_new(struct wlc_client *client, struct wlc_surface *compositor);
 void wlc_view_position(struct wlc_view *view, int32_t x, int32_t y);
 void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
+void wlc_view_set_maximized(struct wlc_view *view, bool maximized);
+void wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen);
 
 #endif /* _WLC_VIEW_H_ */

@@ -4,7 +4,9 @@
 
 #include "seat/seat.h"
 #include "seat/pointer.h"
+#include "compositor/compositor.h"
 #include "compositor/surface.h"
+#include "compositor/view.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -96,7 +98,10 @@ xdg_cb_surface_set_maximized(struct wl_client *wl_client, struct wl_resource *re
 {
    (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_maximized(xdg_surface->shell_surface, true);
+
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->views)))
+      wlc_view_set_maximized(view, true);
 }
 
 static void
@@ -104,17 +109,27 @@ xdg_cb_surface_unset_maximized(struct wl_client *wl_client, struct wl_resource *
 {
    (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_maximized(xdg_surface->shell_surface, false);
+
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->views)))
+      wlc_view_set_maximized(view, false);
 }
 
 static void
 xdg_cb_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *output_resource)
 {
    (void)wl_client;
-   void *output = wl_resource_get_user_data(output_resource);
+
+   void *output = NULL;
+   if (output_resource)
+      wl_resource_get_user_data(output_resource);
+
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_output(xdg_surface->shell_surface, output);
-   wlc_shell_surface_set_fullscreen(xdg_surface->shell_surface, true);
+
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->views)))
+      wlc_view_set_fullscreen(view, true);
 }
 
 static void
@@ -122,7 +137,10 @@ xdg_cb_surface_unset_fullscreen(struct wl_client *wl_client, struct wl_resource 
 {
    (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_fullscreen(xdg_surface->shell_surface, false);
+
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->views)))
+      wlc_view_set_fullscreen(view, false);
 }
 
 static void

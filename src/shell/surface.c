@@ -1,7 +1,9 @@
 #include "surface.h"
 #include "macros.h"
 
+#include "compositor/compositor.h"
 #include "compositor/surface.h"
+#include "compositor/view.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -48,10 +50,17 @@ static void
 wl_cb_shell_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resource *resource, uint32_t method, uint32_t framerate, struct wl_resource *output_resource)
 {
    (void)wl_client, (void)method, (void)framerate;
-   void *output = wl_resource_get_user_data(output_resource);
+
+   void *output = NULL;
+   if (output_resource)
+        wl_resource_get_user_data(output_resource);
+
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_output(shell_surface, output);
-   wlc_shell_surface_set_fullscreen(shell_surface, true);
+
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->views)))
+      wlc_view_set_fullscreen(view, true);
 }
 
 static void
@@ -65,10 +74,17 @@ static void
 wl_cb_shell_surface_set_maximized(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *output_resource)
 {
    (void)wl_client;
-   void *output = wl_resource_get_user_data(output_resource);
+
+   void *output = NULL;
+   if (output_resource)
+      wl_resource_get_user_data(output_resource);
+
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
    wlc_shell_surface_set_output(shell_surface, output);
-   wlc_shell_surface_set_maximized(shell_surface, true);
+
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->views)))
+      wlc_view_set_maximized(view, true);
 }
 
 static void
@@ -149,18 +165,6 @@ void
 wlc_shell_surface_set_class(struct wlc_shell_surface *shell_surface, const char *class_)
 {
    wlc_string_set(&shell_surface->class, class_, true);
-}
-
-void
-wlc_shell_surface_set_fullscreen(struct wlc_shell_surface *shell_surface, bool fullscreen)
-{
-   shell_surface->fullscreen = fullscreen;
-}
-
-void
-wlc_shell_surface_set_maximized(struct wlc_shell_surface *shell_surface, bool maximized)
-{
-   shell_surface->maximized = maximized;
 }
 
 void
