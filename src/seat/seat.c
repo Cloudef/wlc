@@ -170,21 +170,6 @@ wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsi
 }
 
 static void
-seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_state state)
-{
-   if (!seat->pointer)
-      return;
-
-   if (seat->compositor->interface.pointer.button &&
-      !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, button, state))
-      return;
-
-   uint32_t serial = wl_display_next_serial(seat->compositor->display);
-   uint32_t time = seat->compositor->api.get_time();
-   wlc_pointer_button(seat->pointer, serial, time, button, state);
-}
-
-static void
 seat_pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
 {
    if (!seat->pointer)
@@ -197,6 +182,21 @@ seat_pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
    uint32_t time = seat->compositor->api.get_time();
    wlc_pointer_motion(seat->pointer, serial, time, x, y);
+}
+
+static void
+seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_state state)
+{
+   if (!seat->pointer)
+      return;
+
+   if (seat->compositor->interface.pointer.button &&
+      !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, button, state))
+      return;
+
+   uint32_t serial = wl_display_next_serial(seat->compositor->display);
+   uint32_t time = seat->compositor->api.get_time();
+   wlc_pointer_button(seat->pointer, serial, time, button, state);
 }
 
 static void
