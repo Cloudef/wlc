@@ -31,13 +31,10 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
    if (pointer->focus && pointer->focus->client->input[WLC_POINTER])
       wl_pointer_send_leave(pointer->focus->client->input[WLC_POINTER], serial, pointer->focus->surface->resource);
 
-   if (view->client->input[WLC_POINTER]) {
+   if (view->client->input[WLC_POINTER])
       wl_pointer_send_enter(view->client->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(x), wl_fixed_from_int(y));
-      pointer->focus = view;
-   } else {
-      pointer->focus = NULL;
-   }
 
+   pointer->focus = view;
    pointer->grabbing = false;
    pointer->action = WLC_GRAB_ACTION_NONE;
    pointer->action_edges = 0;
