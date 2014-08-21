@@ -155,6 +155,7 @@ wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_re
       if (view->client->input[WLC_KEYBOARD] == resource)
          wlc_pointer_focus(pointer, 0, NULL, 0, 0);
       view->client->input[WLC_POINTER] = NULL;
+      pointer->focus = NULL;
       break;
    }
 }
