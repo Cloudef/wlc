@@ -78,8 +78,10 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
    } else {
       struct wlc_view *view;
       wl_list_for_each_reverse(view, pointer->views, link) {
-         if (x >= view->geometry.x && x <= view->geometry.x + view->geometry.w &&
-             y >= view->geometry.y && y <= view->geometry.y + view->geometry.h) {
+         struct wlc_geometry b;
+         wlc_view_get_bounds(view, &b);
+         if (x >= b.x && x <= b.x + b.w &&
+             y >= b.y && y <= b.y + b.h) {
             focused = view;
             break;
          }
@@ -93,8 +95,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 
    struct wlc_geometry b;
    wlc_view_get_bounds(focused, &b);
-   int32_t dx = x - b.x;
-   int32_t dy = y - b.y;
+   int32_t dx = (x - b.x) * focused->surface->width / b.w;
+   int32_t dy = (y - b.y) * focused->surface->height / b.h;
    wlc_pointer_focus(pointer, serial, focused, dx, dy);
 
    if (!focused->client->input[WLC_POINTER])
