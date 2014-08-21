@@ -58,18 +58,18 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
    assert(out_bounds);
    memcpy(out_bounds, &view->geometry, sizeof(struct wlc_geometry));
 
-   if (view->xdg_surface) {
+   if (view->xdg_surface && view->xdg_surface->visible_geometry.w > 0 && view->xdg_surface->visible_geometry.h > 0) {
       out_bounds->x -= view->xdg_surface->visible_geometry.x;
       out_bounds->y -= view->xdg_surface->visible_geometry.y;
       out_bounds->w -= out_bounds->w - view->xdg_surface->visible_geometry.w;
       out_bounds->w += view->xdg_surface->visible_geometry.y * 2;
       out_bounds->h -= out_bounds->h - view->xdg_surface->visible_geometry.h;
       out_bounds->h += view->xdg_surface->visible_geometry.x * 2;
-   }
 
-   if ((view->state & WLC_BIT_MAXIMIZED) || (view->state & WLC_BIT_FULLSCREEN)) {
-      out_bounds->w = MIN(out_bounds->w, view->geometry.w);
-      out_bounds->h = MIN(out_bounds->h, view->geometry.h);
+      if ((view->state & WLC_BIT_MAXIMIZED) || (view->state & WLC_BIT_FULLSCREEN)) {
+         out_bounds->w = MIN(out_bounds->w, view->geometry.w);
+         out_bounds->h = MIN(out_bounds->h, view->geometry.h);
+      }
    }
 }
 
