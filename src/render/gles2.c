@@ -5,6 +5,7 @@
 #include "compositor/view.h"
 #include "compositor/surface.h"
 #include "compositor/buffer.h"
+#include "shell/xdg-surface.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -187,8 +188,6 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
       gl.api.glBindTexture(GL_TEXTURE_2D, surface->texture);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
    } else {
       gl.api.glBindTexture(GL_TEXTURE_2D, surface->texture);
    }
@@ -231,11 +230,14 @@ surface_destroy(struct wlc_surface *surface)
 static void
 view_render(struct wlc_view *view)
 {
+   struct wlc_geometry b;
+   wlc_view_get_bounds(view, &b);
+
    const GLint vertices[8] = {
-      view->x + view->surface->width, view->y,
-      view->x, view->y,
-      view->x + view->surface->width, view->y + view->surface->height,
-      view->x, view->y + view->surface->height,
+      b.x + b.w, b.y,
+      b.x, b.y,
+      b.x + b.w, b.y + b.h,
+      b.x, b.y + b.h,
    };
 
    const GLint coords[8] = {
@@ -246,6 +248,15 @@ view_render(struct wlc_view *view)
    };
 
    gl.api.glBindTexture(GL_TEXTURE_2D, view->surface->texture);
+
+   if (view->surface->width != b.w || view->surface->height != b.h) {
+      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+   } else {
+      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+   }
+
    gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices);
    gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords);
    gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

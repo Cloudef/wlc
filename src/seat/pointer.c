@@ -78,8 +78,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
    } else {
       struct wlc_view *view;
       wl_list_for_each_reverse(view, pointer->views, link) {
-         if (x >= view->x && x <= view->x + view->surface->width &&
-             y >= view->y && y <= view->y + view->surface->height) {
+         if (x >= view->geometry.x && x <= view->geometry.x + view->geometry.w &&
+             y >= view->geometry.y && y <= view->geometry.y + view->geometry.h) {
             focused = view;
             break;
          }
@@ -91,8 +91,10 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
       return;
    }
 
-   int32_t dx = x - focused->x;
-   int32_t dy = y - focused->y;
+   struct wlc_geometry b;
+   wlc_view_get_bounds(focused, &b);
+   int32_t dx = x - b.x;
+   int32_t dy = y - b.y;
    wlc_pointer_focus(pointer, serial, focused, dx, dy);
 
    if (!focused->client->input[WLC_POINTER])
@@ -105,7 +107,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
       int32_t dy = y - wl_fixed_to_int(pointer->gy);
 
       if (pointer->action == WLC_GRAB_ACTION_MOVE) {
-         const int32_t x = focused->x + dx, y = focused->y + dy;
+         const int32_t x = focused->geometry.x + dx, y = focused->geometry.y + dy;
          if (focused->surface->compositor->interface.view.move) {
             focused->surface->compositor->interface.view.move(focused->surface->compositor, focused, x, y);
          } else {
@@ -116,14 +118,14 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 
          if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
             w -= dx;
-            focused->x += dx;
+            focused->geometry.x += dx;
          } else if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_RIGHT) {
             w += dx;
          }
 
          if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_TOP) {
             h -= dy;
-            focused->y += dy;
+            focused->geometry.y += dy;
          } else if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_BOTTOM) {
             h += dy;
          }

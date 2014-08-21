@@ -3,6 +3,7 @@
 
 #include <wayland-util.h>
 #include <stdbool.h>
+#include "types/geometry.h"
 
 enum wlc_view_bit {
    WLC_BIT_MAXIMIZED = 1<<0,
@@ -24,10 +25,11 @@ struct wlc_view {
    struct wlc_xdg_surface *xdg_surface;
    struct wl_list link, user_link;
    struct wl_array stored_state;
+   struct wlc_geometry geometry;
    uint32_t state;
-   int32_t x, y;
 };
 
+void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_geometry);
 struct wlc_view* wlc_view_for_surface_in_list(struct wlc_surface *surface, struct wl_list *list);
 void wlc_view_set_xdg_surface(struct wlc_view *view, struct wlc_xdg_surface *xdg_surface);
 void wlc_view_set_shell_surface(struct wlc_view *view, struct wlc_shell_surface *shell_surface);

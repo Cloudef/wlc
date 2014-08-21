@@ -2,16 +2,13 @@
 #define _WLC_XDG_SURFACE_H_
 
 #include "types/string.h"
+#include "types/geometry.h"
 #include "compositor/surface.h"
 #include <stdbool.h>
 
 struct wl_resource;
 struct wlc_surface;
 struct wlc_shell_surface;
-
-struct wlc_geometry {
-   int32_t x, y, w, h;
-};
 
 struct wlc_xdg_surface {
    struct wlc_shell_surface *shell_surface;

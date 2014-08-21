@@ -151,6 +151,8 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
    if (!surface->created) {
       struct wlc_view *view;
       if (surface->compositor->interface.view.created && (view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
+         view->geometry.w = surface->width;
+         view->geometry.h = surface->height;
          surface->compositor->interface.view.created(surface->compositor, view);
          surface->created = true;
       }

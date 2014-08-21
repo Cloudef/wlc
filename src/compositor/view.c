@@ -8,12 +8,15 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 #include <wayland-server.h>
 #include "wayland-xdg-shell-server-protocol.h"
 
 #define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 static void
 update_state(struct wlc_view *view)
@@ -45,8 +48,29 @@ update_state(struct wlc_view *view)
    }
 
    uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
-   xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, view->surface->width, view->surface->height, &array, serial);
+   xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, view->geometry.w, view->geometry.h, &array, serial);
    wl_array_copy(&view->stored_state, &array);
+}
+
+void
+wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
+{
+   assert(out_bounds);
+   memcpy(out_bounds, &view->geometry, sizeof(struct wlc_geometry));
+
+   if (view->xdg_surface) {
+      out_bounds->x -= view->xdg_surface->visible_geometry.x;
+      out_bounds->y -= view->xdg_surface->visible_geometry.y;
+      out_bounds->w -= out_bounds->w - view->xdg_surface->visible_geometry.w;
+      out_bounds->w += view->xdg_surface->visible_geometry.y * 2;
+      out_bounds->h -= out_bounds->h - view->xdg_surface->visible_geometry.h;
+      out_bounds->h += view->xdg_surface->visible_geometry.x * 2;
+   }
+
+   if ((view->state & WLC_BIT_MAXIMIZED) || (view->state & WLC_BIT_FULLSCREEN)) {
+      out_bounds->w = MIN(out_bounds->w, view->geometry.w);
+      out_bounds->h = MIN(out_bounds->h, view->geometry.h);
+   }
 }
 
 struct wlc_view*
@@ -153,31 +177,21 @@ wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height)
 {
    assert(view);
 
-   if (!view->xdg_surface)
-      return;
+   if (view->xdg_surface) {
+      uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
+      xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, width, height, &view->stored_state, serial);
+   }
 
-   uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
-   xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, width, height, &view->stored_state, serial);
-
-   view->surface->width = width;
-   view->surface->height = height;
+   view->geometry.w = width;
+   view->geometry.h = height;
 }
 
 WLC_API void
 wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
 {
    assert(view);
-
-   int32_t vx = 0, vy = 0;
-#if 0
-   if (view->xdg_surface) {
-      vx = view->xdg_surface->visible_geometry.x;
-      vy = view->xdg_surface->visible_geometry.y;
-   }
-#endif
-
-   view->x = x - vx;
-   view->y = y - vy;
+   view->geometry.x = x;
+   view->geometry.y = y;
 }
 
 WLC_API void
