@@ -240,6 +240,8 @@ view_render(struct wlc_view *view)
       b.x, b.y + b.h,
    };
 
+   // printf("%d,%d+%d,%d\n", b.w, b.h, b.x, b.y);
+
    const GLint coords[8] = {
       1, 0,
       0, 0,
