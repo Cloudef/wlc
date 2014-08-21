@@ -114,7 +114,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
             wlc_view_position(focused, x, y);
          }
       } else if (pointer->action == WLC_GRAB_ACTION_RESIZE) {
-         int32_t w = focused->surface->width, h = focused->surface->height;
+         int32_t w = focused->geometry.w, h = focused->geometry.h;
 
          if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
             w -= dx;
@@ -133,7 +133,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
          if (focused->surface->compositor->interface.view.resize) {
             focused->surface->compositor->interface.view.resize(focused->surface->compositor, focused, w, h);
          } else {
-             wlc_view_resize(focused, w, h);
+            wlc_view_resize(focused, w, h);
          }
       }
 
