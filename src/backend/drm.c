@@ -41,7 +41,6 @@ static struct {
    drmModeConnector *connector;
    drmModeEncoder *encoder;
    drmModeModeInfo mode;
-   struct wl_event_source *event_source;
 
    struct {
       void *handle;
@@ -206,26 +205,6 @@ failed_to_create_fb:
    return;
 }
 
-static void
-vblank_handler(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
-{
-   (void)fd, (void)frame, (void)sec, (void)usec, (void)data;
-   // STUB
-}
-
-static int
-drm_event(int fd, uint32_t mask, void *data)
-{
-   (void)mask, (void)data;
-   drmEventContext evctx;
-   memset(&evctx, 0, sizeof(evctx));
-   evctx.version = DRM_EVENT_CONTEXT_VERSION;
-   evctx.page_flip_handler = page_flip_handler;
-   evctx.vblank_handler = vblank_handler;
-   drm.api.drmHandleEvent(fd, &evctx);
-   return 1;
-}
-
 static EGLNativeDisplayType
 get_display(void)
 {
@@ -300,9 +279,6 @@ fail:
 static void
 terminate(void)
 {
-   if (drm.event_source)
-      wl_event_source_remove(drm.event_source);
-
    if (gbm.surface)
       gbm.api.gbm_surface_destroy(gbm.surface);
 
@@ -347,11 +323,6 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!(gbm.surface = gbm.api.gbm_surface_create(gbm.dev, drm.mode.hdisplay, drm.mode.vdisplay, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
       goto gbm_surface_fail;
 
-#if 0
-   if (!(drm.event_source = wl_event_loop_add_fd(compositor->event_loop, drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
-      goto event_source_fail;
-#endif
-
    if (!(seat.udev = wlc_udev_new(compositor)))
       goto fail;
 
@@ -372,10 +343,6 @@ gbm_device_fail:
    goto fail;
 gbm_surface_fail:
    fprintf(stderr, "gbm_surface_creat failed\n");
-#if 0
-event_source_fail:
-   fprintf(stderr, "-!- failed to add DRM event source\n");
-#endif
 fail:
    terminate();
    return false;
