@@ -20,12 +20,23 @@
 #  include "udev/udev.h"
 #endif
 
+enum atom_name {
+   WM_PROTOCOLS,
+   WM_DELETE_WINDOW,
+   WM_CLASS,
+   NET_WM_NAME,
+   STRING,
+   UTF8_STRING,
+   ATOM_LAST
+};
+
 static struct {
    Display *display;
    xcb_connection_t *connection;
    xcb_screen_t *screen;
    xcb_window_t window;
    xcb_cursor_t cursor;
+   xcb_atom_t atoms[ATOM_LAST];
 
    struct {
       void *x11_handle;
@@ -52,6 +63,10 @@ static struct {
       xcb_void_cookie_t (*xcb_put_image)(xcb_connection_t*, uint8_t, xcb_drawable_t, xcb_gcontext_t, uint16_t, uint16_t, int16_t, int16_t, uint8_t, uint8_t, uint32_t, const uint8_t*);
       xcb_void_cookie_t (*xcb_create_cursor)(xcb_connection_t*, xcb_cursor_t, xcb_pixmap_t, xcb_pixmap_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t);
       xcb_void_cookie_t (*xcb_free_cursor)(xcb_connection_t*, xcb_cursor_t);
+      xcb_void_cookie_t (*xcb_change_property)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_atom_t, xcb_atom_t, uint8_t, uint32_t, const void*);
+      xcb_void_cookie_t (*xcb_change_window_attributes_checked)(xcb_connection_t*, xcb_window_t, uint32_t, const uint32_t*);
+      xcb_intern_atom_cookie_t (*xcb_intern_atom)(xcb_connection_t*, uint8_t, uint16_t, const char*);
+      xcb_intern_atom_reply_t* (*xcb_intern_atom_reply)(xcb_connection_t*, xcb_intern_atom_cookie_t, xcb_generic_error_t**);
       xcb_generic_error_t* (*xcb_request_check)(xcb_connection_t*, xcb_void_cookie_t);
       xcb_generic_event_t* (*xcb_poll_for_event)(xcb_connection_t*);
       int (*xcb_get_file_descriptor)(xcb_connection_t*);
@@ -157,6 +172,14 @@ xcb_load(void)
       goto function_pointer_exception;
    if (!load(xcb_free_cursor))
       goto function_pointer_exception;
+   if (!load(xcb_change_property))
+      goto function_pointer_exception;
+   if (!load(xcb_change_window_attributes_checked))
+      goto function_pointer_exception;
+   if (!load(xcb_intern_atom))
+      goto function_pointer_exception;
+   if (!load(xcb_intern_atom_reply))
+      goto function_pointer_exception;
    if (!load(xcb_request_check))
       goto function_pointer_exception;
    if (!load(xcb_poll_for_event))
@@ -196,6 +219,12 @@ x11_event(int fd, uint32_t mask, void *data)
 
    while ((event = x11.api.xcb_poll_for_event(x11.connection))) {
       switch (event->response_type & ~0x80) {
+         case XCB_CLIENT_MESSAGE: {
+            xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
+            if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW])
+               exit(0);
+         }
+         break;
          case XCB_CONFIGURE_NOTIFY: {
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
             seat->compositor->api.resolution(seat->compositor, ev->width, ev->height);
@@ -287,16 +316,25 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (x11.api.xcb_connection_has_error(x11.connection))
       goto xcb_connection_fail;
 
+   struct {
+      const char *name;
+      enum atom_name atom;
+   } map[ATOM_LAST] = {
+      { "WM_PROTOCOLS", WM_PROTOCOLS },
+      { "WM_DELETE_WINDOW", WM_DELETE_WINDOW },
+      { "WM_CLASS", WM_CLASS },
+      { "NET_WM_NAME", NET_WM_NAME },
+      { "STRING", STRING },
+      { "UTF8_STRING", UTF8_STRING },
+   };
+
+   for (int i = 0; i < ATOM_LAST; ++i) {
+      xcb_intern_atom_reply_t *reply = x11.api.xcb_intern_atom_reply(x11.connection, x11.api.xcb_intern_atom(x11.connection, 0, strlen(map[i].name), map[i].name), 0);
+      x11.atoms[map[i].atom] = (reply ? reply->atom : 0);
+   }
+
    xcb_screen_iterator_t s = x11.api.xcb_setup_roots_iterator(x11.api.xcb_get_setup(x11.connection));
    x11.screen = s.data;
-
-#if 0
-   int width = x11.screen->width_in_pixels;
-   int height = x11.screen->height_in_pixels;
-#else
-   int width = 800;
-   int height = 480;
-#endif
 
 #if 0
    xcb_gc_t gc = x11.api.xcb_generate_id(x11.connection);
@@ -317,33 +355,39 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
       goto cursor_fail;
 #endif
 
-   uint32_t mask = XCB_CW_EVENT_MASK; // | XCB_CW_CURSOR;
-   uint32_t values[] = {
-      XCB_EVENT_MASK_STRUCTURE_NOTIFY |
-      XCB_EVENT_MASK_POINTER_MOTION |
-      XCB_EVENT_MASK_BUTTON_PRESS |
-      XCB_EVENT_MASK_BUTTON_RELEASE |
-      XCB_EVENT_MASK_KEY_PRESS |
-      XCB_EVENT_MASK_KEY_RELEASE,
-      x11.cursor,
-   };
-
-   xcb_window_t window;
-   if (!(window = x11.api.xcb_generate_id(x11.connection)))
-      goto window_fail;
-
-   xcb_void_cookie_t create_cookie = x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, window, x11.screen->root, 0, 0, width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, x11.screen->root_visual, mask, values);
-   xcb_void_cookie_t map_cookie = x11.api.xcb_map_window_checked(x11.connection, window);
-
    xcb_generic_error_t *error;
-   if ((error = x11.api.xcb_request_check(x11.connection, create_cookie)) || (error = x11.api.xcb_request_check(x11.connection, map_cookie))) {
-      free(error);
-      goto window_fail;
-   }
+   unsigned int root_mask = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE | XCB_EVENT_MASK_BUTTON_PRESS;
+   if ((error = x11.api.xcb_request_check(x11.connection, x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &root_mask)))) {
+      uint32_t mask = XCB_CW_EVENT_MASK; // | XCB_CW_CURSOR;
+      uint32_t values[] = {
+         XCB_EVENT_MASK_STRUCTURE_NOTIFY |
+            XCB_EVENT_MASK_POINTER_MOTION |
+            XCB_EVENT_MASK_BUTTON_PRESS |
+            XCB_EVENT_MASK_BUTTON_RELEASE |
+            XCB_EVENT_MASK_KEY_PRESS |
+            XCB_EVENT_MASK_KEY_RELEASE,
+         x11.cursor,
+      };
 
-   /* set this to root to run as x11 "wm"
-    * TODO: check atom for wm and if it doesn't exist, set as root and skip window creation. */
-   x11.window = window;
+      xcb_window_t window;
+      if (!(window = x11.api.xcb_generate_id(x11.connection)))
+         goto window_fail;
+
+      xcb_void_cookie_t create_cookie = x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, window, x11.screen->root, 0, 0, 800, 480, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, x11.screen->root_visual, mask, values);
+      xcb_void_cookie_t map_cookie = x11.api.xcb_map_window_checked(x11.connection, window);
+
+      if ((error = x11.api.xcb_request_check(x11.connection, create_cookie)) || (error = x11.api.xcb_request_check(x11.connection, map_cookie))) {
+         free(error);
+         goto window_fail;
+      }
+
+      x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_PROTOCOLS], XCB_ATOM_ATOM, 32, 1, &x11.atoms[WM_DELETE_WINDOW]);
+      x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, 7, "wlc-x11");
+      x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_CLASS], x11.atoms[STRING], 8, 7, "wlc-x11");
+      x11.window = window;
+   } else {
+      x11.window = x11.screen->root;
+   }
 
 #if X11_USE_UDEV_LIBINPUT
    if (!(seat.udev = wlc_udev_new(compositor)))
@@ -372,8 +416,9 @@ cursor_fail:
    goto fail;
 window_fail:
    fprintf(stderr, "-!- Failed to create X11 window\n");
+   goto fail;
 event_source_fail:
-   fprintf(stderr, "-!- failed to add X11 event source\n");
+   fprintf(stderr, "-!- Failed to add X11 event source\n");
 fail:
    terminate();
    return false;
