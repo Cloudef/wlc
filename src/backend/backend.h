@@ -5,6 +5,7 @@
 
 struct wlc_seat;
 struct wlc_keymap;
+struct wlc_compositor;
 
 struct wlc_backend {
    const char *name;
@@ -13,13 +14,11 @@ struct wlc_backend {
    struct {
       EGLNativeDisplayType (*display)(void);
       EGLNativeWindowType (*window)(void);
-      int (*poll_events)(struct wlc_seat *seat);
-      int (*event_fd)(void);
       void (*page_flip)(void);
    } api;
 };
 
 void wlc_backend_terminate(struct wlc_backend *backend);
-struct wlc_backend* wlc_backend_init(void);
+struct wlc_backend* wlc_backend_init(struct wlc_compositor *compositor);
 
 #endif /* _WLC_BACKEND_H_ */

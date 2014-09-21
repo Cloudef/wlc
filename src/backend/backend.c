@@ -17,21 +17,21 @@ wlc_backend_terminate(struct wlc_backend *context)
 }
 
 struct wlc_backend*
-wlc_backend_init(void)
+wlc_backend_init(struct wlc_compositor *compositor)
 {
    struct wlc_backend *backend;
 
    if (!(backend = calloc(1, sizeof(struct wlc_backend))))
       goto out_of_memory;
 
-   bool (*init[])(struct wlc_backend*) = {
+   bool (*init[])(struct wlc_backend*, struct wlc_compositor*) = {
       wlc_x11_init,
       wlc_drm_init,
       NULL
    };
 
    for (int i = 0; init[i]; ++i)
-      if (init[i](backend))
+      if (init[i](backend, compositor))
          return backend;
 
    fprintf(stderr, "-!- Could not initialize any backend\n");

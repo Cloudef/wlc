@@ -1,6 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
 #include "drm.h"
+#include "udev/udev.h"
 #include "backend.h"
+#include "compositor/compositor.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,6 +14,8 @@
 #include <drm_fourcc.h>
 #include <gbm.h>
 #include <dlfcn.h>
+
+#include <wayland-server.h>
 
 static struct {
    int fd;
@@ -37,6 +41,7 @@ static struct {
    drmModeConnector *connector;
    drmModeEncoder *encoder;
    drmModeModeInfo mode;
+   struct wl_event_source *event_source;
 
    struct {
       void *handle;
@@ -51,12 +56,16 @@ static struct {
       drmModeEncoderPtr (*drmModeGetEncoder)(int, uint32_t);
       void (*drmModeFreeEncoder)(drmModeEncoderPtr);
    } api;
-} kms;
+} drm;
 
 static struct {
    uint32_t current_fb_id, next_fb_id;
    struct gbm_bo *current_bo, *next_bo;
 } flipper;
+
+static struct {
+   struct wlc_udev *udev;
+} seat;
 
 static bool
 gbm_load(void)
@@ -103,12 +112,12 @@ drm_load(void)
 {
    const char *lib = "libdrm.so", *func = NULL;
 
-   if (!(kms.api.handle = dlopen(lib, RTLD_LAZY))) {
+   if (!(drm.api.handle = dlopen(lib, RTLD_LAZY))) {
       fprintf(stderr, "-!- %s\n", dlerror());
       return false;
    }
 
-#define load(x) (kms.api.x = dlsym(kms.api.handle, (func = #x)))
+#define load(x) (drm.api.x = dlsym(drm.api.handle, (func = #x)))
 
    if (!load(drmModeAddFB))
       goto function_pointer_exception;
@@ -144,7 +153,7 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
    (void)frame, (void)sec, (void)usec, (void)data;
 
    if (flipper.current_fb_id)
-      kms.api.drmModeRmFB(fd, flipper.current_fb_id);
+      drm.api.drmModeRmFB(fd, flipper.current_fb_id);
 
    flipper.current_fb_id = flipper.next_fb_id;
    flipper.next_fb_id = 0;
@@ -168,11 +177,11 @@ page_flip(void)
    uint32_t handle = gbm.api.gbm_bo_get_handle(flipper.next_bo).u32;
    uint32_t stride = gbm.api.gbm_bo_get_stride(flipper.next_bo);
 
-   if (kms.api.drmModeAddFB(gbm.fd, kms.mode.hdisplay, kms.mode.vdisplay, 24, 32, stride, handle, &flipper.next_fb_id))
+   if (drm.api.drmModeAddFB(gbm.fd, drm.mode.hdisplay, drm.mode.vdisplay, 24, 32, stride, handle, &flipper.next_fb_id))
       goto failed_to_create_fb;
 
-   if (kms.api.drmModePageFlip(gbm.fd, kms.encoder->crtc_id, flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, 0))
-      goto failed_to_page_flip;
+   if (drm.api.drmModePageFlip(gbm.fd, drm.encoder->crtc_id, flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, 0))
+      fprintf(stderr, "failed to page flip: %m\n");
 
    fd_set rfds;
    FD_ZERO(&rfds);
@@ -183,7 +192,7 @@ page_flip(void)
    memset(&evctx, 0, sizeof(evctx));
    evctx.version = DRM_EVENT_CONTEXT_VERSION;
    evctx.page_flip_handler = page_flip_handler;
-   kms.api.drmHandleEvent(gbm.fd, &evctx);
+   drm.api.drmHandleEvent(gbm.fd, &evctx);
    return;
 
 no_buffers:
@@ -195,8 +204,26 @@ failed_to_lock:
 failed_to_create_fb:
    fprintf(stderr, "failed to create fb\n");
    return;
-failed_to_page_flip:
-   fprintf(stderr, "failed to page flip: %m\n");
+}
+
+static void
+vblank_handler(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
+{
+   (void)fd, (void)frame, (void)sec, (void)usec, (void)data;
+   // STUB
+}
+
+static int
+drm_event(int fd, uint32_t mask, void *data)
+{
+   (void)mask, (void)data;
+   drmEventContext evctx;
+   memset(&evctx, 0, sizeof(evctx));
+   evctx.version = DRM_EVENT_CONTEXT_VERSION;
+   evctx.page_flip_handler = page_flip_handler;
+   evctx.vblank_handler = vblank_handler;
+   drm.api.drmHandleEvent(fd, &evctx);
+   return 1;
 }
 
 static EGLNativeDisplayType
@@ -211,29 +238,22 @@ get_window(void)
    return (EGLNativeWindowType)gbm.surface;
 }
 
-static int
-poll_events(struct wlc_seat *seat)
-{
-   (void)seat;
-   return 0;
-}
-
 static bool
-setup_kms(int fd)
+setup_drm(int fd)
 {
    drmModeRes *resources;
-   if (!(resources = kms.api.drmModeGetResources(fd)))
+   if (!(resources = drm.api.drmModeGetResources(fd)))
       goto resources_fail;
 
    drmModeConnector *connector = NULL;
    for (int i = 0; i < resources->count_connectors; i++) {
-      if (!(connector = kms.api.drmModeGetConnector(fd, resources->connectors[i])))
+      if (!(connector = drm.api.drmModeGetConnector(fd, resources->connectors[i])))
          continue;
 
       if (connector->connection == DRM_MODE_CONNECTED && connector->count_modes > 0)
          break;
 
-      kms.api.drmModeFreeConnector(connector);
+      drm.api.drmModeFreeConnector(connector);
       connector = NULL;
    }
 
@@ -242,22 +262,26 @@ setup_kms(int fd)
 
    drmModeEncoder *encoder = NULL;
    for (int i = 0; i < resources->count_encoders; i++) {
-      if (!(encoder = kms.api.drmModeGetEncoder(fd, resources->encoders[i])))
+      if (!(encoder = drm.api.drmModeGetEncoder(fd, resources->encoders[i])))
          continue;
 
       if (encoder->encoder_id == connector->encoder_id)
          break;
 
-      kms.api.drmModeFreeEncoder(encoder);
+      drm.api.drmModeFreeEncoder(encoder);
       encoder = NULL;
    }
 
    if (!encoder)
       goto encoder_not_found;
 
-   kms.connector = connector;
-   kms.encoder = encoder;
-   kms.mode = connector->modes[0];
+   drm.connector = connector;
+   drm.encoder = encoder;
+   drm.mode = connector->modes[0];
+
+   for (int i = 0; i < connector->count_modes; ++i)
+      printf("%d. %dx%d\n", i, connector->modes[i].hdisplay, connector->modes[i].vdisplay);
+
    return true;
 
 resources_fail:
@@ -269,31 +293,34 @@ connector_not_found:
 encoder_not_found:
    fprintf(stderr, "Could not find active encoder\n");
 fail:
-   memset(&kms, 0, sizeof(kms));
+   memset(&drm, 0, sizeof(drm));
    return false;
 }
 
 static void
 terminate(void)
 {
+   if (drm.event_source)
+      wl_event_source_remove(drm.event_source);
+
    if (gbm.surface)
       gbm.api.gbm_surface_destroy(gbm.surface);
 
    if (gbm.dev)
       gbm.api.gbm_device_destroy(gbm.dev);
 
-   if (kms.api.handle)
-      dlclose(kms.api.handle);
+   if (drm.api.handle)
+      dlclose(drm.api.handle);
 
    if (gbm.api.handle)
       dlclose(gbm.api.handle);
 
-   memset(&kms, 0, sizeof(kms));
+   memset(&drm, 0, sizeof(drm));
    memset(&gbm, 0, sizeof(gbm));
 }
 
 bool
-wlc_drm_init(struct wlc_backend *out_backend)
+wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 {
    if (!gbm_load())
       goto fail;
@@ -304,20 +331,31 @@ wlc_drm_init(struct wlc_backend *out_backend)
    if ((gbm.fd = open("/dev/dri/card0", O_RDWR)) < 0)
       goto card_open_fail;
 
+   dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
+
    if (!(gbm.dev = gbm.api.gbm_create_device(gbm.fd)))
       goto gbm_device_fail;
 
-   if (!setup_kms(gbm.fd))
+   if (!setup_drm(gbm.fd))
       goto fail;
 
-   if (!(gbm.surface = gbm.api.gbm_surface_create(gbm.dev, kms.mode.hdisplay, kms.mode.vdisplay, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
+   if (!(gbm.surface = gbm.api.gbm_surface_create(gbm.dev, drm.mode.hdisplay, drm.mode.vdisplay, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
       goto gbm_surface_fail;
+
+#if 0
+   if (!(drm.event_source = wl_event_loop_add_fd(compositor->event_loop, drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
+      goto event_source_fail;
+#endif
+
+   if (!(seat.udev = wlc_udev_new(compositor)))
+      goto fail;
+
+   compositor->api.resolution(compositor, drm.mode.hdisplay, drm.mode.vdisplay);
 
    out_backend->name = "drm";
    out_backend->terminate = terminate;
    out_backend->api.display = get_display;
    out_backend->api.window = get_window;
-   out_backend->api.poll_events = poll_events;
    out_backend->api.page_flip = page_flip;
    return true;
 
@@ -329,6 +367,10 @@ gbm_device_fail:
    goto fail;
 gbm_surface_fail:
    fprintf(stderr, "gbm_surface_creat failed\n");
+#if 0
+event_source_fail:
+   fprintf(stderr, "-!- failed to add DRM event source\n");
+#endif
 fail:
    terminate();
    return false;

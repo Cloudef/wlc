@@ -1,0 +1,14 @@
+# Find UDEV
+#
+# UDEV_INCLUDE_DIR
+# UDEV_LIBRARIES
+# UDEV_FOUND
+
+FIND_PATH(UDEV_INCLUDE_DIR libudev.h)
+
+FIND_LIBRARY(UDEV_LIBRARIES NAMES udev)
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(UDEV DEFAULT_MSG UDEV_INCLUDE_DIR UDEV_LIBRARIES)
+
+mark_as_advanced(UDEV_INCLUDE_DIR UDEV_LIBRARIES)

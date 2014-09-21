@@ -13,6 +13,13 @@
 #include <string.h>
 #include <dlfcn.h>
 
+#include <wayland-server.h>
+
+#define X11_USE_UDEV_LIBINPUT 1
+#if X11_USE_UDEV_LIBINPUT
+#  include "udev/udev.h"
+#endif
+
 static struct {
    Display *display;
    xcb_connection_t *connection;
@@ -50,6 +57,13 @@ static struct {
       int (*xcb_get_file_descriptor)(xcb_connection_t*);
    } api;
 } x11;
+
+static struct {
+#if X11_USE_UDEV_LIBINPUT
+   struct wlc_udev *udev;
+#endif
+   struct wl_event_source *event_source;
+} seat;
 
 static bool
 x11_load(void)
@@ -172,16 +186,13 @@ get_window(void)
 }
 
 static int
-get_event_fd(void)
+x11_event(int fd, uint32_t mask, void *data)
 {
-   return x11.api.xcb_get_file_descriptor(x11.connection);
-}
+   (void)fd, (void)mask;
 
-static int
-poll_events(struct wlc_seat *seat)
-{
    int count = 0;
    xcb_generic_event_t *event;
+   struct wlc_seat *seat = data;
 
    while ((event = x11.api.xcb_poll_for_event(x11.connection))) {
       switch (event->response_type & ~0x80) {
@@ -189,6 +200,8 @@ poll_events(struct wlc_seat *seat)
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
             seat->compositor->api.resolution(seat->compositor, ev->width, ev->height);
          }
+         break;
+#if !X11_USE_UDEV_LIBINPUT
          case XCB_MOTION_NOTIFY: {
             xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t*)event;
             seat->notify.pointer_motion(seat, ev->event_x, ev->event_y);
@@ -216,6 +229,7 @@ poll_events(struct wlc_seat *seat)
             seat->notify.keyboard_key(seat, ev->detail - 8, WL_KEYBOARD_KEY_STATE_RELEASED);
          }
          break;
+#endif
       }
       count += 1;
    }
@@ -235,6 +249,9 @@ terminate(void)
    if (x11.display)
       x11.api.XCloseDisplay(x11.display);
 
+   if (seat.event_source)
+      wl_event_source_remove(seat.event_source);
+
    if (x11.api.x11_handle)
       dlclose(x11.api.x11_handle);
 
@@ -248,7 +265,7 @@ terminate(void)
 }
 
 bool
-wlc_x11_init(struct wlc_backend *out_backend)
+wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 {
    if (!x11_load())
       goto fail;
@@ -328,12 +345,20 @@ wlc_x11_init(struct wlc_backend *out_backend)
     * TODO: check atom for wm and if it doesn't exist, set as root and skip window creation. */
    x11.window = window;
 
+#if X11_USE_UDEV_LIBINPUT
+   if (!(seat.udev = wlc_udev_new(compositor)))
+      goto fail;
+#endif
+
+   if (!(seat.event_source = wl_event_loop_add_fd(compositor->event_loop, x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, compositor->seat)))
+      goto event_source_fail;
+
+   wl_event_source_check(seat.event_source);
+
    out_backend->name = "X11";
    out_backend->terminate = terminate;
    out_backend->api.display = get_display;
    out_backend->api.window = get_window;
-   out_backend->api.poll_events = poll_events;
-   out_backend->api.event_fd = get_event_fd;
    return true;
 
 display_open_fail:
@@ -347,6 +372,8 @@ cursor_fail:
    goto fail;
 window_fail:
    fprintf(stderr, "-!- Failed to create X11 window\n");
+event_source_fail:
+   fprintf(stderr, "-!- failed to add X11 event source\n");
 fail:
    terminate();
    return false;

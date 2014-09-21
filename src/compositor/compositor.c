@@ -265,6 +265,9 @@ resolution(struct wlc_compositor *compositor, int32_t width, int32_t height)
 
    if (compositor->interface.output.resolution)
       compositor->interface.output.resolution(compositor, width, height);
+
+   compositor->resolution.width = width;
+   compositor->resolution.height = height;
 }
 
 static void
@@ -277,14 +280,6 @@ schedule_repaint(struct wlc_compositor *compositor)
    compositor->repaint_scheduled = true;
 }
 
-static int
-poll_for_events(int fd, uint32_t mask, void *data)
-{
-   (void)fd, (void)mask;
-   struct wlc_compositor *compositor = data;
-   return compositor->backend->api.poll_events(compositor->seat);
-}
-
 WLC_API void
 wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view)
 {
@@ -295,6 +290,7 @@ WLC_API void
 wlc_compositor_inject(struct wlc_compositor *compositor, const struct wlc_interface *interface)
 {
    memcpy(&compositor->interface, interface, sizeof(struct wlc_interface));
+   resolution(compositor, compositor->resolution.width, compositor->resolution.height);
 }
 
 WLC_API void
@@ -310,9 +306,6 @@ wlc_compositor_free(struct wlc_compositor *compositor)
 
    if (compositor->repaint_timer)
       wl_event_source_remove(compositor->repaint_timer);
-
-   if (compositor->event_source)
-      wl_event_source_remove(compositor->event_source);
 
    if (compositor->render)
       wlc_render_terminate(compositor->render);
@@ -354,6 +347,11 @@ wlc_compositor_new(void)
    if (!(compositor = calloc(1, sizeof(struct wlc_compositor))))
       goto out_of_memory;
 
+   compositor->resolution.width = compositor->resolution.height = 1;
+   compositor->api.resolution = resolution;
+   compositor->api.schedule_repaint = schedule_repaint;
+   compositor->api.get_time = get_time;
+
    if (!(compositor->display = wl_display_create()))
       goto display_create_fail;
 
@@ -387,7 +385,7 @@ wlc_compositor_new(void)
    if (!(compositor->event_loop = wl_display_get_event_loop(compositor->display)))
       goto no_event_loop;
 
-   if (!(compositor->backend = wlc_backend_init()))
+   if (!(compositor->backend = wlc_backend_init(compositor)))
       goto fail;
 
    if (!(compositor->context = wlc_context_init(compositor->backend)))
@@ -396,19 +394,8 @@ wlc_compositor_new(void)
    if (!(compositor->render = wlc_render_init(compositor->context)))
       goto fail;
 
-   if (compositor->backend->api.event_fd) {
-      if (!(compositor->event_source = wl_event_loop_add_fd(compositor->event_loop, compositor->backend->api.event_fd(), WL_EVENT_READABLE, poll_for_events, compositor)))
-         goto event_source_fail;
-
-      wl_event_source_check(compositor->event_source);
-   }
-
+   resolution(compositor, compositor->resolution.width, compositor->resolution.height);
    compositor->repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
-
-   compositor->api.resolution = resolution;
-   compositor->api.schedule_repaint = schedule_repaint;
-   compositor->api.get_time = get_time;
-
    repaint(compositor);
    return compositor;
 
@@ -433,8 +420,6 @@ display_init_shm_fail:
 no_event_loop:
    fprintf(stderr, "-!- display has no event loop\n");
    goto fail;
-event_source_fail:
-   fprintf(stderr, "-!- failed to add context event source\n");
 fail:
    if (compositor)
       wlc_compositor_free(compositor);
