@@ -343,6 +343,11 @@ wlc_compositor_free(struct wlc_compositor *compositor)
 WLC_API struct wlc_compositor*
 wlc_compositor_new(void)
 {
+   if (!wlc_has_init()) {
+      fprintf(stderr, "-!- wlc_init() must be called before creating compositor. Doing otherwise might cause a security risk.\n");
+      exit(1);
+   }
+
    struct wlc_compositor *compositor;
    if (!(compositor = calloc(1, sizeof(struct wlc_compositor))))
       goto out_of_memory;

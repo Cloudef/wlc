@@ -24,6 +24,7 @@ SET(SRC
    shell/xdg-shell.c
    shell/xdg-surface.c
    types/string.c
+   wlc.c
    )
 
 IF (UNIX)

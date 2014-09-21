@@ -1,4 +1,5 @@
 #include "udev.h"
+#include "wlc_internal.h"
 #include "compositor/compositor.h"
 #include "seat/seat.h"
 
@@ -7,7 +8,6 @@
 #include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
 #include <string.h>
 
 #include <libudev.h>
@@ -29,17 +29,15 @@ udev_event(int fd, uint32_t mask, void *data)
 static int
 input_open_restricted(const char *path, int flags, void *user_data)
 {
-   (void)path, (void)flags, (void)user_data;
-   int fd = open(path, (flags & ~O_RDWR) | O_RDONLY);
-   if (fd < 0) printf("error opening (%s): %s\n", strerror(errno), path);
-   return fd < 0 ? -errno : fd;
+   (void)user_data;
+   return wlc_fd_open(path, flags);
 }
 
 static void
 input_close_restricted(int fd, void *user_data)
 {
    (void)user_data;
-   close(fd);
+   wlc_fd_close(fd);
 }
 
 static const struct libinput_interface libinput_implementation = {

@@ -71,6 +71,8 @@ struct wlc_interface {
    } output;
 };
 
+bool wlc_init(void);
+
 void wlc_view_set_maximized(struct wlc_view *view, bool maximized);
 void wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen);
 void wlc_view_set_resizing(struct wlc_view *view, bool resizing);
