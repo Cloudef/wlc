@@ -15,7 +15,7 @@
 
 #include <wayland-server.h>
 
-#define X11_USE_UDEV_LIBINPUT 1
+#define X11_USE_UDEV_LIBINPUT 0
 #if X11_USE_UDEV_LIBINPUT
 #  include "udev/udev.h"
 #endif
