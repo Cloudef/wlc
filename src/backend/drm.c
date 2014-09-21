@@ -331,6 +331,11 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if ((gbm.fd = open("/dev/dri/card0", O_RDWR)) < 0)
       goto card_open_fail;
 
+   /* GBM will load a dri driver, but even though they need symbols from
+    * libglapi, in some version of Mesa they are not linked to it. Since
+    * only the gl-renderer module links to it, the call above won't make
+    * these symbols globally available, and loading the DRI driver fails.
+    * Workaround this by dlopen()'ing libglapi with RTLD_GLOBAL. */
    dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
 
    if (!(gbm.dev = gbm.api.gbm_create_device(gbm.fd)))
