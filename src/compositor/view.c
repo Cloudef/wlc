@@ -71,6 +71,10 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
          out_bounds->h = MIN(out_bounds->h, view->geometry.h);
       }
    }
+
+   /* make sure bounds is never 0x0 w/h */
+   out_bounds->w = MAX(out_bounds->w, 1);
+   out_bounds->h = MAX(out_bounds->h, 1);
 }
 
 struct wlc_view*
