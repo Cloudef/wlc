@@ -20,6 +20,7 @@ static struct {
    EGLConfig config;
    const char *extensions;
    bool has_current;
+   bool flip_failed;
 
    struct {
       void *handle;
@@ -160,10 +161,11 @@ has_extension(const char *extension)
 static void
 swap_buffers(void)
 {
-   egl.api.eglSwapBuffers(egl.display, egl.surface);
+   if (!egl.flip_failed)
+      egl.api.eglSwapBuffers(egl.display, egl.surface);
 
    if (egl.backend->api.page_flip)
-      egl.backend->api.page_flip();
+      egl.flip_failed = !egl.backend->api.page_flip();
 }
 
 static void

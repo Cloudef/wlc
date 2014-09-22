@@ -189,7 +189,7 @@ drm_event(int fd, uint32_t mask, void *data)
    return 0;
 }
 
-static void
+static bool
 page_flip(void)
 {
    /**
@@ -206,6 +206,9 @@ page_flip(void)
       while (select(drm.fd + 1, &rfds, NULL, NULL, NULL) == -1);
       drm_event(drm.fd, 0, NULL);
    }
+
+   flipper.next_bo = NULL;
+   flipper.next_fb_id = 0;
 
    if (!gbm.api.gbm_surface_has_free_buffers(gbm.surface))
       goto no_buffers;
@@ -226,19 +229,31 @@ page_flip(void)
     */
 
    if (drm.api.drmModePageFlip(drm.fd, drm.encoder->crtc_id, flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, 0))
-      fprintf(stderr, "failed to page flip: %m\n");
+      goto failed_to_page_flip;
 
-   return;
+   return true;
 
 no_buffers:
    fprintf(stderr, "gbm is out of buffers\n");
-   return;
+   goto fail;
 failed_to_lock:
-   fprintf(stderr, "failed to lock front buffer: %m\n");
-   return;
+   fprintf(stderr, "failed to lock front buffer\n");
+   goto fail;
 failed_to_create_fb:
    fprintf(stderr, "failed to create fb\n");
-   return;
+   goto fail;
+failed_to_page_flip:
+   fprintf(stderr, "failed to page flip: %m\n");
+fail:
+   if (flipper.next_fb_id > 0) {
+      drm.api.drmModeRmFB(drm.fd, flipper.next_fb_id);
+      flipper.next_fb_id = 0;
+   }
+   if (flipper.next_bo) {
+      gbm.api.gbm_surface_release_buffer(gbm.surface, flipper.next_bo);
+      flipper.next_bo = NULL;
+   }
+   return false;
 }
 
 static EGLNativeDisplayType

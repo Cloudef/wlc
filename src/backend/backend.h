@@ -2,6 +2,7 @@
 #define _WLC_BACKEND_H_
 
 #include "EGL/egl.h"
+#include <stdbool.h>
 
 struct wlc_seat;
 struct wlc_keymap;
@@ -14,7 +15,7 @@ struct wlc_backend {
    struct {
       EGLNativeDisplayType (*display)(void);
       EGLNativeWindowType (*window)(void);
-      void (*page_flip)(void);
+      bool (*page_flip)(void);
    } api;
 };
 
