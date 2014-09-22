@@ -160,6 +160,7 @@ wlc_input_new(struct wlc_udev *udev, struct wlc_compositor *compositor)
 
 event_source_fail:
    fprintf(stderr, "-!- failed to add libinput event source\n");
+   goto fail;
 seat_fail:
    fprintf(stderr, "-!- failed to assign seat to libinput\n");
 fail:
@@ -217,6 +218,7 @@ wlc_udev_new(struct wlc_compositor *compositor)
 
 event_source_fail:
    fprintf(stderr, "-!- failed to add udev event source\n");
+   goto fail;
 failed_to_enable_receiving:
    fprintf(stderr, "-!- failed to enable udev-monitor receiving\n");
 fail:
