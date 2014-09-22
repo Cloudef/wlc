@@ -53,6 +53,8 @@ static struct {
       int (*drmModePageFlip)(int, uint32_t, uint32_t, uint32_t, void*);
       int (*drmHandleEvent)(int, drmEventContextPtr);
       drmModeResPtr (*drmModeGetResources)(int);
+      drmModeCrtcPtr (*drmModeGetCrtc)(int, uint32_t);
+      void (*drmModeFreeCrtc)(drmModeCrtcPtr);
       drmModeConnectorPtr (*drmModeGetConnector)(int, uint32_t);
       void (*drmModeFreeConnector)(drmModeConnectorPtr);
       drmModeEncoderPtr (*drmModeGetEncoder)(int, uint32_t);
@@ -134,6 +136,10 @@ drm_load(void)
    if (!load(drmHandleEvent))
       goto function_pointer_exception;
    if (!load(drmModeGetResources))
+      goto function_pointer_exception;
+   if (!load(drmModeGetCrtc))
+      goto function_pointer_exception;
+   if (!load(drmModeFreeCrtc))
       goto function_pointer_exception;
    if (!load(drmModeGetConnector))
       goto function_pointer_exception;
@@ -284,12 +290,34 @@ setup_drm(int fd)
    if (!encoder)
       goto encoder_not_found;
 
+   drmModeModeInfo current_mode;
+   memset(&current_mode, 0, sizeof(current_mode));
+   drmModeCrtcPtr crtc;
+
+   if (!(crtc = drm.api.drmModeGetCrtc(drm.fd, encoder->crtc_id)))
+      goto failed_to_get_crtc_for_encoder;
+
+   if (crtc->mode_valid)
+      memcpy(&current_mode, &crtc->mode, sizeof(current_mode));
+
+   drm.api.drmModeFreeCrtc(crtc);
+
    drm.connector = connector;
    drm.encoder = encoder;
-   drm.mode = connector->modes[0];
+   memcpy(&drm.mode, &connector->modes[0], sizeof(drm.mode));
 
    for (int i = 0; i < connector->count_modes; ++i)
-      printf("%d. %dx%d\n", i, connector->modes[i].hdisplay, connector->modes[i].vdisplay);
+      if (!memcmp(&connector->modes[i], &current_mode, sizeof(current_mode)))
+         drm.mode = connector->modes[i];
+
+   for (int i = 0; i < connector->count_modes; ++i) {
+      const char *desc = (connector->modes[i].type & DRM_MODE_TYPE_PREFERRED ? "preferred" : "");
+      if (!memcmp(&drm.mode, &connector->modes[i], sizeof(drm.mode))) {
+         printf(">> %d. %dx%d %s\n", i, connector->modes[i].hdisplay, connector->modes[i].vdisplay, desc);
+      } else {
+         printf("   %d. %dx%d %s\n", i, connector->modes[i].hdisplay, connector->modes[i].vdisplay, desc);
+      }
+   }
 
    return true;
 
@@ -301,6 +329,9 @@ connector_not_found:
    goto fail;
 encoder_not_found:
    fprintf(stderr, "Could not find active encoder\n");
+   goto fail;
+failed_to_get_crtc_for_encoder:
+   fprintf(stderr, "Failed to get crtc for encoder\n");
 fail:
    memset(&drm, 0, sizeof(drm));
    return false;
