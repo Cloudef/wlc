@@ -18,7 +18,6 @@
 #include <wayland-server.h>
 
 static struct {
-   int fd;
    struct gbm_device *dev;
    struct gbm_surface *surface;
 
@@ -29,6 +28,8 @@ static struct {
       void (*gbm_device_destroy)(struct gbm_device*);
       struct gbm_surface* (*gbm_surface_create)(struct gbm_device*, uint32_t, uint32_t, uint32_t, uint32_t);
       void (*gbm_surface_destroy)(struct gbm_surface*);
+      uint32_t (*gbm_bo_get_width)(struct gbm_bo*);
+      uint32_t (*gbm_bo_get_height)(struct gbm_bo*);
       uint32_t (*gbm_bo_get_stride)(struct gbm_bo*);
       union gbm_bo_handle (*gbm_bo_get_handle)(struct gbm_bo*);
       int (*gbm_surface_has_free_buffers)(struct gbm_surface*);
@@ -38,9 +39,11 @@ static struct {
 } gbm;
 
 static struct {
+   int fd;
    drmModeConnector *connector;
    drmModeEncoder *encoder;
    drmModeModeInfo mode;
+   struct wl_event_source *event_source;
 
    struct {
       void *handle;
@@ -87,6 +90,10 @@ gbm_load(void)
    if (!load(gbm_surface_destroy))
       goto function_pointer_exception;
    if (!load(gbm_bo_get_handle))
+      goto function_pointer_exception;
+   if (!load(gbm_bo_get_width))
+      goto function_pointer_exception;
+   if (!load(gbm_bo_get_height))
       goto function_pointer_exception;
    if (!load(gbm_bo_get_stride))
       goto function_pointer_exception;
@@ -164,34 +171,57 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
    flipper.next_bo = NULL;
 }
 
+static int
+drm_event(int fd, uint32_t mask, void *data)
+{
+   (void)mask, (void)data;
+   drmEventContext evctx;
+   memset(&evctx, 0, sizeof(evctx));
+   evctx.version = DRM_EVENT_CONTEXT_VERSION;
+   evctx.page_flip_handler = page_flip_handler;
+   drm.api.drmHandleEvent(fd, &evctx);
+   return 0;
+}
+
 static void
 page_flip(void)
 {
+   /**
+    * This is currently OpenGL specific (gbm).
+    * TODO: vblanks etc..
+    */
+
+   if (flipper.current_bo && flipper.next_bo && flipper.current_bo != flipper.next_bo) {
+      fd_set rfds;
+      FD_ZERO(&rfds);
+      FD_SET(drm.fd, &rfds);
+
+      /* both buffers busy, wait for them to finish */
+      while (select(drm.fd + 1, &rfds, NULL, NULL, NULL) == -1);
+      drm_event(drm.fd, 0, NULL);
+   }
+
    if (!gbm.api.gbm_surface_has_free_buffers(gbm.surface))
       goto no_buffers;
 
    if (!(flipper.next_bo = gbm.api.gbm_surface_lock_front_buffer(gbm.surface)))
       goto failed_to_lock;
 
+   uint32_t width = gbm.api.gbm_bo_get_width(flipper.next_bo);
+   uint32_t height = gbm.api.gbm_bo_get_height(flipper.next_bo);
    uint32_t handle = gbm.api.gbm_bo_get_handle(flipper.next_bo).u32;
    uint32_t stride = gbm.api.gbm_bo_get_stride(flipper.next_bo);
 
-   if (drm.api.drmModeAddFB(gbm.fd, drm.mode.hdisplay, drm.mode.vdisplay, 24, 32, stride, handle, &flipper.next_fb_id))
+   if (drm.api.drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &flipper.next_fb_id))
       goto failed_to_create_fb;
 
-   if (drm.api.drmModePageFlip(gbm.fd, drm.encoder->crtc_id, flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, 0))
+   /**
+    * drmModeSetCrtc() etc could be called here to change mode.
+    */
+
+   if (drm.api.drmModePageFlip(drm.fd, drm.encoder->crtc_id, flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, 0))
       fprintf(stderr, "failed to page flip: %m\n");
 
-   fd_set rfds;
-   FD_ZERO(&rfds);
-   FD_SET(gbm.fd, &rfds);
-   while (select(gbm.fd + 1, &rfds, NULL, NULL, NULL) == -1);
-
-   drmEventContext evctx;
-   memset(&evctx, 0, sizeof(evctx));
-   evctx.version = DRM_EVENT_CONTEXT_VERSION;
-   evctx.page_flip_handler = page_flip_handler;
-   drm.api.drmHandleEvent(gbm.fd, &evctx);
    return;
 
 no_buffers:
@@ -285,6 +315,9 @@ terminate(void)
    if (gbm.dev)
       gbm.api.gbm_device_destroy(gbm.dev);
 
+   if (drm.event_source)
+      wl_event_source_remove(drm.event_source);
+
    if (drm.api.handle)
       dlclose(drm.api.handle);
 
@@ -304,7 +337,7 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!drm_load())
       goto fail;
 
-   if ((gbm.fd = open("/dev/dri/card0", O_RDWR)) < 0)
+   if ((drm.fd = open("/dev/dri/card0", O_RDWR)) < 0)
       goto card_open_fail;
 
    /* GBM will load a dri driver, but even though they need symbols from
@@ -314,10 +347,10 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
     * Workaround this by dlopen()'ing libglapi with RTLD_GLOBAL. */
    dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
 
-   if (!(gbm.dev = gbm.api.gbm_create_device(gbm.fd)))
+   if (!(gbm.dev = gbm.api.gbm_create_device(drm.fd)))
       goto gbm_device_fail;
 
-   if (!setup_drm(gbm.fd))
+   if (!setup_drm(drm.fd))
       goto fail;
 
    if (!(gbm.surface = gbm.api.gbm_surface_create(gbm.dev, drm.mode.hdisplay, drm.mode.vdisplay, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
@@ -325,6 +358,9 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
    if (!(seat.udev = wlc_udev_new(compositor)))
       goto fail;
+
+   if (!(drm.event_source = wl_event_loop_add_fd(compositor->event_loop, drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
+      goto event_source_fail;
 
    compositor->api.resolution(compositor, drm.mode.hdisplay, drm.mode.vdisplay);
 
@@ -342,7 +378,10 @@ gbm_device_fail:
    fprintf(stderr, "gbm_create_device failed\n");
    goto fail;
 gbm_surface_fail:
-   fprintf(stderr, "gbm_surface_creat failed\n");
+   fprintf(stderr, "gbm_surface_create failed\n");
+   goto fail;
+event_source_fail:
+   fprintf(stderr, "failed to add drm event source\n");
 fail:
    terminate();
    return false;
