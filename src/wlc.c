@@ -51,7 +51,7 @@ die(const char *format, ...)
    vfprintf(stderr, format, vargs);
    va_end(vargs);
    fflush(stderr);
-   exit(1);
+   exit(EXIT_FAILURE);
 }
 
 static ssize_t
@@ -301,7 +301,9 @@ wlc_init(void)
    if ((child = fork()) == 0) {
       close(sock[0]);
       communicate(sock[1], getppid());
-      _exit(0);
+      _exit(EXIT_SUCCESS);
+   } else if (child < 0) {
+      die("-!- Fork failed\n");
    } else {
       close(sock[1]);
 
