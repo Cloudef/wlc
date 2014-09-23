@@ -260,6 +260,8 @@ x11_event(int fd, uint32_t mask, void *data)
          break;
 #endif
       }
+
+      free(event);
       count += 1;
    }
 
