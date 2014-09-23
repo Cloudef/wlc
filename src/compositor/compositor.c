@@ -19,6 +19,8 @@
 #include "context/context.h"
 #include "render/render.h"
 
+#include "xwayland/xwayland.h"
+
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -232,10 +234,13 @@ repaint(struct wlc_compositor *compositor)
 
    struct wlc_view *view;
    wl_list_for_each(view, &compositor->views, link) {
-      if (view->surface->frame_cb) {
-         compositor->render->api.render(view);
+      if (!view->surface->created)
+         continue;
+
+      compositor->render->api.render(view);
+
+      if (view->surface->frame_cb)
          wl_callback_send_done(view->surface->frame_cb->resource, msec);
-      }
    }
 
    compositor->render->api.swap();
@@ -338,6 +343,7 @@ wlc_compositor_free(struct wlc_compositor *compositor)
    if (compositor->display)
       wl_display_destroy(compositor->display);
 
+   wlc_xwayland_deinit();
    free(compositor);
 }
 
