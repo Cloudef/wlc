@@ -235,6 +235,7 @@ wlc_xwm_init(struct wlc_compositor *compositor, const int fd)
    fprintf(stdout, "-!- xwm started\n");
    return true;
 
+   // TODO: error handling
 xcb_connection_fail:
 emwh_init_atoms_fail:
 event_source_fail:
