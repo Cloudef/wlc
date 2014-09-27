@@ -282,13 +282,8 @@ wlc_seat_new(struct wlc_compositor *compositor)
 
    seat->pointer = wlc_pointer_new(&compositor->clients, &compositor->views);
 
-   {
-      struct xkb_rule_names names;
-      memset(&names, 0, sizeof(names));
-
-      if ((seat->keymap = wlc_keymap_new(&names, 0)))
-         seat->keyboard = wlc_keyboard_new(seat->keymap, &compositor->clients, &compositor->views);
-   }
+   if ((seat->keymap = wlc_keymap_new(NULL, 0)))
+      seat->keyboard = wlc_keyboard_new(seat->keymap, &compositor->clients, &compositor->views);
 
    if (!(seat->global = wl_global_create(compositor->display, &wl_seat_interface, 3, seat, wl_seat_bind)))
       goto shell_interface_fail;
