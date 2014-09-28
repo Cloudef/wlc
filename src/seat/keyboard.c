@@ -59,19 +59,12 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
    if (keyboard->focus == view)
       return;
 
-   if (!view) {
-      if (keyboard->focus)
-         keyboard->focus = NULL;
-      return;
-   }
-
    if (keyboard->focus && keyboard->focus->client->input[WLC_KEYBOARD])
       wl_keyboard_send_leave(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
 
-   if (view->client->input[WLC_KEYBOARD]) {
+   if (view && view->client->input[WLC_KEYBOARD]) {
       struct wl_array keys;
       wl_array_init(&keys);
-
       wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keys);
    }
 
@@ -85,12 +78,15 @@ wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl
 
    struct wlc_view *view;
    wl_list_for_each(view, keyboard->views, link) {
-      if (keyboard->focus != view)
+      if (view->client->input[WLC_KEYBOARD] != resource)
          continue;
 
-      if (view->client->input[WLC_KEYBOARD] == resource)
+      if (keyboard->focus && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
+         view->client->input[WLC_KEYBOARD] = NULL;
          wlc_keyboard_focus(keyboard, 0, NULL);
-      view->client->input[WLC_KEYBOARD] = NULL;
+      } else {
+         view->client->input[WLC_KEYBOARD] = NULL;
+      }
       break;
    }
 }

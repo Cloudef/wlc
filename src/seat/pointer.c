@@ -18,20 +18,10 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
    if (pointer->focus == view)
       return;
 
-   if (!view) {
-      if (pointer->focus) {
-         pointer->focus = NULL;
-         pointer->grabbing = false;
-         pointer->action = WLC_GRAB_ACTION_NONE;
-         pointer->action_edges = 0;
-      }
-      return;
-   }
-
    if (pointer->focus && pointer->focus->client->input[WLC_POINTER])
       wl_pointer_send_leave(pointer->focus->client->input[WLC_POINTER], serial, pointer->focus->surface->resource);
 
-   if (view->client->input[WLC_POINTER])
+   if (view && view->client->input[WLC_POINTER])
       wl_pointer_send_enter(view->client->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(x), wl_fixed_from_int(y));
 
    pointer->focus = view;
@@ -148,13 +138,15 @@ wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_re
 
    struct wlc_view *view;
    wl_list_for_each(view, pointer->views, link) {
-      if (pointer->focus != view)
+      if (view->client->input[WLC_POINTER] != resource)
          continue;
 
-      if (view->client->input[WLC_KEYBOARD] == resource)
+      if (pointer->focus && pointer->focus->client->input[WLC_POINTER] == resource) {
+         view->client->input[WLC_POINTER] = NULL;
          wlc_pointer_focus(pointer, 0, NULL, 0, 0);
-      view->client->input[WLC_POINTER] = NULL;
-      pointer->focus = NULL;
+      } else {
+         view->client->input[WLC_POINTER] = NULL;
+      }
       break;
    }
 }
