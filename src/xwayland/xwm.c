@@ -24,7 +24,7 @@ enum atom_name {
    ATOM_LAST
 };
 
-struct window {
+struct wlc_x11_window {
    struct wlc_surface *surface;
    struct wl_list link;
    xcb_window_t id;
@@ -44,10 +44,10 @@ static struct {
 /**
  * TODO: change to hashmap, instead of wl_list
  */
-static struct window*
-window_for_id(struct wl_list *list, xcb_window_t window)
+static struct wlc_x11_window*
+wlc_x11_window_for_id(struct wl_list *list, xcb_window_t window)
 {
-   struct window *win;
+   struct wlc_x11_window *win;
    wl_list_for_each(win, list, link) {
       if (win->id == window)
          return win;
@@ -55,11 +55,11 @@ window_for_id(struct wl_list *list, xcb_window_t window)
    return NULL;
 }
 
-static struct window*
-window_new(xcb_window_t window, bool override_redirect)
+static struct wlc_x11_window*
+wlc_x11_window_new(xcb_window_t window, bool override_redirect)
 {
-   struct window *win;
-   if (!(win = calloc(1, sizeof(struct window))))
+   struct wlc_x11_window *win;
+   if (!(win = calloc(1, sizeof(struct wlc_x11_window))))
       return NULL;
 
    win->id = window;
@@ -69,21 +69,31 @@ window_new(xcb_window_t window, bool override_redirect)
 }
 
 static void
-window_free(struct window *win)
+wlc_x11_window_free(struct wlc_x11_window *win)
 {
    assert(win);
    wl_list_remove(&win->link);
    free(win);
 }
 
+void
+wlc_x11_window_resize(struct wlc_x11_window *win, const uint32_t width, const uint32_t height)
+{
+   static const uint32_t mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+   const uint32_t values[] = { width, height };
+   xcb_configure_window(xwm.connection, win->id, mask, (uint32_t*)&values);
+   xcb_flush(xwm.connection);
+}
+
 static void
-link_surface(struct wlc_compositor *compositor, struct window *win, const uint32_t surface_id)
+link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, const uint32_t surface_id)
 {
    struct wlc_view *view;
    if (!(view = wlc_view_for_surface_id_in_list(surface_id, &compositor->views)))
       return;
 
    win->surface = view->surface;
+   view->x11_window = win;
 
    if (!view->surface->created && compositor->interface.view.created) {
       view->geometry.w = view->surface->width;
@@ -92,11 +102,10 @@ link_surface(struct wlc_compositor *compositor, struct window *win, const uint32
       view->surface->created = true;
    }
 
-   uint32_t mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-   uint32_t values[] = { view->geometry.w, view->geometry.h };
-
-   xcb_configure_window(xwm.connection, win->id, mask, (uint32_t*)&values);
+   wlc_x11_window_resize(win, view->geometry.w, view->geometry.h);
    xcb_flush(xwm.connection);
+
+   wl_list_insert(&xwm.windows, &win->link);
 }
 
 static int
@@ -111,14 +120,14 @@ x11_event(int fd, uint32_t mask, void *data)
       switch (event->response_type & ~0x80) {
          case XCB_CREATE_NOTIFY: {
             xcb_create_notify_event_t *ev = (xcb_create_notify_event_t*)event;
-            window_new(ev->window, ev->override_redirect);
+            wlc_x11_window_new(ev->window, ev->override_redirect);
          }
          break;
          case XCB_DESTROY_NOTIFY: {
             xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)event;
-            struct window *win;
-            if ((win = window_for_id(&xwm.windows, ev->window)) || (win = window_for_id(&xwm.unpaired_windows, ev->window)))
-               window_free(win);
+            struct wlc_x11_window *win;
+            if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
+               wlc_x11_window_free(win);
          }
          break;
          case XCB_MAP_REQUEST: {
@@ -133,8 +142,8 @@ x11_event(int fd, uint32_t mask, void *data)
          case XCB_CLIENT_MESSAGE: {
             xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
             if (ev->type == xwm.atoms[WL_SURFACE_ID]) {
-               struct window *win;
-               if ((win = window_for_id(&xwm.unpaired_windows, ev->window)))
+               struct wlc_x11_window *win;
+               if ((win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
                   link_surface(compositor, win, ev->data.data32[0]);
             }
          }

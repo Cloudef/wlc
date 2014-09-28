@@ -6,6 +6,8 @@
 #include "shell/surface.h"
 #include "shell/xdg-surface.h"
 
+#include "xwayland/xwm.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -199,6 +201,9 @@ wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height)
       uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
       xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, width, height, &view->stored_state, serial);
    }
+
+   if (view->x11_window)
+      wlc_x11_window_resize(view->x11_window, width, height);
 
    view->geometry.w = width;
    view->geometry.h = height;

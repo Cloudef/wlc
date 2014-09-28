@@ -17,12 +17,14 @@ struct wlc_client;
 struct wlc_surface;
 struct wlc_shell_surface;
 struct wlc_xdg_surface;
+struct wlc_x11_window;
 
 struct wlc_view {
    struct wlc_client *client;
    struct wlc_surface *surface;
    struct wlc_shell_surface *shell_surface;
    struct wlc_xdg_surface *xdg_surface;
+   struct wlc_x11_window *x11_window;
    struct wl_list link, user_link;
    struct wl_array stored_state;
    struct wlc_geometry geometry;
