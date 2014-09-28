@@ -16,7 +16,7 @@
 #include <wayland-util.h>
 
 struct wlc_x11_window {
-   struct wlc_surface *surface;
+   struct wlc_view *view;
    struct wl_list link;
    xcb_window_t id;
    bool override_redirect;
@@ -237,7 +237,7 @@ link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, cons
    if (!(view = wlc_view_for_surface_id_in_list(surface_id, &compositor->views)))
       return;
 
-   win->surface = view->surface;
+   win->view = view;
    view->x11_window = win;
 
    if (!view->surface->created && compositor->interface.view.created) {
