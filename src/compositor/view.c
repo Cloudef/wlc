@@ -194,7 +194,9 @@ wlc_view_set_active(struct wlc_view *view, bool active)
 
    if (view->x11_window) {
       wlc_x11_window_set_active(view->x11_window, active);
-      wlc_compositor_keyboard_focus(view->surface->compositor, view);
+
+      if (active)
+         wlc_compositor_keyboard_focus(view->surface->compositor, view);
    }
 
    view->state = BIT_TOGGLE(view->state, WLC_BIT_ACTIVATED, active);
