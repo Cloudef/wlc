@@ -256,6 +256,8 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
    assert(win);
 
    if (active) {
+      // TODO: send net wm take focus message
+      // Maybe use INPUT_FOCUS_POINTER_ROOT ?
       x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_NONE, win->id, XCB_CURRENT_TIME);
    } else {
       x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_NONE, XCB_NONE, XCB_CURRENT_TIME);
