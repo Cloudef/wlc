@@ -45,7 +45,7 @@
 	they implement using static_assert to ensure the protocol and
 	implementation versions match.
       </description>
-      <entry name="current" value="3" summary="Always the latest version"/>
+      <entry name="current" value="4" summary="Always the latest version"/>
     </enum>
 
 
