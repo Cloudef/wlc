@@ -1,8 +1,22 @@
-# WLC
-
 Readme coming..
 
-TODO:
 Get everything working first.
 Rethink resource management.
 Atm there is lots of -> stupid pointer redirections.
+
+TODO:
+legend: x = works, v = works, but major features still missing
+[x] X11 backend
+[v] DRM backend
+[x] libinput
+[v] XKB keymaps
+[v] Xwayland
+[ ] udev / hotplugging
+[ ] EGL surfaces
+[ ] Multi-monitor
+
+MayTODO:
+[ ] Pixman backend
+[ ] FB backend
+[ ] Wayland backend
+
