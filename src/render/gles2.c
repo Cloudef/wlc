@@ -362,12 +362,13 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
       "  v_uv = uv;\n"
       "}\n";
 
+   // TODO: Implement different shaders for different textures
    static const char *frag_shader_text =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
-      "  gl_FragColor = texture2D(texture0, v_uv);\n"
+      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb, 1.0);\n"
       "}\n";
 
    GLuint frag = create_shader(frag_shader_text, GL_FRAGMENT_SHADER);
