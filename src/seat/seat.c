@@ -141,9 +141,9 @@ static void
 wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &wl_seat_interface, MIN(version, 3), id))) {
+   if (!(resource = wl_resource_create(wl_client, &wl_seat_interface, MIN(version, 4), id))) {
       wl_client_post_no_memory(wl_client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 3);
+      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 4);
       return;
    }
 
@@ -285,7 +285,7 @@ wlc_seat_new(struct wlc_compositor *compositor)
    if ((seat->keymap = wlc_keymap_new(NULL, 0)))
       seat->keyboard = wlc_keyboard_new(seat->keymap, &compositor->clients, &compositor->views);
 
-   if (!(seat->global = wl_global_create(compositor->display, &wl_seat_interface, 3, seat, wl_seat_bind)))
+   if (!(seat->global = wl_global_create(compositor->display, &wl_seat_interface, 4, seat, wl_seat_bind)))
       goto shell_interface_fail;
 
    seat->notify.pointer_motion = seat_pointer_motion;
