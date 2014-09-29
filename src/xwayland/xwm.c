@@ -395,9 +395,9 @@ wlc_xwm_init(struct wlc_compositor *compositor, const int fd)
    if (!(x11.window = x11.api.xcb_generate_id(x11.connection)))
       goto window_fail;
 
-   x11.api.xcb_create_window_checked(x11.connection, 0, x11.window, x11.screen->root,
+   x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, x11.window, x11.screen->root,
          0, 0, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY,
-         XCB_COPY_FROM_PARENT, 0, NULL);
+         x11.screen->root_visual, 0, NULL);
 
    x11.api.xcb_ewmh_init_atoms_replies(&x11.ewmh, ewmh_cookies, &error);
 
