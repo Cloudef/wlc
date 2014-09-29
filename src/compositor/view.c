@@ -125,6 +125,10 @@ void
 wlc_view_free(struct wlc_view *view)
 {
    assert(view);
+
+   if (view->x11_window)
+      wlc_x11_window_free(view->x11_window);
+
    wl_list_remove(&view->link);
    free(view);
 }

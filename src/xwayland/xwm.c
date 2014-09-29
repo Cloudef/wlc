@@ -213,10 +213,16 @@ wlc_x11_window_new(xcb_window_t window, bool override_redirect)
    return win;
 }
 
-static void
+void
 wlc_x11_window_free(struct wlc_x11_window *win)
 {
    assert(win);
+
+   if (win->view) {
+      win->view->x11_window = NULL;
+      win->view->client = NULL;
+   }
+
    wl_list_remove(&win->link);
    free(win);
 }
@@ -240,16 +246,12 @@ link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, cons
    win->view = view;
    view->x11_window = win;
 
-   if (!view->surface->created && compositor->interface.view.created) {
-      view->geometry.w = view->surface->width;
-      view->geometry.h = view->surface->height;
-      compositor->interface.view.created(compositor, view);
-      view->surface->created = true;
-   }
+   wlc_surface_create_notify(view->surface);
 
    wlc_x11_window_resize(win, view->geometry.w, view->geometry.h);
    x11.api.xcb_flush(x11.connection);
 
+   wl_list_remove(&win->link);
    wl_list_insert(&xwm.windows, &win->link);
 }
 

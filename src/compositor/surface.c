@@ -148,15 +148,7 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    surface->frame_cb = callback;
 
-   if (!surface->created) {
-      struct wlc_view *view;
-      if (surface->compositor->interface.view.created && (view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
-         view->geometry.w = surface->width;
-         view->geometry.h = surface->height;
-         surface->compositor->interface.view.created(surface->compositor, view);
-         surface->created = true;
-      }
-   }
+   wlc_surface_create_notify(surface);
 }
 
 static void
@@ -235,6 +227,25 @@ wl_cb_surface_destructor(struct wl_resource *resource)
 }
 
 void
+wlc_surface_create_notify(struct wlc_surface *surface)
+{
+   if (surface->created)
+      return;
+
+   struct wlc_view *view;
+   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->views)))
+      return;
+
+   view->geometry.w = surface->width;
+   view->geometry.h = surface->height;
+
+   if (surface->compositor->interface.view.created)
+      surface->compositor->interface.view.created(surface->compositor, view);
+
+   surface->created = true;
+}
+
+void
 wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource)
 {
    assert(surface);
@@ -247,14 +258,6 @@ wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource)
 
    surface->resource = resource;
    wl_resource_set_implementation(surface->resource, &wl_surface_implementation, surface, wl_cb_surface_destructor);
-}
-
-struct wlc_surface*
-wlc_surface_ref(struct wlc_surface *surface)
-{
-   assert(surface);
-   surface->ref_count += 1;
-   return surface;
 }
 
 void
@@ -287,6 +290,5 @@ wlc_surface_new(struct wlc_compositor *compositor)
       return NULL;
 
    surface->compositor = compositor;
-   surface->ref_count = 1;
    return surface;
 }

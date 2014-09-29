@@ -10,6 +10,23 @@
 
 #include <wayland-server.h>
 
+static bool
+view_exists_in_list(struct wlc_view *needle, struct wl_list *list)
+{
+   struct wlc_view *view;
+   wl_list_for_each(view, list, link) {
+      if (view == needle)
+         return true;
+   }
+   return false;
+}
+
+static bool
+is_valid_view(struct wlc_view *view)
+{
+   return (view && view->client && view->client->input[WLC_POINTER] && view->surface && view->surface->resource);
+}
+
 void
 wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, int32_t x,  int32_t y)
 {
@@ -18,10 +35,15 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
    if (pointer->focus == view)
       return;
 
-   if (pointer->focus && pointer->focus->client->input[WLC_POINTER])
+   // FIXME: hack
+   // We need better resource management.
+   if (pointer->focus && !view_exists_in_list(pointer->focus, pointer->views))
+      pointer->focus = NULL;
+
+   if (is_valid_view(pointer->focus))
       wl_pointer_send_leave(pointer->focus->client->input[WLC_POINTER], serial, pointer->focus->surface->resource);
 
-   if (view && view->client->input[WLC_POINTER])
+   if (is_valid_view(view))
       wl_pointer_send_enter(view->client->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(x), wl_fixed_from_int(y));
 
    pointer->focus = view;
@@ -35,7 +57,7 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 {
    assert(pointer);
 
-   if (!pointer->focus || !pointer->focus->client->input[WLC_POINTER])
+   if (!is_valid_view(pointer->focus))
       return;
 
    if (state == WL_POINTER_BUTTON_STATE_PRESSED && !pointer->grabbing) {
@@ -86,7 +108,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
    int32_t dy = (y - b.y) * focused->surface->height / b.h;
    wlc_pointer_focus(pointer, serial, focused, dx, dy);
 
-   if (!focused->client->input[WLC_POINTER])
+   if (!is_valid_view(focused))
       return;
 
    wl_pointer_send_motion(focused->client->input[WLC_POINTER], time, wl_fixed_from_int(dx), wl_fixed_from_int(dy));
@@ -141,7 +163,7 @@ wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_re
       if (view->client->input[WLC_POINTER] != resource)
          continue;
 
-      if (pointer->focus && pointer->focus->client->input[WLC_POINTER] == resource) {
+      if (pointer->focus && pointer->focus->client && pointer->focus->client->input[WLC_POINTER] == resource) {
          view->client->input[WLC_POINTER] = NULL;
          wlc_pointer_focus(pointer, 0, NULL, 0, 0);
       } else {

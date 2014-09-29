@@ -10,6 +10,23 @@
 
 #include <wayland-server.h>
 
+static bool
+view_exists_in_list(struct wlc_view *needle, struct wl_list *list)
+{
+   struct wlc_view *view;
+   wl_list_for_each(view, list, link) {
+      if (view == needle)
+         return true;
+   }
+   return false;
+}
+
+static bool
+is_valid_view(struct wlc_view *view)
+{
+   return (view && view->client && view->client->input[WLC_KEYBOARD] && view->surface && view->surface->resource);
+}
+
 static void
 update_modifiers(struct wlc_keyboard *keyboard, uint32_t serial)
 {
@@ -31,7 +48,7 @@ update_modifiers(struct wlc_keyboard *keyboard, uint32_t serial)
    keyboard->mods.locked = locked;
    keyboard->mods.group = group;
 
-   if (!keyboard->focus || !keyboard->focus->client->input[WLC_KEYBOARD])
+   if (!is_valid_view(keyboard->focus))
       return;
 
    wl_keyboard_send_modifiers(keyboard->focus->client->input[WLC_KEYBOARD], serial, depressed, latched, locked, group);
@@ -45,7 +62,7 @@ wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t serial, uint32_t time, 
    xkb_state_update_key(keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
    update_modifiers(keyboard, serial);
 
-   if (!keyboard->focus || !keyboard->focus->client->input[WLC_KEYBOARD])
+   if (!is_valid_view(keyboard->focus))
       return;
 
    wl_keyboard_send_key(keyboard->focus->client->input[WLC_KEYBOARD], serial, time, key, state);
@@ -59,10 +76,15 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
    if (keyboard->focus == view)
       return;
 
-   if (keyboard->focus && keyboard->focus->client->input[WLC_KEYBOARD])
+   // FIXME: hack
+   // We need better resource management.
+   if (keyboard->focus && !view_exists_in_list(keyboard->focus, keyboard->views))
+      keyboard->focus = NULL;
+
+   if (is_valid_view(keyboard->focus))
       wl_keyboard_send_leave(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
 
-   if (view && view->client->input[WLC_KEYBOARD]) {
+   if (is_valid_view(view)) {
       struct wl_array keys;
       wl_array_init(&keys);
       wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keys);
@@ -81,7 +103,7 @@ wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl
       if (view->client->input[WLC_KEYBOARD] != resource)
          continue;
 
-      if (keyboard->focus && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
+      if (keyboard->focus && keyboard->focus->client && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
          view->client->input[WLC_KEYBOARD] = NULL;
          wlc_keyboard_focus(keyboard, 0, NULL);
       } else {

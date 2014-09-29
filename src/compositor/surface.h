@@ -35,12 +35,11 @@ struct wlc_surface {
    uint32_t texture;
 
    int32_t width, height;
-   int32_t ref_count;
    bool created;
 };
 
+void wlc_surface_create_notify(struct wlc_surface *surface);
 void wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource);
-struct wlc_surface* wlc_surface_ref(struct wlc_surface *surface);
 void wlc_surface_free(struct wlc_surface *surface);
 struct wlc_surface* wlc_surface_new(struct wlc_compositor *compositor);
 
