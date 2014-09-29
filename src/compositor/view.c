@@ -192,6 +192,11 @@ wlc_view_set_active(struct wlc_view *view, bool active)
    if (active == (view->state & WLC_BIT_ACTIVATED))
       return;
 
+   if (view->x11_window) {
+      wlc_x11_window_set_active(view->x11_window, active);
+      wlc_compositor_keyboard_focus(view->surface->compositor, view);
+   }
+
    view->state = BIT_TOGGLE(view->state, WLC_BIT_ACTIVATED, active);
    update_state(view);
 }
@@ -217,6 +222,10 @@ WLC_API void
 wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
 {
    assert(view);
+
+   if (view->x11_window)
+      wlc_x11_window_position(view->x11_window, x, y);
+
    view->geometry.x = x;
    view->geometry.y = y;
 }

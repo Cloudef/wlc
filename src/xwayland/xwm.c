@@ -60,6 +60,7 @@ static struct {
       xcb_void_cookie_t (*xcb_change_window_attributes_checked)(xcb_connection_t*, xcb_window_t, uint32_t, const uint32_t*);
       xcb_void_cookie_t (*xcb_configure_window_checked)(xcb_connection_t*, xcb_window_t, uint16_t, const uint32_t*);
       xcb_void_cookie_t (*xcb_set_selection_owner_checked)(xcb_connection_t*, xcb_window_t, xcb_atom_t, xcb_timestamp_t);
+      xcb_void_cookie_t (*xcb_set_input_focus_checked)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_timestamp_t);
       xcb_intern_atom_cookie_t (*xcb_intern_atom)(xcb_connection_t*, uint8_t, uint16_t, const char*);
       xcb_intern_atom_reply_t* (*xcb_intern_atom_reply)(xcb_connection_t*, xcb_intern_atom_cookie_t, xcb_generic_error_t**);
       xcb_generic_error_t* (*xcb_request_check)(xcb_connection_t*, xcb_void_cookie_t);
@@ -113,6 +114,8 @@ xcb_load(void)
    if (!load(xcb_configure_window_checked))
       goto function_pointer_exception;
    if (!load(xcb_set_selection_owner_checked))
+      goto function_pointer_exception;
+   if (!load(xcb_set_input_focus_checked))
       goto function_pointer_exception;
    if (!load(xcb_intern_atom))
       goto function_pointer_exception;
@@ -228,11 +231,36 @@ wlc_x11_window_free(struct wlc_x11_window *win)
 }
 
 void
+wlc_x11_window_position(struct wlc_x11_window *win, const int32_t x, const int32_t y)
+{
+   assert(win);
+   static const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y;
+   const uint32_t values[] = { x, y };
+   x11.api.xcb_configure_window_checked(x11.connection, win->id, mask, (uint32_t*)&values);
+   x11.api.xcb_flush(x11.connection);
+}
+
+void
 wlc_x11_window_resize(struct wlc_x11_window *win, const uint32_t width, const uint32_t height)
 {
+   assert(win);
    static const uint32_t mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
    const uint32_t values[] = { width, height };
    x11.api.xcb_configure_window_checked(x11.connection, win->id, mask, (uint32_t*)&values);
+   x11.api.xcb_flush(x11.connection);
+}
+
+void
+wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
+{
+   assert(win);
+
+   if (active) {
+      x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_NONE, win->id, XCB_CURRENT_TIME);
+   } else {
+      x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_NONE, XCB_NONE, XCB_CURRENT_TIME);
+   }
+
    x11.api.xcb_flush(x11.connection);
 }
 
@@ -249,7 +277,6 @@ link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, cons
    wlc_surface_create_notify(view->surface);
 
    wlc_x11_window_resize(win, view->geometry.w, view->geometry.h);
-   x11.api.xcb_flush(x11.connection);
 
    wl_list_remove(&win->link);
    wl_list_insert(&xwm.windows, &win->link);
