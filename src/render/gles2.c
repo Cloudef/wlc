@@ -21,12 +21,14 @@
 enum {
    UNIFORM_WIDTH,
    UNIFORM_HEIGHT,
+   UNIFORM_ALPHA,
    UNIFORM_LAST,
 };
 
 static const char *uniform_names[UNIFORM_LAST] = {
    "width",
-   "height"
+   "height",
+   "alpha"
 };
 
 static struct {
@@ -271,6 +273,7 @@ view_render(struct wlc_view *view)
       0, 1
    };
 
+   gl.api.glUniform1f(gl.uniforms[UNIFORM_ALPHA], (view->state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
    gl.api.glBindTexture(GL_TEXTURE_2D, view->surface->texture);
 
    if (view->surface->width != b.w || view->surface->height != b.h) {
@@ -366,9 +369,10 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    static const char *frag_shader_text =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
+      "uniform float alpha;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
-      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb, 1.0);\n"
+      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb, 1.0) * alpha;\n"
       "}\n";
 
    GLuint frag = create_shader(frag_shader_text, GL_FRAGMENT_SHADER);
