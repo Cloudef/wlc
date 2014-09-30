@@ -20,5 +20,5 @@ wlc_string_set(struct wlc_string *string, const char *data, bool is_heap)
    }
 
    string->is_heap = is_heap;
-   string->data = (is_heap ? c_strdup(data) : (char*)data);
+   string->data = (data && is_heap ? c_strdup(data) : (char*)data);
 }
