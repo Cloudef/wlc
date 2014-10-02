@@ -1,7 +1,6 @@
 #ifndef _WLC_CONTEXT_H_
 #define _WLC_CONTEXT_H_
 
-struct wlc_seat;
 struct wlc_backend;
 
 struct wlc_context {

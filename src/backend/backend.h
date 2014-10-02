@@ -4,7 +4,6 @@
 #include "EGL/egl.h"
 #include <stdbool.h>
 
-struct wlc_seat;
 struct wlc_keymap;
 struct wlc_compositor;
 
