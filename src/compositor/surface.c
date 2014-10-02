@@ -279,6 +279,9 @@ wlc_surface_free(struct wlc_surface *surface)
    if (surface->compositor && surface->compositor->render)
       surface->compositor->render->api.destroy(surface);
 
+   if (surface->created)
+      surface->compositor->api.schedule_repaint(surface->compositor);
+
    free(surface);
 }
 
