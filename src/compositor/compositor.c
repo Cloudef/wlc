@@ -402,7 +402,7 @@ wlc_compositor_new(void)
    if (!(compositor->backend = wlc_backend_init(compositor)))
       goto fail;
 
-   if (!(compositor->context = wlc_context_init(compositor->backend)))
+   if (!(compositor->context = wlc_context_init(compositor, compositor->backend)))
       goto fail;
 
    if (!(compositor->render = wlc_render_init(compositor->context)))

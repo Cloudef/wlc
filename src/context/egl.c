@@ -1,6 +1,7 @@
 #include "egl.h"
 #include "context.h"
 
+#include "compositor/compositor.h"
 #include "backend/backend.h"
 
 #include <stdio.h>
@@ -10,9 +11,13 @@
 #include <assert.h>
 
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
+
+#include <wayland-server.h>
 
 static struct {
    struct wlc_backend *backend;
+   struct wl_display *wl_display;
 
    EGLDisplay display;
    EGLContext context;
@@ -37,6 +42,14 @@ static struct {
       EGLBoolean (*eglDestroySurface)(EGLDisplay, EGLSurface);
       EGLBoolean (*eglMakeCurrent)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
       EGLBoolean (*eglSwapBuffers)(EGLDisplay, EGLSurface);
+      EGLBoolean (*eglSwapInterval)(EGLDisplay, EGLint);
+
+      // Needed for EGL hw surfaces
+      PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR;
+      PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR;
+      PFNEGLBINDWAYLANDDISPLAYWL eglBindWaylandDisplayWL;
+      PFNEGLUNBINDWAYLANDDISPLAYWL eglUnbindWaylandDisplayWL;
+      PFNEGLQUERYWAYLANDBUFFERWL eglQueryWaylandBufferWL;
    } api;
 } egl;
 
@@ -78,6 +91,15 @@ egl_load(void)
       goto function_pointer_exception;
    if (!load(eglSwapBuffers))
       goto function_pointer_exception;
+   if (!load(eglSwapInterval))
+      goto function_pointer_exception;
+
+   // EGL surfaces won't work without these
+   load(eglCreateImageKHR);
+   load(eglDestroyImageKHR);
+   load(eglBindWaylandDisplayWL);
+   load(eglUnbindWaylandDisplayWL);
+   load(eglQueryWaylandBufferWL);
 
 #undef load
 
@@ -181,6 +203,9 @@ terminate(void)
       if (egl.context)
          egl.api.eglDestroyContext(egl.display, egl.context);
 
+      if (egl.api.eglUnbindWaylandDisplayWL && egl.wl_display)
+         egl.api.eglUnbindWaylandDisplayWL(egl.display, egl.wl_display);
+
       egl.api.eglTerminate(egl.display);
    }
 
@@ -190,8 +215,32 @@ terminate(void)
    memset(&egl, 0, sizeof(egl));
 }
 
+EGLBoolean
+wlc_egl_query_buffer(struct wl_resource *buffer, EGLint attribute, EGLint *value)
+{
+   if (egl.api.eglQueryWaylandBufferWL)
+      return egl.api.eglQueryWaylandBufferWL(egl.display, buffer, attribute, value);
+   return EGL_FALSE;
+}
+
+EGLImageKHR
+wlc_egl_create_image(EGLenum target, EGLClientBuffer buffer, const EGLint *attrib_list)
+{
+   if (egl.api.eglCreateImageKHR)
+      return egl.api.eglCreateImageKHR(egl.display, egl.context, target, buffer, attrib_list);
+   return NULL;
+}
+
+EGLBoolean
+wlc_egl_destroy_image(EGLImageKHR image)
+{
+   if (egl.api.eglDestroyImageKHR)
+      return egl.api.eglDestroyImageKHR(egl.display, image);
+   return EGL_FALSE;
+}
+
 bool
-wlc_egl_init(struct wlc_backend *backend, struct wlc_context *out_context)
+wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, struct wlc_context *out_context)
 {
    if (!egl_load())
       goto fail;
@@ -224,6 +273,14 @@ wlc_egl_init(struct wlc_backend *backend, struct wlc_context *out_context)
    if (!egl.api.eglBindAPI(EGL_OPENGL_ES_API))
       goto egl_fail;
 
+   const char *str;
+   str = egl.api.eglQueryString(egl.display, EGL_VERSION);
+   fprintf(stdout, "EGL version: %s\n", str ? str : "(null)");
+   str = egl.api.eglQueryString(egl.display, EGL_VENDOR);
+   fprintf(stdout, "EGL vendor: %s\n", str ? str : "(null)");
+   str = egl.api.eglQueryString(egl.display, EGL_CLIENT_APIS);
+   fprintf(stdout, "EGL client APIs: %s\n", str ? str : "(null)");
+
    egl.extensions = egl.api.eglQueryString(egl.display, EGL_EXTENSIONS);
 
    EGLint n;
@@ -238,6 +295,13 @@ wlc_egl_init(struct wlc_backend *backend, struct wlc_context *out_context)
 
    if (!egl.api.eglMakeCurrent(egl.display, egl.surface, egl.surface, egl.context))
       goto egl_fail;
+
+   if (egl.api.eglBindWaylandDisplayWL && egl.api.eglBindWaylandDisplayWL(egl.display, compositor->display))
+      egl.wl_display = compositor->display;
+
+   egl.api.eglSwapInterval(egl.display, 1);
+
+   wl_display_add_shm_format(compositor->display, WL_SHM_FORMAT_RGB565);
 
    egl.has_current = true;
 

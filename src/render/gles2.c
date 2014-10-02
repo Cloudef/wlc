@@ -1,6 +1,7 @@
 #include "gles2.h"
 #include "render.h"
 
+#include "context/egl.h"
 #include "context/context.h"
 #include "compositor/view.h"
 #include "compositor/surface.h"
@@ -65,9 +66,12 @@ static struct {
       void (*glGenTextures)(GLsizei, GLuint*);
       void (*glDeleteTextures)(GLsizei, GLuint*);
       void (*glBindTexture)(GLenum, GLuint);
+      void (*glActiveTexture)(GLenum);
       void (*glTexParameteri)(GLenum, GLenum, GLenum);
       void (*glPixelStorei)(GLenum, GLint);
       void (*glTexImage2D)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const GLvoid*);
+
+      PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES;
    } api;
 } gl;
 
@@ -135,12 +139,17 @@ gles2_load(void)
       goto function_pointer_exception;
    if (!(load(glBindTexture)))
       goto function_pointer_exception;
+   if (!(load(glActiveTexture)))
+      goto function_pointer_exception;
    if (!(load(glTexParameteri)))
       goto function_pointer_exception;
    if (!(load(glPixelStorei)))
       goto function_pointer_exception;
    if (!(load(glTexImage2D)))
       goto function_pointer_exception;
+
+   // Needed for EGL hw surfaces
+   load(glEGLImageTargetTexture2DOES);
 
 #undef load
 
@@ -175,6 +184,48 @@ has_extension(const char *extension)
 #endif
 
 static void
+surface_gen_textures(struct wlc_surface *surface, const int num_textures)
+{
+   for (int i = 0; i < num_textures; ++i) {
+      if (surface->textures[i])
+         continue;
+
+      gl.api.glGenTextures(1, &surface->textures[i]);
+      gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[i]);
+      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+   }
+}
+
+static void
+surface_flush_textures(struct wlc_surface *surface)
+{
+   for (int i = 0; i < 3; ++i) {
+      if (surface->textures[i])
+         gl.api.glDeleteTextures(1, &surface->textures[i]);
+   }
+
+   memset(surface->textures, 0, sizeof(surface->textures));
+}
+
+static void
+surface_flush_images(struct wlc_surface *surface)
+{
+   for (int i = 0; i < 3; ++i) {
+      if (surface->images[i])
+         wlc_egl_destroy_image(surface->images[i]);
+   }
+
+   memset(surface->images, 0, sizeof(surface->images));
+}
+
+static void
+surface_destroy(struct wlc_surface *surface)
+{
+   surface_flush_textures(surface);
+}
+
+static void
 shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm_buffer *shm_buffer)
 {
    buffer->shm_buffer = shm_buffer;
@@ -207,15 +258,8 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
          return;
    }
 
-   if (!surface->texture) {
-      gl.api.glGenTextures(1, &surface->texture);
-      gl.api.glBindTexture(GL_TEXTURE_2D, surface->texture);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-   } else {
-      gl.api.glBindTexture(GL_TEXTURE_2D, surface->texture);
-   }
-
+   surface_gen_textures(surface, 1);
+   gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[0]);
    gl.api.glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, pitch);
    gl.api.glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
    gl.api.glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
@@ -227,28 +271,81 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
 }
 
 static void
-surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
+egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t format)
 {
-   if (!buffer) {
-      /* TODO: cleanup */
+   buffer->legacy_buffer = (struct wlc_buffer*)buffer->resource;
+   wlc_egl_query_buffer(buffer->legacy_buffer, EGL_WIDTH, &buffer->width);
+   wlc_egl_query_buffer(buffer->legacy_buffer, EGL_HEIGHT, &buffer->height);
+   wlc_egl_query_buffer(buffer->legacy_buffer, EGL_WAYLAND_Y_INVERTED_WL, (EGLint*)&buffer->y_inverted);
+
+   int num_planes;
+   GLenum target = GL_TEXTURE_2D;
+   switch (format) {
+      case EGL_TEXTURE_RGB:
+      case EGL_TEXTURE_RGBA:
+      default:
+         num_planes = 1;
+         // gs->shader = &gr->texture_shader_rgba;
+         break;
+      case 0x31DA:
+         num_planes = 1;
+         // gs->target = GL_TEXTURE_EXTERNAL_OES;
+         // gs->shader = &gr->texture_shader_egl_external;
+         break;
+      case EGL_TEXTURE_Y_UV_WL:
+         num_planes = 2;
+         // gs->shader = &gr->texture_shader_y_uv;
+         break;
+      case EGL_TEXTURE_Y_U_V_WL:
+         num_planes = 3;
+         // gs->shader = &gr->texture_shader_y_u_v;
+         break;
+      case EGL_TEXTURE_Y_XUXV_WL:
+         num_planes = 2;
+         // gs->shader = &gr->texture_shader_y_xuxv;
+         break;
+   }
+
+   if (num_planes > 3) {
+      fprintf(stderr, "planes > 3 in egl surfaces not supported, nor should be possible\n");
       return;
    }
 
-   struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(buffer->resource);
-   if (shm_buffer) {
-      shm_attach(surface, buffer, shm_buffer);
-   } else if (1) {
-      /* EGL buffer */
-   } else {
-      /* unknown buffer */
+   surface_flush_images(surface);
+   surface_gen_textures(surface, num_planes);
+
+   for (int i = 0; i < num_planes; ++i) {
+      EGLint attribs[] = { EGL_WAYLAND_PLANE_WL, i, EGL_NONE };
+      if (!(surface->images[i] = wlc_egl_create_image(EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
+         continue;
+
+      gl.api.glActiveTexture(GL_TEXTURE0 + i);
+      gl.api.glBindTexture(target, surface->textures[i]);
+      gl.api.glEGLImageTargetTexture2DOES(target, surface->images[i]);
    }
+
+   wl_resource_queue_event(buffer->resource, WL_BUFFER_RELEASE);
 }
 
 static void
-surface_destroy(struct wlc_surface *surface)
+surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
-   if (surface->texture)
-      gl.api.glDeleteTextures(1, &surface->texture);
+   if (!buffer) {
+      surface_flush_images(surface);
+      surface_flush_textures(surface);
+      return;
+   }
+
+   int format;
+   struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(buffer->resource);
+   if (shm_buffer) {
+      shm_attach(surface, buffer, shm_buffer);
+   } else if (gl.api.glEGLImageTargetTexture2DOES && wlc_egl_query_buffer((void*)buffer->resource, EGL_TEXTURE_FORMAT, &format)) {
+      egl_attach(surface, buffer, format);
+   } else {
+      /* unknown buffer */
+      puts("unknown buffer");
+   }
 }
 
 static void
@@ -274,7 +371,14 @@ view_render(struct wlc_view *view)
    };
 
    gl.api.glUniform1f(gl.uniforms[UNIFORM_ALPHA], (view->state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
-   gl.api.glBindTexture(GL_TEXTURE_2D, view->surface->texture);
+
+   for (int i = 0; i < 3; ++i) {
+      if (!view->surface->textures[i])
+         break;
+
+      gl.api.glActiveTexture(GL_TEXTURE0 + i);
+      gl.api.glBindTexture(GL_TEXTURE_2D, view->surface->textures[i]);
+   }
 
    if (view->surface->width != b.w || view->surface->height != b.h) {
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

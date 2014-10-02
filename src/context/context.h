@@ -2,6 +2,7 @@
 #define _WLC_CONTEXT_H_
 
 struct wlc_backend;
+struct wlc_compositor;
 
 struct wlc_context {
    void (*terminate)(void);
@@ -12,6 +13,6 @@ struct wlc_context {
 };
 
 void wlc_context_terminate(struct wlc_context *context);
-struct wlc_context* wlc_context_init(struct wlc_backend *backend);
+struct wlc_context* wlc_context_init(struct wlc_compositor *compositor, struct wlc_backend *backend);
 
 #endif /* _WLC_CONTEXT_H_ */

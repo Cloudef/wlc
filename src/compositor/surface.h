@@ -31,7 +31,13 @@ struct wlc_surface {
     * "Texture" as we use OpenGL terminology, but can be id to anything.
     * Managed by the renderer.
     */
-   uint32_t texture;
+   uint32_t textures[3];
+
+   /**
+    * Images, contains hw surfaces that can be anything (For example EGL KHR Images in EGL/gles2 renderer).
+    * Managed by the renderer.
+    */
+   void *images[3];
 
    int32_t width, height;
    bool created;

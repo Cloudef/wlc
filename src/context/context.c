@@ -16,20 +16,20 @@ wlc_context_terminate(struct wlc_context *context)
 }
 
 struct wlc_context*
-wlc_context_init(struct wlc_backend *backend)
+wlc_context_init(struct wlc_compositor *compositor, struct wlc_backend *backend)
 {
    struct wlc_context *context;
 
    if (!(context = calloc(1, sizeof(struct wlc_context))))
       goto out_of_memory;
 
-   bool (*init[])(struct wlc_backend*, struct wlc_context*) = {
+   bool (*init[])(struct wlc_compositor*, struct wlc_backend*, struct wlc_context*) = {
       wlc_egl_init,
       NULL
    };
 
    for (int i = 0; init[i]; ++i)
-      if (init[i](backend, context))
+      if (init[i](compositor, backend, context))
          return context;
 
    fprintf(stderr, "-!- Could not initialize any context\n");
