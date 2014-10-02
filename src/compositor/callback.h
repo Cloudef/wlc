@@ -1,10 +1,13 @@
 #ifndef _WLC_CALLBACK_H_
 #define _WLC_CALLBACK_H_
 
+#include <wayland-util.h>
+
 struct wl_resource;
 
 struct wlc_callback {
    struct wl_resource *resource;
+   struct wl_list link;
 };
 
 void wlc_callback_implement(struct wlc_callback *callback);

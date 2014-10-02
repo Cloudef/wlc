@@ -146,7 +146,7 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
    wlc_callback_implement(callback);
 
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
-   surface->frame_cb = callback;
+   wl_list_insert(&surface->frame_cb_list, &callback->link);
 
    wlc_surface_create_notify(surface);
 }
@@ -290,5 +290,6 @@ wlc_surface_new(struct wlc_compositor *compositor)
       return NULL;
 
    surface->compositor = compositor;
+   wl_list_init(&surface->frame_cb_list);
    return surface;
 }

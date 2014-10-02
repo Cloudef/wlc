@@ -241,8 +241,11 @@ repaint(struct wlc_compositor *compositor)
 
       compositor->render->api.render(view);
 
-      if (view->surface->frame_cb)
-         wl_callback_send_done(view->surface->frame_cb->resource, msec);
+      struct wlc_callback *cb, *cbn;
+      wl_list_for_each_safe(cb, cbn, &view->surface->frame_cb_list, link) {
+         wl_callback_send_done(cb->resource, msec);
+         wl_resource_destroy(cb->resource);
+      }
    }
 
    compositor->render->api.swap();

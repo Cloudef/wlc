@@ -20,13 +20,12 @@ struct wlc_surface_state {
    bool newly_attached;
 };
 
-
 struct wlc_surface {
    struct wl_resource *resource;
    struct wlc_compositor *compositor;
-   struct wlc_callback *frame_cb;
    struct wlc_surface_state pending;
    struct wlc_surface_state commit;
+   struct wl_list frame_cb_list;
 
    /**
     * "Texture" as we use OpenGL terminology, but can be id to anything.
