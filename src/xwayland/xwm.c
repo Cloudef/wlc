@@ -276,9 +276,8 @@ link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, cons
    win->view = view;
    view->x11_window = win;
 
-   wlc_surface_create_notify(view->surface);
-
    wlc_x11_window_resize(win, view->geometry.w, view->geometry.h);
+   wlc_surface_create_notify(view->surface);
 
    wl_list_remove(&win->link);
    wl_list_insert(&xwm.windows, &win->link);
