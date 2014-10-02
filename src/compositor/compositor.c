@@ -246,7 +246,6 @@ repaint(struct wlc_compositor *compositor)
    compositor->render->api.swap();
    compositor->render->api.clear();
 
-   wl_event_source_timer_update(compositor->repaint_timer, 16);
    compositor->repaint_scheduled = false;
 }
 
@@ -254,13 +253,6 @@ static void
 cb_repaint_idle(void *data)
 {
    repaint(data);
-}
-
-static int
-cb_repaint_timer(void *data)
-{
-   cb_repaint_idle(data);
-   return 1;
 }
 
 static void
@@ -284,6 +276,13 @@ schedule_repaint(struct wlc_compositor *compositor)
 
    wl_event_loop_add_idle(compositor->event_loop, cb_repaint_idle, compositor);
    compositor->repaint_scheduled = true;
+}
+
+static int
+cb_repaint_timer(void *data)
+{
+   schedule_repaint(data);
+   return 1;
 }
 
 WLC_API void
