@@ -232,6 +232,8 @@ repaint(struct wlc_compositor *compositor)
 {
    uint32_t msec = get_time();
 
+   compositor->render->api.clear();
+
    struct wlc_view *view;
    wl_list_for_each(view, &compositor->views, link) {
       if (!view->surface->created)
@@ -244,8 +246,6 @@ repaint(struct wlc_compositor *compositor)
    }
 
    compositor->render->api.swap();
-   compositor->render->api.clear();
-
    compositor->repaint_scheduled = false;
 }
 
