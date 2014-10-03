@@ -6,6 +6,8 @@
 #include "shell/surface.h"
 #include "shell/xdg-surface.h"
 
+#include "seat/seat.h"
+
 #include "xwayland/xwm.h"
 
 #include <stdlib.h>
@@ -129,6 +131,7 @@ wlc_view_free(struct wlc_view *view)
    if (view->x11_window)
       wlc_x11_window_free(view->x11_window);
 
+   view->surface->compositor->seat->notify.view_unfocus(view->surface->compositor->seat, view);
    wl_list_remove(&view->link);
    free(view);
 }

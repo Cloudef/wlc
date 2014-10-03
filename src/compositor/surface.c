@@ -105,11 +105,9 @@ wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, 
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    struct wlc_buffer *buffer = NULL;
 
-   if (buffer_resource) {
-      if (!(buffer = wlc_buffer_new(buffer_resource))) {
-         wl_client_post_no_memory(wl_client);
-         return;
-      }
+   if (buffer_resource && !(buffer = wlc_buffer_new(buffer_resource))) {
+      wl_client_post_no_memory(wl_client);
+      return;
    }
 
    wlc_surface_state_set_buffer(&surface->pending, buffer);
@@ -131,17 +129,12 @@ static void
 wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, uint32_t callback_id)
 {
    struct wl_resource *callback_resource;
-   if (!(callback_resource = wl_resource_create(wl_client, &wl_callback_interface, 1, callback_id))) {
-      wl_resource_post_no_memory(resource);
-      return;
-   }
+   if (!(callback_resource = wl_resource_create(wl_client, &wl_callback_interface, 1, callback_id)))
+      goto fail;
 
    struct wlc_callback *callback;
-   if (!(callback = wlc_callback_new(callback_resource))) {
-      wl_resource_destroy(callback_resource);
-      wl_resource_post_no_memory(resource);
-      return;
-   }
+   if (!(callback = wlc_callback_new(callback_resource)))
+      goto fail;
 
    wlc_callback_implement(callback);
 
@@ -149,6 +142,12 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
    wl_list_insert(&surface->frame_cb_list, &callback->link);
 
    wlc_surface_create_notify(surface);
+   return;
+
+fail:
+   if (callback_resource)
+      wl_resource_destroy(callback_resource);
+   wl_resource_post_no_memory(resource);
 }
 
 static void
@@ -265,6 +264,11 @@ wlc_surface_free(struct wlc_surface *surface)
 {
    assert(surface);
 
+   if (surface->resource) {
+      wl_resource_destroy(surface->resource);
+      return;
+   }
+
    struct wlc_view *view;
    if ((view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
       if (surface->created && surface->compositor->interface.view.destroyed)
@@ -273,13 +277,10 @@ wlc_surface_free(struct wlc_surface *surface)
       wlc_view_free(view);
    }
 
-   if (surface->resource)
-      wl_resource_destroy(surface->resource);
-
    if (surface->compositor && surface->compositor->render)
       surface->compositor->render->api.destroy(surface);
 
-   if (surface->created)
+   if (surface->created && surface->compositor)
       surface->compositor->api.schedule_repaint(surface->compositor);
 
    free(surface);

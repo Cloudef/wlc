@@ -11,17 +11,6 @@
 #include <wayland-server.h>
 
 static bool
-view_exists_in_list(struct wlc_view *needle, struct wl_list *list)
-{
-   struct wlc_view *view;
-   wl_list_for_each(view, list, link) {
-      if (view == needle)
-         return true;
-   }
-   return false;
-}
-
-static bool
 is_valid_view(struct wlc_view *view)
 {
    return (view && view->client && view->client->input[WLC_POINTER] && view->surface && view->surface->resource);
@@ -34,11 +23,6 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
 
    if (pointer->focus == view)
       return;
-
-   // FIXME: hack
-   // We need better resource management.
-   if (pointer->focus && !view_exists_in_list(pointer->focus, pointer->views))
-      pointer->focus = NULL;
 
    if (is_valid_view(pointer->focus))
       wl_pointer_send_leave(pointer->focus->client->input[WLC_POINTER], serial, pointer->focus->surface->resource);

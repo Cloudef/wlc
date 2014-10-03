@@ -115,7 +115,6 @@ retry:
    }
 
    close(lock_fd);
-   lock_fd = -1;
 
    struct sockaddr_un addr = { .sun_family = AF_LOCAL };
    addr.sun_path[0] = '\0';

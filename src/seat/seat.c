@@ -253,6 +253,18 @@ seat_keyboard_focus(struct wlc_seat *seat, struct wlc_view *view)
    wlc_keyboard_focus(seat->keyboard, serial, view);
 }
 
+static void
+seat_view_unfocus(struct wlc_seat *seat, struct wlc_view *view)
+{
+   uint32_t serial = wl_display_next_serial(seat->compositor->display);
+
+   if (seat->keyboard && seat->keyboard->focus == view)
+      wlc_keyboard_focus(seat->keyboard, serial, NULL);
+
+   if (seat->pointer && seat->pointer->focus == view)
+      wlc_pointer_focus(seat->pointer, serial, NULL, 0, 0);
+}
+
 void
 wlc_seat_free(struct wlc_seat *seat)
 {
@@ -292,6 +304,7 @@ wlc_seat_new(struct wlc_compositor *compositor)
    seat->notify.pointer_button = seat_pointer_button;
    seat->notify.keyboard_key = seat_keyboard_key;
    seat->notify.keyboard_focus = seat_keyboard_focus;
+   seat->notify.view_unfocus = seat_view_unfocus;
 
    seat->compositor = compositor;
    return seat;
