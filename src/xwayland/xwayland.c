@@ -85,29 +85,20 @@ retry:
 
       char pid[12];
       memset(pid, 0, sizeof(pid));
-      if (read(lock_fd, pid, sizeof(pid) - 1) != sizeof(pid) -1) {
-         close(lock_fd);
-         lock_fd = -1;
+      ssize_t bytes = read(lock_fd, pid, sizeof(pid) - 1);
+      close(lock_fd);
+      lock_fd = -1;
+
+      if (bytes != sizeof(pid) -1)
          continue;
-      }
 
       char *end;
       pid_t owner = strtol(pid, &end, 10);
-      if (end != pid + 10) {
-         close(lock_fd);
-         lock_fd = -1;
-         continue;
-      }
-
-      if (kill(owner, 0) == 0) {
-         close(lock_fd);
-         lock_fd = -1;
-         continue;
-      }
-
-      if (unlink(lock_name) != 0) {
-         close(lock_fd);
-         lock_fd = -1;
+      if (end == pid + 10 && kill(owner, 0) != 0) {
+         unlink(lock_name);
+         snprintf(lock_name, sizeof(lock_name), socket_fmt, dpy);
+         unlink(lock_name);
+         dpy -= 1;
          continue;
       }
    }
@@ -131,6 +122,7 @@ retry:
    int path_size = snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, socket_fmt, dpy);
    if ((socks[0] = open_socket(&addr, path_size)) < 0) {
       unlink(lock_name);
+      unlink(addr.sun_path + 1);
       goto retry;
    }
 
@@ -139,6 +131,7 @@ retry:
    if ((socks[1] = open_socket(&addr, path_size)) < 0) {
       close(socks[0]);
       unlink(lock_name);
+      unlink(addr.sun_path);
       goto retry;
    }
 
