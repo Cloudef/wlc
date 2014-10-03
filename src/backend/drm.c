@@ -197,7 +197,7 @@ page_flip(void)
     * TODO: vblanks etc..
     */
 
-   if (flipper.current_bo && flipper.next_bo && flipper.current_bo != flipper.next_bo) {
+   if (flipper.next_bo || flipper.next_fb_id > 0) {
       fd_set rfds;
       FD_ZERO(&rfds);
       FD_SET(drm.fd, &rfds);
@@ -206,9 +206,6 @@ page_flip(void)
       while (select(drm.fd + 1, &rfds, NULL, NULL, NULL) == -1);
       drm_event(drm.fd, 0, NULL);
    }
-
-   flipper.next_bo = NULL;
-   flipper.next_fb_id = 0;
 
    if (!gbm.api.gbm_surface_has_free_buffers(gbm.surface))
       goto no_buffers;
