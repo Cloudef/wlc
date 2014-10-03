@@ -61,6 +61,8 @@ static struct {
       xcb_void_cookie_t (*xcb_configure_window_checked)(xcb_connection_t*, xcb_window_t, uint16_t, const uint32_t*);
       xcb_void_cookie_t (*xcb_set_selection_owner_checked)(xcb_connection_t*, xcb_window_t, xcb_atom_t, xcb_timestamp_t);
       xcb_void_cookie_t (*xcb_set_input_focus_checked)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_timestamp_t);
+      xcb_void_cookie_t (*xcb_kill_client_checked)(xcb_connection_t*, uint32_t);
+      xcb_void_cookie_t (*xcb_send_event)(xcb_connection_t*, uint8_t, xcb_window_t, uint32_t, const char*);
       xcb_intern_atom_cookie_t (*xcb_intern_atom)(xcb_connection_t*, uint8_t, uint16_t, const char*);
       xcb_intern_atom_reply_t* (*xcb_intern_atom_reply)(xcb_connection_t*, xcb_intern_atom_cookie_t, xcb_generic_error_t**);
       xcb_generic_error_t* (*xcb_request_check)(xcb_connection_t*, xcb_void_cookie_t);
@@ -72,6 +74,11 @@ static struct {
 
       xcb_void_cookie_t (*xcb_composite_redirect_subwindows_checked)(xcb_connection_t*, xcb_window_t, uint8_t);
       xcb_extension_t *xcb_composite_id;
+
+      xcb_get_property_cookie_t (*xcb_icccm_get_wm_protocols)(xcb_connection_t*, xcb_window_t, xcb_atom_t);
+      uint8_t (*xcb_icccm_get_wm_protocols_reply)(xcb_connection_t*, xcb_get_property_cookie_t, xcb_icccm_get_wm_protocols_reply_t*, xcb_generic_error_t**);
+      void (*xcb_icccm_get_wm_protocols_reply_wipe)(xcb_icccm_get_wm_protocols_reply_t*);
+
    } api;
 } x11;
 
@@ -116,6 +123,10 @@ xcb_load(void)
    if (!load(xcb_set_selection_owner_checked))
       goto function_pointer_exception;
    if (!load(xcb_set_input_focus_checked))
+      goto function_pointer_exception;
+   if (!load(xcb_kill_client_checked))
+      goto function_pointer_exception;
+   if (!load(xcb_send_event))
       goto function_pointer_exception;
    if (!load(xcb_intern_atom))
       goto function_pointer_exception;
@@ -189,6 +200,34 @@ function_pointer_exception:
    return false;
 }
 
+static bool
+xcb_icccm_load(void)
+{
+   const char *lib = "libxcb-icccm.so", *func = NULL;
+
+   if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
+      return false;
+   }
+
+#define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
+
+   if (!load(xcb_icccm_get_wm_protocols))
+      goto function_pointer_exception;
+   if (!load(xcb_icccm_get_wm_protocols_reply))
+      goto function_pointer_exception;
+   if (!load(xcb_icccm_get_wm_protocols_reply_wipe))
+      goto function_pointer_exception;
+
+#undef load
+
+   return true;
+
+function_pointer_exception:
+   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   return false;
+}
+
 /**
  * TODO: change to hashmap, instead of wl_list
  */
@@ -228,6 +267,38 @@ wlc_x11_window_free(struct wlc_x11_window *win)
 
    wl_list_remove(&win->link);
    free(win);
+}
+
+static void deletewindow(const xcb_window_t window)
+{
+    xcb_client_message_event_t ev;
+    ev.response_type = XCB_CLIENT_MESSAGE;
+    ev.window = window;
+    ev.format = 32;
+    ev.sequence = 0;
+    ev.type = x11.atoms[WM_PROTOCOLS];
+    ev.data.data32[0] = x11.atoms[WM_DELETE_WINDOW];
+    ev.data.data32[1] = XCB_CURRENT_TIME;
+    x11.api.xcb_send_event(x11.connection, 0, window, XCB_EVENT_MASK_NO_EVENT, (char*)&ev);
+}
+
+void
+wlc_x11_window_close(struct wlc_x11_window *win)
+{
+   bool got = false;
+   xcb_icccm_get_wm_protocols_reply_t reply;
+   if (x11.api.xcb_icccm_get_wm_protocols_reply(x11.connection, x11.api.xcb_icccm_get_wm_protocols(x11.connection, win->id, x11.atoms[WM_PROTOCOLS]), &reply, NULL)) {
+      for(unsigned int n = 0; n != reply.atoms_len; ++n) if ((got = reply.atoms[n] == x11.atoms[WM_DELETE_WINDOW])) break;
+      x11.api.xcb_icccm_get_wm_protocols_reply_wipe(&reply);
+   }
+
+   if (got) {
+      deletewindow(win->id);
+   } else {
+      x11.api.xcb_kill_client_checked(x11.connection, win->id);
+   }
+
+   x11.api.xcb_flush(x11.connection);
 }
 
 void
@@ -336,7 +407,7 @@ x11_event(int fd, uint32_t mask, void *data)
 bool
 wlc_xwm_init(struct wlc_compositor *compositor, const int fd)
 {
-   if (!xcb_load() || !xcb_ewmh_load() || !xcb_composite_load())
+   if (!xcb_load() || !xcb_ewmh_load() || !xcb_composite_load() || !xcb_icccm_load())
       goto fail;
 
    x11.connection = x11.api.xcb_connect_to_fd(fd, NULL);

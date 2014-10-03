@@ -240,10 +240,13 @@ wlc_view_close(struct wlc_view *view)
 {
    assert(view);
 
-   if (!view->xdg_surface)
-      return;
-
-   xdg_surface_send_close(view->xdg_surface->shell_surface->resource);
+   if (view->xdg_surface) {
+      xdg_surface_send_close(view->xdg_surface->shell_surface->resource);
+   } else if (view->x11_window) {
+      wlc_x11_window_close(view->x11_window);
+   } else {
+      wlc_surface_free(view->surface);
+   }
 }
 
 WLC_API struct wl_list*
