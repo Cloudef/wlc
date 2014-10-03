@@ -222,6 +222,8 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
       WLC_BIT_LED_SCROLL,
    };
 
+   wlc_keyboard_update(seat->keyboard, key, state);
+
    uint32_t mods = 0, lookup = seat->keyboard->mods.depressed | seat->keyboard->mods.latched;
    for (int i = 0; i < WLC_MOD_LAST; ++i) {
       if (lookup & (1 << seat->keymap->mods[i]))

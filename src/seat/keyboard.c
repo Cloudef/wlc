@@ -17,7 +17,7 @@ is_valid_view(struct wlc_view *view)
 }
 
 static void
-update_modifiers(struct wlc_keyboard *keyboard, uint32_t serial)
+update_modifiers(struct wlc_keyboard *keyboard)
 {
    assert(keyboard);
 
@@ -36,11 +36,13 @@ update_modifiers(struct wlc_keyboard *keyboard, uint32_t serial)
    keyboard->mods.latched = latched;
    keyboard->mods.locked = locked;
    keyboard->mods.group = group;
+}
 
-   if (!is_valid_view(keyboard->focus))
-      return;
-
-   wl_keyboard_send_modifiers(keyboard->focus->client->input[WLC_KEYBOARD], serial, depressed, latched, locked, group);
+void
+wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state)
+{
+   xkb_state_update_key(keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
+   update_modifiers(keyboard);
 }
 
 void
@@ -48,13 +50,12 @@ wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t serial, uint32_t time, 
 {
    assert(keyboard);
 
-   xkb_state_update_key(keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
-   update_modifiers(keyboard, serial);
-
    if (!is_valid_view(keyboard->focus))
       return;
 
    wl_keyboard_send_key(keyboard->focus->client->input[WLC_KEYBOARD], serial, time, key, state);
+   wl_keyboard_send_modifiers(keyboard->focus->client->input[WLC_KEYBOARD], serial,
+         keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
 }
 
 void
