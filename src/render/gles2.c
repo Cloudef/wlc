@@ -19,24 +19,35 @@
 
 #include <wayland-server.h>
 
+enum program_type {
+   PROGRAM_RGB,
+   PROGRAM_RGBA,
+   PROGRAM_LAST,
+};
+
 enum {
    UNIFORM_WIDTH,
    UNIFORM_HEIGHT,
-   UNIFORM_ALPHA,
+   UNIFORM_DIM,
    UNIFORM_LAST,
 };
 
 static const char *uniform_names[UNIFORM_LAST] = {
    "width",
    "height",
-   "alpha"
+   "dim"
 };
 
 static struct {
    struct wlc_context *context;
    const char *extensions;
 
-   GLint uniforms[UNIFORM_LAST];
+   struct {
+      GLuint obj;
+      GLuint uniforms[UNIFORM_LAST];
+   } programs[PROGRAM_LAST];
+
+   enum program_type current_program;
 
    struct {
       void *handle;
@@ -184,6 +195,16 @@ has_extension(const char *extension)
 #endif
 
 static void
+set_program(const enum program_type type)
+{
+   if (type == gl.current_program)
+      return;
+
+   gl.api.glUseProgram(gl.programs[type].obj);
+   gl.current_program = type;
+}
+
+static void
 surface_gen_textures(struct wlc_surface *surface, const int num_textures)
 {
    for (int i = 0; i < num_textures; ++i) {
@@ -240,18 +261,21 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
          gl_format = GL_BGRA_EXT;
          gl_pixel_type = GL_UNSIGNED_BYTE;
+         surface->format = SURFACE_RGBA;
          break;
       case WL_SHM_FORMAT_ARGB8888:
          // gs->shader = &gr->texture_shader_rgba;
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
          gl_format = GL_BGRA_EXT;
          gl_pixel_type = GL_UNSIGNED_BYTE;
+         surface->format = SURFACE_RGBA;
          break;
       case WL_SHM_FORMAT_RGB565:
          // gs->shader = &gr->texture_shader_rgbx;
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
          gl_format = GL_RGB;
          gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
+         surface->format = SURFACE_RGB;
          break;
       default:
          /* unknown shm buffer format */
@@ -285,7 +309,7 @@ egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t form
       case EGL_TEXTURE_RGBA:
       default:
          num_planes = 1;
-         // gs->shader = &gr->texture_shader_rgba;
+         surface->format = SURFACE_RGBA;
          break;
       case 0x31DA:
          num_planes = 1;
@@ -370,7 +394,8 @@ view_render(struct wlc_view *view)
       0, 1
    };
 
-   gl.api.glUniform1f(gl.uniforms[UNIFORM_ALPHA], (view->state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
+   set_program((view->x11_window ? PROGRAM_RGB : view->surface->format));
+   gl.api.glUniform1f(gl.programs[gl.current_program].uniforms[UNIFORM_DIM], (view->state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
 
    for (int i = 0; i < 3; ++i) {
       if (!view->surface->textures[i])
@@ -402,8 +427,12 @@ clear(void)
 static void
 resolution(int32_t width, int32_t height)
 {
-   gl.api.glUniform1f(gl.uniforms[UNIFORM_WIDTH], width);
-   gl.api.glUniform1f(gl.uniforms[UNIFORM_HEIGHT], height);
+   for (int i = 0; i < PROGRAM_LAST; ++i) {
+      set_program(i);
+      gl.api.glUniform1f(gl.programs[gl.current_program].uniforms[UNIFORM_WIDTH], width);
+      gl.api.glUniform1f(gl.programs[gl.current_program].uniforms[UNIFORM_HEIGHT], height);
+   }
+
    gl.api.glViewport(0, 0, width, height);
 }
 
@@ -470,38 +499,60 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
       "}\n";
 
    // TODO: Implement different shaders for different textures
-   static const char *frag_shader_text =
+   static const char *frag_shader_rgb_text =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
-      "uniform float alpha;\n"
+      "uniform float dim;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
-      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb, 1.0) * alpha;\n"
+      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb * dim, 1.0);\n"
       "}\n";
 
-   GLuint frag = create_shader(frag_shader_text, GL_FRAGMENT_SHADER);
-   GLuint vert = create_shader(vert_shader_text, GL_VERTEX_SHADER);
-   GLuint program = gl.api.glCreateProgram();
-   gl.api.glAttachShader(program, frag);
-   gl.api.glAttachShader(program, vert);
-   gl.api.glLinkProgram(program);
+   static const char *frag_shader_rgba_text =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  vec4 col = texture2D(texture0, v_uv);\n"
+      "  gl_FragColor = vec4(col.rgb * dim, col.a);\n"
+      "}\n";
 
-   GLint status;
-   gl.api.glGetProgramiv(program, GL_LINK_STATUS, &status);
-   if (!status) {
-      GLsizei len;
-      char log[1000];
-      gl.api.glGetProgramInfoLog(program, sizeof(log), &len, log);
-      fprintf(stderr, "Error: linking:\n%*s\n", len, log);
-      abort();
+
+   const struct {
+      const char *vert;
+      const char *frag;
+   } map[PROGRAM_LAST] = {
+      { vert_shader_text, frag_shader_rgb_text }, // PROGRAM_RGB
+      { vert_shader_text, frag_shader_rgba_text }, // PROGRAM_RGBA
+   };
+
+   gl.current_program = PROGRAM_LAST;
+   for (int i = 0; i < PROGRAM_LAST; ++i) {
+      GLuint vert = create_shader(map[i].vert, GL_VERTEX_SHADER);
+      GLuint frag = create_shader(map[i].frag, GL_FRAGMENT_SHADER);
+      gl.programs[i].obj = gl.api.glCreateProgram();
+      gl.api.glAttachShader(gl.programs[i].obj, vert);
+      gl.api.glAttachShader(gl.programs[i].obj, frag);
+      gl.api.glLinkProgram(gl.programs[i].obj);
+
+      GLint status;
+      gl.api.glGetProgramiv(gl.programs[i].obj, GL_LINK_STATUS, &status);
+      if (!status) {
+         GLsizei len;
+         char log[1000];
+         gl.api.glGetProgramInfoLog(gl.programs[i].obj, sizeof(log), &len, log);
+         fprintf(stderr, "Error: linking:\n%*s\n", len, log);
+         abort();
+      }
+
+      set_program(i);
+      gl.api.glBindAttribLocation(gl.programs[i].obj, 0, "pos");
+      gl.api.glBindAttribLocation(gl.programs[i].obj, 1, "uv");
+
+      for (int u = 0; u < UNIFORM_LAST; ++u)
+         gl.programs[i].uniforms[u] = gl.api.glGetUniformLocation(gl.programs[i].obj, uniform_names[u]);
    }
-
-   gl.api.glUseProgram(program);
-   gl.api.glBindAttribLocation(program, 0, "pos");
-   gl.api.glBindAttribLocation(program, 1, "uv");
-
-   for (int i = 0; i < UNIFORM_LAST; ++i)
-      gl.uniforms[i] = gl.api.glGetUniformLocation(program, uniform_names[i]);
 
    gl.api.glEnableVertexAttribArray(0);
    gl.api.glEnableVertexAttribArray(1);

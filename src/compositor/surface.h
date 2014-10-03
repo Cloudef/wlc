@@ -39,6 +39,11 @@ struct wlc_surface {
     */
    void *images[3];
 
+   enum {
+      SURFACE_RGB,
+      SURFACE_RGBA,
+   } format;
+
    int32_t width, height;
    bool created;
 };
