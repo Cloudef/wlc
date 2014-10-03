@@ -73,6 +73,8 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
       struct wl_array keys;
       wl_array_init(&keys);
       wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keys);
+      wl_keyboard_send_modifiers(view->client->input[WLC_KEYBOARD], serial,
+            keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
    }
 
    keyboard->focus = view;
