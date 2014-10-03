@@ -123,59 +123,53 @@ wl_subcompositor_bind(struct wl_client *wl_client, void *data, uint32_t version,
 static void
 wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, unsigned int id)
 {
-   struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
-
+   struct wlc_surface *surface = NULL;
    struct wl_resource *surface_resource;
-   if (!(surface_resource = wl_resource_create(wl_client, &wl_surface_interface, 1, id))) {
-      wl_resource_post_no_memory(resource);
-      return;
-   }
+   if (!(surface_resource = wl_resource_create(wl_client, &wl_surface_interface, 1, id)))
+      goto fail;
 
-   struct wlc_surface *surface;
-   if (!(surface = wlc_surface_new(compositor))) {
-      wl_resource_destroy(surface_resource);
-      wl_resource_post_no_memory(resource);
-      return;
-   }
+   struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
+   if (!(surface = wlc_surface_new(compositor)))
+      goto fail;
 
    struct wlc_client *client;
-   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &compositor->clients))) {
-      wlc_surface_free(surface);
-      wl_resource_destroy(surface_resource);
-      wl_resource_post_no_memory(resource);
-      return;
-   }
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &compositor->clients)))
+      goto fail;
 
    struct wlc_view *view;
-   if (!(view = wlc_view_new(client, surface))) {
-      wlc_surface_free(surface);
-      wl_resource_destroy(surface_resource);
-      wl_resource_post_no_memory(resource);
-      return;
-   }
+   if (!(view = wlc_view_new(client, surface)))
+      goto fail;
 
    wl_list_insert(compositor->views.prev, &view->link);
-
    wlc_surface_implement(surface, surface_resource);
+   return;
+
+fail:
+   if (surface)
+      wlc_surface_free(surface);
+   if (surface_resource)
+      wl_resource_destroy(surface_resource);
+   wl_resource_post_no_memory(resource);
 }
 
 static void
 wl_cb_region_create(struct wl_client *wl_client, struct wl_resource *resource, unsigned int id)
 {
    struct wl_resource *region_resource;
-   if (!(region_resource = wl_resource_create(wl_client, &wl_region_interface, 1, id))) {
-      wl_resource_post_no_memory(resource);
-      return;
-   }
+   if (!(region_resource = wl_resource_create(wl_client, &wl_region_interface, 1, id)))
+      goto fail;
 
    struct wlc_region *region;
-   if (!(region = wlc_region_new())) {
-      wl_resource_destroy(region_resource);
-      wl_resource_post_no_memory(resource);
-      return;
-   }
+   if (!(region = wlc_region_new()))
+      goto fail;
 
    wlc_region_implement(region, region_resource);
+   return;
+
+fail:
+   if (region_resource)
+      wl_resource_destroy(region_resource);
+   wl_resource_post_no_memory(resource);
 }
 
 static const struct wl_compositor_interface wl_compositor_implementation = {
