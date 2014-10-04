@@ -95,20 +95,6 @@ wlc_view_for_surface_in_list(struct wlc_surface *surface, struct wl_list *list)
    return NULL;
 }
 
-struct wlc_view*
-wlc_view_for_surface_id_in_list(uint32_t surface_id, struct wl_list *list)
-{
-   assert(list);
-
-   struct wlc_view *view;
-   wl_list_for_each(view, list, link) {
-      if (wl_resource_get_id(view->surface->resource) == surface_id)
-         return view;
-   }
-
-   return NULL;
-}
-
 void
 wlc_view_set_xdg_surface(struct wlc_view *view, struct wlc_xdg_surface *xdg_surface)
 {

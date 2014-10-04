@@ -19,6 +19,7 @@ struct wlc_x11_window {
    struct wlc_view *view;
    struct wl_list link;
    xcb_window_t id;
+   uint32_t surface_id;
    bool override_redirect;
 };
 
@@ -31,6 +32,7 @@ enum atom_name {
 };
 
 static struct {
+   struct wl_client *client;
    struct wl_event_source *event_source;
    struct wl_list windows, unpaired_windows;
 } xwm;
@@ -338,10 +340,15 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 }
 
 static void
-link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, const uint32_t surface_id)
+link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, struct wl_resource *resource)
 {
+   if (!resource || win->surface_id != 0)
+      return;
+
+   struct wlc_surface *surface = wl_resource_get_user_data(resource);
+
    struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_id_in_list(surface_id, &compositor->views)))
+   if (!(view = wlc_view_for_surface_in_list(surface, &compositor->views)))
       return;
 
    win->view = view;
@@ -389,8 +396,10 @@ x11_event(int fd, uint32_t mask, void *data)
             xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
             if (ev->type == x11.atoms[WL_SURFACE_ID]) {
                struct wlc_x11_window *win;
-               if ((win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
-                  link_surface(compositor, win, ev->data.data32[0]);
+               if ((win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window))) {
+                  link_surface(compositor, win, wl_client_get_object(xwm.client, ev->data.data32[0]));
+                  win->surface_id = ev->data.data32[0];
+               }
             }
          }
          break;
@@ -405,7 +414,7 @@ x11_event(int fd, uint32_t mask, void *data)
 }
 
 bool
-wlc_xwm_init(struct wlc_compositor *compositor, const int fd)
+wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const int fd)
 {
    if (!xcb_load() || !xcb_ewmh_load() || !xcb_composite_load() || !xcb_icccm_load())
       goto fail;
@@ -490,6 +499,7 @@ wlc_xwm_init(struct wlc_compositor *compositor, const int fd)
    x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[WM_S0], XCB_CURRENT_TIME);
    x11.api.xcb_flush(x11.connection);
 
+   xwm.client = client;
    fprintf(stdout, "-!- xwm started\n");
    return true;
 

@@ -33,7 +33,6 @@ struct wlc_view {
 
 void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_geometry);
 struct wlc_view* wlc_view_for_surface_in_list(struct wlc_surface *surface, struct wl_list *list);
-struct wlc_view* wlc_view_for_surface_id_in_list(uint32_t surface_id, struct wl_list *list);
 void wlc_view_set_xdg_surface(struct wlc_view *view, struct wlc_xdg_surface *xdg_surface);
 void wlc_view_set_shell_surface(struct wlc_view *view, struct wlc_shell_surface *shell_surface);
 void wlc_view_free(struct wlc_view *view);

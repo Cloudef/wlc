@@ -166,7 +166,7 @@ usr1_event(int signal_number, void *data)
    (void)signal_number;
    struct wlc_compositor *compositor = data;
 
-   if (!wlc_xwm_init(compositor, xserver.wm_fd))
+   if (!wlc_xwm_init(compositor, xserver.client, xserver.wm_fd))
       fprintf(stderr, "-!- Failed to start Xwayland WM\n");
 
    if (xserver.event_source) {
