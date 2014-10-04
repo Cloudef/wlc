@@ -12,7 +12,7 @@ legend: x = works, v = works, but major features still missing
 [v] XKB keymaps
 [v] Xwayland
 [ ] udev / hotplugging
-[ ] EGL surfaces
+[v] EGL surfaces
 [ ] Multi-monitor
 
 MayTODO:
