@@ -407,6 +407,9 @@ wlc_compositor_new(void)
    if (!(wlc_xwayland_init(compositor)))
       exit(EXIT_FAILURE);
 
+   // FIXME: yay, we fake a output here
+   wlc_output_new(compositor);
+
    resolution(compositor, compositor->resolution.width, compositor->resolution.height);
    compositor->repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
    repaint(compositor);

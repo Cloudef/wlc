@@ -6,6 +6,7 @@ SET(SRC
    compositor/buffer.c
    compositor/callback.c
    compositor/compositor.c
+   compositor/output.c
    compositor/region.c
    compositor/surface.c
    compositor/view.c
