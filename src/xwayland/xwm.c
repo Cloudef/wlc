@@ -26,8 +26,16 @@ struct wlc_x11_window {
 enum atom_name {
    WL_SURFACE_ID,
    WM_DELETE_WINDOW,
+   WM_TAKE_FOCUS,
    WM_PROTOCOLS,
+   UTF8_STRING,
    WM_S0,
+   NET_WM_S0,
+   NET_WM_NAME,
+   NET_WM_STATE,
+   NET_WM_STATE_FULLSCREEN,
+   NET_SUPPORTED,
+   NET_SUPPORTING_WM_CHECK,
    ATOM_LAST
 };
 
@@ -329,11 +337,17 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
    assert(win);
 
    if (active) {
-      // TODO: send net wm take focus message
-      // Maybe use INPUT_FOCUS_POINTER_ROOT ?
-      x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_NONE, win->id, XCB_CURRENT_TIME);
+      xcb_client_message_event_t m;
+      m.response_type = XCB_CLIENT_MESSAGE;
+      m.format = 32;
+      m.window = win->id;
+      m.type = x11.atoms[WM_PROTOCOLS];
+      m.data.data32[0] = x11.atoms[WM_TAKE_FOCUS];
+      m.data.data32[1] = XCB_TIME_CURRENT_TIME;
+      x11.api.xcb_send_event(x11.connection, 0, win->id, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, (char*)&m);
+      x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, win->id, XCB_CURRENT_TIME);
    } else {
-      x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_NONE, XCB_NONE, XCB_CURRENT_TIME);
+      x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_CURRENT_TIME);
    }
 
    x11.api.xcb_flush(x11.connection);
@@ -388,10 +402,6 @@ x11_event(int fd, uint32_t mask, void *data)
             x11.api.xcb_map_window_checked(x11.connection, ev->window);
          }
          break;
-         case XCB_CONFIGURE_REQUEST:
-         break;
-         case XCB_PROPERTY_NOTIFY:
-         break;
          case XCB_CLIENT_MESSAGE: {
             xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
             if (ev->type == x11.atoms[WL_SURFACE_ID]) {
@@ -402,6 +412,16 @@ x11_event(int fd, uint32_t mask, void *data)
                }
             }
          }
+         break;
+         case XCB_CONFIGURE_REQUEST:
+         case XCB_PROPERTY_NOTIFY:
+         case XCB_CONFIGURE_NOTIFY:
+         case XCB_MAP_NOTIFY:
+         case XCB_UNMAP_NOTIFY:
+         case XCB_MAPPING_NOTIFY:
+         break;
+         default:
+            fprintf(stderr, "xwm: unimplemented %d\n", event->response_type & ~0x80);
          break;
       }
 
@@ -434,9 +454,17 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
       enum atom_name atom;
    } map[ATOM_LAST] = {
       { "WL_SURFACE_ID", WL_SURFACE_ID },
-      { "WM_PROTOCOLS", WM_PROTOCOLS },
       { "WM_DELETE_WINDOW", WM_DELETE_WINDOW },
+      { "WM_TAKE_FOCUS", WM_TAKE_FOCUS },
+      { "WM_PROTOCOLS", WM_PROTOCOLS },
+      { "UTF8_STRING", UTF8_STRING },
       { "WM_S0", WM_S0 },
+      { "_NET_WM_S0", NET_WM_S0 },
+      { "_NET_WM_NAME", NET_WM_NAME },
+      { "_NET_WM_STATE", NET_WM_STATE },
+      { "_NET_WM_STATE_FULLSCREEN", NET_WM_STATE_FULLSCREEN },
+      { "_NET_SUPPORTED", NET_SUPPORTED },
+      { "_NET_SUPPORTING_WM_CHECK", NET_SUPPORTING_WM_CHECK },
    };
 
    xcb_intern_atom_cookie_t atom_cookies[ATOM_LAST];
@@ -447,10 +475,8 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    xcb_screen_iterator_t screen_iterator = x11.api.xcb_setup_roots_iterator(setup);
    x11.screen = screen_iterator.data;
 
-   /* Try to select for substructure redirect. */
-   unsigned int mask = XCB_CW_EVENT_MASK;
-   unsigned int value = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT;
-   xcb_void_cookie_t change_attributes_cookie = x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, mask, &value);
+   uint32_t value = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_PROPERTY_CHANGE;
+   xcb_void_cookie_t change_attributes_cookie = x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &value);
 
    if (!(xwm.event_source = wl_event_loop_add_fd(compositor->event_loop, fd, WL_EVENT_READABLE, &x11_event, compositor)))
       goto event_source_fail;
@@ -471,13 +497,6 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    if ((error = x11.api.xcb_request_check(x11.connection, redirect_subwindows_cookie)))
       goto redirect_subwindows_fail;
 
-   if (!(x11.window = x11.api.xcb_generate_id(x11.connection)))
-      goto window_fail;
-
-   x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, x11.window, x11.screen->root,
-         0, 0, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY,
-         x11.screen->root_visual, 0, NULL);
-
    x11.api.xcb_ewmh_init_atoms_replies(&x11.ewmh, ewmh_cookies, &error);
 
    if (error)
@@ -496,7 +515,25 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
          goto atom_get_fail;
    }
 
+   if (!(x11.window = x11.api.xcb_generate_id(x11.connection)))
+      goto window_fail;
+
+   x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, x11.window, x11.screen->root,
+         0, 0, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY,
+         x11.screen->root_visual, 0, NULL);
+
+   xcb_atom_t supported[] = {
+      x11.atoms[NET_WM_STATE],
+      x11.atoms[NET_WM_STATE_FULLSCREEN]
+   };
+
+   x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTED], XCB_ATOM_ATOM, 32, 2, supported);
+   x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window);
+   x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window);
+   x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, strlen("xwlc"), "xwlc");
    x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[WM_S0], XCB_CURRENT_TIME);
+   x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[NET_WM_S0], XCB_CURRENT_TIME);
+
    x11.api.xcb_flush(x11.connection);
 
    xwm.client = client;
