@@ -5,6 +5,7 @@
 #include "view.h"
 #include "surface.h"
 #include "region.h"
+#include "output.h"
 #include "macros.h"
 
 #include "data-device/manager.h"
@@ -284,6 +285,25 @@ resolution(struct wlc_compositor *compositor, int32_t width, int32_t height)
    schedule_repaint(compositor);
 }
 
+static void
+add_output(struct wlc_compositor *compositor, struct wlc_output *output)
+{
+   wl_list_insert(&compositor->outputs, &output->link);
+
+   if (compositor->interface.output.created)
+      compositor->interface.output.created(compositor, output);
+}
+
+static void
+remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
+{
+   (void)compositor;
+   wl_list_remove(&output->link);
+
+   if (compositor->interface.output.destroyed)
+      compositor->interface.output.destroyed(compositor, output);
+}
+
 WLC_API void
 wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view)
 {
@@ -358,6 +378,8 @@ wlc_compositor_new(void)
       goto out_of_memory;
 
    compositor->resolution.width = compositor->resolution.height = 1;
+   compositor->api.add_output = add_output;
+   compositor->api.remove_output = remove_output;
    compositor->api.schedule_repaint = schedule_repaint;
    compositor->api.resolution = resolution;
    compositor->api.get_time = get_time;
@@ -367,6 +389,7 @@ wlc_compositor_new(void)
 
    wl_list_init(&compositor->clients);
    wl_list_init(&compositor->views);
+   wl_list_init(&compositor->outputs);
 
    if (!(compositor->global = wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
       goto compositor_interface_fail;
@@ -406,9 +429,6 @@ wlc_compositor_new(void)
 
    if (!(wlc_xwayland_init(compositor)))
       exit(EXIT_FAILURE);
-
-   // FIXME: yay, we fake a output here
-   wlc_output_new(compositor);
 
    resolution(compositor, compositor->resolution.width, compositor->resolution.height);
    compositor->repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);

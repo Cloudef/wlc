@@ -19,6 +19,7 @@
 
 struct wlc_compositor;
 struct wlc_view;
+struct wlc_output;
 struct wl_list;
 
 enum wlc_modifier_bit {
@@ -67,6 +68,8 @@ struct wlc_interface {
    } pointer;
 
    struct {
+      void (*created)(struct wlc_compositor*, struct wlc_output*);
+      void (*destroyed)(struct wlc_compositor*, struct wlc_output*);
       void (*resolution)(struct wlc_compositor*, uint32_t width, uint32_t height);
    } output;
 };

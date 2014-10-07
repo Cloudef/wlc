@@ -3,6 +3,7 @@
 
 #include "seat/seat.h"
 #include "compositor/compositor.h"
+#include "compositor/output.h"
 
 #include <xcb/xcb.h>
 #include <X11/Xlib-xcb.h>
@@ -405,6 +406,25 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
    wl_event_source_check(seat.event_source);
 
+   struct wlc_output_information info;
+   memset(&info, 0, sizeof(info));
+   wlc_string_set(&info.make, "Xorg", false);
+   wlc_string_set(&info.model, "X11 Window", false);
+
+   struct wlc_output_mode mode;
+   memset(&mode, 0, sizeof(mode));
+   mode.refresh = 60;
+   mode.width = x11.screen->width_in_pixels;
+   mode.height = x11.screen->height_in_pixels;
+   mode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
+   wlc_output_information_add_mode(&info, &mode);
+
+   struct wlc_output *output;
+   if (!(output = wlc_output_new(compositor, &info)))
+      goto output_fail;
+
+   compositor->api.add_output(compositor, output);
+
    out_backend->name = "X11";
    out_backend->terminate = terminate;
    out_backend->api.display = get_display;
@@ -425,6 +445,9 @@ window_fail:
    goto fail;
 event_source_fail:
    fprintf(stderr, "-!- Failed to add X11 event source\n");
+   goto fail;
+output_fail:
+   fprintf(stderr, "-!- Failed to create output\n");
 fail:
    terminate();
    return false;

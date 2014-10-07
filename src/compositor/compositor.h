@@ -11,6 +11,7 @@ struct wl_event_source;
 struct wlc_data_device_manager;
 struct wlc_seat;
 struct wlc_shell;
+struct wlc_output;
 struct wlc_xdg_shell;
 struct wlc_backend;
 struct wlc_context;
@@ -33,11 +34,13 @@ struct wlc_compositor {
       int32_t width, height;
    } resolution;
 
-   struct wl_list clients, views;
+   struct wl_list clients, views, outputs;
    struct wl_event_source *repaint_timer;
    bool repaint_scheduled;
 
    struct {
+      void (*add_output)(struct wlc_compositor *compositor, struct wlc_output *output);
+      void (*remove_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*resolution)(struct wlc_compositor *compositor, int32_t width, int32_t height);
       void (*schedule_repaint)(struct wlc_compositor *compositor);
       uint32_t (*get_time)(void);

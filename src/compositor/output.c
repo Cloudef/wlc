@@ -2,6 +2,7 @@
 #include "compositor.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #include <wayland-server.h>
@@ -24,16 +25,18 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
    wl_resource_set_implementation(resource, NULL, output, &wl_cb_output_resource_destructor);
    wl_list_insert(&output->resources, wl_resource_get_link(resource));
 
-   // FIXME: need real data
-
-   wl_output_send_geometry(resource, 1680, 1050,
-       output->physical_width, output->physical_height, 0 /* subpixel */,
-       "make", "model", WL_OUTPUT_TRANSFORM_NORMAL);
+   wl_output_send_geometry(resource, output->information.x, output->information.y,
+       output->information.physical_width, output->information.physical_height, output->information.subpixel,
+       (output->information.make.data ? output->information.make.data : "unknown"),
+       (output->information.model.data ? output->information.model.data : "model"),
+       output->information.transform);
 
    if (version >= WL_OUTPUT_SCALE_SINCE_VERSION)
-      wl_output_send_scale(resource, 1);
+      wl_output_send_scale(resource, output->information.scale);
 
-   wl_output_send_mode(resource, 0, 1680, 1050, 60);
+   struct wlc_output_mode *mode;
+   wl_array_for_each(mode, &output->information.modes)
+      wl_output_send_mode(resource, mode->flags, mode->width, mode->height, mode->refresh);
 
    if (version >= WL_OUTPUT_DONE_SINCE_VERSION)
       wl_output_send_done(resource);
@@ -42,6 +45,19 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
 
 fail:
    wl_client_post_no_memory(client);
+}
+
+bool
+wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode)
+{
+   assert(info && mode);
+
+   struct wlc_output_mode *copied;
+   if (!(copied = wl_array_add(&info->modes, sizeof(struct wlc_output_mode))))
+      return false;
+
+   memcpy(copied, mode, sizeof(struct wlc_output_mode));
+   return true;
 }
 
 void
@@ -56,7 +72,7 @@ wlc_output_free(struct wlc_output *output)
 }
 
 struct wlc_output*
-wlc_output_new(struct wlc_compositor *compositor)
+wlc_output_new(struct wlc_compositor *compositor, struct wlc_output_information *info)
 {
    struct wlc_output *output;
    if (!(output = calloc(1, sizeof(struct wlc_output))))
@@ -65,6 +81,7 @@ wlc_output_new(struct wlc_compositor *compositor)
    if (!(output->global = wl_global_create(compositor->display, &wl_output_interface, 2, output, &wl_output_bind)))
       goto fail;
 
+   memcpy(&output->information, info, sizeof(output->information));
    wl_list_init(&output->resources);
    return output;
 

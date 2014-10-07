@@ -3,6 +3,7 @@
 #include "udev/udev.h"
 #include "backend.h"
 #include "compositor/compositor.h"
+#include "compositor/output.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -265,71 +266,109 @@ get_window(void)
    return (EGLNativeWindowType)gbm.surface;
 }
 
+static drmModeEncoder*
+find_encoder_for_connector(const int fd, drmModeRes *resources, drmModeConnector *connector)
+{
+   for (int i = 0; i < resources->count_encoders; i++) {
+      drmModeEncoder *encoder;
+      if (!(encoder = drm.api.drmModeGetEncoder(fd, resources->encoders[i])))
+         continue;
+
+      if (encoder->encoder_id == connector->encoder_id)
+         return encoder;
+
+      drm.api.drmModeFreeEncoder(encoder);
+   }
+
+   return NULL;
+}
+
 static bool
-setup_drm(int fd)
+setup_drm(int fd, struct wl_array *out_infos)
 {
    drmModeRes *resources;
    if (!(resources = drm.api.drmModeGetResources(fd)))
       goto resources_fail;
 
-   drmModeConnector *connector = NULL;
+   drmModeModeInfo current_mode;
+   memset(&current_mode, 0, sizeof(current_mode));
+
    for (int i = 0; i < resources->count_connectors; i++) {
+      drmModeConnector *connector;
       if (!(connector = drm.api.drmModeGetConnector(fd, resources->connectors[i])))
          continue;
 
-      if (connector->connection == DRM_MODE_CONNECTED && connector->count_modes > 0)
-         break;
+      if (connector->connection != DRM_MODE_CONNECTED || connector->count_modes <= 0) {
+         drm.api.drmModeFreeConnector(connector);
+         continue;
+      }
 
-      drm.api.drmModeFreeConnector(connector);
-      connector = NULL;
+      drmModeEncoder *encoder;
+      if (!(encoder = find_encoder_for_connector(fd, resources, connector))) {
+         drm.api.drmModeFreeConnector(connector);
+         continue;
+      }
+
+      drmModeCrtc *crtc;
+      if (!(crtc = drm.api.drmModeGetCrtc(drm.fd, encoder->crtc_id))) {
+         drm.api.drmModeFreeEncoder(encoder);
+         drm.api.drmModeFreeConnector(connector);
+         continue;
+      }
+
+      struct wlc_output_information *info;
+      if (!(info = wl_array_add(out_infos, sizeof(struct wlc_output_information)))) {
+         drm.api.drmModeFreeCrtc(crtc);
+         drm.api.drmModeFreeEncoder(encoder);
+         drm.api.drmModeFreeConnector(connector);
+         continue;
+      }
+
+      memset(info, 0, sizeof(struct wlc_output_information));
+      wlc_string_set(&info->make, "drm", false); // we can use colord for real info
+      wlc_string_set(&info->model, "unknown", false); // ^
+      info->physical_width = connector->mmWidth;
+      info->physical_height = connector->mmHeight;
+      info->subpixel = connector->subpixel;
+
+      if (crtc->mode_valid) {
+         memcpy(&current_mode, &crtc->mode, sizeof(current_mode));
+         drm.connector = connector;
+         drm.encoder = encoder;
+      }
+
+      for (int i = 0; i < connector->count_modes; ++i) {
+         struct wlc_output_mode mode;
+         memset(&mode, 0, sizeof(mode));
+         mode.refresh = connector->modes[i].vrefresh;
+         mode.width = connector->modes[i].hdisplay;
+         mode.height = connector->modes[i].vdisplay;
+
+         if (connector->modes[i].type & DRM_MODE_TYPE_PREFERRED)
+            mode.flags |= WL_OUTPUT_MODE_PREFERRED;
+
+         if (!memcmp(&connector->modes[i], &current_mode, sizeof(current_mode))) {
+            mode.flags |= WL_OUTPUT_MODE_CURRENT;
+            drm.mode = connector->modes[i];
+         }
+
+         wlc_output_information_add_mode(info, &mode);
+      }
+
+      drm.api.drmModeFreeCrtc(crtc);
+
+      if (drm.encoder != encoder)
+         drm.api.drmModeFreeEncoder(encoder);
+
+      if (drm.connector != connector)
+         drm.api.drmModeFreeConnector(connector);
    }
 
-   if (!connector)
+   if (!drm.connector)
       goto connector_not_found;
 
-   drmModeEncoder *encoder = NULL;
-   for (int i = 0; i < resources->count_encoders; i++) {
-      if (!(encoder = drm.api.drmModeGetEncoder(fd, resources->encoders[i])))
-         continue;
-
-      if (encoder->encoder_id == connector->encoder_id)
-         break;
-
-      drm.api.drmModeFreeEncoder(encoder);
-      encoder = NULL;
-   }
-
-   if (!encoder)
+   if (!drm.encoder)
       goto encoder_not_found;
-
-   drmModeModeInfo current_mode;
-   memset(&current_mode, 0, sizeof(current_mode));
-   drmModeCrtcPtr crtc;
-
-   if (!(crtc = drm.api.drmModeGetCrtc(drm.fd, encoder->crtc_id)))
-      goto failed_to_get_crtc_for_encoder;
-
-   if (crtc->mode_valid)
-      memcpy(&current_mode, &crtc->mode, sizeof(current_mode));
-
-   drm.api.drmModeFreeCrtc(crtc);
-
-   drm.connector = connector;
-   drm.encoder = encoder;
-   memcpy(&drm.mode, &connector->modes[0], sizeof(drm.mode));
-
-   for (int i = 0; i < connector->count_modes; ++i)
-      if (!memcmp(&connector->modes[i], &current_mode, sizeof(current_mode)))
-         drm.mode = connector->modes[i];
-
-   for (int i = 0; i < connector->count_modes; ++i) {
-      const char *desc = (connector->modes[i].type & DRM_MODE_TYPE_PREFERRED ? "preferred" : "");
-      if (!memcmp(&drm.mode, &connector->modes[i], sizeof(drm.mode))) {
-         printf(">> %d. %dx%d %s\n", i, connector->modes[i].hdisplay, connector->modes[i].vdisplay, desc);
-      } else {
-         printf("   %d. %dx%d %s\n", i, connector->modes[i].hdisplay, connector->modes[i].vdisplay, desc);
-      }
-   }
 
    return true;
 
@@ -342,8 +381,6 @@ connector_not_found:
 encoder_not_found:
    fprintf(stderr, "Could not find active encoder\n");
    goto fail;
-failed_to_get_crtc_for_encoder:
-   fprintf(stderr, "Failed to get crtc for encoder\n");
 fail:
    memset(&drm, 0, sizeof(drm));
    return false;
@@ -393,7 +430,10 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!(gbm.dev = gbm.api.gbm_create_device(drm.fd)))
       goto gbm_device_fail;
 
-   if (!setup_drm(drm.fd))
+   struct wl_array infos;
+   wl_array_init(&infos);
+
+   if (!setup_drm(drm.fd, &infos))
       goto fail;
 
    if (!(gbm.surface = gbm.api.gbm_surface_create(gbm.dev, drm.mode.hdisplay, drm.mode.vdisplay, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
@@ -404,6 +444,15 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
    if (!(drm.event_source = wl_event_loop_add_fd(compositor->event_loop, drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
       goto event_source_fail;
+
+   struct wlc_output_information *info;
+   wl_array_for_each(info, &infos) {
+      struct wlc_output *output;
+      if (!(output = wlc_output_new(compositor, info)))
+         continue;
+
+      compositor->api.add_output(compositor, output);
+   }
 
    compositor->api.resolution(compositor, drm.mode.hdisplay, drm.mode.vdisplay);
 
