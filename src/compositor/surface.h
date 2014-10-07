@@ -10,6 +10,7 @@ struct wlc_buffer;
 struct wlc_compositor;
 struct wlc_callback;
 struct wlc_surface_state;
+struct wlc_output;
 
 struct wlc_surface_state {
    struct wlc_buffer *buffer;
@@ -23,6 +24,7 @@ struct wlc_surface_state {
 struct wlc_surface {
    struct wl_resource *resource;
    struct wlc_compositor *compositor;
+   struct wlc_output *output;
    struct wlc_surface_state pending;
    struct wlc_surface_state commit;
    struct wl_list frame_cb_list;
@@ -51,6 +53,6 @@ struct wlc_surface {
 void wlc_surface_create_notify(struct wlc_surface *surface);
 void wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource);
 void wlc_surface_free(struct wlc_surface *surface);
-struct wlc_surface* wlc_surface_new(struct wlc_compositor *compositor);
+struct wlc_surface* wlc_surface_new(struct wlc_compositor *compositor, struct wlc_output *output);
 
 #endif /* _WLC_SURFACE_H_ */

@@ -28,6 +28,7 @@ struct wlc_compositor {
    struct wlc_backend *backend;
    struct wlc_context *context;
    struct wlc_render *render;
+   struct wlc_output *active_output;
    struct wlc_interface interface;
 
    struct {
@@ -39,9 +40,10 @@ struct wlc_compositor {
    bool repaint_scheduled;
 
    struct {
-      void (*add_output)(struct wlc_compositor *compositor, struct wlc_output *output);
+      bool (*add_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*remove_output)(struct wlc_compositor *compositor, struct wlc_output *output);
-      void (*resolution)(struct wlc_compositor *compositor, int32_t width, int32_t height);
+      void (*active_output)(struct wlc_compositor *compositor, struct wlc_output *output);
+      void (*resolution)(struct wlc_compositor *compositor, struct wlc_output *output, int32_t width, int32_t height);
       void (*schedule_repaint)(struct wlc_compositor *compositor);
       uint32_t (*get_time)(void);
    } api;

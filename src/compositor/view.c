@@ -303,3 +303,10 @@ wlc_view_bring_to_front(struct wlc_view *view)
    wl_list_remove(&view->link);
    wl_list_insert(views->prev, &view->link);
 }
+
+WLC_API struct wlc_output*
+wlc_view_get_output(struct wlc_view *view)
+{
+   assert(view);
+   return view->surface->output;
+}

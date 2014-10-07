@@ -27,6 +27,9 @@ struct wlc_output_information {
 };
 
 struct wlc_output {
+   void *backend_info;
+   void *context_info;
+   void *render_info;
    struct wl_global *global;
    struct wlc_output_information information;
    struct wl_list resources;

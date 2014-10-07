@@ -191,8 +191,10 @@ drm_event(int fd, uint32_t mask, void *data)
 }
 
 static bool
-page_flip(void)
+page_flip(struct wlc_output *output)
 {
+   (void)output;
+
    /**
     * This is currently OpenGL specific (gbm).
     * TODO: vblanks etc..
@@ -255,14 +257,16 @@ fail:
 }
 
 static EGLNativeDisplayType
-get_display(void)
+get_display(struct wlc_output *output)
 {
+   (void)output;
    return (EGLNativeDisplayType)gbm.dev;
 }
 
 static EGLNativeWindowType
-get_window(void)
+get_window(struct wlc_output *output)
 {
+   (void)output;
    return (EGLNativeWindowType)gbm.surface;
 }
 
@@ -453,8 +457,6 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
       compositor->api.add_output(compositor, output);
    }
-
-   compositor->api.resolution(compositor, drm.mode.hdisplay, drm.mode.vdisplay);
 
    out_backend->name = "drm";
    out_backend->terminate = terminate;

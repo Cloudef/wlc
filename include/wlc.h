@@ -70,12 +70,14 @@ struct wlc_interface {
    struct {
       void (*created)(struct wlc_compositor*, struct wlc_output*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_output*);
-      void (*resolution)(struct wlc_compositor*, uint32_t width, uint32_t height);
+      void (*activated)(struct wlc_compositor*, struct wlc_output*);
+      void (*resolution)(struct wlc_compositor*, struct wlc_output*, uint32_t width, uint32_t height);
    } output;
 };
 
 bool wlc_init(void);
 
+struct wlc_output* wlc_view_get_output(struct wlc_view *view);
 void wlc_view_set_maximized(struct wlc_view *view, bool maximized);
 void wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen);
 void wlc_view_set_resizing(struct wlc_view *view, bool resizing);
@@ -92,9 +94,8 @@ struct wlc_view* wlc_view_from_link(struct wl_list *view_link);
 
 void wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view);
 
-void wlc_compositor_inject(struct wlc_compositor *compositor, const struct wlc_interface *interface);
 void wlc_compositor_run(struct wlc_compositor *compositor);
 void wlc_compositor_free(struct wlc_compositor *compositor);
-struct wlc_compositor* wlc_compositor_new(void);
+struct wlc_compositor* wlc_compositor_new(const struct wlc_interface *interface);
 
 #endif /* _WLC_H_ */

@@ -4,17 +4,17 @@
 #include "EGL/egl.h"
 #include <stdbool.h>
 
-struct wlc_keymap;
 struct wlc_compositor;
+struct wlc_output;
 
 struct wlc_backend {
    const char *name;
    void (*terminate)(void);
 
    struct {
-      EGLNativeDisplayType (*display)(void);
-      EGLNativeWindowType (*window)(void);
-      bool (*page_flip)(void);
+      EGLNativeDisplayType (*display)(struct wlc_output*);
+      EGLNativeWindowType (*window)(struct wlc_output*);
+      bool (*page_flip)(struct wlc_output*);
    } api;
 };
 

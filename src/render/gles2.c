@@ -6,6 +6,7 @@
 #include "compositor/view.h"
 #include "compositor/surface.h"
 #include "compositor/buffer.h"
+#include "compositor/output.h"
 #include "shell/xdg-surface.h"
 
 #include <stdio.h>
@@ -38,16 +39,20 @@ static const char *uniform_names[UNIFORM_LAST] = {
    "dim"
 };
 
-static struct {
-   struct wlc_context *context;
-   const char *extensions;
-
+struct gl_context {
    struct {
       GLuint obj;
       GLuint uniforms[UNIFORM_LAST];
    } programs[PROGRAM_LAST];
 
    enum program_type current_program;
+};
+
+static struct {
+   struct wlc_context *context;
+   struct wlc_output *bind_output;
+   struct gl_context *bind_context;
+   const char *extensions;
 
    struct {
       void *handle;
@@ -195,13 +200,145 @@ has_extension(const char *extension)
 #endif
 
 static void
-set_program(const enum program_type type)
+set_program(struct gl_context *context, const enum program_type type)
 {
-   if (type == gl.current_program)
+   assert(context);
+
+   if (type == context->current_program)
       return;
 
-   gl.api.glUseProgram(gl.programs[type].obj);
-   gl.current_program = type;
+   gl.api.glUseProgram(context->programs[type].obj);
+   context->current_program = type;
+}
+
+static GLuint
+create_shader(const char *source, GLenum shader_type)
+{
+   GLuint shader = gl.api.glCreateShader(shader_type);
+   assert(shader != 0);
+
+   gl.api.glShaderSource(shader, 1, (const char **)&source, NULL);
+   gl.api.glCompileShader(shader);
+
+   GLint status;
+   gl.api.glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+   if (!status) {
+      GLsizei len;
+      char log[1000];
+      gl.api.glGetShaderInfoLog(shader, sizeof(log), &len, log);
+      fprintf(stderr, "Error: compiling %s: %*s\n",
+            shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
+            len, log);
+      abort();
+   }
+
+   return shader;
+}
+
+static struct gl_context*
+create_context(void)
+{
+   static const char *vert_shader_text =
+      "precision mediump float;\n"
+      "uniform float width;\n"
+      "uniform float height;\n"
+      "mat4 ortho = mat4("
+      "  2.0/width,  0,       0, 0,"
+      "     0,   -2.0/height, 0, 0,"
+      "     0,       0,      -1, 0,"
+      "    -1,       1,       0, 1"
+      ");\n"
+      "attribute vec4 pos;\n"
+      "attribute vec2 uv;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  gl_Position = ortho * pos;\n"
+      "  v_uv = uv;\n"
+      "}\n";
+
+   // TODO: Implement different shaders for different textures
+   static const char *frag_shader_rgb_text =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb * dim, 1.0);\n"
+      "}\n";
+
+   static const char *frag_shader_rgba_text =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  vec4 col = texture2D(texture0, v_uv);\n"
+      "  gl_FragColor = vec4(col.rgb * dim, col.a);\n"
+      "}\n";
+
+   const struct {
+      const char *vert;
+      const char *frag;
+   } map[PROGRAM_LAST] = {
+      { vert_shader_text, frag_shader_rgb_text }, // PROGRAM_RGB
+      { vert_shader_text, frag_shader_rgba_text }, // PROGRAM_RGBA
+   };
+
+   struct gl_context *context;
+   if (!(context = calloc(1, sizeof(struct gl_context))))
+      return NULL;
+
+   context->current_program = PROGRAM_LAST;
+   for (int i = 0; i < PROGRAM_LAST; ++i) {
+      GLuint vert = create_shader(map[i].vert, GL_VERTEX_SHADER);
+      GLuint frag = create_shader(map[i].frag, GL_FRAGMENT_SHADER);
+      context->programs[i].obj = gl.api.glCreateProgram();
+      gl.api.glAttachShader(context->programs[i].obj, vert);
+      gl.api.glAttachShader(context->programs[i].obj, frag);
+      gl.api.glLinkProgram(context->programs[i].obj);
+
+      GLint status;
+      gl.api.glGetProgramiv(context->programs[i].obj, GL_LINK_STATUS, &status);
+      if (!status) {
+         GLsizei len;
+         char log[1000];
+         gl.api.glGetProgramInfoLog(context->programs[i].obj, sizeof(log), &len, log);
+         fprintf(stderr, "Error: linking:\n%*s\n", len, log);
+         abort();
+      }
+
+      set_program(context, i);
+      gl.api.glBindAttribLocation(context->programs[i].obj, 0, "pos");
+      gl.api.glBindAttribLocation(context->programs[i].obj, 1, "uv");
+
+      for (int u = 0; u < UNIFORM_LAST; ++u)
+         context->programs[i].uniforms[u] = gl.api.glGetUniformLocation(context->programs[i].obj, uniform_names[u]);
+   }
+
+   gl.api.glEnableVertexAttribArray(0);
+   gl.api.glEnableVertexAttribArray(1);
+
+   gl.api.glEnable(GL_BLEND);
+   gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+   gl.api.glClearColor(0.2, 0.2, 0.2, 1);
+   return context;
+}
+
+static bool
+bind(struct wlc_output *output)
+{
+   if (!gl.context->api.bind(output))
+      return false;
+
+   if (!output->render_info && !(output->render_info = create_context())) {
+      gl.bind_output = NULL;
+      gl.bind_context = NULL;
+      return false;
+   }
+
+   gl.bind_context = output->render_info;
+   gl.bind_output = output;
+   return true;
 }
 
 static void
@@ -340,7 +477,7 @@ egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t form
 
    for (int i = 0; i < num_planes; ++i) {
       EGLint attribs[] = { EGL_WAYLAND_PLANE_WL, i, EGL_NONE };
-      if (!(surface->images[i] = wlc_egl_create_image(EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
+      if (!(surface->images[i] = wlc_egl_create_image(surface->output, EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
          continue;
 
       gl.api.glActiveTexture(GL_TEXTURE0 + i);
@@ -354,6 +491,9 @@ egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t form
 static void
 surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
+   if (!bind(surface->output))
+      return;
+
    if (!buffer) {
       surface_flush_images(surface);
       surface_flush_textures(surface);
@@ -375,6 +515,9 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 static void
 view_render(struct wlc_view *view)
 {
+   if (!gl.bind_output)
+      return;
+
    struct wlc_geometry b;
    wlc_view_get_bounds(view, &b);
 
@@ -394,8 +537,8 @@ view_render(struct wlc_view *view)
       0, 1
    };
 
-   set_program((view->x11_window ? PROGRAM_RGB : view->surface->format));
-   gl.api.glUniform1f(gl.programs[gl.current_program].uniforms[UNIFORM_DIM], (view->state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
+   set_program(gl.bind_context, (view->x11_window ? PROGRAM_RGB : view->surface->format));
+   gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_DIM], (view->state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
 
    for (int i = 0; i < 3; ++i) {
       if (!view->surface->textures[i])
@@ -419,21 +562,39 @@ view_render(struct wlc_view *view)
 }
 
 static void
+swap(void)
+{
+   if (!gl.bind_output)
+      return;
+
+   gl.context->api.swap(gl.bind_output);
+}
+
+static void
 clear(void)
 {
+   if (!gl.bind_output)
+      return;
+
    gl.api.glClear(GL_COLOR_BUFFER_BIT);
 }
 
 static void
-resolution(int32_t width, int32_t height)
+resolution(struct wlc_output *output, int32_t width, int32_t height)
 {
+   struct wlc_output *old = gl.bind_output;
+   bind(output);
+
    for (int i = 0; i < PROGRAM_LAST; ++i) {
-      set_program(i);
-      gl.api.glUniform1f(gl.programs[gl.current_program].uniforms[UNIFORM_WIDTH], width);
-      gl.api.glUniform1f(gl.programs[gl.current_program].uniforms[UNIFORM_HEIGHT], height);
+      set_program(gl.bind_context, i);
+      gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_WIDTH], width);
+      gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_HEIGHT], height);
    }
 
    gl.api.glViewport(0, 0, width, height);
+
+   if (old)
+      bind(old);
 }
 
 static void
@@ -443,30 +604,6 @@ terminate(void)
       dlclose(gl.api.handle);
 
    memset(&gl, 0, sizeof(gl));
-}
-
-static GLuint
-create_shader(const char *source, GLenum shader_type)
-{
-   GLuint shader = gl.api.glCreateShader(shader_type);
-   assert(shader != 0);
-
-   gl.api.glShaderSource(shader, 1, (const char **)&source, NULL);
-   gl.api.glCompileShader(shader);
-
-   GLint status;
-   gl.api.glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-   if (!status) {
-      GLsizei len;
-      char log[1000];
-      gl.api.glGetShaderInfoLog(shader, sizeof(log), &len, log);
-      fprintf(stderr, "Error: compiling %s: %*s\n",
-            shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
-            len, log);
-      abort();
-   }
-
-   return shader;
 }
 
 bool
@@ -480,93 +617,13 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    gl.context = context;
    gl.extensions = (const char*)gl.api.glGetString(GL_EXTENSIONS);
 
-   static const char *vert_shader_text =
-      "precision mediump float;\n"
-      "uniform float width;\n"
-      "uniform float height;\n"
-      "mat4 ortho = mat4("
-      "  2.0/width,  0,       0, 0,"
-      "     0,   -2.0/height, 0, 0,"
-      "     0,       0,      -1, 0,"
-      "    -1,       1,       0, 1"
-      ");\n"
-      "attribute vec4 pos;\n"
-      "attribute vec2 uv;\n"
-      "varying vec2 v_uv;\n"
-      "void main() {\n"
-      "  gl_Position = ortho * pos;\n"
-      "  v_uv = uv;\n"
-      "}\n";
-
-   // TODO: Implement different shaders for different textures
-   static const char *frag_shader_rgb_text =
-      "precision mediump float;\n"
-      "uniform sampler2D texture0;\n"
-      "uniform float dim;\n"
-      "varying vec2 v_uv;\n"
-      "void main() {\n"
-      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb * dim, 1.0);\n"
-      "}\n";
-
-   static const char *frag_shader_rgba_text =
-      "precision mediump float;\n"
-      "uniform sampler2D texture0;\n"
-      "uniform float dim;\n"
-      "varying vec2 v_uv;\n"
-      "void main() {\n"
-      "  vec4 col = texture2D(texture0, v_uv);\n"
-      "  gl_FragColor = vec4(col.rgb * dim, col.a);\n"
-      "}\n";
-
-
-   const struct {
-      const char *vert;
-      const char *frag;
-   } map[PROGRAM_LAST] = {
-      { vert_shader_text, frag_shader_rgb_text }, // PROGRAM_RGB
-      { vert_shader_text, frag_shader_rgba_text }, // PROGRAM_RGBA
-   };
-
-   gl.current_program = PROGRAM_LAST;
-   for (int i = 0; i < PROGRAM_LAST; ++i) {
-      GLuint vert = create_shader(map[i].vert, GL_VERTEX_SHADER);
-      GLuint frag = create_shader(map[i].frag, GL_FRAGMENT_SHADER);
-      gl.programs[i].obj = gl.api.glCreateProgram();
-      gl.api.glAttachShader(gl.programs[i].obj, vert);
-      gl.api.glAttachShader(gl.programs[i].obj, frag);
-      gl.api.glLinkProgram(gl.programs[i].obj);
-
-      GLint status;
-      gl.api.glGetProgramiv(gl.programs[i].obj, GL_LINK_STATUS, &status);
-      if (!status) {
-         GLsizei len;
-         char log[1000];
-         gl.api.glGetProgramInfoLog(gl.programs[i].obj, sizeof(log), &len, log);
-         fprintf(stderr, "Error: linking:\n%*s\n", len, log);
-         abort();
-      }
-
-      set_program(i);
-      gl.api.glBindAttribLocation(gl.programs[i].obj, 0, "pos");
-      gl.api.glBindAttribLocation(gl.programs[i].obj, 1, "uv");
-
-      for (int u = 0; u < UNIFORM_LAST; ++u)
-         gl.programs[i].uniforms[u] = gl.api.glGetUniformLocation(gl.programs[i].obj, uniform_names[u]);
-   }
-
-   gl.api.glEnableVertexAttribArray(0);
-   gl.api.glEnableVertexAttribArray(1);
-
-   gl.api.glEnable(GL_BLEND);
-   gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-   gl.api.glClearColor(0.2, 0.2, 0.2, 1);
-
    out_render->terminate = terminate;
    out_render->api.destroy = surface_destroy;
    out_render->api.attach = surface_attach;
    out_render->api.render = view_render;
    out_render->api.clear = clear;
-   out_render->api.swap = context->api.swap;
+   out_render->api.swap = swap;
+   out_render->api.bind = bind;
    out_render->api.resolution = resolution;
 
    fprintf(stdout, "-!- GLES2 renderer initialized\n");

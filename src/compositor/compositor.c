@@ -1,3 +1,4 @@
+#include "wlc.h"
 #include "wlc_internal.h"
 #include "compositor.h"
 #include "visibility.h"
@@ -130,7 +131,7 @@ wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, 
       goto fail;
 
    struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
-   if (!(surface = wlc_surface_new(compositor)))
+   if (!(surface = wlc_surface_new(compositor, compositor->active_output)))
       goto fail;
 
    struct wlc_client *client;
@@ -227,23 +228,31 @@ repaint(struct wlc_compositor *compositor)
 {
    uint32_t msec = get_time();
 
-   compositor->render->api.clear();
-
-   struct wlc_view *view;
-   wl_list_for_each(view, &compositor->views, link) {
-      if (!view->surface->created)
+   // FIXME: we need output to hold surfaces
+   struct wlc_output *output;
+   wl_list_for_each(output, &compositor->outputs, link) {
+      if (!compositor->render->api.bind(output))
          continue;
 
-      compositor->render->api.render(view);
+      compositor->render->api.clear();
 
-      struct wlc_callback *cb, *cbn;
-      wl_list_for_each_safe(cb, cbn, &view->surface->frame_cb_list, link) {
-         wl_callback_send_done(cb->resource, msec);
-         wl_resource_destroy(cb->resource);
+      struct wlc_view *view;
+      wl_list_for_each(view, &compositor->views, link) {
+         if (!view->surface->created || view->surface->output != output)
+            continue;
+
+         compositor->render->api.render(view);
+
+         struct wlc_callback *cb, *cbn;
+         wl_list_for_each_safe(cb, cbn, &view->surface->frame_cb_list, link) {
+            wl_callback_send_done(cb->resource, msec);
+            wl_resource_destroy(cb->resource);
+         }
       }
+
+      compositor->render->api.swap();
    }
 
-   compositor->render->api.swap();
    compositor->repaint_scheduled = false;
 }
 
@@ -271,13 +280,13 @@ cb_repaint_timer(void *data)
 }
 
 static void
-resolution(struct wlc_compositor *compositor, int32_t width, int32_t height)
+resolution(struct wlc_compositor *compositor, struct wlc_output *output, int32_t width, int32_t height)
 {
    if (compositor->render)
-      compositor->render->api.resolution(width, height);
+      compositor->render->api.resolution(output, width, height);
 
    if (compositor->interface.output.resolution)
-      compositor->interface.output.resolution(compositor, width, height);
+      compositor->interface.output.resolution(compositor, output, width, height);
 
    compositor->resolution.width = width;
    compositor->resolution.height = height;
@@ -286,12 +295,43 @@ resolution(struct wlc_compositor *compositor, int32_t width, int32_t height)
 }
 
 static void
+active_output(struct wlc_compositor *compositor, struct wlc_output *output)
+{
+   if (output == compositor->active_output)
+      return;
+
+   compositor->active_output = output;
+
+   if (compositor->interface.output.activated)
+      compositor->interface.output.activated(compositor, output);
+}
+
+static bool
 add_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
+   if (compositor->context && !compositor->context->api.attach(output))
+      return false;
+
    wl_list_insert(&compositor->outputs, &output->link);
+
+   if (!compositor->active_output)
+      active_output(compositor, output);
 
    if (compositor->interface.output.created)
       compositor->interface.output.created(compositor, output);
+
+   if (compositor->interface.output.resolution) {
+      struct wlc_output_mode *mode;
+      wl_array_for_each(mode, &output->information.modes) {
+         if (!(mode->flags & WL_OUTPUT_MODE_CURRENT))
+            continue;
+
+         resolution(compositor, output, mode->width, mode->height);
+         break;
+      }
+   }
+
+   return true;
 }
 
 static void
@@ -299,6 +339,11 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
    (void)compositor;
    wl_list_remove(&output->link);
+
+   if (compositor->active_output == output) {
+      struct wlc_output *o;
+      compositor->active_output = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
+   }
 
    if (compositor->interface.output.destroyed)
       compositor->interface.output.destroyed(compositor, output);
@@ -308,13 +353,6 @@ WLC_API void
 wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view)
 {
    compositor->seat->notify.keyboard_focus(compositor->seat, view);
-}
-
-WLC_API void
-wlc_compositor_inject(struct wlc_compositor *compositor, const struct wlc_interface *interface)
-{
-   memcpy(&compositor->interface, interface, sizeof(struct wlc_interface));
-   resolution(compositor, compositor->resolution.width, compositor->resolution.height);
 }
 
 WLC_API void
@@ -366,7 +404,7 @@ wlc_compositor_free(struct wlc_compositor *compositor)
 }
 
 WLC_API struct wlc_compositor*
-wlc_compositor_new(void)
+wlc_compositor_new(const struct wlc_interface *interface)
 {
    if (!wlc_has_init()) {
       fprintf(stderr, "-!- wlc_init() must be called before creating compositor. Doing otherwise might cause a security risk.\n");
@@ -377,9 +415,11 @@ wlc_compositor_new(void)
    if (!(compositor = calloc(1, sizeof(struct wlc_compositor))))
       goto out_of_memory;
 
+   memcpy(&compositor->interface, interface, sizeof(struct wlc_interface));
    compositor->resolution.width = compositor->resolution.height = 1;
    compositor->api.add_output = add_output;
    compositor->api.remove_output = remove_output;
+   compositor->api.active_output = active_output;
    compositor->api.schedule_repaint = schedule_repaint;
    compositor->api.resolution = resolution;
    compositor->api.get_time = get_time;
@@ -424,13 +464,16 @@ wlc_compositor_new(void)
    if (!(compositor->context = wlc_context_init(compositor, compositor->backend)))
       goto fail;
 
+   struct wlc_output *output;
+   wl_list_for_each(output, &compositor->outputs, link)
+      compositor->context->api.attach(output);
+
    if (!(compositor->render = wlc_render_init(compositor->context)))
       goto fail;
 
    if (!(wlc_xwayland_init(compositor)))
       exit(EXIT_FAILURE);
 
-   resolution(compositor, compositor->resolution.width, compositor->resolution.height);
    compositor->repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
    repaint(compositor);
    return compositor;

@@ -2,6 +2,7 @@
 #include "context.h"
 
 #include "compositor/compositor.h"
+#include "compositor/output.h"
 #include "backend/backend.h"
 
 #include <stdio.h>
@@ -15,17 +16,20 @@
 
 #include <wayland-server.h>
 
+struct egl_output {
+   EGLContext context;
+   EGLSurface surface;
+   bool has_current;
+   bool flip_failed;
+};
+
 static struct {
    struct wlc_backend *backend;
    struct wl_display *wl_display;
 
    EGLDisplay display;
-   EGLContext context;
-   EGLSurface surface;
    EGLConfig config;
    const char *extensions;
-   bool has_current;
-   bool flip_failed;
 
    struct {
       void *handle;
@@ -181,28 +185,22 @@ has_extension(const char *extension)
 #endif
 
 static void
-swap_buffers(void)
+swap_buffers(struct wlc_output *output)
 {
-   if (!egl.flip_failed)
-      egl.api.eglSwapBuffers(egl.display, egl.surface);
+   assert(output->context_info);
+   struct egl_output *eglo = output->context_info;
+
+   if (!eglo->flip_failed)
+      egl.api.eglSwapBuffers(egl.display, eglo->surface);
 
    if (egl.backend->api.page_flip)
-      egl.flip_failed = !egl.backend->api.page_flip();
+      eglo->flip_failed = !egl.backend->api.page_flip(output);
 }
 
 static void
 terminate(void)
 {
    if (egl.display) {
-      if (egl.has_current)
-         egl.api.eglMakeCurrent(egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-
-      if (egl.surface)
-         egl.api.eglDestroySurface(egl.display, egl.surface);
-
-      if (egl.context)
-         egl.api.eglDestroyContext(egl.display, egl.context);
-
       if (egl.api.eglUnbindWaylandDisplayWL && egl.wl_display)
          egl.api.eglUnbindWaylandDisplayWL(egl.display, egl.wl_display);
 
@@ -215,6 +213,61 @@ terminate(void)
    memset(&egl, 0, sizeof(egl));
 }
 
+void
+destroy(struct wlc_output *output)
+{
+   assert(output->context_info);
+   struct egl_output *eglo = output->context_info;
+
+   if (eglo->has_current)
+      egl.api.eglMakeCurrent(egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+   if (eglo->surface)
+      egl.api.eglDestroySurface(egl.display, eglo->surface);
+
+   if (eglo->context)
+      egl.api.eglDestroyContext(egl.display, eglo->context);
+
+   free(output->context_info);
+   output->context_info = NULL;
+}
+
+bool
+attach(struct wlc_output *output)
+{
+   struct egl_output *eglo;
+   if (!(output->context_info = eglo = calloc(1, sizeof(struct egl_output))))
+      return false;
+
+   static const EGLint context_attribs[] = {
+      EGL_CONTEXT_CLIENT_VERSION, 2,
+      EGL_NONE
+   };
+
+   if ((eglo->context = egl.api.eglCreateContext(egl.display, egl.config, EGL_NO_CONTEXT, context_attribs)) == EGL_NO_CONTEXT)
+      goto fail;
+
+   if ((eglo->surface = egl.api.eglCreateWindowSurface(egl.display, egl.config, egl.backend->api.window(output), NULL)) == EGL_NO_SURFACE)
+      goto fail;
+
+   if (!egl.api.eglMakeCurrent(egl.display, eglo->surface, eglo->surface, eglo->context))
+      goto fail;
+
+   return (eglo->has_current = true);
+
+fail:
+   destroy(output);
+   return false;
+}
+
+static bool
+bind(struct wlc_output *output)
+{
+   assert(output->context_info);
+   struct egl_output *eglo = output->context_info;
+   return (eglo->has_current ? egl.api.eglMakeCurrent(egl.display, eglo->surface, eglo->surface, eglo->context) : false);
+}
+
 EGLBoolean
 wlc_egl_query_buffer(struct wl_resource *buffer, EGLint attribute, EGLint *value)
 {
@@ -224,10 +277,13 @@ wlc_egl_query_buffer(struct wl_resource *buffer, EGLint attribute, EGLint *value
 }
 
 EGLImageKHR
-wlc_egl_create_image(EGLenum target, EGLClientBuffer buffer, const EGLint *attrib_list)
+wlc_egl_create_image(struct wlc_output *output, EGLenum target, EGLClientBuffer buffer, const EGLint *attrib_list)
 {
+   assert(output->context_info);
+   struct egl_output *eglo = output->context_info;
+
    if (egl.api.eglCreateImageKHR)
-      return egl.api.eglCreateImageKHR(egl.display, egl.context, target, buffer, attrib_list);
+      return egl.api.eglCreateImageKHR(egl.display, eglo->context, target, buffer, attrib_list);
    return NULL;
 }
 
@@ -245,11 +301,6 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
    if (!egl_load())
       goto fail;
 
-   static const EGLint context_attribs[] = {
-      EGL_CONTEXT_CLIENT_VERSION, 2,
-      EGL_NONE
-   };
-
    static const EGLint config_attribs[] = {
       EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
       EGL_RED_SIZE, 1,
@@ -263,7 +314,8 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
 
    egl.backend = backend;
 
-   if (!(egl.display = egl.api.eglGetDisplay(egl.backend->api.display())))
+   // FIXME: output ignored for now, but it's possible for outputs to have different display
+   if (!(egl.display = egl.api.eglGetDisplay(egl.backend->api.display(NULL))))
       goto egl_fail;
 
    EGLint major, minor;
@@ -287,15 +339,6 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
    if (!egl.api.eglChooseConfig(egl.display, config_attribs, &egl.config, 1, &n) || n < 1)
       goto egl_fail;
 
-   if ((egl.context = egl.api.eglCreateContext(egl.display, egl.config, EGL_NO_CONTEXT, context_attribs)) == EGL_NO_CONTEXT)
-      goto egl_fail;
-
-   if ((egl.surface = egl.api.eglCreateWindowSurface(egl.display, egl.config, egl.backend->api.window(), NULL)) == EGL_NO_SURFACE)
-      goto egl_fail;
-
-   if (!egl.api.eglMakeCurrent(egl.display, egl.surface, egl.surface, egl.context))
-      goto egl_fail;
-
    if (egl.api.eglBindWaylandDisplayWL && egl.api.eglBindWaylandDisplayWL(egl.display, compositor->display))
       egl.wl_display = compositor->display;
 
@@ -303,9 +346,10 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
 
    wl_display_add_shm_format(compositor->display, WL_SHM_FORMAT_RGB565);
 
-   egl.has_current = true;
-
    out_context->terminate = terminate;
+   out_context->api.bind = bind;
+   out_context->api.attach = attach;
+   out_context->api.destroy = destroy;
    out_context->api.swap = swap_buffers;
    fprintf(stdout, "-!- EGL (%s) context created\n", egl.backend->name);
    return true;

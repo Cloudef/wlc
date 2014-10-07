@@ -34,9 +34,15 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
    if (version >= WL_OUTPUT_SCALE_SINCE_VERSION)
       wl_output_send_scale(resource, output->information.scale);
 
+   bool no_current = true;
    struct wlc_output_mode *mode;
-   wl_array_for_each(mode, &output->information.modes)
+   wl_array_for_each(mode, &output->information.modes) {
       wl_output_send_mode(resource, mode->flags, mode->width, mode->height, mode->refresh);
+      if (mode->flags & WL_OUTPUT_MODE_CURRENT)
+         no_current = false;
+   }
+
+   assert(!no_current && "output should have at least one current mode!");
 
    if (version >= WL_OUTPUT_DONE_SINCE_VERSION)
       wl_output_send_done(resource);

@@ -13,8 +13,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
+#include <assert.h>
 
 #include <wayland-server.h>
+#include <wayland-util.h>
 
 #define X11_USE_UDEV_LIBINPUT 0
 #if X11_USE_UDEV_LIBINPUT
@@ -31,13 +33,18 @@ enum atom_name {
    ATOM_LAST
 };
 
+struct x11_output {
+   xcb_window_t window;
+};
+
 static struct {
    Display *display;
    xcb_connection_t *connection;
    xcb_screen_t *screen;
-   xcb_window_t window;
    xcb_cursor_t cursor;
    xcb_atom_t atoms[ATOM_LAST];
+
+   struct wlc_compositor *compositor;
 
    struct {
       void *x11_handle;
@@ -198,15 +205,72 @@ function_pointer_exception:
 }
 
 static EGLNativeDisplayType
-get_display(void)
+get_display(struct wlc_output *output)
 {
+   (void)output;
    return (EGLNativeDisplayType)x11.display;
 }
 
 static EGLNativeWindowType
-get_window(void)
+get_window(struct wlc_output *output)
 {
-   return (EGLNativeWindowType)x11.window;
+   assert(output->backend_info);
+   struct x11_output *x11o = output->backend_info;
+   return (EGLNativeWindowType)x11o->window;
+}
+
+static bool
+add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_output_information *info)
+{
+   struct x11_output *x11o = NULL;
+   struct wlc_output *output = NULL;
+
+   if (!(output = wlc_output_new(compositor, info)))
+      goto fail;
+
+   if (!(output->backend_info = x11o = calloc(1, sizeof(struct x11_output))))
+      goto fail;
+
+   x11o->window = window;
+
+   if (!compositor->api.add_output(compositor, output))
+      goto fail;
+
+   return true;
+
+fail:
+   if (output)
+      wlc_output_free(output);
+   if (x11o)
+      free(x11o);
+   return false;
+}
+
+static int
+remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
+{
+   assert(output->backend_info);
+   struct x11_output *x11o = output->backend_info;
+   compositor->api.remove_output(compositor, output);
+
+   if (x11o->window && x11o->window != x11.screen->root)
+      x11.api.xcb_destroy_window(x11.connection, x11o->window);
+
+   free(x11o);
+   output->backend_info = NULL;
+   return wl_list_length(&compositor->outputs);
+}
+
+static struct wlc_output*
+output_for_window(xcb_window_t window, struct wl_list *outputs)
+{
+   struct wlc_output *output;
+   wl_list_for_each(output, outputs, link) {
+      struct x11_output *x11o = output->backend_info;
+      if (x11o->window == window)
+         return output;
+   }
+   return NULL;
 }
 
 static int
@@ -222,8 +286,10 @@ x11_event(int fd, uint32_t mask, void *data)
       switch (event->response_type & ~0x80) {
          case XCB_CLIENT_MESSAGE: {
             xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
-            if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW])
-               exit(0);
+            if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
+               if (remove_output(seat->compositor, seat->compositor->active_output) <= 0)
+                  exit(0);
+            }
          }
          break;
          case XCB_EXPOSE:
@@ -231,7 +297,14 @@ x11_event(int fd, uint32_t mask, void *data)
             break;
          case XCB_CONFIGURE_NOTIFY: {
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
-            seat->compositor->api.resolution(seat->compositor, ev->width, ev->height);
+            seat->compositor->api.resolution(seat->compositor, seat->compositor->active_output, ev->width, ev->height);
+         }
+         break;
+         case XCB_FOCUS_IN: {
+            xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
+            struct wlc_output *output;
+            if ((output = output_for_window(ev->event, &seat->compositor->outputs)))
+               seat->compositor->api.active_output(seat->compositor, output);
          }
          break;
 #if !X11_USE_UDEV_LIBINPUT
@@ -278,8 +351,11 @@ terminate(void)
    if (x11.cursor)
       x11.api.xcb_free_cursor(x11.connection, x11.cursor);
 
-   if (x11.window && x11.window != x11.screen->root)
-      x11.api.xcb_destroy_window(x11.connection, x11.window);
+   if (x11.compositor) {
+      struct wlc_output *output, *on;
+      wl_list_for_each_safe(output, on, &x11.compositor->outputs, link)
+         remove_output(x11.compositor, output);
+   }
 
    if (x11.display)
       x11.api.XCloseDisplay(x11.display);
@@ -361,50 +437,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
       goto cursor_fail;
 #endif
 
-   xcb_generic_error_t *error;
-   unsigned int root_mask = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE | XCB_EVENT_MASK_BUTTON_PRESS;
-   if ((error = x11.api.xcb_request_check(x11.connection, x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &root_mask)))) {
-      uint32_t mask = XCB_CW_EVENT_MASK; // | XCB_CW_CURSOR;
-      uint32_t values[] = {
-            XCB_EVENT_MASK_EXPOSURE |
-            XCB_EVENT_MASK_STRUCTURE_NOTIFY |
-            XCB_EVENT_MASK_POINTER_MOTION |
-            XCB_EVENT_MASK_BUTTON_PRESS |
-            XCB_EVENT_MASK_BUTTON_RELEASE |
-            XCB_EVENT_MASK_KEY_PRESS |
-            XCB_EVENT_MASK_KEY_RELEASE,
-         x11.cursor,
-      };
-
-      xcb_window_t window;
-      if (!(window = x11.api.xcb_generate_id(x11.connection)))
-         goto window_fail;
-
-      xcb_void_cookie_t create_cookie = x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, window, x11.screen->root, 0, 0, 800, 480, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, x11.screen->root_visual, mask, values);
-      xcb_void_cookie_t map_cookie = x11.api.xcb_map_window_checked(x11.connection, window);
-
-      if ((error = x11.api.xcb_request_check(x11.connection, create_cookie)) || (error = x11.api.xcb_request_check(x11.connection, map_cookie))) {
-         free(error);
-         goto window_fail;
-      }
-
-      x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_PROTOCOLS], XCB_ATOM_ATOM, 32, 1, &x11.atoms[WM_DELETE_WINDOW]);
-      x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, 7, "wlc-x11");
-      x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_CLASS], x11.atoms[STRING], 8, 7, "wlc-x11");
-      x11.window = window;
-   } else {
-      x11.window = x11.screen->root;
-   }
-
-#if X11_USE_UDEV_LIBINPUT
-   if (!(seat.udev = wlc_udev_new(compositor)))
-      goto fail;
-#endif
-
-   if (!(seat.event_source = wl_event_loop_add_fd(compositor->event_loop, x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, compositor->seat)))
-      goto event_source_fail;
-
-   wl_event_source_check(seat.event_source);
+#define NUM_OUTPUTS 2
 
    struct wlc_output_information info;
    memset(&info, 0, sizeof(info));
@@ -419,12 +452,58 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    mode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
    wlc_output_information_add_mode(&info, &mode);
 
-   struct wlc_output *output;
-   if (!(output = wlc_output_new(compositor, &info)))
-      goto output_fail;
+   xcb_generic_error_t *error;
+   unsigned int root_mask = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE | XCB_EVENT_MASK_BUTTON_PRESS;
+   if ((error = x11.api.xcb_request_check(x11.connection, x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &root_mask)))) {
+      uint32_t mask = XCB_CW_EVENT_MASK; // | XCB_CW_CURSOR;
+      uint32_t values[] = {
+            XCB_EVENT_MASK_FOCUS_CHANGE |
+            XCB_EVENT_MASK_EXPOSURE |
+            XCB_EVENT_MASK_STRUCTURE_NOTIFY |
+            XCB_EVENT_MASK_POINTER_MOTION |
+            XCB_EVENT_MASK_BUTTON_PRESS |
+            XCB_EVENT_MASK_BUTTON_RELEASE |
+            XCB_EVENT_MASK_KEY_PRESS |
+            XCB_EVENT_MASK_KEY_RELEASE,
+         x11.cursor,
+      };
 
-   compositor->api.add_output(compositor, output);
+      for (int i = 0; i < NUM_OUTPUTS; ++i) {
+         xcb_window_t window;
+         if (!(window = x11.api.xcb_generate_id(x11.connection)))
+            goto window_fail;
 
+         xcb_void_cookie_t create_cookie = x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, window, x11.screen->root, 0, 0, 800, 480, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, x11.screen->root_visual, mask, values);
+         xcb_void_cookie_t map_cookie = x11.api.xcb_map_window_checked(x11.connection, window);
+
+         if ((error = x11.api.xcb_request_check(x11.connection, create_cookie)) || (error = x11.api.xcb_request_check(x11.connection, map_cookie))) {
+            free(error);
+            goto window_fail;
+         }
+
+         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_PROTOCOLS], XCB_ATOM_ATOM, 32, 1, &x11.atoms[WM_DELETE_WINDOW]);
+         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, 7, "wlc-x11");
+         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_CLASS], x11.atoms[STRING], 8, 7, "wlc-x11");
+
+         if (!add_output(compositor, window, &info))
+            goto output_fail;
+      }
+   } else {
+      if (!add_output(compositor, x11.screen->root, &info))
+         goto output_fail;
+   }
+
+#if X11_USE_UDEV_LIBINPUT
+   if (!(seat.udev = wlc_udev_new(compositor)))
+      goto fail;
+#endif
+
+   if (!(seat.event_source = wl_event_loop_add_fd(compositor->event_loop, x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, compositor->seat)))
+      goto event_source_fail;
+
+   wl_event_source_check(seat.event_source);
+
+   x11.compositor = compositor;
    out_backend->name = "X11";
    out_backend->terminate = terminate;
    out_backend->api.display = get_display;

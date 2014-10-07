@@ -287,12 +287,13 @@ wlc_surface_free(struct wlc_surface *surface)
 }
 
 struct wlc_surface*
-wlc_surface_new(struct wlc_compositor *compositor)
+wlc_surface_new(struct wlc_compositor *compositor, struct wlc_output *output)
 {
    struct wlc_surface *surface;
    if (!(surface = calloc(1, sizeof(struct wlc_surface))))
       return NULL;
 
+   surface->output = output;
    surface->compositor = compositor;
    wl_list_init(&surface->frame_cb_list);
    return surface;
