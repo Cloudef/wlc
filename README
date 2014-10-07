@@ -20,3 +20,8 @@ MayTODO:
 [ ] FB backend
 [ ] Wayland backend
 
+Similar software:
+https://github.com/michaelforney/swc - drm/wld approach with similar goals (also great reference for wlc)
+
+There has also been talk on wayland ml to make weston into libweston, for creating weston based compositors.
+
