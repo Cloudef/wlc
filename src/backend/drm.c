@@ -5,6 +5,7 @@
 #include "compositor/compositor.h"
 #include "compositor/output.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,10 +18,29 @@
 #include <dlfcn.h>
 
 #include <wayland-server.h>
+#include <wayland-util.h>
+
+struct drm_output_information {
+   drmModeConnector *connector;
+   drmModeEncoder *encoder;
+   struct wlc_output_information info;
+   uint32_t width, height;
+};
+
+struct drm_output {
+   struct gbm_device *device;
+   struct gbm_surface *surface;
+   drmModeConnector *connector;
+   drmModeEncoder *encoder;
+
+   struct {
+      uint32_t current_fb_id, next_fb_id;
+      struct gbm_bo *current_bo, *next_bo;
+   } flipper;
+};
 
 static struct {
-   struct gbm_device *dev;
-   struct gbm_surface *surface;
+   struct gbm_device *device;
 
    struct {
       void *handle;
@@ -41,9 +61,6 @@ static struct {
 
 static struct {
    int fd;
-   drmModeConnector *connector;
-   drmModeEncoder *encoder;
-   drmModeModeInfo mode;
    struct wl_event_source *event_source;
 
    struct {
@@ -62,11 +79,6 @@ static struct {
       void (*drmModeFreeEncoder)(drmModeEncoderPtr);
    } api;
 } drm;
-
-static struct {
-   uint32_t current_fb_id, next_fb_id;
-   struct gbm_bo *current_bo, *next_bo;
-} flipper;
 
 static struct {
    struct wlc_udev *udev;
@@ -163,19 +175,23 @@ function_pointer_exception:
 static void
 page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
 {
-   (void)frame, (void)sec, (void)usec, (void)data;
+   (void)frame, (void)sec, (void)usec;
 
-   if (flipper.current_fb_id)
-      drm.api.drmModeRmFB(fd, flipper.current_fb_id);
+   struct wlc_output *output = data;
+   assert(output->backend_info);
+   struct drm_output *drmo = output->backend_info;
 
-   flipper.current_fb_id = flipper.next_fb_id;
-   flipper.next_fb_id = 0;
+   if (drmo->flipper.current_fb_id > 0)
+      drm.api.drmModeRmFB(fd, drmo->flipper.current_fb_id);
 
-   if (flipper.current_bo)
-      gbm.api.gbm_surface_release_buffer(gbm.surface, flipper.current_bo);
+   drmo->flipper.current_fb_id = drmo->flipper.next_fb_id;
+   drmo->flipper.next_fb_id = 0;
 
-   flipper.current_bo = flipper.next_bo;
-   flipper.next_bo = NULL;
+   if (drmo->flipper.current_bo)
+      gbm.api.gbm_surface_release_buffer(drmo->surface, drmo->flipper.current_bo);
+
+   drmo->flipper.current_bo = drmo->flipper.next_bo;
+   drmo->flipper.next_bo = NULL;
 }
 
 static int
@@ -193,42 +209,43 @@ drm_event(int fd, uint32_t mask, void *data)
 static bool
 page_flip(struct wlc_output *output)
 {
-   (void)output;
+   assert(output->backend_info);
+   struct drm_output *drmo = output->backend_info;
 
    /**
     * This is currently OpenGL specific (gbm).
     * TODO: vblanks etc..
     */
 
-   if (flipper.next_bo || flipper.next_fb_id > 0) {
+   if (drmo->flipper.next_bo || drmo->flipper.next_fb_id > 0) {
       fd_set rfds;
       FD_ZERO(&rfds);
       FD_SET(drm.fd, &rfds);
 
       /* both buffers busy, wait for them to finish */
       while (select(drm.fd + 1, &rfds, NULL, NULL, NULL) == -1);
-      drm_event(drm.fd, 0, NULL);
+      drm_event(drm.fd, 0, output);
    }
 
-   if (!gbm.api.gbm_surface_has_free_buffers(gbm.surface))
+   if (!gbm.api.gbm_surface_has_free_buffers(drmo->surface))
       goto no_buffers;
 
-   if (!(flipper.next_bo = gbm.api.gbm_surface_lock_front_buffer(gbm.surface)))
+   if (!(drmo->flipper.next_bo = gbm.api.gbm_surface_lock_front_buffer(drmo->surface)))
       goto failed_to_lock;
 
-   uint32_t width = gbm.api.gbm_bo_get_width(flipper.next_bo);
-   uint32_t height = gbm.api.gbm_bo_get_height(flipper.next_bo);
-   uint32_t handle = gbm.api.gbm_bo_get_handle(flipper.next_bo).u32;
-   uint32_t stride = gbm.api.gbm_bo_get_stride(flipper.next_bo);
+   uint32_t width = gbm.api.gbm_bo_get_width(drmo->flipper.next_bo);
+   uint32_t height = gbm.api.gbm_bo_get_height(drmo->flipper.next_bo);
+   uint32_t handle = gbm.api.gbm_bo_get_handle(drmo->flipper.next_bo).u32;
+   uint32_t stride = gbm.api.gbm_bo_get_stride(drmo->flipper.next_bo);
 
-   if (drm.api.drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &flipper.next_fb_id))
+   if (drm.api.drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &drmo->flipper.next_fb_id))
       goto failed_to_create_fb;
 
    /**
     * drmModeSetCrtc() etc could be called here to change mode.
     */
 
-   if (drm.api.drmModePageFlip(drm.fd, drm.encoder->crtc_id, flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, 0))
+   if (drm.api.drmModePageFlip(drm.fd, drmo->encoder->crtc_id, drmo->flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, output))
       goto failed_to_page_flip;
 
    return true;
@@ -245,13 +262,13 @@ failed_to_create_fb:
 failed_to_page_flip:
    fprintf(stderr, "failed to page flip: %m\n");
 fail:
-   if (flipper.next_fb_id > 0) {
-      drm.api.drmModeRmFB(drm.fd, flipper.next_fb_id);
-      flipper.next_fb_id = 0;
+   if (drmo->flipper.next_fb_id > 0) {
+      drm.api.drmModeRmFB(drm.fd, drmo->flipper.next_fb_id);
+      drmo->flipper.next_fb_id = 0;
    }
-   if (flipper.next_bo) {
-      gbm.api.gbm_surface_release_buffer(gbm.surface, flipper.next_bo);
-      flipper.next_bo = NULL;
+   if (drmo->flipper.next_bo) {
+      gbm.api.gbm_surface_release_buffer(drmo->surface, drmo->flipper.next_bo);
+      drmo->flipper.next_bo = NULL;
    }
    return false;
 }
@@ -259,15 +276,76 @@ fail:
 static EGLNativeDisplayType
 get_display(struct wlc_output *output)
 {
+#if 0
+   assert(output->backend_info);
+   struct drm_output *drmo = output->backend_info;
+   return (EGLNativeDisplayType)drmo->device;
+#else
    (void)output;
-   return (EGLNativeDisplayType)gbm.dev;
+   return (EGLNativeDisplayType)gbm.device;
+#endif
 }
 
 static EGLNativeWindowType
 get_window(struct wlc_output *output)
 {
-   (void)output;
-   return (EGLNativeWindowType)gbm.surface;
+   assert(output->backend_info);
+   struct drm_output *drmo = output->backend_info;
+   return (EGLNativeWindowType)drmo->surface;
+}
+
+static bool
+add_output(struct wlc_compositor *compositor, struct gbm_device *device, struct gbm_surface *surface, struct drm_output_information *info)
+{
+   struct drm_output *drmo = NULL;
+   struct wlc_output *output = NULL;
+
+   if (!(output = wlc_output_new(compositor, &info->info)))
+      goto fail;
+
+   if (!(output->backend_info = drmo = calloc(1, sizeof(struct drm_output))))
+      goto fail;
+
+   drmo->connector = info->connector;
+   drmo->encoder = info->encoder;
+   drmo->surface = surface;
+   drmo->device = device;
+
+   if (!compositor->api.add_output(compositor, output))
+      goto fail;
+
+   return true;
+
+fail:
+   gbm.api.gbm_surface_destroy(surface);
+   drm.api.drmModeFreeEncoder(info->encoder);
+   drm.api.drmModeFreeConnector(info->connector);
+   if (output)
+      wlc_output_free(output);
+   if (drmo)
+      free(drmo);
+   return false;
+}
+
+static int
+remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
+{
+   assert(output->backend_info);
+   struct drm_output *drmo = output->backend_info;
+   compositor->api.remove_output(compositor, output);
+
+   if (drmo->surface)
+      gbm.api.gbm_surface_destroy(drmo->surface);
+
+   if (drmo->encoder)
+      drm.api.drmModeFreeEncoder(drmo->encoder);
+
+   if (drmo->connector)
+      drm.api.drmModeFreeConnector(drmo->connector);
+
+   free(drmo);
+   wlc_output_free(output);
+   return wl_list_length(&compositor->outputs);
 }
 
 static drmModeEncoder*
@@ -320,26 +398,23 @@ setup_drm(int fd, struct wl_array *out_infos)
          continue;
       }
 
-      struct wlc_output_information *info;
-      if (!(info = wl_array_add(out_infos, sizeof(struct wlc_output_information)))) {
+      struct drm_output_information *info;
+      if (!(info = wl_array_add(out_infos, sizeof(struct drm_output_information)))) {
          drm.api.drmModeFreeCrtc(crtc);
          drm.api.drmModeFreeEncoder(encoder);
          drm.api.drmModeFreeConnector(connector);
          continue;
       }
 
-      memset(info, 0, sizeof(struct wlc_output_information));
-      wlc_string_set(&info->make, "drm", false); // we can use colord for real info
-      wlc_string_set(&info->model, "unknown", false); // ^
-      info->physical_width = connector->mmWidth;
-      info->physical_height = connector->mmHeight;
-      info->subpixel = connector->subpixel;
+      memset(info, 0, sizeof(struct drm_output_information));
+      wlc_string_set(&info->info.make, "drm", false); // we can use colord for real info
+      wlc_string_set(&info->info.model, "unknown", false); // ^
+      info->info.physical_width = connector->mmWidth;
+      info->info.physical_height = connector->mmHeight;
+      info->info.subpixel = connector->subpixel;
 
-      if (crtc->mode_valid) {
+      if (crtc->mode_valid)
          memcpy(&current_mode, &crtc->mode, sizeof(current_mode));
-         drm.connector = connector;
-         drm.encoder = encoder;
-      }
 
       for (int i = 0; i < connector->count_modes; ++i) {
          struct wlc_output_mode mode;
@@ -353,37 +428,22 @@ setup_drm(int fd, struct wl_array *out_infos)
 
          if (!memcmp(&connector->modes[i], &current_mode, sizeof(current_mode))) {
             mode.flags |= WL_OUTPUT_MODE_CURRENT;
-            drm.mode = connector->modes[i];
+            info->width = connector->modes[i].hdisplay;
+            info->height = connector->modes[i].vdisplay;
          }
 
-         wlc_output_information_add_mode(info, &mode);
+         wlc_output_information_add_mode(&info->info, &mode);
       }
 
       drm.api.drmModeFreeCrtc(crtc);
-
-      if (drm.encoder != encoder)
-         drm.api.drmModeFreeEncoder(encoder);
-
-      if (drm.connector != connector)
-         drm.api.drmModeFreeConnector(connector);
+      info->encoder = encoder;
+      info->connector = connector;
    }
-
-   if (!drm.connector)
-      goto connector_not_found;
-
-   if (!drm.encoder)
-      goto encoder_not_found;
 
    return true;
 
 resources_fail:
    fprintf(stderr, "drmModeGetResources failed\n");
-   goto fail;
-connector_not_found:
-   fprintf(stderr, "Could not find active connector\n");
-   goto fail;
-encoder_not_found:
-   fprintf(stderr, "Could not find active encoder\n");
    goto fail;
 fail:
    memset(&drm, 0, sizeof(drm));
@@ -393,11 +453,8 @@ fail:
 static void
 terminate(void)
 {
-   if (gbm.surface)
-      gbm.api.gbm_surface_destroy(gbm.surface);
-
-   if (gbm.dev)
-      gbm.api.gbm_device_destroy(gbm.dev);
+   if (gbm.device)
+      gbm.api.gbm_device_destroy(gbm.device);
 
    if (drm.event_source)
       wl_event_source_remove(drm.event_source);
@@ -431,7 +488,7 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
     * Workaround this by dlopen()'ing libglapi with RTLD_GLOBAL. */
    dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
 
-   if (!(gbm.dev = gbm.api.gbm_create_device(drm.fd)))
+   if (!(gbm.device = gbm.api.gbm_create_device(drm.fd)))
       goto gbm_device_fail;
 
    struct wl_array infos;
@@ -440,23 +497,20 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!setup_drm(drm.fd, &infos))
       goto fail;
 
-   if (!(gbm.surface = gbm.api.gbm_surface_create(gbm.dev, drm.mode.hdisplay, drm.mode.vdisplay, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
-      goto gbm_surface_fail;
+   struct drm_output_information *info;
+   wl_array_for_each(info, &infos) {
+      struct gbm_surface *surface;
+      if (!(surface = gbm.api.gbm_surface_create(gbm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
+         continue;
+
+      add_output(compositor, gbm.device, surface, info);
+   }
+
+   if (!(drm.event_source = wl_event_loop_add_fd(compositor->event_loop, drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
+      goto fail;
 
    if (!(seat.udev = wlc_udev_new(compositor)))
       goto fail;
-
-   if (!(drm.event_source = wl_event_loop_add_fd(compositor->event_loop, drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
-      goto event_source_fail;
-
-   struct wlc_output_information *info;
-   wl_array_for_each(info, &infos) {
-      struct wlc_output *output;
-      if (!(output = wlc_output_new(compositor, info)))
-         continue;
-
-      compositor->api.add_output(compositor, output);
-   }
 
    out_backend->name = "drm";
    out_backend->terminate = terminate;
@@ -470,12 +524,6 @@ card_open_fail:
    goto fail;
 gbm_device_fail:
    fprintf(stderr, "gbm_create_device failed\n");
-   goto fail;
-gbm_surface_fail:
-   fprintf(stderr, "gbm_surface_create failed\n");
-   goto fail;
-event_source_fail:
-   fprintf(stderr, "failed to add drm event source\n");
 fail:
    terminate();
    return false;

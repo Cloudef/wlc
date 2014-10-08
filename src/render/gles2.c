@@ -284,6 +284,9 @@ create_context(void)
       { vert_shader_text, frag_shader_rgba_text }, // PROGRAM_RGBA
    };
 
+   if (!gl.extensions)
+      gl.extensions = (const char*)gl.api.glGetString(GL_EXTENSIONS);
+
    struct gl_context *context;
    if (!(context = calloc(1, sizeof(struct gl_context))))
       return NULL;
@@ -615,7 +618,6 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    }
 
    gl.context = context;
-   gl.extensions = (const char*)gl.api.glGetString(GL_EXTENSIONS);
 
    out_render->terminate = terminate;
    out_render->api.destroy = surface_destroy;

@@ -4,9 +4,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define wlc_view_for_each(view, list)                                \
-        for (view = 0, view = wlc_view_from_link((list)->next);      \
-             wlc_view_get_link(view) != (list);                      \
+#define wlc_output_for_each(view, list)                             \
+        for (view = 0, view = wlc_output_from_link((list)->next);   \
+             wlc_output_get_link(view) != (list);                   \
+             view = wlc_output_from_link(wlc_output_get_link(view)->next))
+
+#define wl_output_for_each_safe(view, tmp, list)                    \
+        for (view = 0, tmp = 0,                                     \
+             view = wlc_output_from_link((list)->next),             \
+             tmp = wlc_output_from_link((list)->next->next);        \
+             wlc_output_get_link(view) != (list);                   \
+             view = tmp,                                            \
+             tmp = wlc_output_from_link(wlc_output_get_link(view)->next))
+
+#define wlc_view_for_each(view, list)                               \
+        for (view = 0, view = wlc_view_from_link((list)->next);     \
+             wlc_view_get_link(view) != (list);                     \
              view = wlc_view_from_link(wlc_view_get_link(view)->next))
 
 #define wl_view_for_each_safe(view, tmp, list)                      \
@@ -92,6 +105,8 @@ bool wlc_init(void);
 
 void wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height);
 struct wl_list* wlc_output_get_views(struct wlc_output *output);
+struct wl_list* wlc_output_get_link(struct wlc_output *output);
+struct wlc_output* wlc_output_from_link(struct wl_list *output_link);
 void wlc_output_set_userdata(struct wlc_output *output, void *userdata);
 void* wlc_output_get_userdata(struct wlc_output *output);
 
@@ -114,6 +129,11 @@ struct wlc_view* wlc_view_from_user_link(struct wl_list *view_link);
 void wlc_view_set_userdata(struct wlc_view *view, void *userdata);
 void* wlc_view_get_userdata(struct wlc_view *view);
 
+void wlc_compositor_output_focus(struct wlc_compositor *compositor, struct wlc_output *output);
+struct wlc_output* wlc_compositor_get_focused_output(struct wlc_compositor *compositor);
+struct wl_list* wlc_compositor_get_outputs(struct wlc_compositor *compositor);
+
+// FIXME: move this to wlc_output namespace, and add wlc_output_get_focused_view
 void wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view);
 
 void wlc_compositor_run(struct wlc_compositor *compositor);

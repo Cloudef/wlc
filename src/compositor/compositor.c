@@ -228,7 +228,6 @@ repaint(struct wlc_compositor *compositor)
 {
    uint32_t msec = get_time();
 
-   // FIXME: we need output to hold surfaces
    struct wlc_output *output;
    wl_list_for_each(output, &compositor->outputs, link) {
       if (!compositor->render->api.bind(output))
@@ -282,11 +281,11 @@ cb_repaint_timer(void *data)
 static void
 resolution(struct wlc_compositor *compositor, struct wlc_output *output, uint32_t width, uint32_t height)
 {
-   if (compositor->active_output->resolution.width == width && compositor->active_output->resolution.height == height)
+   if (output->resolution.width == width && output->resolution.height == height)
       return;
 
-   compositor->active_output->resolution.width = width;
-   compositor->active_output->resolution.height = height;
+   output->resolution.width = width;
+   output->resolution.height = height;
 
    if (compositor->render)
       compositor->render->api.resolution(output, width, height);
@@ -317,11 +316,11 @@ add_output(struct wlc_compositor *compositor, struct wlc_output *output)
 
    wl_list_insert(&compositor->outputs, &output->link);
 
-   if (!compositor->active_output)
-      active_output(compositor, output);
-
    if (compositor->interface.output.created)
       compositor->interface.output.created(compositor, output);
+
+   if (!compositor->active_output)
+      active_output(compositor, output);
 
    if (compositor->interface.output.resolution) {
       struct wlc_output_mode *mode;
@@ -367,14 +366,37 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
 }
 
 WLC_API void
+wlc_compositor_output_focus(struct wlc_compositor *compositor, struct wlc_output *output)
+{
+   assert(compositor);
+   active_output(compositor, output);
+}
+
+WLC_API struct wlc_output*
+wlc_compositor_get_focused_output(struct wlc_compositor *compositor)
+{
+   assert(compositor);
+   return compositor->active_output;
+}
+
+WLC_API struct wl_list*
+wlc_compositor_get_outputs(struct wlc_compositor *compositor)
+{
+   assert(compositor);
+   return &compositor->outputs;
+}
+
+WLC_API void
 wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view)
 {
+   assert(compositor && compositor->seat);
    compositor->seat->notify.keyboard_focus(compositor->seat, view);
 }
 
 WLC_API void
 wlc_compositor_run(struct wlc_compositor *compositor)
 {
+   assert(compositor);
    wl_display_run(compositor->display);
 }
 
@@ -480,12 +502,14 @@ wlc_compositor_new(const struct wlc_interface *interface)
    if (!(compositor->context = wlc_context_init(compositor, compositor->backend)))
       goto fail;
 
-   struct wlc_output *output;
-   wl_list_for_each(output, &compositor->outputs, link)
-      compositor->context->api.attach(output);
-
    if (!(compositor->render = wlc_render_init(compositor->context)))
       goto fail;
+
+   struct wlc_output *output;
+   wl_list_for_each(output, &compositor->outputs, link) {
+      compositor->context->api.attach(output);
+      compositor->render->api.resolution(output, output->resolution.width, output->resolution.height);
+   }
 
    if (!(wlc_xwayland_init(compositor)))
       exit(EXIT_FAILURE);

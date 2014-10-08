@@ -119,6 +119,21 @@ wlc_output_get_views(struct wlc_output *output)
    return &output->views;
 }
 
+WLC_API struct wl_list*
+wlc_output_get_link(struct wlc_output *output)
+{
+   assert(output);
+   return &output->link;
+}
+
+WLC_API struct wlc_output*
+wlc_output_from_link(struct wl_list *output_link)
+{
+   assert(output_link);
+   struct wlc_output *output;
+   return wl_container_of(output_link, output, link);
+}
+
 WLC_API void
 wlc_output_set_userdata(struct wlc_output *output, void *userdata)
 {
