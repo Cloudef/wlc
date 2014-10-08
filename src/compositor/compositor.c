@@ -348,6 +348,20 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
       compositor->active_output = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
    }
 
+   struct wlc_view *view, *vn;
+   wl_list_for_each_safe(view, vn, &output->views, link) {
+      wl_list_remove(&view->link);
+      wl_list_insert(&compositor->unmapped, &view->link);
+
+      if (compositor->render)
+         compositor->render->api.destroy(view->surface);
+
+      view->surface->created = false;
+
+      if ((view->surface->output = compositor->active_output))
+         wlc_surface_create_notify(view->surface);
+   }
+
    if (compositor->interface.output.destroyed)
       compositor->interface.output.destroyed(compositor, output);
 }

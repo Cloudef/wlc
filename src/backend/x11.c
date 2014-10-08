@@ -257,7 +257,7 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
       x11.api.xcb_destroy_window(x11.connection, x11o->window);
 
    free(x11o);
-   output->backend_info = NULL;
+   wlc_output_free(output);
    return wl_list_length(&compositor->outputs);
 }
 

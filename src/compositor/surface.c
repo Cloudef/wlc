@@ -38,7 +38,8 @@ wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
       /* TODO: unmap surface if mapped */
    }
 
-   surface->compositor->render->api.attach(surface, buffer);
+   if (surface->created)
+      surface->compositor->render->api.attach(surface, buffer);
 
    int32_t width = 0, height = 0;
    if (buffer) {
