@@ -13,7 +13,7 @@ legend: x = works, v = works, but major features still missing
 [v] Xwayland
 [ ] udev / hotplugging
 [v] EGL surfaces
-[ ] Multi-monitor
+[v] Multi-monitor
 
 MayTODO:
 [ ] Pixman backend
