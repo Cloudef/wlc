@@ -2,6 +2,7 @@
 #include "client.h"
 
 #include "compositor/view.h"
+#include "compositor/output.h"
 #include "compositor/surface.h"
 #include "compositor/compositor.h"
 
@@ -70,11 +71,11 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
       focused = pointer->focus;
    } else {
       struct wlc_view *view;
-      wl_list_for_each_reverse(view, pointer->views, link) {
+      wl_list_for_each_reverse(view, &pointer->compositor->active_output->views, link) {
          struct wlc_geometry b;
          wlc_view_get_bounds(view, &b);
          if (x >= b.x && x <= b.x + b.w &&
-             y >= b.y && y <= b.y + b.h) {
+               y >= b.y && y <= b.y + b.h) {
             focused = view;
             break;
          }
@@ -142,18 +143,22 @@ wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_re
 {
    assert(pointer && resource);
 
-   struct wlc_view *view;
-   wl_list_for_each(view, pointer->views, link) {
-      if (view->client->input[WLC_POINTER] != resource)
-         continue;
+   struct wlc_output *output;
+   wl_list_for_each(output, &pointer->compositor->outputs, link) {
+      struct wlc_view *view;
+      wl_list_for_each(view, &output->views, link) {
+         if (view->client->input[WLC_POINTER] != resource)
+            continue;
 
-      if (pointer->focus && pointer->focus->client && pointer->focus->client->input[WLC_POINTER] == resource) {
-         view->client->input[WLC_POINTER] = NULL;
-         wlc_pointer_focus(pointer, 0, NULL, 0, 0);
-      } else {
-         view->client->input[WLC_POINTER] = NULL;
+         if (pointer->focus && pointer->focus->client && pointer->focus->client->input[WLC_POINTER] == resource) {
+            view->client->input[WLC_POINTER] = NULL;
+            wlc_pointer_focus(pointer, 0, NULL, 0, 0);
+         } else {
+            view->client->input[WLC_POINTER] = NULL;
+         }
+
+         return;
       }
-      break;
    }
 }
 
@@ -162,25 +167,22 @@ wlc_pointer_free(struct wlc_pointer *pointer)
 {
    assert(pointer);
 
-   if (pointer->clients) {
-      struct wlc_client *client;
-      wl_list_for_each(client, pointer->clients, link)
-         client->input[WLC_POINTER] = NULL;
-   }
+   struct wlc_client *client;
+   wl_list_for_each(client, &pointer->compositor->clients, link)
+      client->input[WLC_POINTER] = NULL;
 
    free(pointer);
 }
 
 struct wlc_pointer*
-wlc_pointer_new(struct wl_list *clients, struct wl_list *views)
+wlc_pointer_new(struct wlc_compositor *compositor)
 {
-   assert(views);
+   assert(compositor);
 
    struct wlc_pointer *pointer;
    if (!(pointer = calloc(1, sizeof(struct wlc_pointer))))
       return NULL;
 
-   pointer->clients = clients;
-   pointer->views = views;
+   pointer->compositor = compositor;
    return pointer;
 }

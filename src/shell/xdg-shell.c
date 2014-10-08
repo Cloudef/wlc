@@ -4,6 +4,7 @@
 
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
+#include "compositor/output.h"
 #include "compositor/view.h"
 
 #include <stdlib.h>
@@ -29,7 +30,8 @@ xdg_cb_shell_get_surface(struct wl_client *wl_client, struct wl_resource *resour
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
 
    struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
+   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)) &&
+       !(view = wlc_view_for_surface_in_list(surface, &surface->output->views))) {
       wl_resource_post_error(resource, 1, "view was not found for client");
       return;
    }

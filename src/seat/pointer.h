@@ -19,7 +19,7 @@ struct wlc_view;
 struct wlc_client;
 
 struct wlc_pointer {
-   struct wl_list *clients, *views;
+   struct wlc_compositor *compositor;
    struct wlc_view *focus;
 
    wl_fixed_t x, y;
@@ -34,6 +34,6 @@ void wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t t
 void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, int32_t x, int32_t y);
 void wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource);
 void wlc_pointer_free(struct wlc_pointer *pointer);
-struct wlc_pointer* wlc_pointer_new(struct wl_list *clients, struct wl_list *views);
+struct wlc_pointer* wlc_pointer_new(struct wlc_compositor *compositor);
 
 #endif /* _WLC_POINTER_H_ */

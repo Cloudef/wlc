@@ -3,6 +3,7 @@
 
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
+#include "compositor/output.h"
 #include "compositor/view.h"
 
 #include <stdlib.h>
@@ -59,7 +60,8 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resour
    wlc_shell_surface_set_output(shell_surface, output);
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->views)))
+   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->output->views)) ||
+       (view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->unmapped)))
       wlc_view_set_fullscreen(view, true);
 }
 
@@ -83,7 +85,8 @@ wl_cb_shell_surface_set_maximized(struct wl_client *wl_client, struct wl_resourc
    wlc_shell_surface_set_output(shell_surface, output);
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->views)))
+   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->output->views)) ||
+       (view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->unmapped)))
       wlc_view_set_maximized(view, true);
 }
 

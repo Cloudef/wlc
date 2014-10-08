@@ -1,6 +1,7 @@
 #include "xwm.h"
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
+#include "compositor/output.h"
 #include "compositor/view.h"
 
 #include <stdio.h>
@@ -354,7 +355,7 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 }
 
 static void
-link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, struct wl_resource *resource)
+link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
 {
    if (!resource || win->surface_id != 0)
       return;
@@ -362,7 +363,7 @@ link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, stru
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
 
    struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_in_list(surface, &compositor->views)))
+   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)))
       return;
 
    win->view = view;
@@ -378,8 +379,7 @@ link_surface(struct wlc_compositor *compositor, struct wlc_x11_window *win, stru
 static int
 x11_event(int fd, uint32_t mask, void *data)
 {
-   (void)fd, (void)mask;
-   struct wlc_compositor *compositor = data;
+   (void)fd, (void)mask, (void)data;
 
    int count = 0;
    xcb_generic_event_t *event;
@@ -407,7 +407,7 @@ x11_event(int fd, uint32_t mask, void *data)
             if (ev->type == x11.atoms[WL_SURFACE_ID]) {
                struct wlc_x11_window *win;
                if ((win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window))) {
-                  link_surface(compositor, win, wl_client_get_object(xwm.client, ev->data.data32[0]));
+                  link_surface(win, wl_client_get_object(xwm.client, ev->data.data32[0]));
                   win->surface_id = ev->data.data32[0];
                }
             }

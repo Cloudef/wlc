@@ -1,4 +1,5 @@
 #include "output.h"
+#include "visibility.h"
 #include "compositor.h"
 
 #include <stdlib.h>
@@ -38,6 +39,7 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
    struct wlc_output_mode *mode;
    wl_array_for_each(mode, &output->information.modes) {
       wl_output_send_mode(resource, mode->flags, mode->width, mode->height, mode->refresh);
+
       if (mode->flags & WL_OUTPUT_MODE_CURRENT)
          no_current = false;
    }
@@ -89,10 +91,44 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_output_information 
 
    memcpy(&output->information, info, sizeof(output->information));
    wl_list_init(&output->resources);
+   wl_list_init(&output->views);
    return output;
 
 fail:
    if (output)
       wlc_output_free(output);
    return NULL;
+}
+
+WLC_API void
+wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height)
+{
+   assert(output);
+
+   if (out_width)
+      *out_width = output->resolution.width;
+
+   if (out_height)
+      *out_height = output->resolution.height;
+}
+
+WLC_API struct wl_list*
+wlc_output_get_views(struct wlc_output *output)
+{
+   assert(output);
+   return &output->views;
+}
+
+WLC_API void
+wlc_output_set_userdata(struct wlc_output *output, void *userdata)
+{
+   assert(output);
+   output->userdata = userdata;
+}
+
+WLC_API void*
+wlc_output_get_userdata(struct wlc_output *output)
+{
+   assert(output);
+   return output->userdata;
 }

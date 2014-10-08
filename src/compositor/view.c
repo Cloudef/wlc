@@ -1,6 +1,7 @@
 #include "view.h"
 #include "visibility.h"
 #include "compositor.h"
+#include "output.h"
 #include "surface.h"
 
 #include "shell/surface.h"
@@ -240,10 +241,25 @@ wlc_view_close(struct wlc_view *view)
 }
 
 WLC_API struct wl_list*
-wlc_view_get_link(struct wlc_view *view)
+wlc_view_get_user_link(struct wlc_view *view)
 {
    assert(view);
    return &view->user_link;
+}
+
+WLC_API struct wlc_view*
+wlc_view_from_user_link(struct wl_list *view_link)
+{
+   assert(view_link);
+   struct wlc_view *view;
+   return wl_container_of(view_link, view, user_link);
+}
+
+WLC_API struct wl_list*
+wlc_view_get_link(struct wlc_view *view)
+{
+   assert(view);
+   return &view->link;
 }
 
 WLC_API struct wlc_view*
@@ -251,7 +267,7 @@ wlc_view_from_link(struct wl_list *view_link)
 {
    assert(view_link);
    struct wlc_view *view;
-   return wl_container_of(view_link, view, user_link);
+   return wl_container_of(view_link, view, link);
 }
 
 WLC_API void
@@ -271,7 +287,7 @@ wlc_view_send_to_back(struct wlc_view *view)
 {
    assert(view);
 
-   struct wl_list *views = &view->surface->compositor->views;
+   struct wl_list *views = &view->surface->output->views;
    if (&view->link == views->prev)
       return;
 
@@ -296,7 +312,7 @@ wlc_view_bring_to_front(struct wlc_view *view)
 {
    assert(view);
 
-   struct wl_list *views = &view->surface->compositor->views;
+   struct wl_list *views = &view->surface->output->views;
    if (&view->link == views->prev)
       return;
 
@@ -309,4 +325,18 @@ wlc_view_get_output(struct wlc_view *view)
 {
    assert(view);
    return view->surface->output;
+}
+
+WLC_API void
+wlc_view_set_userdata(struct wlc_view *view, void *userdata)
+{
+   assert(view);
+   view->userdata = userdata;
+}
+
+WLC_API void*
+wlc_view_get_userdata(struct wlc_view *view)
+{
+   assert(view);
+   return view->userdata;
 }

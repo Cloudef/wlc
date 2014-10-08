@@ -3,7 +3,9 @@
 #include "client.h"
 
 #include "compositor/view.h"
+#include "compositor/output.h"
 #include "compositor/surface.h"
+#include "compositor/compositor.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -85,18 +87,22 @@ wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl
 {
    assert(keyboard && resource);
 
-   struct wlc_view *view;
-   wl_list_for_each(view, keyboard->views, link) {
-      if (view->client->input[WLC_KEYBOARD] != resource)
-         continue;
+   struct wlc_output *output;
+   wl_list_for_each(output, &keyboard->compositor->outputs, link) {
+      struct wlc_view *view;
+      wl_list_for_each(view, &output->views, link) {
+         if (view->client->input[WLC_KEYBOARD] != resource)
+            continue;
 
-      if (keyboard->focus && keyboard->focus->client && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
-         view->client->input[WLC_KEYBOARD] = NULL;
-         wlc_keyboard_focus(keyboard, 0, NULL);
-      } else {
-         view->client->input[WLC_KEYBOARD] = NULL;
+         if (keyboard->focus && keyboard->focus->client && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
+            view->client->input[WLC_KEYBOARD] = NULL;
+            wlc_keyboard_focus(keyboard, 0, NULL);
+         } else {
+            view->client->input[WLC_KEYBOARD] = NULL;
+         }
+
+         return;
       }
-      break;
    }
 }
 
@@ -119,11 +125,9 @@ wlc_keyboard_free(struct wlc_keyboard *keyboard)
 {
    assert(keyboard);
 
-   if (keyboard->clients) {
-      struct wlc_client *client;
-      wl_list_for_each(client, keyboard->clients, link)
-         client->input[WLC_KEYBOARD] = NULL;
-   }
+   struct wlc_client *client;
+   wl_list_for_each(client, &keyboard->compositor->clients, link)
+      client->input[WLC_KEYBOARD] = NULL;
 
    if (keyboard->state)
       xkb_state_unref(keyboard->state);
@@ -132,9 +136,9 @@ wlc_keyboard_free(struct wlc_keyboard *keyboard)
 }
 
 struct wlc_keyboard*
-wlc_keyboard_new(struct wlc_keymap *keymap, struct wl_list *clients, struct wl_list *views)
+wlc_keyboard_new(struct wlc_keymap *keymap, struct wlc_compositor *compositor)
 {
-   assert(keymap && views);
+   assert(keymap && compositor);
 
    struct wlc_keyboard *keyboard;
    if (!(keyboard = calloc(1, sizeof(struct wlc_keyboard))))
@@ -143,8 +147,7 @@ wlc_keyboard_new(struct wlc_keymap *keymap, struct wl_list *clients, struct wl_l
    if (!wlc_keyboard_set_keymap(keyboard, keymap))
       goto fail;
 
-   keyboard->clients = clients;
-   keyboard->views = views;
+   keyboard->compositor = compositor;
    return keyboard;
 
 fail:

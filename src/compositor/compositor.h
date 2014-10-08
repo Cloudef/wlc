@@ -31,11 +31,7 @@ struct wlc_compositor {
    struct wlc_output *active_output;
    struct wlc_interface interface;
 
-   struct {
-      int32_t width, height;
-   } resolution;
-
-   struct wl_list clients, views, outputs;
+   struct wl_list clients, unmapped, outputs;
    struct wl_event_source *repaint_timer;
    bool repaint_scheduled;
 
@@ -43,7 +39,7 @@ struct wlc_compositor {
       bool (*add_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*remove_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*active_output)(struct wlc_compositor *compositor, struct wlc_output *output);
-      void (*resolution)(struct wlc_compositor *compositor, struct wlc_output *output, int32_t width, int32_t height);
+      void (*resolution)(struct wlc_compositor *compositor, struct wlc_output *output, uint32_t width, uint32_t height);
       void (*schedule_repaint)(struct wlc_compositor *compositor);
       uint32_t (*get_time)(void);
    } api;

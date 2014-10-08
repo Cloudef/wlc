@@ -17,6 +17,19 @@
              view = tmp,                                            \
              tmp = wlc_view_from_link(wlc_view_get_link(view)->next))
 
+#define wlc_view_for_each_user(view, list)                           \
+        for (view = 0, view = wlc_view_from_user_link((list)->next); \
+             wlc_view_get_user_link(view) != (list);                 \
+             view = wlc_view_from_user_link(wlc_view_get_user_link(view)->next))
+
+#define wl_view_for_each_user_safe(view, tmp, list)                 \
+        for (view = 0, tmp = 0,                                     \
+             view = wlc_view_from_user_link((list)->next),          \
+             tmp = wlc_view_from_user_link((list)->next->next);     \
+             wlc_view_get_user_link(view) != (list);                \
+             view = tmp,                                            \
+             tmp = wlc_view_from_user_link(wlc_view_get_user_link(view)->next))
+
 struct wlc_compositor;
 struct wlc_view;
 struct wlc_output;
@@ -51,7 +64,7 @@ enum wlc_button_state {
 
 struct wlc_interface {
    struct {
-      void (*created)(struct wlc_compositor*, struct wlc_view*);
+      bool (*created)(struct wlc_compositor*, struct wlc_view*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_view*);
       void (*move)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y);
       void (*resize)(struct wlc_compositor*, struct wlc_view*, uint32_t width, uint32_t height);
@@ -77,6 +90,11 @@ struct wlc_interface {
 
 bool wlc_init(void);
 
+void wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height);
+struct wl_list* wlc_output_get_views(struct wlc_output *output);
+void wlc_output_set_userdata(struct wlc_output *output, void *userdata);
+void* wlc_output_get_userdata(struct wlc_output *output);
+
 struct wlc_output* wlc_view_get_output(struct wlc_view *view);
 void wlc_view_set_maximized(struct wlc_view *view, bool maximized);
 void wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen);
@@ -91,6 +109,10 @@ void wlc_view_bring_above(struct wlc_view *view, struct wlc_view *above);
 void wlc_view_bring_to_front(struct wlc_view *view);
 struct wl_list* wlc_view_get_link(struct wlc_view *view);
 struct wlc_view* wlc_view_from_link(struct wl_list *view_link);
+struct wl_list* wlc_view_get_user_link(struct wlc_view *view);
+struct wlc_view* wlc_view_from_user_link(struct wl_list *view_link);
+void wlc_view_set_userdata(struct wlc_view *view, void *userdata);
+void* wlc_view_get_userdata(struct wlc_view *view);
 
 void wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view);
 

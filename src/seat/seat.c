@@ -7,6 +7,7 @@
 #include "macros.h"
 
 #include "compositor/compositor.h"
+#include "compositor/output.h"
 #include "compositor/view.h"
 
 #include <stdlib.h>
@@ -113,13 +114,16 @@ wl_cb_seat_get_keyboard(struct wl_client *wl_client, struct wl_resource *resourc
       wl_keyboard_send_keymap(keyboard_resource, seat->keymap->format, seat->keymap->fd, seat->keymap->size);
 
    if (seat->compositor->interface.keyboard.init) {
-      struct wlc_view *view;
-      wl_list_for_each_reverse(view, &seat->compositor->views, link) {
-         if (view->client != client)
-            continue;
+      struct wlc_output *output;
+      wl_list_for_each(output, &seat->compositor->outputs, link) {
+         struct wlc_view *view;
+         wl_list_for_each_reverse(view, &output->views, link) {
+            if (view->client != client)
+               continue;
 
-         seat->compositor->interface.keyboard.init(seat->compositor, view);
-         break;
+            seat->compositor->interface.keyboard.init(seat->compositor, view);
+            break;
+         }
       }
    }
 }
@@ -191,7 +195,7 @@ seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_butt
       return;
 
    if (seat->compositor->interface.pointer.button &&
-      !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, button, state))
+      !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, button, (enum wlc_button_state)state))
       return;
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
@@ -237,7 +241,7 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
    }
 
    if (seat->compositor->interface.keyboard.key &&
-      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, leds, mods, key, state))
+      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, leds, mods, key, (enum wlc_key_state)state))
       return;
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
@@ -294,10 +298,10 @@ wlc_seat_new(struct wlc_compositor *compositor)
    if (!(seat = calloc(1, sizeof(struct wlc_seat))))
       goto out_of_memory;
 
-   seat->pointer = wlc_pointer_new(&compositor->clients, &compositor->views);
+   seat->pointer = wlc_pointer_new(compositor);
 
    if ((seat->keymap = wlc_keymap_new(NULL, 0)))
-      seat->keyboard = wlc_keyboard_new(seat->keymap, &compositor->clients, &compositor->views);
+      seat->keyboard = wlc_keyboard_new(seat->keymap, compositor);
 
    if (!(seat->global = wl_global_create(compositor->display, &wl_seat_interface, 4, seat, wl_seat_bind)))
       goto shell_interface_fail;

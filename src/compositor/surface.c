@@ -1,11 +1,12 @@
 #include "surface.h"
 #include "compositor.h"
+#include "output.h"
+#include "view.h"
 #include "region.h"
 #include "buffer.h"
 #include "callback.h"
 #include "macros.h"
 
-#include "compositor/view.h"
 #include "render/render.h"
 
 #include <stdlib.h>
@@ -232,14 +233,20 @@ wlc_surface_create_notify(struct wlc_surface *surface)
       return;
 
    struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->views)))
+   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)))
       return;
+
+   wl_list_remove(&view->link);
+   wl_list_insert(surface->output->views.prev, &view->link);
 
    view->geometry.w = surface->width;
    view->geometry.h = surface->height;
 
-   if (surface->compositor->interface.view.created)
-      surface->compositor->interface.view.created(surface->compositor, view);
+   if (surface->compositor->interface.view.created &&
+      !surface->compositor->interface.view.created(surface->compositor, view)) {
+      wlc_surface_free(surface);
+      return;
+   }
 
    surface->created = true;
 }
@@ -270,7 +277,14 @@ wlc_surface_free(struct wlc_surface *surface)
    }
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(surface, &surface->compositor->views))) {
+   if ((view = wlc_view_for_surface_in_list(surface, &surface->output->views)) ||
+       (view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped))) {
+
+      if (surface->created) {
+         wl_list_remove(&view->link);
+         wl_list_insert(&surface->compositor->unmapped, &view->link);
+      }
+
       if (surface->created && surface->compositor->interface.view.destroyed)
          surface->compositor->interface.view.destroyed(surface->compositor, view);
 

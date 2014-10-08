@@ -287,7 +287,8 @@ x11_event(int fd, uint32_t mask, void *data)
          case XCB_CLIENT_MESSAGE: {
             xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
             if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
-               if (remove_output(seat->compositor, seat->compositor->active_output) <= 0)
+               struct wlc_output *output;
+               if (!(output = output_for_window(ev->window, &seat->compositor->outputs)) || remove_output(seat->compositor, output) <= 0)
                   exit(0);
             }
          }
@@ -297,7 +298,9 @@ x11_event(int fd, uint32_t mask, void *data)
             break;
          case XCB_CONFIGURE_NOTIFY: {
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
-            seat->compositor->api.resolution(seat->compositor, seat->compositor->active_output, ev->width, ev->height);
+            struct wlc_output *output;
+            if ((output = output_for_window(ev->event, &seat->compositor->outputs)))
+               seat->compositor->api.resolution(seat->compositor, output, ev->width, ev->height);
          }
          break;
          case XCB_FOCUS_IN: {

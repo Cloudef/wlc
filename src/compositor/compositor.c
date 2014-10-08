@@ -142,7 +142,7 @@ wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, 
    if (!(view = wlc_view_new(client, surface)))
       goto fail;
 
-   wl_list_insert(compositor->views.prev, &view->link);
+   wl_list_insert(&compositor->unmapped, &view->link);
    wlc_surface_implement(surface, surface_resource);
    return;
 
@@ -237,8 +237,8 @@ repaint(struct wlc_compositor *compositor)
       compositor->render->api.clear();
 
       struct wlc_view *view;
-      wl_list_for_each(view, &compositor->views, link) {
-         if (!view->surface->created || view->surface->output != output)
+      wl_list_for_each(view, &output->views, link) {
+         if (!view->surface->created)
             continue;
 
          compositor->render->api.render(view);
@@ -280,16 +280,19 @@ cb_repaint_timer(void *data)
 }
 
 static void
-resolution(struct wlc_compositor *compositor, struct wlc_output *output, int32_t width, int32_t height)
+resolution(struct wlc_compositor *compositor, struct wlc_output *output, uint32_t width, uint32_t height)
 {
+   if (compositor->active_output->resolution.width == width && compositor->active_output->resolution.height == height)
+      return;
+
+   compositor->active_output->resolution.width = width;
+   compositor->active_output->resolution.height = height;
+
    if (compositor->render)
       compositor->render->api.resolution(output, width, height);
 
    if (compositor->interface.output.resolution)
       compositor->interface.output.resolution(compositor, output, width, height);
-
-   compositor->resolution.width = width;
-   compositor->resolution.height = height;
 
    schedule_repaint(compositor);
 }
@@ -416,7 +419,6 @@ wlc_compositor_new(const struct wlc_interface *interface)
       goto out_of_memory;
 
    memcpy(&compositor->interface, interface, sizeof(struct wlc_interface));
-   compositor->resolution.width = compositor->resolution.height = 1;
    compositor->api.add_output = add_output;
    compositor->api.remove_output = remove_output;
    compositor->api.active_output = active_output;
@@ -428,7 +430,7 @@ wlc_compositor_new(const struct wlc_interface *interface)
       goto display_create_fail;
 
    wl_list_init(&compositor->clients);
-   wl_list_init(&compositor->views);
+   wl_list_init(&compositor->unmapped);
    wl_list_init(&compositor->outputs);
 
    if (!(compositor->global = wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind)))

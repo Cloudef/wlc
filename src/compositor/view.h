@@ -20,6 +20,7 @@ struct wlc_xdg_surface;
 struct wlc_x11_window;
 
 struct wlc_view {
+   void *userdata;
    struct wlc_client *client;
    struct wlc_surface *surface;
    struct wlc_shell_surface *shell_surface;
