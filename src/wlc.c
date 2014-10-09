@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include "wlc.h"
 #include "wlc_internal.h"
@@ -15,10 +16,24 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+
+#include <linux/kd.h>
+#include <linux/major.h>
+#include <linux/vt.h>
 
 static bool init = false;
 static int client_sock;
 static int open_fds[32];
+static int tty_fd = -1;
+
+static struct {
+    bool altered;
+    int vt;
+    long kb_mode;
+    long console_mode;
+} original_vt_state;
 
 struct msg_request_fd_open {
    char path[32];
@@ -275,6 +290,149 @@ wlc_has_init(void)
    return init;
 }
 
+static int find_vt(void)
+{
+   int vt;
+   char *vt_string;
+   if ((vt_string = getenv("XDG_VTNR"))) {
+      char *end;
+      vt = strtoul(vt_string, &end, 10);
+      if (*end == '\0')
+         return vt;
+   }
+
+   int tty0_fd;
+   if ((tty0_fd = open("/dev/tty0", O_RDWR)) < 0)
+      die("Could not open /dev/tty0 to find unused VT");
+
+   if (ioctl(tty0_fd, VT_OPENQRY, &vt) != 0)
+      die("Could not find unused VT");
+
+   close(tty0_fd);
+   fprintf(stderr, "Running on VT %d\n", vt);
+   return vt;
+}
+
+static int open_tty(int vt)
+{
+   char tty_name[64];
+   snprintf(tty_name, sizeof tty_name, "/dev/tty%d", vt);
+
+   /* check if we are running on the desired VT */
+   char *current_tty_name = ttyname(STDIN_FILENO);
+   if (!strcmp(tty_name, current_tty_name))
+      return STDIN_FILENO;
+
+   int fd;
+   if ((fd = open(tty_name, O_RDWR | O_NOCTTY)) < 0)
+      die("Could not open %s", tty_name);
+
+   return fd;
+}
+
+static void
+cleanup(void)
+{
+   struct vt_mode mode = { .mode = VT_AUTO };
+   ioctl(tty_fd, VT_SETMODE, &mode);
+   ioctl(tty_fd, KDSETMODE, KD_GRAPHICS);
+   ioctl(tty_fd, KDSETMODE, original_vt_state.console_mode);
+   ioctl(tty_fd, KDSKBMODE, original_vt_state.kb_mode);
+   close(tty_fd);
+}
+
+static void
+handle_usr1(int signal)
+{
+   (void)signal;
+   ioctl(tty_fd, VT_RELDISP, 1);
+   cleanup();
+}
+
+static void
+handle_usr2(int signal)
+{
+   (void)signal;
+   ioctl(tty_fd, VT_RELDISP, VT_ACKACQ);
+   cleanup();
+}
+
+static void
+setup_tty(const int fd)
+{
+   struct stat st;
+   int vt;
+   struct vt_stat state;
+   struct vt_mode mode = {
+      .mode = VT_PROCESS,
+      .relsig = SIGUSR1,
+      .acqsig = SIGUSR2
+   };
+
+    if (fstat(fd, &st) == -1)
+        die("Could not stat TTY fd");
+
+    vt = minor(st.st_rdev);
+
+    if (major(st.st_rdev) != TTY_MAJOR || vt == 0)
+        die("Not a valid VT");
+
+    if (ioctl(fd, VT_GETSTATE, &state) == -1)
+        die("Could not get the current VT state");
+
+    original_vt_state.vt = state.v_active;
+
+    if (ioctl(fd, KDGKBMODE, &original_vt_state.kb_mode))
+        die("Could not get keyboard mode");
+
+    if (ioctl(fd, KDGETMODE, &original_vt_state.console_mode))
+        die("Could not get console mode");
+
+    if (ioctl(fd, KDSKBMODE, K_OFF) == -1)
+        die("Could not set keyboard mode to K_OFF");
+
+#if 0
+    if (ioctl(fd, KDSETMODE, KD_GRAPHICS) == -1)
+    {
+        perror("Could not set console mode to KD_GRAPHICS");
+        goto error0;
+    }
+#endif
+
+    if (ioctl(fd, VT_SETMODE, &mode) == -1)
+    {
+        perror("Could not set VT mode");
+        goto error1;
+    }
+
+#if 0
+    if (ioctl(fd, VT_ACTIVATE, vt) == -1)
+    {
+        perror("Could not activate VT");
+        goto error2;
+    }
+
+    if (ioctl(fd, VT_WAITACTIVE, vt) == -1)
+    {
+        perror("Could not wait for VT to become active");
+        goto error2;
+    }
+#endif
+
+    original_vt_state.altered = true;
+    tty_fd = fd;
+    return;
+
+error2:
+    mode = (struct vt_mode) { .mode = VT_AUTO };
+    ioctl(fd, VT_SETMODE, &mode);
+error1:
+    ioctl(fd, KDSETMODE, original_vt_state.console_mode);
+error0:
+    ioctl(fd, KDSKBMODE, original_vt_state.kb_mode);
+    exit(EXIT_FAILURE);
+}
+
 WLC_API bool
 wlc_init(void)
 {
@@ -285,6 +443,8 @@ wlc_init(void)
       return false;
    } else {
       fprintf(stdout, "-!- Binary is not marked as SUID, raw input won't work.\n");
+      if (!getenv("DISPLAY"))
+         return false;
    }
 
    int sock[2];
@@ -296,6 +456,29 @@ wlc_init(void)
 
    if (fcntl(sock[1], F_SETFL, fcntl(sock[1], F_GETFL) & ~O_NONBLOCK) != 0)
       die("Could not reset NONBLOCK on socket: %m\n");
+
+   struct sigaction action;
+   memset(&action, 0, sizeof(action));
+
+   action.sa_handler = &handle_usr1;
+   if (sigaction(SIGUSR1, &action, NULL) != 0)
+      die("Failed to register signal handler for SIGUSR1");
+
+#if 0
+   if (sigaction(SIGINT, &action, NULL) != 0)
+      die("Failed to register signal handler for SIGUSR1");
+   if (sigaction(SIGTERM, &action, NULL) != 0)
+      die("Failed to register signal handler for SIGUSR1");
+#endif
+
+   action.sa_handler = &handle_usr2;
+   if (sigaction(SIGUSR2, &action, NULL) != 0)
+      die("Failed to register signal handler for SIGUSR2");
+
+   atexit(cleanup);
+
+   if (!getenv("DISPLAY"))
+      setup_tty(open_tty(find_vt()));
 
    pid_t child;
    if ((child = fork()) == 0) {
