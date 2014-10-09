@@ -462,14 +462,15 @@ wlc_init(void)
       die("-!- Failed to clear environment\n");
 
    if (getuid() != geteuid() || getgid() != getegid()) {
-      fprintf(stdout, "-!- Doing work on SUID side and dropping permissions\n");
+      fprintf(stdout, "-!- Doing work on SUID/SGID side and dropping permissions\n");
    } else if (getuid() == 0) {
       die("-!- Do not run wlc compositor as root\n");
       return false;
    } else {
-      fprintf(stdout, "-!- Binary is not marked as SUID, raw input won't work.\n");
-      if (!stored_env[1].value)
+      if (!stored_env[1].value && access("/dev/input/event0", R_OK | W_OK) != 0) {
+         fprintf(stdout, "-!- Not running from X11 and no access to /dev/input/event0\n");
          return false;
+      }
    }
 
    int sock[2];
