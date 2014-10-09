@@ -300,7 +300,7 @@ wlc_seat_new(struct wlc_compositor *compositor)
 
    seat->pointer = wlc_pointer_new(compositor);
 
-   if ((seat->keymap = wlc_keymap_new(NULL, 0)))
+   if ((seat->keymap = wlc_keymap_new(NULL, XKB_KEYMAP_COMPILE_NO_FLAGS)))
       seat->keyboard = wlc_keyboard_new(seat->keymap, compositor);
 
    if (!(seat->global = wl_global_create(compositor->display, &wl_seat_interface, 4, seat, wl_seat_bind)))

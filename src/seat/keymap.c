@@ -151,7 +151,7 @@ wlc_keymap_new(const struct xkb_rule_names *names, enum xkb_keymap_compile_flags
       goto fail;
 
    struct xkb_context *context;
-   if (!(context = xkb_context_new(0)))
+   if (!(context = xkb_context_new(XKB_CONTEXT_NO_FLAGS)))
       goto context_fail;
 
    if (!(keymap->keymap = xkb_map_new_from_names(context, names, flags)))
