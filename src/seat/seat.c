@@ -300,6 +300,8 @@ wlc_seat_new(struct wlc_compositor *compositor)
 
    seat->pointer = wlc_pointer_new(compositor);
 
+   /* we need to do this since libxkbcommon uses secure_getenv,
+    * and we advice compositors to sgid to input group for now. */
    struct xkb_rule_names rules;
    memset(&rules, 0, sizeof(rules));
    rules.rules = getenv("XKB_DEFAULT_RULES");
