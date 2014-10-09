@@ -290,11 +290,11 @@ wlc_has_init(void)
    return init;
 }
 
-static int find_vt(void)
+static int find_vt(const char *vt_string)
 {
    int vt;
-   char *vt_string;
-   if ((vt_string = getenv("XDG_VTNR"))) {
+
+   if (vt_string) {
       char *end;
       vt = strtoul(vt_string, &end, 10);
       if (*end == '\0')
@@ -436,6 +436,31 @@ error0:
 WLC_API bool
 wlc_init(void)
 {
+   /* env variables that need to be stored before clear */
+   struct {
+      char *env, *value;
+   } stored_env[] = {
+      { "WAYLAND_DISPLAY", NULL },
+      { "DISPLAY", NULL },
+      { "XAUTHORITY", NULL },
+      { "LANG", NULL },
+      { "USER", NULL },
+      { "XDG_RUNTIME_DIR", NULL },
+      { "XKB_DEFAULT_RULES", NULL },
+      { "XKB_DEFAULT_LAYOUT", NULL },
+      { "XKB_DEFAULT_VARIANT", NULL },
+      { "XKB_DEFAULT_OPTIONS", NULL },
+      { NULL, NULL }
+   };
+
+   for (int i = 0; stored_env[i].env; ++i)
+      stored_env[i].value = getenv(stored_env[i].env);
+
+   const char *xdg_vtnr = getenv("XDG_VTNR");
+
+   if (clearenv() != 0)
+      die("-!- Failed to clear environment\n");
+
    if (getuid() != geteuid() || getgid() != getegid()) {
       fprintf(stdout, "-!- Doing work on SUID side and dropping permissions\n");
    } else if (getuid() == 0) {
@@ -443,7 +468,7 @@ wlc_init(void)
       return false;
    } else {
       fprintf(stdout, "-!- Binary is not marked as SUID, raw input won't work.\n");
-      if (!getenv("DISPLAY"))
+      if (!stored_env[1].value)
          return false;
    }
 
@@ -477,8 +502,8 @@ wlc_init(void)
 
    atexit(cleanup);
 
-   if (!getenv("DISPLAY"))
-      setup_tty(open_tty(find_vt()));
+   if (!stored_env[1].value)
+      setup_tty(open_tty(find_vt(xdg_vtnr)));
 
    pid_t child;
    if ((child = fork()) == 0) {
@@ -502,6 +527,13 @@ wlc_init(void)
          die("-!- Communication between parent and child process seems to be broken\n");
 
       client_sock = sock[0];
+   }
+
+   for (int i = 0; stored_env[i].env; ++i) {
+      if (stored_env[i].value) {
+         setenv(stored_env[i].env, stored_env[i].value, 0);
+         printf("%s: %s\n", stored_env[i].env, stored_env[i].value);
+      }
    }
 
    return (init = true);
