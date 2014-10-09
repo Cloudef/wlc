@@ -466,11 +466,9 @@ wlc_init(void)
    } else if (getuid() == 0) {
       die("-!- Do not run wlc compositor as root\n");
       return false;
-   } else {
-      if (!stored_env[1].value && access("/dev/input/event0", R_OK | W_OK) != 0) {
-         fprintf(stdout, "-!- Not running from X11 and no access to /dev/input/event0\n");
-         return false;
-      }
+   } else if (!stored_env[1].value && access("/dev/input/event0", R_OK | W_OK) != 0) {
+      fprintf(stdout, "-!- Not running from X11 and no access to /dev/input/event0\n");
+      return false;
    }
 
    int sock[2];
