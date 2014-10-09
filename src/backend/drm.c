@@ -32,6 +32,7 @@ struct drm_output {
    struct gbm_surface *surface;
    drmModeConnector *connector;
    drmModeEncoder *encoder;
+   uint32_t stride;
 
    struct {
       uint32_t current_fb_id, next_fb_id;
@@ -69,6 +70,7 @@ static struct {
       int (*drmModeAddFB)(int, uint32_t, uint32_t, uint8_t, uint8_t, uint32_t, uint32_t, uint32_t*);
       int (*drmModeRmFB)(int, uint32_t);
       int (*drmModePageFlip)(int, uint32_t, uint32_t, uint32_t, void*);
+      int (*drmModeSetCrtc)(int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t*, int, drmModeModeInfoPtr);
       int (*drmHandleEvent)(int, drmEventContextPtr);
       drmModeResPtr (*drmModeGetResources)(int);
       drmModeCrtcPtr (*drmModeGetCrtc)(int, uint32_t);
@@ -145,6 +147,8 @@ drm_load(void)
    if (!load(drmModeRmFB))
       goto function_pointer_exception;
    if (!load(drmModePageFlip))
+      goto function_pointer_exception;
+   if (!load(drmModeSetCrtc))
       goto function_pointer_exception;
    if (!load(drmHandleEvent))
       goto function_pointer_exception;
@@ -241,9 +245,12 @@ page_flip(struct wlc_output *output)
    if (drm.api.drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &drmo->flipper.next_fb_id))
       goto failed_to_create_fb;
 
-   /**
-    * drmModeSetCrtc() etc could be called here to change mode.
-    */
+   if (!drmo->flipper.current_bo || stride != drmo->stride) {
+      if (drm.api.drmModeSetCrtc(drm.fd, drmo->encoder->crtc_id, drmo->flipper.next_fb_id, 0, 0, &drmo->connector->connector_id, 1, &drmo->connector->modes[output->mode]))
+         goto set_crtc_fail;
+   }
+
+   drmo->stride = stride;
 
    if (drm.api.drmModePageFlip(drm.fd, drmo->encoder->crtc_id, drmo->flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, output))
       goto failed_to_page_flip;
@@ -258,6 +265,9 @@ failed_to_lock:
    goto fail;
 failed_to_create_fb:
    fprintf(stderr, "failed to create fb\n");
+   goto fail;
+set_crtc_fail:
+   fprintf(stderr, "failed to set mode\n");
    goto fail;
 failed_to_page_flip:
    fprintf(stderr, "failed to page flip: %m\n");
