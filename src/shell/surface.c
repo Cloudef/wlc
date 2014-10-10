@@ -178,6 +178,8 @@ wlc_shell_surface_free(struct wlc_shell_surface *shell_surface)
    if (shell_surface->resource)
       wl_resource_destroy(shell_surface->resource);
 
+   wlc_string_release(&shell_surface->title);
+   wlc_string_release(&shell_surface->class);
    free(shell_surface);
 }
 

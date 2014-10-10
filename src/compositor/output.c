@@ -80,6 +80,9 @@ wlc_output_free(struct wlc_output *output)
    if (output->global)
       wl_global_destroy(output->global);
 
+   wlc_string_release(&output->information.make);
+   wlc_string_release(&output->information.model);
+   wl_array_release(&output->information.modes);
    free(output);
 }
 

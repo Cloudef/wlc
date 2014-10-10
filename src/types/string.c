@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 static char*
 c_strdup(const char *str)
@@ -14,6 +15,8 @@ c_strdup(const char *str)
 void
 wlc_string_set(struct wlc_string *string, const char *data, bool is_heap)
 {
+   assert(string);
+
    if (string->is_heap && string->data) {
       free(string->data);
       string->data = NULL;
@@ -21,4 +24,15 @@ wlc_string_set(struct wlc_string *string, const char *data, bool is_heap)
 
    string->is_heap = is_heap;
    string->data = (data && is_heap ? c_strdup(data) : (char*)data);
+}
+
+void
+wlc_string_release(struct wlc_string *string)
+{
+   assert(string);
+
+   if (string->is_heap && string->data)
+      free(string->data);
+
+   string->data = NULL;
 }

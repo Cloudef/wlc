@@ -221,6 +221,7 @@ wlc_xdg_surface_free(struct wlc_xdg_surface *xdg_surface)
    if (xdg_surface->shell_surface)
       wlc_shell_surface_free(xdg_surface->shell_surface);
 
+   wlc_string_release(&xdg_surface->app_id);
    free(xdg_surface);
 }
 

@@ -9,5 +9,6 @@ struct wlc_string {
 };
 
 void wlc_string_set(struct wlc_string *string, const char *data, bool is_heap);
+void wlc_string_release(struct wlc_string *string);
 
 #endif /* _WLC_STRING_H_ */

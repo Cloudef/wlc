@@ -120,6 +120,7 @@ wlc_view_free(struct wlc_view *view)
 
    view->surface->compositor->seat->notify.view_unfocus(view->surface->compositor->seat, view);
    wl_list_remove(&view->link);
+   wl_array_release(&view->stored_state);
    free(view);
 }
 

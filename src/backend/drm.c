@@ -516,6 +516,8 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
       add_output(compositor, gbm.device, surface, info);
    }
 
+   wl_array_release(&infos);
+
    if (!(drm.event_source = wl_event_loop_add_fd(compositor->event_loop, drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
       goto fail;
 
