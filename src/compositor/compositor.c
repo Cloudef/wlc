@@ -13,6 +13,7 @@
 #include "data-device/manager.h"
 
 #include "seat/seat.h"
+#include "seat/pointer.h"
 #include "seat/client.h"
 
 #include "shell/shell.h"
@@ -249,6 +250,9 @@ repaint(struct wlc_compositor *compositor)
             wl_resource_destroy(cb->resource);
          }
       }
+
+      if (compositor->active_output == output)
+         compositor->render->api.pointer(wl_fixed_to_int(compositor->seat->pointer->x), wl_fixed_to_int(compositor->seat->pointer->y));
 
       compositor->render->api.swap();
    }

@@ -421,7 +421,6 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    xcb_screen_iterator_t s = x11.api.xcb_setup_roots_iterator(x11.api.xcb_get_setup(x11.connection));
    x11.screen = s.data;
 
-#if 0
    xcb_gc_t gc = x11.api.xcb_generate_id(x11.connection);
    xcb_pixmap_t pixmap = x11.api.xcb_generate_id(x11.connection);
 
@@ -435,12 +434,8 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    x11.api.xcb_create_cursor(x11.connection, x11.cursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 1, 1);
    x11.api.xcb_free_gc(x11.connection, gc);
    x11.api.xcb_free_pixmap(x11.connection, pixmap);
-#else
-   if (0)
-      goto cursor_fail;
-#endif
 
-#define NUM_OUTPUTS 2
+#define NUM_OUTPUTS 1
 
    struct wlc_output_information info;
    memset(&info, 0, sizeof(info));
@@ -458,7 +453,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    xcb_generic_error_t *error;
    unsigned int root_mask = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE | XCB_EVENT_MASK_BUTTON_PRESS;
    if ((error = x11.api.xcb_request_check(x11.connection, x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &root_mask)))) {
-      uint32_t mask = XCB_CW_EVENT_MASK; // | XCB_CW_CURSOR;
+      uint32_t mask = XCB_CW_EVENT_MASK | XCB_CW_CURSOR;
       uint32_t values[] = {
          XCB_EVENT_MASK_FOCUS_CHANGE |
          XCB_EVENT_MASK_EXPOSURE |
