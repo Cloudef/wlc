@@ -10,6 +10,8 @@
 #include "compositor/output.h"
 #include "compositor/view.h"
 
+#include "data-device/manager.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -257,6 +259,9 @@ seat_keyboard_focus(struct wlc_seat *seat, struct wlc_view *view)
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
    wlc_keyboard_focus(seat->keyboard, serial, view);
+
+   if (view && view->client)
+      wlc_data_device_offer(seat->device, view->client->wl_client);
 }
 
 static void
@@ -288,6 +293,9 @@ wlc_seat_free(struct wlc_seat *seat)
    if (seat->keymap)
       wlc_keymap_free(seat->keymap);
 
+   if (seat->device)
+      wlc_data_device_free(seat->device);
+
    free(seat);
 }
 
@@ -296,6 +304,9 @@ wlc_seat_new(struct wlc_compositor *compositor)
 {
    struct wlc_seat *seat;
    if (!(seat = calloc(1, sizeof(struct wlc_seat))))
+      goto out_of_memory;
+
+   if (!(seat->device = wlc_data_device_new()))
       goto out_of_memory;
 
    seat->pointer = wlc_pointer_new(compositor);

@@ -9,6 +9,7 @@ struct wlc_view;
 struct wlc_pointer;
 struct wlc_keyboard;
 struct wlc_compositor;
+struct wlc_data_device;
 
 struct wlc_seat {
    struct wl_global *global;
@@ -16,6 +17,7 @@ struct wlc_seat {
    struct wlc_pointer *pointer;
    struct wlc_keyboard *keyboard;
    struct wlc_compositor *compositor;
+   struct wlc_data_device *device;
 
    struct {
       void (*pointer_motion)(struct wlc_seat *seat, int32_t x, int32_t y);
