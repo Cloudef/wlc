@@ -339,6 +339,11 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
    if (!egl.api.eglChooseConfig(egl.display, config_attribs, &egl.config, 1, &n) || n < 1)
       goto egl_fail;
 
+   if (!strstr(egl.extensions, "EGL_WL_bind_wayland_display")) {
+      egl.api.eglBindWaylandDisplayWL = NULL;
+      egl.api.eglUnbindWaylandDisplayWL = NULL;
+   }
+
    if (egl.api.eglBindWaylandDisplayWL && egl.api.eglBindWaylandDisplayWL(egl.display, compositor->display))
       egl.wl_display = compositor->display;
 
