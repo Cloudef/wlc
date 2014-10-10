@@ -440,7 +440,6 @@ wlc_init(void)
    struct {
       char *env, *value;
    } stored_env[] = {
-      { "WAYLAND_DISPLAY", NULL },
       { "DISPLAY", NULL },
       { "XAUTHORITY", NULL },
       { "LANG", NULL },
@@ -457,6 +456,7 @@ wlc_init(void)
       stored_env[i].value = getenv(stored_env[i].env);
 
    const char *xdg_vtnr = getenv("XDG_VTNR");
+   const char *display = getenv("DISPLAY");
 
    if (clearenv() != 0)
       die("-!- Failed to clear environment\n");
@@ -466,7 +466,7 @@ wlc_init(void)
    } else if (getuid() == 0) {
       die("-!- Do not run wlc compositor as root\n");
       return false;
-   } else if (!stored_env[1].value && access("/dev/input/event0", R_OK | W_OK) != 0) {
+   } else if (!display && access("/dev/input/event0", R_OK | W_OK) != 0) {
       fprintf(stdout, "-!- Not running from X11 and no access to /dev/input/event0\n");
       return false;
    }
@@ -501,7 +501,7 @@ wlc_init(void)
 
    atexit(cleanup);
 
-   if (!stored_env[1].value)
+   if (!display)
       setup_tty(open_tty(find_vt(xdg_vtnr)));
 
    pid_t child;

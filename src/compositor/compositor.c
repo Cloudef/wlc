@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include "wlc.h"
 #include "wlc_internal.h"
 #include "compositor.h"
@@ -465,6 +466,12 @@ wlc_compositor_new(const struct wlc_interface *interface)
    if (!(compositor->display = wl_display_create()))
       goto display_create_fail;
 
+   const char *socket_name;
+   if (!(socket_name = wl_display_add_socket_auto(compositor->display)))
+      goto display_add_socket_fail;
+
+   setenv("WAYLAND_DISPLAY", socket_name, true);
+
    wl_list_init(&compositor->clients);
    wl_list_init(&compositor->unmapped);
    wl_list_init(&compositor->outputs);
@@ -489,9 +496,6 @@ wlc_compositor_new(const struct wlc_interface *interface)
 
    if (wl_display_init_shm(compositor->display) != 0)
       goto display_init_shm_fail;
-
-   if (wl_display_add_socket(compositor->display, NULL) != 0)
-      goto display_add_socket_fail;
 
    if (!(compositor->event_loop = wl_display_get_event_loop(compositor->display)))
       goto no_event_loop;
@@ -525,7 +529,7 @@ display_create_fail:
    fprintf(stderr, "-!- failed to create wayland display\n");
    goto fail;
 display_add_socket_fail:
-   fprintf(stderr, "-!- failed to add socket to wayland display\n");
+   fprintf(stderr, "-!- failed to add socket to wayland display: %m\n");
    goto fail;
 compositor_interface_fail:
    fprintf(stderr, "-!- failed to bind compositor interface\n");
