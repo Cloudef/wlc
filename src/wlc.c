@@ -449,6 +449,7 @@ wlc_init(void)
       { "PATH", NULL },
       { "USER", NULL },
       { "SHELL", NULL }, /* weston-terminal relies on this */
+      { "TERMINAL", NULL }, /* expose temporarily to loliwm */
       { "XDG_RUNTIME_DIR", NULL },
       { "XDG_CONFIG_HOME", NULL },
       { "XDG_CONFIG_DIRS", NULL },
