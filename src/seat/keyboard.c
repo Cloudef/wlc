@@ -90,19 +90,22 @@ wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl
 
    struct wlc_output *output;
    wl_list_for_each(output, &keyboard->compositor->outputs, link) {
-      struct wlc_view *view;
-      wl_list_for_each(view, &output->views, link) {
-         if (view->client->input[WLC_KEYBOARD] != resource)
-            continue;
+      struct wlc_space *space;
+      wl_list_for_each(space, &output->spaces, link) {
+         struct wlc_view *view;
+         wl_list_for_each(view, &space->views, link) {
+            if (view->client->input[WLC_KEYBOARD] != resource)
+               continue;
 
-         if (keyboard->focus && keyboard->focus->client && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
-            view->client->input[WLC_KEYBOARD] = NULL;
-            wlc_keyboard_focus(keyboard, 0, NULL);
-         } else {
-            view->client->input[WLC_KEYBOARD] = NULL;
+            if (keyboard->focus && keyboard->focus->client && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
+               view->client->input[WLC_KEYBOARD] = NULL;
+               wlc_keyboard_focus(keyboard, 0, NULL);
+            } else {
+               view->client->input[WLC_KEYBOARD] = NULL;
+            }
+
+            return;
          }
-
-         return;
       }
    }
 }

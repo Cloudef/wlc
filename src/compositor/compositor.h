@@ -28,7 +28,7 @@ struct wlc_compositor {
    struct wlc_backend *backend;
    struct wlc_context *context;
    struct wlc_render *render;
-   struct wlc_output *active_output;
+   struct wlc_output *output;
    struct wlc_interface interface;
 
    struct wl_list clients, unmapped, outputs;

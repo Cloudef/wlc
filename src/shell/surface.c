@@ -52,15 +52,14 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resour
 {
    (void)wl_client, (void)method, (void)framerate;
 
-   void *output = NULL;
    if (output_resource)
         wl_resource_get_user_data(output_resource);
 
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_output(shell_surface, output);
+   // wlc_shell_surface_set_output(shell_surface, output);
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->output->views)) ||
+   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->space->views)) ||
        (view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->unmapped)))
       wlc_view_set_fullscreen(view, true);
 }
@@ -77,15 +76,14 @@ wl_cb_shell_surface_set_maximized(struct wl_client *wl_client, struct wl_resourc
 {
    (void)wl_client;
 
-   void *output = NULL;
    if (output_resource)
       wl_resource_get_user_data(output_resource);
 
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_output(shell_surface, output);
+   // wlc_shell_surface_set_output(shell_surface, output);
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->output->views)) ||
+   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->space->views)) ||
        (view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->unmapped)))
       wlc_view_set_maximized(view, true);
 }
@@ -150,12 +148,6 @@ void
 wlc_shell_surface_set_parent(struct wlc_shell_surface *shell_surface, struct wlc_shell_surface *parent)
 {
    shell_surface->parent = parent;
-}
-
-void
-wlc_shell_surface_set_output(struct wlc_shell_surface *shell_surface, void *output)
-{
-   shell_surface->output = output;
 }
 
 void

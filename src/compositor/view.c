@@ -194,7 +194,7 @@ wlc_view_set_active(struct wlc_view *view, bool active)
       wlc_x11_window_set_active(view->x11_window, active);
 
       if (active)
-         wlc_compositor_keyboard_focus(view->surface->compositor, view);
+         wlc_compositor_focus_view(view->surface->compositor, view);
    }
 
    view->state = BIT_TOGGLE(view->state, WLC_BIT_ACTIVATED, active);
@@ -295,7 +295,7 @@ wlc_view_send_to_back(struct wlc_view *view)
 {
    assert(view);
 
-   struct wl_list *views = &view->surface->output->views;
+   struct wl_list *views = &view->surface->space->views;
    if (&view->link == views->prev)
       return;
 
@@ -320,7 +320,7 @@ wlc_view_bring_to_front(struct wlc_view *view)
 {
    assert(view);
 
-   struct wl_list *views = &view->surface->output->views;
+   struct wl_list *views = &view->surface->space->views;
    if (&view->link == views->prev)
       return;
 
@@ -328,11 +328,11 @@ wlc_view_bring_to_front(struct wlc_view *view)
    wl_list_insert(views->prev, &view->link);
 }
 
-WLC_API struct wlc_output*
-wlc_view_get_output(struct wlc_view *view)
+WLC_API struct wlc_space*
+wlc_view_get_space(struct wlc_view *view)
 {
    assert(view);
-   return view->surface->output;
+   return view->surface->space;
 }
 
 WLC_API void

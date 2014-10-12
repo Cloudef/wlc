@@ -7,6 +7,7 @@
 struct wlc_compositor;
 struct wlc_view;
 struct wlc_output;
+struct wlc_space;
 struct wl_list;
 
 /** wlc_view_get_state(); */
@@ -72,18 +73,35 @@ struct wlc_interface {
       void (*activated)(struct wlc_compositor*, struct wlc_output*);
       void (*resolution)(struct wlc_compositor*, struct wlc_output*, uint32_t width, uint32_t height);
    } output;
+
+   struct {
+      void (*created)(struct wlc_compositor*, struct wlc_space*);
+      void (*destroyed)(struct wlc_compositor*, struct wlc_space*);
+      void (*activated)(struct wlc_compositor*, struct wlc_space*);
+   } space;
 };
 
 bool wlc_init(void);
 
 void wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height);
-struct wl_list* wlc_output_get_views(struct wlc_output *output);
+struct wlc_space* wlc_output_get_active_space(struct wlc_output *output);
+struct wl_list* wlc_output_get_spaces(struct wlc_output *output);
 struct wl_list* wlc_output_get_link(struct wlc_output *output);
 struct wlc_output* wlc_output_from_link(struct wl_list *output_link);
 void wlc_output_set_userdata(struct wlc_output *output, void *userdata);
 void* wlc_output_get_userdata(struct wlc_output *output);
+void wlc_output_focus_space(struct wlc_output *output, struct wlc_space *space);
 
-struct wlc_output* wlc_view_get_output(struct wlc_view *view);
+struct wlc_output* wlc_space_get_output(struct wlc_space *space);
+struct wl_list* wlc_space_get_views(struct wlc_space *space);
+struct wl_list* wlc_space_get_link(struct wlc_space *space);
+struct wlc_space* wlc_space_from_link(struct wl_list *space_link);
+void wlc_space_set_userdata(struct wlc_space *space, void *userdata);
+void* wlc_space_get_userdata(struct wlc_space *space);
+void wlc_space_remove(struct wlc_space *space);
+struct wlc_space* wlc_space_add(struct wlc_output *output);
+
+struct wlc_space* wlc_view_get_space(struct wlc_view *view);
 uint32_t wlc_view_get_state(struct wlc_view *view);
 void wlc_view_set_maximized(struct wlc_view *view, bool maximized);
 void wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen);
@@ -103,12 +121,12 @@ struct wlc_view* wlc_view_from_user_link(struct wl_list *view_link);
 void wlc_view_set_userdata(struct wlc_view *view, void *userdata);
 void* wlc_view_get_userdata(struct wlc_view *view);
 
-void wlc_compositor_output_focus(struct wlc_compositor *compositor, struct wlc_output *output);
-struct wlc_output* wlc_compositor_get_focused_output(struct wlc_compositor *compositor);
 struct wl_list* wlc_compositor_get_outputs(struct wlc_compositor *compositor);
+struct wlc_output* wlc_compositor_get_focused_output(struct wlc_compositor *compositor);
+struct wlc_space* wlc_compositor_get_focused_space(struct wlc_compositor *compositor);
 
-// FIXME: move this to wlc_output namespace, and add wlc_output_get_focused_view
-void wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view);
+void wlc_compositor_focus_view(struct wlc_compositor *compositor, struct wlc_view *view);
+void wlc_compositor_focus_output(struct wlc_compositor *compositor, struct wlc_output *output);
 
 void wlc_compositor_run(struct wlc_compositor *compositor);
 void wlc_compositor_free(struct wlc_compositor *compositor);
@@ -124,76 +142,100 @@ struct wlc_compositor* wlc_compositor_new(const struct wlc_interface *interface)
  * Never insert/remove the non user links.
  */
 
-#define wlc_output_for_each(view, list)                             \
-        for (view = wlc_output_from_link((list)->next);             \
-             wlc_output_get_link(view) != (list);                   \
-             view = wlc_output_from_link(wlc_output_get_link(view)->next))
+#define wlc_space_for_each(item, list)                             \
+        for (item = wlc_space_from_link((list)->next);             \
+             wlc_space_get_link(item) != (list);                   \
+             item = wlc_space_from_link(wlc_space_get_link(item)->next))
 
-#define wlc_output_for_each_reverse(view, list)                     \
-        for (view = wlc_output_from_link((list)->prev);             \
-             wlc_output_get_link(view) != (list);                   \
-             view = wlc_output_from_link(wlc_output_get_link(view)->prev))
+#define wlc_space_for_each_reverse(item, list)                     \
+        for (item = wlc_space_from_link((list)->prev);             \
+             wlc_space_get_link(item) != (list);                   \
+             item = wlc_space_from_link(wlc_space_get_link(item)->prev))
 
-#define wl_output_for_each_safe(view, tmp, list)                    \
-        for (view = wlc_output_from_link((list)->next),             \
+#define wl_space_for_each_safe(item, tmp, list)                    \
+        for (item = wlc_space_from_link((list)->next),             \
+             tmp = wlc_space_from_link((list)->next->next);        \
+             wlc_space_get_link(item) != (list);                   \
+             item = tmp,                                           \
+             tmp = wlc_space_from_link(wlc_space_get_link(item)->next))
+
+#define wl_space_for_each_safe_reverse(item, tmp, list)            \
+        for (item = wlc_space_from_link((list)->prev),             \
+             tmp = wlc_space_from_link((list)->prev->prev);        \
+             wlc_space_get_link(item) != (list);                   \
+             item = tmp,                                           \
+             tmp = wlc_space_from_link(wlc_space_get_link(item)->prev))
+
+#define wlc_output_for_each(item, list)                             \
+        for (item = wlc_output_from_link((list)->next);             \
+             wlc_output_get_link(item) != (list);                   \
+             item = wlc_output_from_link(wlc_output_get_link(item)->next))
+
+#define wlc_output_for_each_reverse(item, list)                     \
+        for (item = wlc_output_from_link((list)->prev);             \
+             wlc_output_get_link(item) != (list);                   \
+             item = wlc_output_from_link(wlc_output_get_link(item)->prev))
+
+#define wl_output_for_each_safe(item, tmp, list)                    \
+        for (item = wlc_output_from_link((list)->next),             \
              tmp = wlc_output_from_link((list)->next->next);        \
-             wlc_output_get_link(view) != (list);                   \
-             view = tmp,                                            \
-             tmp = wlc_output_from_link(wlc_output_get_link(view)->next))
+             wlc_output_get_link(item) != (list);                   \
+             item = tmp,                                            \
+             tmp = wlc_output_from_link(wlc_output_get_link(item)->next))
 
-#define wl_output_for_each_safe_reverse(view, tmp, list)            \
-        for (view = wlc_output_from_link((list)->prev),             \
+#define wl_output_for_each_safe_reverse(item, tmp, list)            \
+        for (item = wlc_output_from_link((list)->prev),             \
              tmp = wlc_output_from_link((list)->prev->prev);        \
-             wlc_output_get_link(view) != (list);                   \
-             view = tmp,                                            \
-             tmp = wlc_output_from_link(wlc_output_get_link(view)->prev))
+             wlc_output_get_link(item) != (list);                   \
+             item = tmp,                                            \
+             tmp = wlc_output_from_link(wlc_output_get_link(item)->prev))
 
-#define wlc_view_for_each(view, list)                               \
-        for (view = wlc_view_from_link((list)->next);               \
-             wlc_view_get_link(view) != (list);                     \
-             view = wlc_view_from_link(wlc_view_get_link(view)->next))
+#define wlc_view_for_each(item, list)                               \
+        for (item = wlc_view_from_link((list)->next);               \
+             wlc_view_get_link(item) != (list);                     \
+             item = wlc_view_from_link(wlc_view_get_link(item)->next))
 
-#define wlc_view_for_each_reverse(view, list)                       \
-        for (view = wlc_view_from_link((list)->prev);               \
-             wlc_view_get_link(view) != (list);                     \
-             view = wlc_view_from_link(wlc_view_get_link(view)->prev))
+#define wlc_view_for_each_reverse(item, list)                       \
+        for (item = wlc_view_from_link((list)->prev);               \
+             wlc_view_get_link(item) != (list);                     \
+             item = wlc_view_from_link(wlc_view_get_link(item)->prev))
 
-#define wl_view_for_each_safe(view, tmp, list)                      \
-        for (view = wlc_view_from_link((list)->next),               \
+#define wl_view_for_each_safe(item, tmp, list)                      \
+        for (item = wlc_view_from_link((list)->next),               \
              tmp = wlc_view_from_link((list)->next->next);          \
-             wlc_view_get_link(view) != (list);                     \
-             view = tmp,                                            \
-             tmp = wlc_view_from_link(wlc_view_get_link(view)->next))
+             wlc_view_get_link(item) != (list);                     \
+             item = tmp,                                            \
+             tmp = wlc_view_from_link(wlc_view_get_link(item)->next))
 
-#define wl_view_for_each_safe_reverse(view, tmp, list)              \
-        for (view = wlc_view_from_link((list)->prev),               \
+#define wl_view_for_each_safe_reverse(item, tmp, list)              \
+        for (item = wlc_view_from_link((list)->prev),               \
              tmp = wlc_view_from_link((list)->prev->prev);          \
-             wlc_view_get_link(view) != (list);                     \
-             view = tmp,                                            \
-             tmp = wlc_view_from_link(wlc_view_get_link(view)->prev))
+             wlc_view_get_link(item) != (list);                     \
+             item = tmp,                                            \
+             tmp = wlc_view_from_link(wlc_view_get_link(item)->prev))
 
-#define wlc_view_for_each_user(view, list)                           \
-        for (view = wlc_view_from_user_link((list)->next);           \
-             wlc_view_get_user_link(view) != (list);                 \
-             view = wlc_view_from_user_link(wlc_view_get_user_link(view)->next))
+#define wlc_view_for_each_user(item, list)                           \
+        for (item = wlc_view_from_user_link((list)->next);           \
+             wlc_view_get_user_link(item) != (list);                 \
+             item = wlc_view_from_user_link(wlc_view_get_user_link(item)->next))
 
-#define wlc_view_for_each_user_reverse(view, list)                   \
-        for (view = wlc_view_from_user_link((list)->prev);           \
-             wlc_view_get_user_link(view) != (list);                 \
-             view = wlc_view_from_user_link(wlc_view_get_user_link(view)->prev))
+#define wlc_view_for_each_user_reverse(item, list)                   \
+        for (item = wlc_view_from_user_link((list)->prev);           \
+             wlc_view_get_user_link(item) != (list);                 \
+             item = wlc_view_from_user_link(wlc_view_get_user_link(item)->prev))
 
-#define wl_view_for_each_user_safe(view, tmp, list)                 \
-        for (view = wlc_view_from_user_link((list)->next),          \
+#define wl_view_for_each_user_safe(item, tmp, list)                 \
+        for (item = wlc_view_from_user_link((list)->next),          \
              tmp = wlc_view_from_user_link((list)->next->next);     \
-             wlc_view_get_user_link(view) != (list);                \
-             view = tmp,                                            \
-             tmp = wlc_view_from_user_link(wlc_view_get_user_link(view)->next))
+             wlc_view_get_user_link(item) != (list);                \
+             item = tmp,                                            \
+             tmp = wlc_view_from_user_link(wlc_view_get_user_link(item)->next))
 
-#define wl_view_for_each_user_safe_reverse(view, tmp, list)         \
-        for (view = wlc_view_from_user_link((list)->prev),          \
+#define wl_view_for_each_user_safe_reverse(item, tmp, list)         \
+        for (item = wlc_view_from_user_link((list)->prev),          \
              tmp = wlc_view_from_user_link((list)->prev->prev);     \
-             wlc_view_get_user_link(view) != (list);                \
-             view = tmp,                                            \
-             tmp = wlc_view_from_user_link(wlc_view_get_user_link(view)->prev))
+             wlc_view_get_user_link(item) != (list);                \
+             item = tmp,                                            \
+             tmp = wlc_view_from_user_link(wlc_view_get_user_link(item)->prev))
 
 #endif /* _WLC_H_ */

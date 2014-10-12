@@ -31,7 +31,7 @@ xdg_cb_shell_get_surface(struct wl_client *wl_client, struct wl_resource *resour
 
    struct wlc_view *view;
    if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)) &&
-       !(view = wlc_view_for_surface_in_list(surface, &surface->output->views))) {
+       !(view = wlc_view_for_surface_in_list(surface, &surface->space->views))) {
       wl_resource_post_error(resource, 1, "view was not found for client");
       return;
    }

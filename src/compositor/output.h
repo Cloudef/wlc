@@ -10,6 +10,13 @@
 struct wl_global;
 struct wlc_compositor;
 
+struct wlc_space {
+   void *userdata;
+   struct wlc_output *output;
+   struct wl_list views;
+   struct wl_list link;
+};
+
 struct wlc_output_mode {
    int32_t refresh;
    int32_t width, height;
@@ -31,11 +38,13 @@ struct wlc_output {
    void *backend_info;
    void *context_info;
    void *render_info;
-   uint32_t mode;
+   struct wlc_compositor *compositor;
+   struct wlc_space *space;
    struct wl_global *global;
    struct wlc_output_information information;
-   struct wl_list resources, views;
+   struct wl_list resources, spaces;
    struct wl_list link;
+   uint32_t mode;
 
    struct {
       uint32_t width, height;

@@ -118,13 +118,16 @@ wl_cb_seat_get_keyboard(struct wl_client *wl_client, struct wl_resource *resourc
    if (seat->compositor->interface.keyboard.init) {
       struct wlc_output *output;
       wl_list_for_each(output, &seat->compositor->outputs, link) {
-         struct wlc_view *view;
-         wl_list_for_each_reverse(view, &output->views, link) {
-            if (view->client != client)
-               continue;
+         struct wlc_space *space;
+         wl_list_for_each(space, &output->spaces, link) {
+            struct wlc_view *view;
+            wl_list_for_each_reverse(view, &space->views, link) {
+               if (view->client != client)
+                  continue;
 
-            seat->compositor->interface.keyboard.init(seat->compositor, view);
-            break;
+               seat->compositor->interface.keyboard.init(seat->compositor, view);
+               break;
+            }
          }
       }
    }

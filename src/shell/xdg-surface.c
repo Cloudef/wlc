@@ -101,7 +101,7 @@ xdg_cb_surface_set_maximized(struct wl_client *wl_client, struct wl_resource *re
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->output->views)) ||
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
        (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
       wlc_view_set_maximized(view, true);
 }
@@ -113,7 +113,7 @@ xdg_cb_surface_unset_maximized(struct wl_client *wl_client, struct wl_resource *
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->output->views)) ||
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
        (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
       wlc_view_set_maximized(view, false);
 }
@@ -123,15 +123,14 @@ xdg_cb_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resource *r
 {
    (void)wl_client;
 
-   void *output = NULL;
    if (output_resource)
       wl_resource_get_user_data(output_resource);
 
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_output(xdg_surface->shell_surface, output);
+   // wlc_shell_surface_set_output(xdg_surface->shell_surface, output);
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->output->views)) ||
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
        (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
       wlc_view_set_fullscreen(view, true);
 }
@@ -143,7 +142,7 @@ xdg_cb_surface_unset_fullscreen(struct wl_client *wl_client, struct wl_resource 
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->output->views)) ||
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
        (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
       wlc_view_set_fullscreen(view, false);
 }

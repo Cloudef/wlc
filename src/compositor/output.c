@@ -9,6 +9,32 @@
 
 #include <wayland-server.h>
 
+static struct wlc_space*
+wlc_space_new(struct wlc_output *output)
+{
+   assert(output);
+
+   struct wlc_space *space;
+   if (!(space = calloc(1, sizeof(struct wlc_space))))
+      return NULL;
+
+   space->output = output;
+   wl_list_init(&space->views);
+   wl_list_insert(output->spaces.prev, &space->link);
+   return space;
+}
+
+static void
+wlc_space_free(struct wlc_space *space)
+{
+   assert(space);
+
+   if (space->output->space == space)
+      space->output->space = (wl_list_empty(&space->output->spaces) ? NULL : wlc_space_from_link(space->link.prev));
+
+   free(space);
+}
+
 static void
 wl_cb_output_resource_destructor(struct wl_resource *resource)
 {
@@ -80,6 +106,10 @@ wlc_output_free(struct wlc_output *output)
    if (output->global)
       wl_global_destroy(output->global);
 
+   struct wlc_space *s, *sn;
+   wl_list_for_each_safe(s, sn, &output->spaces, link)
+      wlc_space_free(s);
+
    wlc_string_release(&output->information.make);
    wlc_string_release(&output->information.model);
    wl_array_release(&output->information.modes);
@@ -98,7 +128,12 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_output_information 
 
    memcpy(&output->information, info, sizeof(output->information));
    wl_list_init(&output->resources);
-   wl_list_init(&output->views);
+   wl_list_init(&output->spaces);
+
+   if (!(output->space = wlc_space_new(output)))
+      goto fail;
+
+   output->compositor = compositor;
    return output;
 
 fail:
@@ -119,11 +154,18 @@ wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32
       *out_height = output->resolution.height;
 }
 
-WLC_API struct wl_list*
-wlc_output_get_views(struct wlc_output *output)
+WLC_API struct wlc_space*
+wlc_output_get_active_space(struct wlc_output *output)
 {
    assert(output);
-   return &output->views;
+   return output->space;
+}
+
+WLC_API struct wl_list*
+wlc_output_get_spaces(struct wlc_output *output)
+{
+   assert(output);
+   return &output->spaces;
 }
 
 WLC_API struct wl_list*
@@ -153,4 +195,75 @@ wlc_output_get_userdata(struct wlc_output *output)
 {
    assert(output);
    return output->userdata;
+}
+
+WLC_API void
+wlc_output_focus_space(struct wlc_output *output, struct wlc_space *space)
+{
+   assert(output);
+
+   output->space = space;
+
+   if (output->compositor->interface.space.activated)
+      output->compositor->interface.space.activated(output->compositor, space);
+
+   output->compositor->api.schedule_repaint(output->compositor);
+}
+
+WLC_API struct wlc_output*
+wlc_space_get_output(struct wlc_space *space)
+{
+   assert(space);
+   return space->output;
+}
+
+WLC_API struct wl_list*
+wlc_space_get_views(struct wlc_space *space)
+{
+   assert(space);
+   return &space->views;
+}
+
+WLC_API struct wl_list*
+wlc_space_get_link(struct wlc_space *space)
+{
+   assert(space);
+   return &space->link;
+}
+
+WLC_API struct wlc_space*
+wlc_space_from_link(struct wl_list *space_link)
+{
+   assert(space_link);
+   struct wlc_space *space;
+   return wl_container_of(space_link, space, link);
+}
+
+WLC_API void
+wlc_space_set_userdata(struct wlc_space *space, void *userdata)
+{
+   assert(space);
+   space->userdata = userdata;
+}
+
+WLC_API void*
+wlc_space_get_userdata(struct wlc_space *space)
+{
+   assert(space);
+   return space->userdata;
+}
+
+WLC_API struct wlc_space*
+wlc_space_add(struct wlc_output *output)
+{
+   assert(output);
+   return wlc_space_new(output);
+}
+
+WLC_API void
+wlc_space_remove(struct wlc_space *space)
+{
+   assert(0 && "not fully implemented");
+   assert(space);
+   return wlc_space_free(space);
 }

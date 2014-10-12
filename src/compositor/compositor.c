@@ -133,7 +133,7 @@ wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, 
       goto fail;
 
    struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
-   if (!(surface = wlc_surface_new(compositor, compositor->active_output)))
+   if (!(surface = wlc_surface_new(compositor, compositor->output->space)))
       goto fail;
 
    struct wlc_client *client;
@@ -238,7 +238,7 @@ repaint(struct wlc_compositor *compositor)
       compositor->render->api.clear();
 
       struct wlc_view *view;
-      wl_list_for_each(view, &output->views, link) {
+      wl_list_for_each(view, &output->space->views, link) {
          if (!view->surface->created)
             continue;
 
@@ -251,7 +251,7 @@ repaint(struct wlc_compositor *compositor)
          }
       }
 
-      if (compositor->active_output == output)
+      if (compositor->output == output)
          compositor->render->api.pointer(wl_fixed_to_int(compositor->seat->pointer->x), wl_fixed_to_int(compositor->seat->pointer->y));
 
       compositor->render->api.swap();
@@ -304,13 +304,15 @@ resolution(struct wlc_compositor *compositor, struct wlc_output *output, uint32_
 static void
 active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
-   if (output == compositor->active_output)
+   if (output == compositor->output)
       return;
 
-   compositor->active_output = output;
+   compositor->output = output;
 
    if (compositor->interface.output.activated)
       compositor->interface.output.activated(compositor, output);
+
+   schedule_repaint(compositor);
 }
 
 static bool
@@ -324,7 +326,7 @@ add_output(struct wlc_compositor *compositor, struct wlc_output *output)
    if (compositor->interface.output.created)
       compositor->interface.output.created(compositor, output);
 
-   if (!compositor->active_output)
+   if (!compositor->output)
       active_output(compositor, output);
 
    if (compositor->interface.output.resolution) {
@@ -338,6 +340,7 @@ add_output(struct wlc_compositor *compositor, struct wlc_output *output)
       }
    }
 
+   schedule_repaint(compositor);
    return true;
 }
 
@@ -347,41 +350,47 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    (void)compositor;
    wl_list_remove(&output->link);
 
-   if (compositor->active_output == output) {
+   if (compositor->output == output) {
       struct wlc_output *o;
-      compositor->active_output = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
+      compositor->output = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
    }
 
-   struct wlc_view *view, *vn;
-   wl_list_for_each_safe(view, vn, &output->views, link) {
-      wl_list_remove(&view->link);
-      wl_list_insert(&compositor->unmapped, &view->link);
+   struct wlc_space *space;
+   wl_list_for_each(space, &output->spaces, link) {
+      struct wlc_view *view, *vn;
+      wl_list_for_each_safe(view, vn, &space->views, link) {
+         wl_list_remove(&view->link);
+         wl_list_insert(&compositor->unmapped, &view->link);
 
-      if (compositor->render)
-         compositor->render->api.destroy(view->surface);
+         if (compositor->render)
+            compositor->render->api.destroy(view->surface);
 
-      view->surface->created = false;
+         view->surface->created = false;
 
-      if ((view->surface->output = compositor->active_output))
-         wlc_surface_create_notify(view->surface);
+         if ((view->surface->space = compositor->output->space))
+            wlc_surface_create_notify(view->surface);
+      }
    }
 
    if (compositor->interface.output.destroyed)
       compositor->interface.output.destroyed(compositor, output);
+
+   schedule_repaint(compositor);
 }
 
 WLC_API void
-wlc_compositor_output_focus(struct wlc_compositor *compositor, struct wlc_output *output)
+wlc_compositor_focus_view(struct wlc_compositor *compositor, struct wlc_view *view)
 {
    assert(compositor);
-   active_output(compositor, output);
+   compositor->seat->notify.keyboard_focus(compositor->seat, view);
+   schedule_repaint(compositor);
 }
 
-WLC_API struct wlc_output*
-wlc_compositor_get_focused_output(struct wlc_compositor *compositor)
+WLC_API void
+wlc_compositor_focus_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
    assert(compositor);
-   return compositor->active_output;
+   compositor->api.active_output(compositor, output);
 }
 
 WLC_API struct wl_list*
@@ -391,11 +400,18 @@ wlc_compositor_get_outputs(struct wlc_compositor *compositor)
    return &compositor->outputs;
 }
 
-WLC_API void
-wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc_view *view)
+WLC_API struct wlc_output*
+wlc_compositor_get_focused_output(struct wlc_compositor *compositor)
 {
-   assert(compositor && compositor->seat);
-   compositor->seat->notify.keyboard_focus(compositor->seat, view);
+   assert(compositor);
+   return compositor->output;
+}
+
+WLC_API struct wlc_space*
+wlc_compositor_get_focused_space(struct wlc_compositor *compositor)
+{
+   assert(compositor);
+   return (compositor->output ? compositor->output->space : NULL);
 }
 
 WLC_API void

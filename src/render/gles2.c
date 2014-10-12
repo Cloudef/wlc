@@ -489,7 +489,7 @@ egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t form
 
    for (int i = 0; i < num_planes; ++i) {
       EGLint attribs[] = { EGL_WAYLAND_PLANE_WL, i, EGL_NONE };
-      if (!(surface->images[i] = wlc_egl_create_image(surface->output, EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
+      if (!(surface->images[i] = wlc_egl_create_image(surface->space->output, EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
          continue;
 
       gl.api.glActiveTexture(GL_TEXTURE0 + i);
@@ -503,7 +503,7 @@ egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t form
 static void
 surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
-   if (!bind(surface->output))
+   if (!bind(surface->space->output))
       return;
 
    if (!buffer) {

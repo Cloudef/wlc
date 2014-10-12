@@ -82,8 +82,8 @@ input_event(int fd, uint32_t mask, void *data)
                struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
                input->pointer.x += libinput_event_pointer_get_dx(pev);
                input->pointer.y += libinput_event_pointer_get_dy(pev);
-               input->pointer.x = fmax(fmin(input->pointer.x, seat->compositor->active_output->resolution.width), 0);
-               input->pointer.y = fmax(fmin(input->pointer.y, seat->compositor->active_output->resolution.height), 0);
+               input->pointer.x = fmax(fmin(input->pointer.x, seat->compositor->output->resolution.width), 0);
+               input->pointer.y = fmax(fmin(input->pointer.y, seat->compositor->output->resolution.height), 0);
                seat->notify.pointer_motion(seat, input->pointer.x, input->pointer.y);
             }
             break;
@@ -91,8 +91,8 @@ input_event(int fd, uint32_t mask, void *data)
          case LIBINPUT_EVENT_POINTER_MOTION_ABSOLUTE:
             {
                struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-               input->pointer.x = libinput_event_pointer_get_absolute_x_transformed(pev, seat->compositor->active_output->resolution.width);
-               input->pointer.y = libinput_event_pointer_get_absolute_y_transformed(pev, seat->compositor->active_output->resolution.height);
+               input->pointer.x = libinput_event_pointer_get_absolute_x_transformed(pev, seat->compositor->output->resolution.width);
+               input->pointer.y = libinput_event_pointer_get_absolute_y_transformed(pev, seat->compositor->output->resolution.height);
                seat->notify.pointer_motion(seat, input->pointer.x, input->pointer.y);
             }
             break;

@@ -13,7 +13,6 @@ struct wlc_shell_surface {
    struct wl_resource *resource;
    struct wlc_surface *surface;
    struct wlc_shell_surface *parent;
-   void *output;
    struct wlc_string title;
    struct wlc_string class;
 };
