@@ -48,6 +48,13 @@ struct wlc_view;
 struct wlc_output;
 struct wl_list;
 
+enum wlc_view_bit {
+   WLC_BIT_MAXIMIZED = 1<<0,
+   WLC_BIT_FULLSCREEN = 1<<1,
+   WLC_BIT_RESIZING = 1<<2,
+   WLC_BIT_ACTIVATED = 1<<3,
+};
+
 enum wlc_modifier_bit {
    WLC_BIT_MOD_SHIFT = 1<<0,
    WLC_BIT_MOD_CAPS = 1<<1,
@@ -111,6 +118,7 @@ void wlc_output_set_userdata(struct wlc_output *output, void *userdata);
 void* wlc_output_get_userdata(struct wlc_output *output);
 
 struct wlc_output* wlc_view_get_output(struct wlc_view *view);
+uint32_t wlc_view_get_state(struct wlc_view *view);
 void wlc_view_set_maximized(struct wlc_view *view, bool maximized);
 void wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen);
 void wlc_view_set_resizing(struct wlc_view *view, bool resizing);

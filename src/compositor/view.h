@@ -3,14 +3,9 @@
 
 #include <wayland-util.h>
 #include <stdbool.h>
-#include "types/geometry.h"
 
-enum wlc_view_bit {
-   WLC_BIT_MAXIMIZED = 1<<0,
-   WLC_BIT_FULLSCREEN = 1<<1,
-   WLC_BIT_RESIZING = 1<<2,
-   WLC_BIT_ACTIVATED = 1<<3,
-};
+#include "wlc.h"
+#include "types/geometry.h"
 
 struct wl_resource;
 struct wlc_client;

@@ -139,6 +139,13 @@ wlc_view_new(struct wlc_client *client, struct wlc_surface *surface)
    return view;
 }
 
+WLC_API uint32_t
+wlc_view_get_state(struct wlc_view *view)
+{
+   assert(view);
+   return view->state;
+}
+
 WLC_API void
 wlc_view_set_maximized(struct wlc_view *view, bool maximized)
 {
