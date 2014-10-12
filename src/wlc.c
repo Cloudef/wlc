@@ -442,7 +442,11 @@ wlc_init(void)
    } stored_env[] = {
       { "DISPLAY", NULL },
       { "XAUTHORITY", NULL },
+      { "HOME", NULL },
+      { "USER", NULL },
+      { "LOGNAME", NULL },
       { "LANG", NULL },
+      { "PATH", NULL },
       { "USER", NULL },
       { "SHELL", NULL }, /* weston-terminal relies on this */
       { "XDG_RUNTIME_DIR", NULL },
