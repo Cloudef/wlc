@@ -12,6 +12,7 @@
 #include <xcb/composite.h>
 #include <xcb/xcb_ewmh.h>
 #include <xcb/xcb_icccm.h>
+#include <xcb/xfixes.h>
 
 #include <wayland-server.h>
 #include <wayland-util.h>
@@ -30,6 +31,8 @@ enum atom_name {
    WM_TAKE_FOCUS,
    WM_PROTOCOLS,
    UTF8_STRING,
+   CLIPBOARD,
+   CLIPBOARD_MANAGER,
    WM_S0,
    NET_WM_S0,
    NET_WM_NAME,
@@ -49,6 +52,7 @@ static struct {
 static struct {
    xcb_screen_t *screen;
    xcb_connection_t *connection;
+   const xcb_query_extension_reply_t *xfixes;
    xcb_atom_t atoms[ATOM_LAST];
    xcb_ewmh_connection_t ewmh;
    xcb_window_t window;
@@ -90,6 +94,10 @@ static struct {
       uint8_t (*xcb_icccm_get_wm_protocols_reply)(xcb_connection_t*, xcb_get_property_cookie_t, xcb_icccm_get_wm_protocols_reply_t*, xcb_generic_error_t**);
       void (*xcb_icccm_get_wm_protocols_reply_wipe)(xcb_icccm_get_wm_protocols_reply_t*);
 
+      xcb_xfixes_query_version_cookie_t (*xcb_xfixes_query_version)(xcb_connection_t*, uint32_t, uint32_t);
+      xcb_xfixes_query_version_reply_t* (*xcb_xfixes_query_version_reply)(xcb_connection_t*, xcb_xfixes_query_version_cookie_t, xcb_generic_error_t**);
+      xcb_void_cookie_t (*xcb_xfixes_select_selection_input_checked)(xcb_connection_t*, xcb_window_t, xcb_atom_t, uint32_t);
+      xcb_extension_t *xcb_xfixes_id;
    } api;
 } x11;
 
@@ -228,6 +236,36 @@ xcb_icccm_load(void)
    if (!load(xcb_icccm_get_wm_protocols_reply))
       goto function_pointer_exception;
    if (!load(xcb_icccm_get_wm_protocols_reply_wipe))
+      goto function_pointer_exception;
+
+#undef load
+
+   return true;
+
+function_pointer_exception:
+   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   return false;
+}
+
+static bool
+xcb_xfixes_load(void)
+{
+   const char *lib = "libxcb-xfixes.so", *func = NULL;
+
+   if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
+      fprintf(stderr, "-!- %s\n", dlerror());
+      return false;
+   }
+
+#define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
+
+   if (!load(xcb_xfixes_query_version))
+      goto function_pointer_exception;
+   if (!load(xcb_xfixes_query_version_reply))
+      goto function_pointer_exception;
+   if (!load(xcb_xfixes_select_selection_input_checked))
+      goto function_pointer_exception;
+   if (!load(xcb_xfixes_id))
       goto function_pointer_exception;
 
 #undef load
@@ -384,45 +422,63 @@ x11_event(int fd, uint32_t mask, void *data)
    int count = 0;
    xcb_generic_event_t *event;
    while ((event = x11.api.xcb_poll_for_event(x11.connection))) {
-      switch (event->response_type & ~0x80) {
-         case XCB_CREATE_NOTIFY: {
-            xcb_create_notify_event_t *ev = (xcb_create_notify_event_t*)event;
-            wlc_x11_window_new(ev->window, ev->override_redirect);
-         }
+      bool xfixes_event = false;
+      switch (event->response_type - x11.xfixes->first_event) {
+         case XCB_XFIXES_SELECTION_NOTIFY:
+         puts("sel xfixes not");
+         xfixes_event = true;
          break;
-         case XCB_DESTROY_NOTIFY: {
-            xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)event;
-            struct wlc_x11_window *win;
-            if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
-               wlc_x11_window_free(win);
-         }
-         break;
-         case XCB_MAP_REQUEST: {
-            xcb_map_request_event_t *ev = (xcb_map_request_event_t*)event;
-            x11.api.xcb_map_window_checked(x11.connection, ev->window);
-         }
-         break;
-         case XCB_CLIENT_MESSAGE: {
-            xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
-            if (ev->type == x11.atoms[WL_SURFACE_ID]) {
+         default:break;
+      }
+
+      if (!xfixes_event) {
+         switch (event->response_type & ~0x80) {
+            case XCB_CREATE_NOTIFY: {
+               xcb_create_notify_event_t *ev = (xcb_create_notify_event_t*)event;
+               wlc_x11_window_new(ev->window, ev->override_redirect);
+            }
+            break;
+            case XCB_DESTROY_NOTIFY: {
+               xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)event;
                struct wlc_x11_window *win;
-               if ((win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window))) {
-                  link_surface(win, wl_client_get_object(xwm.client, ev->data.data32[0]));
-                  win->surface_id = ev->data.data32[0];
+               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
+                  wlc_x11_window_free(win);
+            }
+            break;
+            case XCB_MAP_REQUEST: {
+               xcb_map_request_event_t *ev = (xcb_map_request_event_t*)event;
+               x11.api.xcb_map_window_checked(x11.connection, ev->window);
+            }
+            break;
+            case XCB_CLIENT_MESSAGE: {
+               xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
+               if (ev->type == x11.atoms[WL_SURFACE_ID]) {
+                  struct wlc_x11_window *win;
+                  if ((win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window))) {
+                     link_surface(win, wl_client_get_object(xwm.client, ev->data.data32[0]));
+                     win->surface_id = ev->data.data32[0];
+                  }
                }
             }
+            break;
+            case XCB_SELECTION_NOTIFY:
+            puts("sel not");
+            break;
+            case XCB_PROPERTY_NOTIFY:
+            break;
+            case XCB_SELECTION_REQUEST:
+            puts("sel req");
+            break;
+            case XCB_CONFIGURE_REQUEST:
+            case XCB_CONFIGURE_NOTIFY:
+            case XCB_MAP_NOTIFY:
+            case XCB_UNMAP_NOTIFY:
+            case XCB_MAPPING_NOTIFY:
+            break;
+            default:
+               fprintf(stderr, "xwm: unimplemented %d\n", event->response_type & ~0x80);
+            break;
          }
-         break;
-         case XCB_CONFIGURE_REQUEST:
-         case XCB_PROPERTY_NOTIFY:
-         case XCB_CONFIGURE_NOTIFY:
-         case XCB_MAP_NOTIFY:
-         case XCB_UNMAP_NOTIFY:
-         case XCB_MAPPING_NOTIFY:
-         break;
-         default:
-            fprintf(stderr, "xwm: unimplemented %d\n", event->response_type & ~0x80);
-         break;
       }
 
       free(event);
@@ -436,7 +492,7 @@ x11_event(int fd, uint32_t mask, void *data)
 bool
 wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const int fd)
 {
-   if (!xcb_load() || !xcb_ewmh_load() || !xcb_composite_load() || !xcb_icccm_load())
+   if (!xcb_load() || !xcb_ewmh_load() || !xcb_composite_load() || !xcb_icccm_load() || !xcb_xfixes_load())
       goto fail;
 
    x11.connection = x11.api.xcb_connect_to_fd(fd, NULL);
@@ -458,6 +514,8 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
       { "WM_TAKE_FOCUS", WM_TAKE_FOCUS },
       { "WM_PROTOCOLS", WM_PROTOCOLS },
       { "UTF8_STRING", UTF8_STRING },
+      { "CLIPBOARD", CLIPBOARD },
+      { "CLIPBOARD_MANAGER", CLIPBOARD_MANAGER },
       { "WM_S0", WM_S0 },
       { "_NET_WM_S0", NET_WM_S0 },
       { "_NET_WM_NAME", NET_WM_NAME },
@@ -483,6 +541,15 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
 
    wl_list_init(&xwm.windows);
    wl_list_init(&xwm.unpaired_windows);
+
+   if (!(x11.xfixes = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_xfixes_id)) || !x11.xfixes->present)
+      goto xfixes_extension_fail;
+
+   xcb_xfixes_query_version_reply_t *xfixes_reply;
+   if (!(xfixes_reply = x11.api.xcb_xfixes_query_version_reply(x11.connection, x11.api.xcb_xfixes_query_version(x11.connection, XCB_XFIXES_MAJOR_VERSION, XCB_XFIXES_MINOR_VERSION), NULL)))
+      goto xfixes_extension_fail;
+
+   fprintf(stdout, "xfixes (%d.%d)\n", xfixes_reply->major_version, xfixes_reply->minor_version);
 
    const xcb_query_extension_reply_t *composite_extension;
    if (!(composite_extension = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_composite_id)) || !composite_extension->present)
@@ -519,8 +586,8 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
       goto window_fail;
 
    x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, x11.window, x11.screen->root,
-         0, 0, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY,
-         x11.screen->root_visual, 0, NULL);
+         0, 0, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+         x11.screen->root_visual, XCB_CW_EVENT_MASK, (uint32_t[]){XCB_EVENT_MASK_PROPERTY_CHANGE});
 
    xcb_atom_t supported[] = {
       x11.atoms[NET_WM_STATE],
@@ -531,8 +598,14 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window);
    x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window);
    x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, strlen("xwlc"), "xwlc");
+   x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[CLIPBOARD_MANAGER], XCB_CURRENT_TIME);
    x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[WM_S0], XCB_CURRENT_TIME);
    x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[NET_WM_S0], XCB_CURRENT_TIME);
+
+   uint32_t mask = XCB_XFIXES_SELECTION_EVENT_MASK_SET_SELECTION_OWNER |
+                   XCB_XFIXES_SELECTION_EVENT_MASK_SELECTION_WINDOW_DESTROY |
+                   XCB_XFIXES_SELECTION_EVENT_MASK_SELECTION_CLIENT_CLOSE;
+   x11.api.xcb_xfixes_select_selection_input_checked(x11.connection, x11.window, x11.atoms[CLIPBOARD], mask);
 
    x11.api.xcb_flush(x11.connection);
 
@@ -544,6 +617,7 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
 xcb_connection_fail:
 emwh_init_atoms_fail:
 event_source_fail:
+xfixes_extension_fail:
 composite_extension_fail:
 change_attributes_fail:
 redirect_subwindows_fail:
