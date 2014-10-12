@@ -4,50 +4,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define wlc_output_for_each(view, list)                             \
-        for (view = 0, view = wlc_output_from_link((list)->next);   \
-             wlc_output_get_link(view) != (list);                   \
-             view = wlc_output_from_link(wlc_output_get_link(view)->next))
-
-#define wl_output_for_each_safe(view, tmp, list)                    \
-        for (view = 0, tmp = 0,                                     \
-             view = wlc_output_from_link((list)->next),             \
-             tmp = wlc_output_from_link((list)->next->next);        \
-             wlc_output_get_link(view) != (list);                   \
-             view = tmp,                                            \
-             tmp = wlc_output_from_link(wlc_output_get_link(view)->next))
-
-#define wlc_view_for_each(view, list)                               \
-        for (view = 0, view = wlc_view_from_link((list)->next);     \
-             wlc_view_get_link(view) != (list);                     \
-             view = wlc_view_from_link(wlc_view_get_link(view)->next))
-
-#define wl_view_for_each_safe(view, tmp, list)                      \
-        for (view = 0, tmp = 0,                                     \
-             view = wlc_view_from_link((list)->next),               \
-             tmp = wlc_view_from_link((list)->next->next);          \
-             wlc_view_get_link(view) != (list);                     \
-             view = tmp,                                            \
-             tmp = wlc_view_from_link(wlc_view_get_link(view)->next))
-
-#define wlc_view_for_each_user(view, list)                           \
-        for (view = 0, view = wlc_view_from_user_link((list)->next); \
-             wlc_view_get_user_link(view) != (list);                 \
-             view = wlc_view_from_user_link(wlc_view_get_user_link(view)->next))
-
-#define wl_view_for_each_user_safe(view, tmp, list)                 \
-        for (view = 0, tmp = 0,                                     \
-             view = wlc_view_from_user_link((list)->next),          \
-             tmp = wlc_view_from_user_link((list)->next->next);     \
-             wlc_view_get_user_link(view) != (list);                \
-             view = tmp,                                            \
-             tmp = wlc_view_from_user_link(wlc_view_get_user_link(view)->next))
-
 struct wlc_compositor;
 struct wlc_view;
 struct wlc_output;
 struct wl_list;
 
+/** wlc_view_get_state(); */
 enum wlc_view_bit {
    WLC_BIT_MAXIMIZED = 1<<0,
    WLC_BIT_FULLSCREEN = 1<<1,
@@ -55,6 +17,7 @@ enum wlc_view_bit {
    WLC_BIT_ACTIVATED = 1<<3,
 };
 
+/** mods in interface.keyboard.key function */
 enum wlc_modifier_bit {
    WLC_BIT_MOD_SHIFT = 1<<0,
    WLC_BIT_MOD_CAPS = 1<<1,
@@ -66,17 +29,20 @@ enum wlc_modifier_bit {
    WLC_BIT_MOD_MOD5 = 1<<7,
 };
 
+/** leds in interface.keyboard.key function */
 enum wlc_led_bit {
    WLC_BIT_LED_NUM = 1<<0,
    WLC_BIT_LED_CAPS = 1<<1,
    WLC_BIT_LED_SCROLL = 1<<2,
 };
 
+/** state in interface.keyboard.key function */
 enum wlc_key_state {
    WLC_KEY_STATE_RELEASED = 0,
    WLC_KEY_STATE_PRESSED = 1
 };
 
+/** state in interface.pointer.button function */
 enum wlc_button_state {
    WLC_BUTTON_STATE_RELEASED = 0,
    WLC_BUTTON_STATE_PRESSED = 1
@@ -147,5 +113,87 @@ void wlc_compositor_keyboard_focus(struct wlc_compositor *compositor, struct wlc
 void wlc_compositor_run(struct wlc_compositor *compositor);
 void wlc_compositor_free(struct wlc_compositor *compositor);
 struct wlc_compositor* wlc_compositor_new(const struct wlc_interface *interface);
+
+/**
+ * Macros for wl_list containers containing wlc structs.
+ *
+ * _user versions of each macro cycles the *_get_user_link() version of each struct.
+ * User versions of the links are not touched by the wlc at all.
+ *
+ * You should only use the non user version of the links for enumerating wl_lists returned by some wlc functions.
+ * Never insert/remove the non user links.
+ */
+
+#define wlc_output_for_each(view, list)                             \
+        for (view = wlc_output_from_link((list)->next);             \
+             wlc_output_get_link(view) != (list);                   \
+             view = wlc_output_from_link(wlc_output_get_link(view)->next))
+
+#define wlc_output_for_each_reverse(view, list)                     \
+        for (view = wlc_output_from_link((list)->prev);             \
+             wlc_output_get_link(view) != (list);                   \
+             view = wlc_output_from_link(wlc_output_get_link(view)->prev))
+
+#define wl_output_for_each_safe(view, tmp, list)                    \
+        for (view = wlc_output_from_link((list)->next),             \
+             tmp = wlc_output_from_link((list)->next->next);        \
+             wlc_output_get_link(view) != (list);                   \
+             view = tmp,                                            \
+             tmp = wlc_output_from_link(wlc_output_get_link(view)->next))
+
+#define wl_output_for_each_safe_reverse(view, tmp, list)            \
+        for (view = wlc_output_from_link((list)->prev),             \
+             tmp = wlc_output_from_link((list)->prev->prev);        \
+             wlc_output_get_link(view) != (list);                   \
+             view = tmp,                                            \
+             tmp = wlc_output_from_link(wlc_output_get_link(view)->prev))
+
+#define wlc_view_for_each(view, list)                               \
+        for (view = wlc_view_from_link((list)->next);               \
+             wlc_view_get_link(view) != (list);                     \
+             view = wlc_view_from_link(wlc_view_get_link(view)->next))
+
+#define wlc_view_for_each_reverse(view, list)                       \
+        for (view = wlc_view_from_link((list)->prev);               \
+             wlc_view_get_link(view) != (list);                     \
+             view = wlc_view_from_link(wlc_view_get_link(view)->prev))
+
+#define wl_view_for_each_safe(view, tmp, list)                      \
+        for (view = wlc_view_from_link((list)->next),               \
+             tmp = wlc_view_from_link((list)->next->next);          \
+             wlc_view_get_link(view) != (list);                     \
+             view = tmp,                                            \
+             tmp = wlc_view_from_link(wlc_view_get_link(view)->next))
+
+#define wl_view_for_each_safe_reverse(view, tmp, list)              \
+        for (view = wlc_view_from_link((list)->prev),               \
+             tmp = wlc_view_from_link((list)->prev->prev);          \
+             wlc_view_get_link(view) != (list);                     \
+             view = tmp,                                            \
+             tmp = wlc_view_from_link(wlc_view_get_link(view)->prev))
+
+#define wlc_view_for_each_user(view, list)                           \
+        for (view = wlc_view_from_user_link((list)->next);           \
+             wlc_view_get_user_link(view) != (list);                 \
+             view = wlc_view_from_user_link(wlc_view_get_user_link(view)->next))
+
+#define wlc_view_for_each_user_reverse(view, list)                   \
+        for (view = wlc_view_from_user_link((list)->prev);           \
+             wlc_view_get_user_link(view) != (list);                 \
+             view = wlc_view_from_user_link(wlc_view_get_user_link(view)->prev))
+
+#define wl_view_for_each_user_safe(view, tmp, list)                 \
+        for (view = wlc_view_from_user_link((list)->next),          \
+             tmp = wlc_view_from_user_link((list)->next->next);     \
+             wlc_view_get_user_link(view) != (list);                \
+             view = tmp,                                            \
+             tmp = wlc_view_from_user_link(wlc_view_get_user_link(view)->next))
+
+#define wl_view_for_each_user_safe_reverse(view, tmp, list)         \
+        for (view = wlc_view_from_user_link((list)->prev),          \
+             tmp = wlc_view_from_user_link((list)->prev->prev);     \
+             wlc_view_get_user_link(view) != (list);                \
+             view = tmp,                                            \
+             tmp = wlc_view_from_user_link(wlc_view_get_user_link(view)->prev))
 
 #endif /* _WLC_H_ */
