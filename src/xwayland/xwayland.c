@@ -5,6 +5,7 @@
 #include "xwm.h"
 #include "compositor/compositor.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -23,6 +24,7 @@ static const char *socket_dir = "/tmp/.X11-unix";
 static const char *socket_fmt = "/tmp/.X11-unix/X%d";
 
 static struct {
+   struct sigaction old_sigusr1;
    char display_name[16];
    struct wl_client *client;
    struct wl_event_source *event_source;
@@ -162,9 +164,11 @@ close_display(void)
 }
 
 static int
-usr1_event(int signal_number, void *data)
+sigusr1_event(int signal_number, void *data)
 {
-   (void)signal_number;
+   assert(signal_number == SIGUSR1);
+   sigaction(signal_number, &xserver.old_sigusr1, NULL);
+
    struct wlc_compositor *compositor = data;
 
    if (!wlc_xwm_init(compositor, xserver.client, xserver.wm_fd))
@@ -186,7 +190,9 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
    if (!open_display(socks))
       goto display_open_fail;
 
-   if (!(xserver.event_source = wl_event_loop_add_signal(compositor->event_loop, SIGUSR1, &usr1_event, compositor)))
+   sigaction(SIGUSR1, NULL,  &xserver.old_sigusr1);
+
+   if (!(xserver.event_source = wl_event_loop_add_signal(compositor->event_loop, SIGUSR1, &sigusr1_event, compositor)))
       goto event_source_fail;
 
    /* Open a socket for the Wayland connection from Xwayland. */

@@ -1,3 +1,4 @@
+#include "wlc_internal.h"
 #include "seat.h"
 #include "wlc.h"
 #include "client.h"
@@ -245,6 +246,12 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
    for (int i = 0; i < WLC_LED_LAST; ++i) {
       if (xkb_state_led_index_is_active(seat->keyboard->state, seat->keymap->leds[i]))
          leds |= led_bits[i];
+   }
+
+   if ((mods & WLC_BIT_MOD_CTRL) && (mods & WLC_BIT_MOD_ALT) && key >= 59 && key <= 88) {
+      if (state == WL_KEYBOARD_KEY_STATE_RELEASED)
+         wlc_activate_vt((key - 59) + 1);
+      return;
    }
 
    if (seat->compositor->interface.keyboard.key &&

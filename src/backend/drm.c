@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "drm.h"
+#include "wlc_internal.h"
 #include "udev/udev.h"
 #include "backend.h"
 #include "compositor/compositor.h"
@@ -67,6 +68,8 @@ static struct {
    struct {
       void *handle;
 
+      int (*drmSetMaster)(int);
+      int (*drmDropMaster)(int);
       int (*drmModeAddFB)(int, uint32_t, uint32_t, uint8_t, uint8_t, uint32_t, uint32_t, uint32_t*);
       int (*drmModeRmFB)(int, uint32_t);
       int (*drmModePageFlip)(int, uint32_t, uint32_t, uint32_t, void*);
@@ -142,6 +145,10 @@ drm_load(void)
 
 #define load(x) (drm.api.x = dlsym(drm.api.handle, (func = #x)))
 
+   if (!load(drmSetMaster))
+      goto function_pointer_exception;
+   if (!load(drmDropMaster))
+      goto function_pointer_exception;
    if (!load(drmModeAddFB))
       goto function_pointer_exception;
    if (!load(drmModeRmFB))
@@ -460,6 +467,18 @@ fail:
    return false;
 }
 
+static bool
+set_master(void)
+{
+   return !drm.api.drmSetMaster(drm.fd);
+}
+
+static bool
+drop_master(void)
+{
+   return !drm.api.drmDropMaster(drm.fd);
+}
+
 static void
 terminate(void)
 {
@@ -474,6 +493,8 @@ terminate(void)
 
    if (gbm.api.handle)
       dlclose(gbm.api.handle);
+
+   wlc_set_drm_control_functions(NULL, NULL);
 
    memset(&drm, 0, sizeof(drm));
    memset(&gbm, 0, sizeof(gbm));
@@ -523,6 +544,8 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
    if (!(seat.udev = wlc_udev_new(compositor)))
       goto fail;
+
+   wlc_set_drm_control_functions(set_master, drop_master);
 
    out_backend->name = "drm";
    out_backend->terminate = terminate;

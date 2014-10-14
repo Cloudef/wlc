@@ -228,6 +228,9 @@ get_time(void)
 static void
 repaint(struct wlc_compositor *compositor)
 {
+   if (!wlc_is_active())
+      return;
+
    uint32_t msec = get_time();
 
    struct wlc_output *output;

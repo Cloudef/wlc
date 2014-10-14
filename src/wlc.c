@@ -42,10 +42,26 @@ int feenableexcept(int excepts);
 #  include <xmmintrin.h>
 #endif
 
+#ifndef EVIOCREVOKE
+#  define EVIOCREVOKE _IOW('E', 0x91, int)
+#endif
+
+// FIXME:
+// Implement logind support, it does all those set_master and drop_master for us.
+// Also other sane things.
+
 static struct {
+   struct wlc_fd {
+      int fd;
+      enum wlc_fd_type type;
+   } fds[32];
+   struct {
+      bool (*set_master)(void);
+      bool (*drop_master)(void);
+   } drm;
    int socket;
-   int fds[32];
    int tty;
+   bool active;
    bool init;
 } wlc;
 
@@ -59,12 +75,15 @@ static struct {
 struct msg_request_fd_open {
    char path[32];
    int flags;
+   enum wlc_fd_type type;
 };
 
 enum msg_type {
    TYPE_CHECK,
    TYPE_FD_OPEN,
-   TYPE_FD_CLOSE
+   TYPE_FD_CLOSE,
+   TYPE_ACTIVATE,
+   TYPE_DEACTIVATE
 };
 
 struct msg_request {
@@ -76,6 +95,11 @@ struct msg_request {
 
 struct msg_response {
    enum msg_type type;
+   union {
+      bool activate;
+      bool deactivate;
+      bool open;
+   };
 };
 
 static void
@@ -146,25 +170,46 @@ recv_fd(const int sock, int *out_fd, void *out_buffer, const ssize_t buffer_size
 }
 
 static int
-fd_open(const char *path, const int flags)
+fd_open(const char *path, const int flags, const enum wlc_fd_type type)
 {
    assert(path);
 
-   int *pfd = NULL;
-   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(int); ++i) {
-      if (wlc.fds[i] < 0) {
+   struct wlc_fd *pfd = NULL;
+   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+      if (wlc.fds[i].fd < 0) {
          pfd = &wlc.fds[i];
          break;
       }
    }
 
-   if (pfd == NULL) {
+   if (!pfd) {
       fprintf(stderr, "-!- Maximum number of fds opened\n");
       return -1;
    }
 
-   *pfd = open(path, flags);
-   return *pfd;
+   /* we will only open allowed paths */
+#define FILTER(x) { x, (sizeof(x) > 32 ? 32 : sizeof(x)) - 1 }
+   static struct {
+      const char *base;
+      const size_t size;
+   } allow[] = {
+      FILTER("/dev/input/") // WLC_FD_INPUT
+   };
+#undef FILTER
+
+
+   if (type > WLC_FD_LAST || memcmp(path, allow[type].base, allow[type].size)) {
+      fprintf(stderr, "-!- denying open from: %s\n", path);
+      return -1;
+   }
+
+   pfd->fd = open(path, flags);
+   pfd->type = type;
+
+   if (pfd->fd < 0)
+      fprintf(stderr, "-!- error opening (%m): %s\n", path);
+
+   return pfd->fd;
 }
 
 static void
@@ -173,19 +218,48 @@ fd_close(const int fd)
    if (fd < 0)
       return;
 
-   int *pfd = NULL;
-   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(int); ++i) {
-      if (wlc.fds[i] == fd) {
+   struct wlc_fd *pfd = NULL;
+   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+      if (wlc.fds[i].fd == fd) {
          pfd = &wlc.fds[i];
          break;
       }
    }
 
-   if (pfd == NULL)
+   if (!pfd)
       return;
 
-   close(fd);
-   *pfd = -1;
+   close(pfd->fd);
+   pfd->fd = -1;
+}
+
+static bool
+activate(void)
+{
+   return true;
+}
+
+static bool
+deactivate(void)
+{
+#if 0
+   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+      switch (wlc.fds[i].type) {
+         case WLC_FD_INPUT:
+            if (ioctl(wlc.fds[i].fd, EVIOCREVOKE, 0) == -1) {
+               fprintf(stderr, "-!- Kernel does not support EVIOCREVOKE, can not revoke input devices\n");
+               return false;
+            }
+            close(wlc.fds[i].fd);
+            wlc.fds[i].fd = -1;
+            break;
+         case WLC_FD_LAST:
+            break;
+      }
+   }
+#endif
+
+   return true;
 }
 
 static void
@@ -200,19 +274,21 @@ handle_request(const int sock, int fd, const struct msg_request *request)
          write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
          break;
       case TYPE_FD_OPEN:
-         /* we will only open raw input for compositor, nothing else. */
-         if (!memcmp(request->fd_open.path, "/dev/input/", strlen("/dev/input/"))) {
-            fd = fd_open(request->fd_open.path, request->fd_open.flags);
-            if (fd < 0)
-               fprintf(stderr, "-!- error opening (%m): %s\n", request->fd_open.path);
-         } else {
-            fd = -1;
-         }
+         fd = fd_open(request->fd_open.path, request->fd_open.flags, request->fd_open.type);
+         response.open = (fd != -1);
          write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
          break;
       case TYPE_FD_CLOSE:
          /* we will only close file descriptors opened by us. */
          fd_close(fd);
+         break;
+      case TYPE_ACTIVATE:
+         response.activate = activate();
+         write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
+         break;
+      case TYPE_DEACTIVATE:
+         response.deactivate = deactivate();
+         write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
          break;
    }
 }
@@ -227,6 +303,7 @@ cleanup(void)
       ioctl(wlc.tty, KDSETMODE, KD_GRAPHICS);
       ioctl(wlc.tty, KDSETMODE, original_vt_state.console_mode);
       ioctl(wlc.tty, KDSKBMODE, original_vt_state.kb_mode);
+      ioctl(wlc.tty, VT_ACTIVATE, original_vt_state.vt);
       close(wlc.tty);
    }
 
@@ -297,7 +374,8 @@ check_socket(const int sock)
    return read_response(sock, NULL, &response, TYPE_CHECK);
 }
 
-static int find_vt(const char *vt_string)
+static int
+find_vt(const char *vt_string)
 {
    int vt;
 
@@ -320,7 +398,8 @@ static int find_vt(const char *vt_string)
    return vt;
 }
 
-static int open_tty(int vt)
+static int
+open_tty(int vt)
 {
    char tty_name[64];
    snprintf(tty_name, sizeof tty_name, "/dev/tty%d", vt);
@@ -410,6 +489,51 @@ error0:
 }
 
 static void
+sigusr_handler(int signal)
+{
+   struct msg_response response;
+   struct msg_request request;
+   memset(&request, 0, sizeof(request));
+
+   switch (signal) {
+      case SIGUSR1:
+         fprintf(stderr, "-!- SIGUSR1\n");
+
+         if (!wlc.drm.drop_master()) {
+            fprintf(stderr, "-!- Failed to drop DRM master\n");
+            return;
+         }
+
+         request.type = TYPE_DEACTIVATE;
+         write_or_die(wlc.socket, -1, &request, sizeof(request));
+         if (!read_response(wlc.socket, NULL, &response, TYPE_DEACTIVATE) || !response.deactivate)
+            return;
+
+         wlc.active = false;
+         ioctl(wlc.tty, VT_RELDISP, 1);
+         break;
+      case SIGUSR2:
+         fprintf(stderr, "-!- SIGUSR2\n");
+
+         if (!wlc.drm.set_master()) {
+            fprintf(stderr, "-!- Failed to set DRM master\n");
+            return;
+         }
+
+         request.type = TYPE_ACTIVATE;
+         write_or_die(wlc.socket, -1, &request, sizeof(request));
+         if (!read_response(wlc.socket, NULL, &response, TYPE_ACTIVATE) || !response.activate)
+            return;
+
+         ioctl(wlc.tty, VT_RELDISP, VT_ACKACQ);
+         wlc.active = true;
+         break;
+   }
+}
+
+#ifndef NDEBUG
+
+static void
 backtrace(int signal)
 {
    (void)signal;
@@ -426,14 +550,14 @@ backtrace(int signal)
 #endif
 
    if (child_pid < 0) {
-      fprintf(stderr, "-!- Fork failed for gdb backtrace");
+      fprintf(stderr, "-!- Fork failed for gdb backtrace\n");
    } else if (child_pid == 0) {
       /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
-      fprintf(stdout, "\n---- gdb ----");
-      snprintf(buf, sizeof(buf)-1, "gdb -p %d -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", dying_pid);
+      fprintf(stdout, "\n---- gdb ----\n");
+      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex thread -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", dying_pid);
       const char* argv[] = { "sh", "-c", buf, NULL };
       execve("/bin/sh", (char**)argv, NULL);
-      fprintf(stderr, "-!- Failed to launch gdb for backtrace");
+      fprintf(stderr, "-!- Failed to launch gdb for backtrace\n");
       _exit(EXIT_FAILURE);
    } else {
       waitpid(child_pid, NULL, 0);
@@ -474,19 +598,22 @@ fpesetup(struct sigaction *action)
 #endif
 }
 
+#endif /* NDEBUG */
+
 int
-wlc_fd_open(const char *path, const int flags)
+wlc_fd_open(const char *path, const int flags, const enum wlc_fd_type type)
 {
    struct msg_request request;
    memset(&request, 0, sizeof(request));
    request.type = TYPE_FD_OPEN;
    strncpy(request.fd_open.path, path, sizeof(request.fd_open.path));
    request.fd_open.flags = flags;
+   request.fd_open.type = type;
    write_or_die(wlc.socket, -1, &request, sizeof(request));
 
    int fd = -1;
    struct msg_response response;
-   if (!read_response(wlc.socket, &fd, &response, TYPE_FD_OPEN))
+   if (!read_response(wlc.socket, &fd, &response, TYPE_FD_OPEN) || !response.open)
       return -1;
 
    return fd;
@@ -499,6 +626,29 @@ wlc_fd_close(const int fd)
    memset(&request, 0, sizeof(request));
    request.type = TYPE_FD_CLOSE;
    write_or_die(wlc.socket, fd, &request, sizeof(request));
+}
+
+bool
+wlc_activate_vt(const int vt)
+{
+   if (wlc.tty < 0)
+      return false;
+
+   fprintf(stderr, "-!- activate vt: %d\n", vt);
+   return (ioctl(wlc.tty, VT_ACTIVATE, vt) != -1);
+}
+
+void
+wlc_set_drm_control_functions(bool (*set_master)(void), bool (*drop_master)(void))
+{
+   wlc.drm.set_master = set_master;
+   wlc.drm.drop_master = drop_master;
+}
+
+bool
+wlc_is_active(void)
+{
+   return wlc.active;
 }
 
 bool
@@ -564,19 +714,27 @@ wlc_init(const int argc, char *argv[])
    }
 
 #ifndef NDEBUG
-   struct sigaction action;
-   memset(&action, 0, sizeof(action));
-
-   action.sa_handler = backtrace;
-   sigaction(SIGABRT, &action, NULL);
-   sigaction(SIGSEGV, &action, NULL);
-
-   fpesetup(&action);
+   {
+      struct sigaction action;
+      memset(&action, 0, sizeof(action));
+      action.sa_handler = backtrace;
+      sigaction(SIGABRT, &action, NULL);
+      sigaction(SIGSEGV, &action, NULL);
+      fpesetup(&action);
+   }
 #endif
 
    wlc.tty = -1;
-   if (!display && !setup_tty(xdg_vtnr))
-      die("-!- Failed to setup TTY");
+   if (!display) {
+      if (!setup_tty(xdg_vtnr))
+         die("-!- Failed to setup TTY");
+
+      struct sigaction action;
+      memset(&action, 0, sizeof(action));
+      action.sa_handler = sigusr_handler;
+      sigaction(SIGUSR1, &action, NULL);
+      sigaction(SIGUSR2, &action, NULL);
+   }
 
    int sock[2];
    if (socketpair(AF_LOCAL, SOCK_SEQPACKET, 0, sock) != 0)
@@ -620,5 +778,6 @@ wlc_init(const int argc, char *argv[])
       }
    }
 
+   wlc.active = true;
    return (wlc.init = true);
 }

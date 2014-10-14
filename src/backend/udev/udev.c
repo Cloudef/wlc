@@ -31,7 +31,7 @@ static int
 input_open_restricted(const char *path, int flags, void *user_data)
 {
    (void)user_data;
-   return wlc_fd_open(path, flags);
+   return wlc_fd_open(path, flags, WLC_FD_INPUT);
 }
 
 static void
