@@ -28,6 +28,7 @@ static struct {
    struct wl_event_source *event_source;
    int display;
    int wm_fd;
+   pid_t pid;
 } xserver;
 
 static int
@@ -201,8 +202,7 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
 
    xserver.wm_fd = wm[0];
 
-   pid_t child;
-   if ((child = fork()) == 0) {
+   if ((xserver.pid = fork()) == 0) {
       int fds[] = { wl[1], wm[1], socks[0], socks[1] };
       char strings[sizeof(fds) / sizeof(int)][16];
 
@@ -239,12 +239,13 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
             NULL);
 
       exit(EXIT_FAILURE);
-   } else if (child < 0) {
+   } else if (xserver.pid < 0) {
       goto fork_fail;
    }
 
    close(wl[1]);
    close(wm[1]);
+   atexit(wlc_xwayland_deinit);
    return true;
 
 event_source_fail:
@@ -269,6 +270,9 @@ fail:
 void
 wlc_xwayland_deinit(void)
 {
+   if (xserver.pid > 0)
+      kill(xserver.pid, SIGINT);
+
    close_display();
 
    if (xserver.event_source) {

@@ -426,6 +426,8 @@ wlc_compositor_free(struct wlc_compositor *compositor)
 {
    assert(compositor);
 
+   // FIXME: destroy xwm for this compositor
+
    if (compositor->repaint_timer)
       wl_event_source_remove(compositor->repaint_timer);
 
@@ -459,7 +461,6 @@ wlc_compositor_free(struct wlc_compositor *compositor)
    if (compositor->display)
       wl_display_destroy(compositor->display);
 
-   wlc_xwayland_deinit();
    free(compositor);
 }
 
@@ -535,6 +536,8 @@ wlc_compositor_new(const struct wlc_interface *interface)
       compositor->render->api.resolution(output, output->resolution.width, output->resolution.height);
    }
 
+   // FIXME: do this on demand (when X client is spawned)
+   // xwm should be compositor specific, xserver should be global
    if (!(wlc_xwayland_init(compositor)))
       exit(EXIT_FAILURE);
 
