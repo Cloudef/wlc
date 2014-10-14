@@ -508,8 +508,10 @@ wlc_has_init(void)
 }
 
 WLC_API bool
-wlc_init(void)
+wlc_init(const int argc, char *argv[])
 {
+   (void)argc;
+
    if (wlc_has_init())
       return true;
 
@@ -589,6 +591,7 @@ wlc_init(void)
    pid_t child;
    if ((child = fork()) == 0) {
       close(sock[0]);
+      strncpy(argv[0], "wlc", strlen(argv[0]));
       communicate(sock[1], getppid());
       _exit(EXIT_SUCCESS);
    } else if (child < 0) {

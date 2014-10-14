@@ -81,7 +81,7 @@ struct wlc_interface {
    } space;
 };
 
-bool wlc_init(void);
+bool wlc_init(const int argc, char *argv[]);
 
 void wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height);
 struct wlc_space* wlc_output_get_active_space(struct wlc_output *output);
