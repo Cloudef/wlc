@@ -14,19 +14,40 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
-#include <linux/kd.h>
-#include <linux/major.h>
-#include <linux/vt.h>
+#if defined(__linux__)
+#  include <linux/kd.h>
+#  include <linux/major.h>
+#  include <linux/vt.h>
+#  include <linux/version.h>
+#  if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
+#     include <sys/prctl.h> /* for yama */
+#     define HAS_YAMA_PRCTL 1
+#  endif
+#endif
 
-static bool init = false;
-static int client_sock;
-static int open_fds[32];
-static int tty_fd = -1;
+#if defined(__linux__) && defined(__GNUC__)
+#  define _GNU_SOURCE
+#  include <fenv.h>
+int feenableexcept(int excepts);
+#endif
+
+#if (defined(__APPLE__) && (defined(__i386__) || defined(__x86_64__)))
+#  define OSX_SSE_FPE
+#  include <xmmintrin.h>
+#endif
+
+static struct {
+   int socket;
+   int fds[32];
+   int tty;
+   bool init;
+} wlc;
 
 static struct {
     bool altered;
@@ -130,9 +151,9 @@ fd_open(const char *path, const int flags)
    assert(path);
 
    int *pfd = NULL;
-   for (unsigned int i = 0; i < sizeof(open_fds) / sizeof(int); ++i) {
-      if (open_fds[i] < 0) {
-         pfd = &open_fds[i];
+   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(int); ++i) {
+      if (wlc.fds[i] < 0) {
+         pfd = &wlc.fds[i];
          break;
       }
    }
@@ -153,9 +174,9 @@ fd_close(const int fd)
       return;
 
    int *pfd = NULL;
-   for (unsigned int i = 0; i < sizeof(open_fds) / sizeof(int); ++i) {
-      if (open_fds[i] == fd) {
-         pfd = &open_fds[i];
+   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(int); ++i) {
+      if (wlc.fds[i] == fd) {
+         pfd = &wlc.fds[i];
          break;
       }
    }
@@ -168,13 +189,6 @@ fd_close(const int fd)
 }
 
 static void
-write_or_die(const int sock, const int fd, const void *buffer, const ssize_t size)
-{
-   if (write_fd(sock, (fd >= 0 ? fd : 0), buffer, size) != size)
-      die("-!- Failed to write %zu bytes to socket\n", size);
-}
-
-static void
 handle_request(const int sock, int fd, const struct msg_request *request)
 {
    struct msg_response response;
@@ -183,7 +197,7 @@ handle_request(const int sock, int fd, const struct msg_request *request)
 
    switch (request->type) {
       case TYPE_CHECK:
-         write_or_die(sock, fd, &response, sizeof(response));
+         write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
          break;
       case TYPE_FD_OPEN:
          /* we will only open raw input for compositor, nothing else. */
@@ -194,7 +208,7 @@ handle_request(const int sock, int fd, const struct msg_request *request)
          } else {
             fd = -1;
          }
-         write_or_die(sock, fd, &response, sizeof(response));
+         write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
          break;
       case TYPE_FD_CLOSE:
          /* we will only close file descriptors opened by us. */
@@ -204,9 +218,25 @@ handle_request(const int sock, int fd, const struct msg_request *request)
 }
 
 static void
+cleanup(void)
+{
+   if (wlc.tty >= 0) {
+      fprintf(stderr, "-!- Restoring tty %d\n", wlc.tty);
+      struct vt_mode mode = { .mode = VT_AUTO };
+      ioctl(wlc.tty, VT_SETMODE, &mode);
+      ioctl(wlc.tty, KDSETMODE, KD_GRAPHICS);
+      ioctl(wlc.tty, KDSETMODE, original_vt_state.console_mode);
+      ioctl(wlc.tty, KDSKBMODE, original_vt_state.kb_mode);
+      close(wlc.tty);
+   }
+
+   fprintf(stderr, "-!- Cleanup wlc\n");
+}
+
+static void
 communicate(const int sock, const pid_t parent)
 {
-   memset(open_fds, -1, sizeof(open_fds));
+   memset(wlc.fds, -1, sizeof(wlc.fds));
 
    do {
       int fd = -1;
@@ -214,6 +244,9 @@ communicate(const int sock, const pid_t parent)
       while (recv_fd(sock, &fd, &request, sizeof(request)) == sizeof(request))
          handle_request(sock, fd, &request);
    } while (kill(parent, 0) == 0);
+
+   fprintf(stderr, "-!- Parent exit (%u)\n", parent);
+   cleanup();
 }
 
 static bool
@@ -247,6 +280,13 @@ read_response(const int sock, int *out_fd, struct msg_response *response, const 
    return (ret == sizeof(struct msg_response) && response->type == expected_type);
 }
 
+static void
+write_or_die(const int sock, const int fd, const void *buffer, const ssize_t size)
+{
+   if (write_fd(sock, (fd >= 0 ? fd : 0), buffer, size) != size)
+      die("-!- Failed to write %zu bytes to socket\n", size);
+}
+
 static bool
 check_socket(const int sock)
 {
@@ -255,39 +295,6 @@ check_socket(const int sock)
    write_or_die(sock, -1, &request, sizeof(request));
    struct msg_response response;
    return read_response(sock, NULL, &response, TYPE_CHECK);
-}
-
-int
-wlc_fd_open(const char *path, const int flags)
-{
-   struct msg_request request;
-   memset(&request, 0, sizeof(request));
-   request.type = TYPE_FD_OPEN;
-   strncpy(request.fd_open.path, path, sizeof(request.fd_open.path));
-   request.fd_open.flags = flags;
-   write_or_die(client_sock, -1, &request, sizeof(request));
-
-   int fd = -1;
-   struct msg_response response;
-   if (!read_response(client_sock, &fd, &response, TYPE_FD_OPEN))
-      return -1;
-
-   return fd;
-}
-
-void
-wlc_fd_close(const int fd)
-{
-   struct msg_request request;
-   memset(&request, 0, sizeof(request));
-   request.type = TYPE_FD_CLOSE;
-   write_or_die(client_sock, fd, &request, sizeof(request));
-}
-
-bool
-wlc_has_init(void)
-{
-   return init;
 }
 
 static int find_vt(const char *vt_string)
@@ -330,35 +337,8 @@ static int open_tty(int vt)
    return fd;
 }
 
-static void
-cleanup(void)
-{
-   struct vt_mode mode = { .mode = VT_AUTO };
-   ioctl(tty_fd, VT_SETMODE, &mode);
-   ioctl(tty_fd, KDSETMODE, KD_GRAPHICS);
-   ioctl(tty_fd, KDSETMODE, original_vt_state.console_mode);
-   ioctl(tty_fd, KDSKBMODE, original_vt_state.kb_mode);
-   close(tty_fd);
-}
-
-static void
-handle_usr1(int signal)
-{
-   (void)signal;
-   ioctl(tty_fd, VT_RELDISP, 1);
-   cleanup();
-}
-
-static void
-handle_usr2(int signal)
-{
-   (void)signal;
-   ioctl(tty_fd, VT_RELDISP, VT_ACKACQ);
-   cleanup();
-}
-
-static void
-setup_tty(const int fd)
+static bool
+setup_tty(const char *xdg_vtnr)
 {
    struct stat st;
    int vt;
@@ -369,59 +349,55 @@ setup_tty(const int fd)
       .acqsig = SIGUSR2
    };
 
-    if (fstat(fd, &st) == -1)
-        die("Could not stat TTY fd");
+   int fd;
+   if ((fd = open_tty(find_vt(xdg_vtnr)) < 0))
+      return false;
 
-    vt = minor(st.st_rdev);
+   if (fstat(fd, &st) == -1)
+      die("Could not stat TTY fd");
 
-    if (major(st.st_rdev) != TTY_MAJOR || vt == 0)
-        die("Not a valid VT");
+   vt = minor(st.st_rdev);
 
-    if (ioctl(fd, VT_GETSTATE, &state) == -1)
-        die("Could not get the current VT state");
+   if (major(st.st_rdev) != TTY_MAJOR || vt == 0)
+      die("Not a valid VT");
 
-    original_vt_state.vt = state.v_active;
+   if (ioctl(fd, VT_GETSTATE, &state) == -1)
+      die("Could not get the current VT state");
 
-    if (ioctl(fd, KDGKBMODE, &original_vt_state.kb_mode))
-        die("Could not get keyboard mode");
+   original_vt_state.vt = state.v_active;
 
-    if (ioctl(fd, KDGETMODE, &original_vt_state.console_mode))
-        die("Could not get console mode");
+   if (ioctl(fd, KDGKBMODE, &original_vt_state.kb_mode))
+      die("Could not get keyboard mode");
 
-    if (ioctl(fd, KDSKBMODE, K_OFF) == -1)
-        die("Could not set keyboard mode to K_OFF");
+   if (ioctl(fd, KDGETMODE, &original_vt_state.console_mode))
+      die("Could not get console mode");
 
-#if 0
-    if (ioctl(fd, KDSETMODE, KD_GRAPHICS) == -1)
-    {
-        perror("Could not set console mode to KD_GRAPHICS");
-        goto error0;
-    }
-#endif
+   if (ioctl(fd, KDSKBMODE, K_OFF) == -1)
+      die("Could not set keyboard mode to K_OFF");
 
-    if (ioctl(fd, VT_SETMODE, &mode) == -1)
-    {
-        perror("Could not set VT mode");
-        goto error1;
-    }
+   if (ioctl(fd, KDSETMODE, KD_GRAPHICS) == -1) {
+      die("Could not set console mode to KD_GRAPHICS");
+      goto error0;
+   }
 
-#if 0
-    if (ioctl(fd, VT_ACTIVATE, vt) == -1)
-    {
-        perror("Could not activate VT");
-        goto error2;
-    }
+   if (ioctl(fd, VT_SETMODE, &mode) == -1) {
+      die("Could not set VT mode");
+      goto error1;
+   }
 
-    if (ioctl(fd, VT_WAITACTIVE, vt) == -1)
-    {
-        perror("Could not wait for VT to become active");
-        goto error2;
-    }
-#endif
+   if (ioctl(fd, VT_ACTIVATE, vt) == -1) {
+      die("Could not activate VT");
+      goto error2;
+   }
 
-    original_vt_state.altered = true;
-    tty_fd = fd;
-    return;
+   if (ioctl(fd, VT_WAITACTIVE, vt) == -1) {
+      die("Could not wait for VT to become active");
+      goto error2;
+   }
+
+   original_vt_state.altered = true;
+   wlc.tty = fd;
+   return true;
 
 error2:
     mode = (struct vt_mode) { .mode = VT_AUTO };
@@ -430,12 +406,113 @@ error1:
     ioctl(fd, KDSETMODE, original_vt_state.console_mode);
 error0:
     ioctl(fd, KDSKBMODE, original_vt_state.kb_mode);
-    exit(EXIT_FAILURE);
+    return false;
+}
+
+static void
+backtrace(int signal)
+{
+   (void)signal;
+
+   /* GDB */
+#if defined(__linux__) || defined(__APPLE__)
+   char buf[1024];
+   pid_t dying_pid = getpid();
+   pid_t child_pid = fork();
+
+#if HAS_YAMA_PRCTL
+   /* tell yama that we allow our child_pid to trace our process */
+   if (child_pid > 0) prctl(PR_SET_PTRACER, child_pid);
+#endif
+
+   if (child_pid < 0) {
+      fprintf(stderr, "-!- Fork failed for gdb backtrace");
+   } else if (child_pid == 0) {
+      /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
+      fprintf(stdout, "\n---- gdb ----");
+      snprintf(buf, sizeof(buf)-1, "gdb -p %d -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", dying_pid);
+      const char* argv[] = { "sh", "-c", buf, NULL };
+      execve("/bin/sh", (char**)argv, NULL);
+      fprintf(stderr, "-!- Failed to launch gdb for backtrace");
+      _exit(EXIT_FAILURE);
+   } else {
+      waitpid(child_pid, NULL, 0);
+   }
+#endif
+
+   /* SIGABRT || SIGSEGV */
+   exit(EXIT_FAILURE);
+}
+
+static void
+fpehandler(int signal)
+{
+   (void)signal;
+   fprintf(stderr, "\nSIGFPE signal received");
+   abort();
+}
+
+static void
+fpesetup(struct sigaction *action)
+{
+#if defined(__linux__) || defined(_WIN32) || defined(OSX_SSE_FPE)
+   action->sa_handler = fpehandler;
+   sigaction(SIGFPE, action, NULL);
+#  if defined(__linux__) && defined(__GNUC__)
+   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+#  endif /* defined(__linux__) && defined(__GNUC__) */
+#  if defined(OSX_SSE_FPE)
+   return; /* causes issues */
+   /* OSX uses SSE for floating point by default, so here
+    * use SSE instructions to throw floating point exceptions */
+   _MM_SET_EXCEPTION_MASK(_MM_MASK_MASK & ~(_MM_MASK_OVERFLOW | _MM_MASK_INVALID | _MM_MASK_DIV_ZERO));
+#  endif /* OSX_SSE_FPE */
+#  if defined(_WIN32) && defined(_MSC_VER)
+   _controlfp_s(NULL, 0, _MCW_EM); /* enables all fp exceptions */
+   _controlfp_s(NULL, _EM_DENORMAL | _EM_UNDERFLOW | _EM_INEXACT, _MCW_EM); /* hide the ones we don't care about */
+#  endif /* _WIN32 && _MSC_VER */
+#endif
+}
+
+int
+wlc_fd_open(const char *path, const int flags)
+{
+   struct msg_request request;
+   memset(&request, 0, sizeof(request));
+   request.type = TYPE_FD_OPEN;
+   strncpy(request.fd_open.path, path, sizeof(request.fd_open.path));
+   request.fd_open.flags = flags;
+   write_or_die(wlc.socket, -1, &request, sizeof(request));
+
+   int fd = -1;
+   struct msg_response response;
+   if (!read_response(wlc.socket, &fd, &response, TYPE_FD_OPEN))
+      return -1;
+
+   return fd;
+}
+
+void
+wlc_fd_close(const int fd)
+{
+   struct msg_request request;
+   memset(&request, 0, sizeof(request));
+   request.type = TYPE_FD_CLOSE;
+   write_or_die(wlc.socket, fd, &request, sizeof(request));
+}
+
+bool
+wlc_has_init(void)
+{
+   return wlc.init;
 }
 
 WLC_API bool
 wlc_init(void)
 {
+   if (wlc_has_init())
+      return true;
+
    /* env variables that need to be stored before clear */
    struct {
       char *env, *value;
@@ -484,6 +561,21 @@ wlc_init(void)
       return false;
    }
 
+#ifndef NDEBUG
+   struct sigaction action;
+   memset(&action, 0, sizeof(action));
+
+   action.sa_handler = backtrace;
+   sigaction(SIGABRT, &action, NULL);
+   sigaction(SIGSEGV, &action, NULL);
+
+   fpesetup(&action);
+#endif
+
+   wlc.tty = -1;
+   if (!display && !setup_tty(xdg_vtnr))
+      die("-!- Failed to setup TTY");
+
    int sock[2];
    if (socketpair(AF_LOCAL, SOCK_SEQPACKET, 0, sock) != 0)
       die("-!- Failed to create fd passing unix domain socket pair: %m\n");
@@ -493,29 +585,6 @@ wlc_init(void)
 
    if (fcntl(sock[1], F_SETFL, fcntl(sock[1], F_GETFL) & ~O_NONBLOCK) != 0)
       die("Could not reset NONBLOCK on socket: %m\n");
-
-   struct sigaction action;
-   memset(&action, 0, sizeof(action));
-
-   action.sa_handler = &handle_usr1;
-   if (sigaction(SIGUSR1, &action, NULL) != 0)
-      die("Failed to register signal handler for SIGUSR1");
-
-#if 0
-   if (sigaction(SIGINT, &action, NULL) != 0)
-      die("Failed to register signal handler for SIGUSR1");
-   if (sigaction(SIGTERM, &action, NULL) != 0)
-      die("Failed to register signal handler for SIGUSR1");
-#endif
-
-   action.sa_handler = &handle_usr2;
-   if (sigaction(SIGUSR2, &action, NULL) != 0)
-      die("Failed to register signal handler for SIGUSR2");
-
-   atexit(cleanup);
-
-   if (!display)
-      setup_tty(open_tty(find_vt(xdg_vtnr)));
 
    pid_t child;
    if ((child = fork()) == 0) {
@@ -538,7 +607,7 @@ wlc_init(void)
       if (!check_socket(sock[0]))
          die("-!- Communication between parent and child process seems to be broken\n");
 
-      client_sock = sock[0];
+      wlc.socket = sock[0];
    }
 
    for (int i = 0; stored_env[i].env; ++i) {
@@ -548,5 +617,5 @@ wlc_init(void)
       }
    }
 
-   return (init = true);
+   return (wlc.init = true);
 }
