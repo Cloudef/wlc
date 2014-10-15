@@ -552,10 +552,15 @@ backtrace(int signal)
    if (child_pid < 0) {
       fprintf(stderr, "-!- Fork failed for gdb backtrace\n");
    } else if (child_pid == 0) {
+      /*
+       * NOTE: gdb-7.8 does not seem to work with this,
+       *       either downgrade to 7.7 or use gdb from master.
+       */
+
       /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
       char buf[255];
       fprintf(stdout, "\n---- gdb ----\n");
-      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex thread -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", getppid());
+      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", getppid());
       execl("/bin/sh", "/bin/sh", "-c", buf, NULL);
       fprintf(stderr, "-!- Failed to launch gdb for backtrace\n");
       _exit(EXIT_FAILURE);
