@@ -154,7 +154,8 @@ wlc_input_new(struct wlc_udev *udev, struct wlc_compositor *compositor)
 
    wl_event_source_check(input->event_source);
 
-   if (libinput_udev_assign_seat(input->handle, "seat0") != 0)
+   const char *xdg_seat = getenv("XDG_SEAT");
+   if (libinput_udev_assign_seat(input->handle, (xdg_seat ? xdg_seat : "seat0")) != 0)
       goto seat_fail;
 
    libinput_log_set_handler(input->handle, &input_log);

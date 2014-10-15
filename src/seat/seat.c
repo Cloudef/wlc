@@ -175,8 +175,10 @@ wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsi
 
    wl_seat_send_capabilities(resource, caps);
 
-   if (version >= 2)
-      wl_seat_send_name(resource, "wlc-seat");
+   if (version >= 2) {
+      const char *xdg_seat = getenv("XDG_SEAT");
+      wl_seat_send_name(resource, (xdg_seat ? xdg_seat : "seat0"));
+   }
 }
 
 static void
