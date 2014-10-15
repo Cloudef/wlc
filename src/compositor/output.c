@@ -38,7 +38,8 @@ wlc_space_free(struct wlc_space *space)
 static void
 wl_cb_output_resource_destructor(struct wl_resource *resource)
 {
-   wl_list_remove(wl_resource_get_link(resource));
+   if (wl_resource_get_user_data(resource))
+      wl_list_remove(wl_resource_get_link(resource));
 }
 
 static void
@@ -103,8 +104,9 @@ wlc_output_free(struct wlc_output *output)
 {
    assert(output);
 
-   if (output->global)
-      wl_global_destroy(output->global);
+   struct wl_resource *r;
+   wl_resource_for_each(r, &output->resources)
+      wl_resource_set_user_data(r, NULL);
 
    struct wlc_space *s, *sn;
    wl_list_for_each_safe(s, sn, &output->spaces, link)
@@ -113,6 +115,10 @@ wlc_output_free(struct wlc_output *output)
    wlc_string_release(&output->information.make);
    wlc_string_release(&output->information.model);
    wl_array_release(&output->information.modes);
+
+   if (output->global)
+      wl_global_destroy(output->global);
+
    free(output);
 }
 

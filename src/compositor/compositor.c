@@ -360,6 +360,11 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    struct wlc_space *space;
    wl_list_for_each(space, &output->spaces, link) {
       struct wlc_view *view, *vn;
+      wl_list_for_each(view, &compositor->unmapped, link) {
+         if (view->surface->space == space)
+            view->surface->space = NULL;
+      }
+
       wl_list_for_each_safe(view, vn, &space->views, link) {
          wl_list_remove(&view->link);
          wl_list_insert(&compositor->unmapped, &view->link);

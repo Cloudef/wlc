@@ -278,7 +278,7 @@ wlc_surface_free(struct wlc_surface *surface)
    }
 
    struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(surface, &surface->space->views)) ||
+   if ((surface->space && (view = wlc_view_for_surface_in_list(surface, &surface->space->views))) ||
        (view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped))) {
 
       if (surface->created) {
