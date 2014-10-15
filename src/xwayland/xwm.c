@@ -1,10 +1,11 @@
+#include "wlc.h"
 #include "xwm.h"
+
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
 #include "compositor/output.h"
 #include "compositor/view.h"
 
-#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #include <dlfcn.h>
@@ -107,7 +108,7 @@ xcb_load(void)
    const char *lib = "libxcb.so", *func = NULL;
 
    if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -163,7 +164,7 @@ xcb_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -173,7 +174,7 @@ xcb_ewmh_load(void)
    const char *lib = "libxcb-ewmh.so", *func = NULL;
 
    if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -189,7 +190,7 @@ xcb_ewmh_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -199,7 +200,7 @@ xcb_composite_load(void)
    const char *lib = "libxcb-composite.so", *func = NULL;
 
    if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -215,7 +216,7 @@ xcb_composite_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -225,7 +226,7 @@ xcb_icccm_load(void)
    const char *lib = "libxcb-icccm.so", *func = NULL;
 
    if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -243,7 +244,7 @@ xcb_icccm_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -253,7 +254,7 @@ xcb_xfixes_load(void)
    const char *lib = "libxcb-xfixes.so", *func = NULL;
 
    if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -273,7 +274,7 @@ xcb_xfixes_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -425,7 +426,6 @@ x11_event(int fd, uint32_t mask, void *data)
       bool xfixes_event = false;
       switch (event->response_type - x11.xfixes->first_event) {
          case XCB_XFIXES_SELECTION_NOTIFY:
-         puts("sel xfixes not");
          xfixes_event = true;
          break;
          default:break;
@@ -462,12 +462,10 @@ x11_event(int fd, uint32_t mask, void *data)
             }
             break;
             case XCB_SELECTION_NOTIFY:
-            puts("sel not");
             break;
             case XCB_PROPERTY_NOTIFY:
             break;
             case XCB_SELECTION_REQUEST:
-            puts("sel req");
             break;
             case XCB_CONFIGURE_REQUEST:
             case XCB_CONFIGURE_NOTIFY:
@@ -476,7 +474,7 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_MAPPING_NOTIFY:
             break;
             default:
-               fprintf(stderr, "xwm: unimplemented %d\n", event->response_type & ~0x80);
+               wlc_log(WLC_LOG_WARN, "xwm: unimplemented %d", event->response_type & ~0x80);
             break;
          }
       }
@@ -549,7 +547,7 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    if (!(xfixes_reply = x11.api.xcb_xfixes_query_version_reply(x11.connection, x11.api.xcb_xfixes_query_version(x11.connection, XCB_XFIXES_MAJOR_VERSION, XCB_XFIXES_MINOR_VERSION), NULL)))
       goto xfixes_extension_fail;
 
-   fprintf(stdout, "xfixes (%d.%d)\n", xfixes_reply->major_version, xfixes_reply->minor_version);
+   wlc_log(WLC_LOG_INFO, "xfixes (%d.%d)", xfixes_reply->major_version, xfixes_reply->minor_version);
 
    const xcb_query_extension_reply_t *composite_extension;
    if (!(composite_extension = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_composite_id)) || !composite_extension->present)
@@ -610,7 +608,7 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    x11.api.xcb_flush(x11.connection);
 
    xwm.client = client;
-   fprintf(stdout, "-!- xwm started\n");
+   wlc_log(WLC_LOG_INFO, "xwm started");
    return true;
 
    // TODO: error handling or prints whatever

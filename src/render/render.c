@@ -1,7 +1,8 @@
+#include "wlc.h"
 #include "render.h"
 #include "gles2.h"
+
 #include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 
 void
@@ -32,11 +33,11 @@ wlc_render_init(struct wlc_context *context)
       if (init[i](context, render))
          return render;
 
-   fprintf(stderr, "-!- Could not initialize any rendering backend\n");
+   wlc_log(WLC_LOG_WARN, "Could not initialize any rendering backend");
    free(render);
    return NULL;
 
 out_of_memory:
-   fprintf(stderr, "-!- Out of memory\n");
+   wlc_log(WLC_LOG_WARN, "Out of memory");
    return NULL;
 }

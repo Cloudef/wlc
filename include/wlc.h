@@ -3,12 +3,27 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdarg.h>
+
+#if __GNUC__
+#  define WLC_LOG_ATTR(x, y) __attribute__((format(printf, x, y)))
+#else
+#  define WLC_LOG_ATTR(x, y)
+#endif
 
 struct wlc_compositor;
 struct wlc_view;
 struct wlc_output;
 struct wlc_space;
 struct wl_list;
+
+/** wlc_log, wlc_vlog() */
+enum wlc_log_type {
+   WLC_LOG_INFO,
+   WLC_LOG_WARN,
+   WLC_LOG_ERROR,
+};
 
 /** wlc_view_get_state(); */
 enum wlc_view_bit {
@@ -82,6 +97,9 @@ struct wlc_interface {
 };
 
 bool wlc_init(const int argc, char *argv[]);
+void wlc_set_log_file(FILE *out);
+WLC_LOG_ATTR(2, 3) void wlc_log(const enum wlc_log_type type, const char *fmt, ...);
+void wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap);
 
 void wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height);
 struct wlc_space* wlc_output_get_active_space(struct wlc_output *output);

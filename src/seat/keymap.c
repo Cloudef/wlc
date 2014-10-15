@@ -1,4 +1,5 @@
 #define _XOPEN_SOURCE 500
+#include "wlc.h"
 #include "keymap.h"
 
 #include <stdlib.h>
@@ -180,19 +181,19 @@ wlc_keymap_new(const struct xkb_rule_names *names, enum xkb_keymap_compile_flags
    return keymap;
 
 context_fail:
-   fprintf(stderr, "-!- Failed to create xkb context\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create xkb context");
    goto fail;
 keymap_fail:
-   fprintf(stderr, "-!- Failed to get xkb keymap\n");
+   wlc_log(WLC_LOG_WARN, "Failed to get xkb keymap");
    goto fail;
 string_fail:
-   fprintf(stderr, "-!- Failed to get keymap as string\n");
+   wlc_log(WLC_LOG_WARN, "Failed to get keymap as string");
    goto fail;
 file_fail:
-   fprintf(stderr, "-!- Failed to create file for keymap\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create file for keymap");
    goto fail;
 mmap_fail:
-   fprintf(stderr, "-!- Failed to mmap keymap\n");
+   wlc_log(WLC_LOG_WARN, "Failed to mmap keymap");
 fail:
    if (keymap)
       wlc_keymap_free(keymap);

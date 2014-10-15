@@ -1,8 +1,9 @@
+#include "wlc.h"
 #include "backend.h"
 #include "x11.h"
 #include "drm.h"
+
 #include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 
 void
@@ -34,11 +35,11 @@ wlc_backend_init(struct wlc_compositor *compositor)
       if (init[i](backend, compositor))
          return backend;
 
-   fprintf(stderr, "-!- Could not initialize any backend\n");
+   wlc_log(WLC_LOG_WARN, "Could not initialize any backend");
    free(backend);
    return NULL;
 
 out_of_memory:
-   fprintf(stderr, "-!- Out of memory\n");
+   wlc_log(WLC_LOG_WARN, "Out of memory");
    return NULL;
 }

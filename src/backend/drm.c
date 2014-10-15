@@ -1,14 +1,16 @@
 #define _POSIX_C_SOURCE 200809L
-#include "drm.h"
+#include "wlc.h"
 #include "wlc_internal.h"
-#include "udev/udev.h"
+#include "drm.h"
 #include "backend.h"
+
+#include "udev/udev.h"
+
 #include "compositor/compositor.h"
 #include "compositor/output.h"
 
 #include <assert.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/select.h>
@@ -95,7 +97,7 @@ gbm_load(void)
    const char *lib = "libgbm.so", *func = NULL;
 
    if (!(gbm.api.handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -129,7 +131,7 @@ gbm_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -139,7 +141,7 @@ drm_load(void)
    const char *lib = "libdrm.so", *func = NULL;
 
    if (!(drm.api.handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -179,7 +181,7 @@ drm_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -265,19 +267,19 @@ page_flip(struct wlc_output *output)
    return true;
 
 no_buffers:
-   fprintf(stderr, "gbm is out of buffers\n");
+   wlc_log(WLC_LOG_WARN, "gbm is out of buffers");
    goto fail;
 failed_to_lock:
-   fprintf(stderr, "failed to lock front buffer\n");
+   wlc_log(WLC_LOG_WARN, "Failed to lock front buffer");
    goto fail;
 failed_to_create_fb:
-   fprintf(stderr, "failed to create fb\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create fb");
    goto fail;
 set_crtc_fail:
-   fprintf(stderr, "failed to set mode\n");
+   wlc_log(WLC_LOG_WARN, "Failed to set mode");
    goto fail;
 failed_to_page_flip:
-   fprintf(stderr, "failed to page flip: %m\n");
+   wlc_log(WLC_LOG_WARN, "Failed to page flip: %m");
 fail:
    if (drmo->flipper.next_fb_id > 0) {
       drm.api.drmModeRmFB(drm.fd, drmo->flipper.next_fb_id);
@@ -460,7 +462,7 @@ setup_drm(int fd, struct wl_array *out_infos)
    return true;
 
 resources_fail:
-   fprintf(stderr, "drmModeGetResources failed\n");
+   wlc_log(WLC_LOG_WARN, "drmModeGetResources failed");
    goto fail;
 fail:
    memset(&drm, 0, sizeof(drm));
@@ -555,10 +557,10 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    return true;
 
 card_open_fail:
-   fprintf(stderr, "failed to open card: /dev/dri/card0\n");
+   wlc_log(WLC_LOG_WARN, "Failed to open card: /dev/dri/card0");
    goto fail;
 gbm_device_fail:
-   fprintf(stderr, "gbm_create_device failed\n");
+   wlc_log(WLC_LOG_WARN, "gbm_create_device failed");
 fail:
    terminate();
    return false;

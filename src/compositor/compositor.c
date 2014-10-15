@@ -26,7 +26,6 @@
 #include "xwayland/xwayland.h"
 
 #include <sys/time.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -117,7 +116,7 @@ wl_subcompositor_bind(struct wl_client *wl_client, void *data, uint32_t version,
    struct wl_resource *resource;
    if (!(resource = wl_resource_create(wl_client, &wl_compositor_interface, MIN(version, 1), id))) {
       wl_client_post_no_memory(wl_client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 1);
+      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 1);
       return;
    }
 
@@ -209,7 +208,7 @@ wl_compositor_bind(struct wl_client *wl_client, void *data, unsigned int version
    struct wl_resource *resource;
    if (!(resource = wl_resource_create(wl_client, &wl_compositor_interface, MIN(version, 3), id))) {
       wl_client_post_no_memory(wl_client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 3);
+      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 3);
       return;
    }
 
@@ -471,7 +470,7 @@ WLC_API struct wlc_compositor*
 wlc_compositor_new(const struct wlc_interface *interface)
 {
    if (!wlc_has_init()) {
-      fprintf(stderr, "-!- wlc_init() must be called before creating compositor. Doing otherwise might cause a security risk.\n");
+      wlc_log(WLC_LOG_ERROR, "wlc_init() must be called before creating compositor. Doing otherwise might cause a security risk.");
       exit(EXIT_FAILURE);
    }
 
@@ -549,25 +548,25 @@ wlc_compositor_new(const struct wlc_interface *interface)
    return compositor;
 
 out_of_memory:
-   fprintf(stderr, "-!- out of memory\n");
+   wlc_log(WLC_LOG_WARN, "Out of memory");
    goto fail;
 display_create_fail:
-   fprintf(stderr, "-!- failed to create wayland display\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create wayland display");
    goto fail;
 display_add_socket_fail:
-   fprintf(stderr, "-!- failed to add socket to wayland display: %m\n");
+   wlc_log(WLC_LOG_WARN, "Failed to add socket to wayland display: %m");
    goto fail;
 compositor_interface_fail:
-   fprintf(stderr, "-!- failed to bind compositor interface\n");
+   wlc_log(WLC_LOG_WARN, "Failed to bind compositor interface");
    goto fail;
 subcompositor_interface_fail:
-   fprintf(stderr, "-!- failed to bind subcompositor interface\n");
+   wlc_log(WLC_LOG_WARN, "Failed to bind subcompositor interface");
    goto fail;
 display_init_shm_fail:
-   fprintf(stderr, "-!- failed to initialize shm display\n");
+   wlc_log(WLC_LOG_WARN, "Failed to initialize shm display");
    goto fail;
 no_event_loop:
-   fprintf(stderr, "-!- display has no event loop\n");
+   wlc_log(WLC_LOG_WARN, "Display has no event loop");
    goto fail;
 fail:
    if (compositor)

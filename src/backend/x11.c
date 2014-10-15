@@ -1,15 +1,16 @@
+#include "wlc.h"
 #include "x11.h"
 #include "backend.h"
 
-#include "seat/seat.h"
 #include "compositor/compositor.h"
 #include "compositor/output.h"
+
+#include "seat/seat.h"
 
 #include <xcb/xcb.h>
 #include <X11/Xlib-xcb.h>
 #include <linux/input.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
@@ -94,7 +95,7 @@ x11_load(void)
    const char *lib = "libX11.so", *func = NULL;
 
    if (!(x11.api.x11_handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -110,7 +111,7 @@ x11_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -120,7 +121,7 @@ x11_xcb_load(void)
    const char *lib = "libX11-xcb.so", *func = NULL;
 
    if (!(x11.api.x11_xcb_handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -136,7 +137,7 @@ x11_xcb_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -146,7 +147,7 @@ xcb_load(void)
    const char *lib = "libxcb.so", *func = NULL;
 
    if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -200,7 +201,7 @@ xcb_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -509,22 +510,22 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    return true;
 
 display_open_fail:
-   fprintf(stderr, "-!- Failed to open X11 display\n");
+   wlc_log(WLC_LOG_WARN, "Failed to open X11 display");
    goto fail;
 xcb_connection_fail:
-   fprintf(stderr, "-!- Failed to get xcb connection\n");
+   wlc_log(WLC_LOG_WARN, "Failed to get xcb connection");
    goto fail;
 cursor_fail:
-   fprintf(stderr, "-!- Failed to create empty X11 cursor\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create empty X11 cursor");
    goto fail;
 window_fail:
-   fprintf(stderr, "-!- Failed to create X11 window\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create X11 window");
    goto fail;
 event_source_fail:
-   fprintf(stderr, "-!- Failed to add X11 event source\n");
+   wlc_log(WLC_LOG_WARN, "Failed to add X11 event source");
    goto fail;
 output_fail:
-   fprintf(stderr, "-!- Failed to create output\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create output");
 fail:
    terminate();
    return false;

@@ -1,6 +1,7 @@
+#include "wlc.h"
+#include "macros.h"
 #include "xdg-shell.h"
 #include "xdg-surface.h"
-#include "macros.h"
 
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
@@ -8,7 +9,6 @@
 #include "compositor/view.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 
 #include <wayland-server.h>
@@ -81,7 +81,7 @@ xdg_shell_bind(struct wl_client *wl_client, void *data, unsigned int version, un
    struct wl_resource *resource;
    if (!(resource = wl_resource_create(wl_client, &xdg_shell_interface, MIN(version, 1), id))) {
       wl_client_post_no_memory(wl_client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 1);
+      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 1);
       return;
    }
 
@@ -113,10 +113,10 @@ wlc_xdg_shell_new(struct wlc_compositor *compositor)
    return xdg_shell;
 
 out_of_memory:
-   fprintf(stderr, "-!- out of memory\n");
+   wlc_log(WLC_LOG_WARN, "Out of memory");
    goto fail;
 xdg_shell_interface_fail:
-   fprintf(stderr, "-!- failed to bind xdg_shell interface\n");
+   wlc_log(WLC_LOG_WARN, "Failed to bind xdg_shell interface");
 fail:
    if (xdg_shell)
       wlc_xdg_shell_free(xdg_shell);

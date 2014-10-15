@@ -1,7 +1,8 @@
+#include "wlc.h"
 #include "context.h"
 #include "egl.h"
+
 #include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 
 void
@@ -32,11 +33,11 @@ wlc_context_init(struct wlc_compositor *compositor, struct wlc_backend *backend)
       if (init[i](compositor, backend, context))
          return context;
 
-   fprintf(stderr, "-!- Could not initialize any context\n");
+   wlc_log(WLC_LOG_WARN, "Could not initialize any context");
    free(context);
    return NULL;
 
 out_of_memory:
-   fprintf(stderr, "-!- Out of memory\n");
+   wlc_log(WLC_LOG_WARN, "Out of memory");
    return NULL;
 }

@@ -153,7 +153,7 @@ wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsi
    struct wl_resource *resource;
    if (!(resource = wl_resource_create(wl_client, &wl_seat_interface, MIN(version, 4), id))) {
       wl_client_post_no_memory(wl_client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 4);
+      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 4);
       return;
    }
 
@@ -349,10 +349,10 @@ wlc_seat_new(struct wlc_compositor *compositor)
    return seat;
 
 out_of_memory:
-   fprintf(stderr, "-!- out of memory\n");
+   wlc_log(WLC_LOG_WARN, "Out of memory");
    goto fail;
 shell_interface_fail:
-   fprintf(stderr, "-!- failed to bind shell interface\n");
+   wlc_log(WLC_LOG_WARN, "Failed to bind shell interface");
 fail:
    if (seat)
       wlc_seat_free(seat);

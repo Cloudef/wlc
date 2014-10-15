@@ -1,13 +1,14 @@
 /* This is mostly based on swc's xwayland.c which is based on weston's xwayland/launcher.c */
 
 #define _POSIX_C_SOURCE 200809L
+#include "wlc.h"
 #include "xwayland.h"
 #include "xwm.h"
+
 #include "compositor/compositor.h"
 
 #include <assert.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
@@ -54,13 +55,13 @@ open_socket(struct sockaddr_un *addr, const size_t path_size)
    return fd;
 
 socket_fail:
-   fprintf(stderr, "-!- Failed to create socket: %s\n", addr->sun_path);
+   wlc_log(WLC_LOG_WARN, "Failed to create socket: %s", addr->sun_path);
    goto fail;
 bind_fail:
-   fprintf(stderr, "-!- Failed to bind socket: %s\n", addr->sun_path);
+   wlc_log(WLC_LOG_WARN, "Failed to bind socket: %s", addr->sun_path);
    goto fail;
 listen_fail:
-   fprintf(stderr, "-!- Failed to listen to socket\n");
+   wlc_log(WLC_LOG_WARN, "Failed to listen to socket");
    if (addr->sun_path[0])
       unlink(addr->sun_path);
    goto fail;
@@ -142,7 +143,7 @@ retry:
    return true;
 
 no_open_display:
-   fprintf(stderr, "-!- No open display in first 32\n");
+   wlc_log(WLC_LOG_WARN, "No open display in first 32");
    goto fail;
 fail:
    if (lock_fd > 0) {
@@ -172,7 +173,7 @@ sigusr1_event(int signal_number, void *data)
    struct wlc_compositor *compositor = data;
 
    if (!wlc_xwm_init(compositor, xserver.client, xserver.wm_fd))
-      fprintf(stderr, "-!- Failed to start Xwayland WM\n");
+      wlc_log(WLC_LOG_WARN, "Failed to start Xwayland WM");
 
    if (xserver.event_source) {
       wl_event_source_remove(xserver.event_source);
@@ -215,12 +216,12 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
       /* Unset the FD_CLOEXEC flag on the FDs that will get passed to Xwayland. */
       for (unsigned int i = 0; i < sizeof(fds) / sizeof(int); ++i) {
          if (fcntl(fds[i], F_SETFD, 0) != 0) {
-            fprintf(stderr, "-!- fcntl() failed: %m\n");
+            wlc_log(WLC_LOG_WARN, "fcntl() failed: %m");
             exit(EXIT_FAILURE);
          }
 
          if (snprintf(strings[i], sizeof(strings[i]), "%d", fds[i]) >= (ssize_t)sizeof(strings[i])) {
-            fprintf(stderr, "-!- FD is too large\n");
+            wlc_log(WLC_LOG_WARN, "FD is too large");
             exit(EXIT_FAILURE);
          }
       }
@@ -230,7 +231,7 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
        * Xserver(1) for more details. */
       struct sigaction action = { .sa_handler = SIG_IGN };
       if (sigaction(SIGUSR1, &action, NULL) != 0) {
-         fprintf(stderr, "Failed to set SIGUSR1 handler to SIG_IGN: %m\n");
+         wlc_log(WLC_LOG_WARN, "Failed to set SIGUSR1 handler to SIG_IGN: %m");
          exit(EXIT_FAILURE);
       }
 
@@ -255,19 +256,19 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
    return true;
 
 event_source_fail:
-   fprintf(stderr, "-!- Failed to create SIGUSR1 event source\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create SIGUSR1 event source");
    goto fail;
 display_open_fail:
-   fprintf(stderr, "-!- Failed to open xwayland display\n");
+   wlc_log(WLC_LOG_WARN, "Failed to open xwayland display");
    goto fail;
 socketpair_fail:
-   fprintf(stderr, "-!- Failed to create socketpair for wayland and xwayland\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create socketpair for wayland and xwayland");
    goto fail;
 client_create_fail:
-   fprintf(stderr, "-!- Failed to create wayland client\n");
+   wlc_log(WLC_LOG_WARN, "Failed to create wayland client");
    goto fail;
 fork_fail:
-   fprintf(stderr, "-!- Fork failed\n");
+   wlc_log(WLC_LOG_WARN, "Fork failed");
 fail:
    close_display();
    return false;

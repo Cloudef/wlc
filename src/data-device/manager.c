@@ -1,14 +1,15 @@
-#include "manager.h"
+#include "wlc.h"
 #include "macros.h"
+#include "manager.h"
 
 #include "compositor/compositor.h"
+
 #include "seat/client.h"
 #include "seat/seat.h"
 
 #include "types/string.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
@@ -221,7 +222,7 @@ wl_data_device_manager_bind(struct wl_client *wl_client, void *data, unsigned in
    struct wl_resource *resource;
    if (!(resource = wl_resource_create(wl_client, &wl_data_device_manager_interface, MIN(version, 1), id))) {
       wl_client_post_no_memory(wl_client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 1);
+      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 1);
       return;
    }
 
@@ -313,10 +314,10 @@ wlc_data_device_manager_new(struct wlc_compositor *compositor)
    return manager;
 
 out_of_memory:
-   fprintf(stderr, "-!- out of memory\n");
+   wlc_log(WLC_LOG_WARN, "Out of memory");
    goto fail;
 manager_interface_fail:
-   fprintf(stderr, "-!- failed to bind data device manager interface\n");
+   wlc_log(WLC_LOG_WARN, "Failed to bind data device manager interface");
 fail:
    if (manager)
       wlc_data_device_manager_free(manager);

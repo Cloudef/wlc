@@ -1,3 +1,4 @@
+#include "wlc.h"
 #include "egl.h"
 #include "context.h"
 
@@ -5,7 +6,6 @@
 #include "compositor/output.h"
 #include "backend/backend.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
@@ -63,7 +63,7 @@ egl_load(void)
    const char *lib = "libEGL.so", *func = NULL;
 
    if (!(egl.api.handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -110,7 +110,7 @@ egl_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -327,11 +327,11 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
 
    const char *str;
    str = egl.api.eglQueryString(egl.display, EGL_VERSION);
-   fprintf(stdout, "EGL version: %s\n", str ? str : "(null)");
+   wlc_log(WLC_LOG_INFO, "EGL version: %s", str ? str : "(null)");
    str = egl.api.eglQueryString(egl.display, EGL_VENDOR);
-   fprintf(stdout, "EGL vendor: %s\n", str ? str : "(null)");
+   wlc_log(WLC_LOG_INFO, "EGL vendor: %s", str ? str : "(null)");
    str = egl.api.eglQueryString(egl.display, EGL_CLIENT_APIS);
-   fprintf(stdout, "EGL client APIs: %s\n", str ? str : "(null)");
+   wlc_log(WLC_LOG_INFO, "EGL client APIs: %s", str ? str : "(null)");
 
    egl.extensions = egl.api.eglQueryString(egl.display, EGL_EXTENSIONS);
 
@@ -356,14 +356,14 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
    out_context->api.attach = attach;
    out_context->api.destroy = destroy;
    out_context->api.swap = swap_buffers;
-   fprintf(stdout, "-!- EGL (%s) context created\n", egl.backend->name);
+   wlc_log(WLC_LOG_INFO, "EGL (%s) context created", egl.backend->name);
    return true;
 
 egl_fail:
    {
       EGLint error;
       if ((error = egl.api.eglGetError()) != EGL_SUCCESS)
-         fprintf(stderr, "-!- %s\n", egl_error_string(error));
+         wlc_log(WLC_LOG_WARN, "%s", egl_error_string(error));
    }
 fail:
    terminate();

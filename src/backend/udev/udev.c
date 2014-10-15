@@ -1,10 +1,12 @@
-#include "udev.h"
+#include "wlc.h"
 #include "wlc_internal.h"
+#include "udev.h"
+
 #include "compositor/compositor.h"
 #include "compositor/output.h"
+
 #include "seat/seat.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
@@ -54,7 +56,7 @@ input_event(int fd, uint32_t mask, void *data)
    struct wlc_seat *seat = input->seat;
 
    if (libinput_dispatch(input->handle) != 0)
-      puts("failed to dispatch libinput\n");
+      wlc_log(WLC_LOG_WARN, "Failed to dispatch libinput");
 
    struct libinput_event *event;
    while ((event = libinput_get_event(input->handle))) {
@@ -62,11 +64,11 @@ input_event(int fd, uint32_t mask, void *data)
 
       switch (libinput_event_get_type(event)) {
          case LIBINPUT_EVENT_DEVICE_ADDED:
-            puts("INPUT DEVICE ADDED");
+            wlc_log(WLC_LOG_INFO, "INPUT DEVICE ADDED");
             break;
 
          case LIBINPUT_EVENT_DEVICE_REMOVED:
-            puts("INPUT DEVICE REMOVED");
+            wlc_log(WLC_LOG_INFO, "INPUT DEVICE REMOVED");
             break;
 
          case LIBINPUT_EVENT_KEYBOARD_KEY:
@@ -119,7 +121,7 @@ static void
 input_log(struct libinput *input, enum libinput_log_priority priority, const char *format, va_list args)
 {
    (void)input, (void)priority;
-   vfprintf(stdout, format, args);
+   wlc_vlog(WLC_LOG_INFO, format, args);
 }
 
 static void
@@ -160,10 +162,10 @@ wlc_input_new(struct wlc_udev *udev, struct wlc_compositor *compositor)
    return input;
 
 event_source_fail:
-   fprintf(stderr, "-!- failed to add libinput event source\n");
+   wlc_log(WLC_LOG_WARN, "Failed to add libinput event source");
    goto fail;
 seat_fail:
-   fprintf(stderr, "-!- failed to assign seat to libinput\n");
+   wlc_log(WLC_LOG_WARN, "Failed to assign seat to libinput");
 fail:
    if (input)
       wlc_input_free(input);
@@ -218,10 +220,10 @@ wlc_udev_new(struct wlc_compositor *compositor)
    return udev;
 
 event_source_fail:
-   fprintf(stderr, "-!- failed to add udev event source\n");
+   wlc_log(WLC_LOG_WARN, "Failed to add udev event source");
    goto fail;
 failed_to_enable_receiving:
-   fprintf(stderr, "-!- failed to enable udev-monitor receiving\n");
+   wlc_log(WLC_LOG_WARN, "Failed to enable udev-monitor receiving");
 fail:
    if (udev)
       wlc_udev_free(udev);

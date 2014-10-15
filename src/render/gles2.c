@@ -1,3 +1,4 @@
+#include "wlc.h"
 #include "gles2.h"
 #include "render.h"
 
@@ -9,7 +10,6 @@
 #include "compositor/output.h"
 #include "shell/xdg-surface.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -100,7 +100,7 @@ gles2_load(void)
    const char *lib = "libGLESv2.so", *func = NULL;
 
    if (!(gl.api.handle = dlopen(lib, RTLD_LAZY))) {
-      fprintf(stderr, "-!- %s\n", dlerror());
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
@@ -175,7 +175,7 @@ gles2_load(void)
    return true;
 
 function_pointer_exception:
-   fprintf(stderr, "-!- Could not load function '%s' from '%s'\n", func, lib);
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
    return false;
 }
 
@@ -227,11 +227,9 @@ create_shader(const char *source, GLenum shader_type)
    gl.api.glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
    if (!status) {
       GLsizei len;
-      char log[1000];
+      char log[1024];
       gl.api.glGetShaderInfoLog(shader, sizeof(log), &len, log);
-      fprintf(stderr, "Error: compiling %s: %*s\n",
-            shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
-            len, log);
+      wlc_log(WLC_LOG_ERROR, "Compiling %s: %*s\n", (shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment"), len, log);
       abort();
    }
 
@@ -307,9 +305,9 @@ create_context(void)
       gl.api.glGetProgramiv(context->programs[i].obj, GL_LINK_STATUS, &status);
       if (!status) {
          GLsizei len;
-         char log[1000];
+         char log[1024];
          gl.api.glGetProgramInfoLog(context->programs[i].obj, sizeof(log), &len, log);
-         fprintf(stderr, "Error: linking:\n%*s\n", len, log);
+         wlc_log(WLC_LOG_ERROR, "Linking:\n%*s\n", len, log);
          abort();
       }
 
@@ -480,7 +478,7 @@ egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t form
    }
 
    if (num_planes > 3) {
-      fprintf(stderr, "planes > 3 in egl surfaces not supported, nor should be possible\n");
+      wlc_log(WLC_LOG_WARN, "planes > 3 in egl surfaces not supported, nor should be possible");
       return;
    }
 
@@ -520,7 +518,7 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
       egl_attach(surface, buffer, format);
    } else {
       /* unknown buffer */
-      puts("unknown buffer");
+      wlc_log(WLC_LOG_WARN, "Unknown buffer");
    }
 }
 
@@ -670,7 +668,7 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    out_render->api.bind = bind;
    out_render->api.resolution = resolution;
 
-   fprintf(stdout, "-!- GLES2 renderer initialized\n");
+   wlc_log(WLC_LOG_INFO, "GLES2 renderer initialized");
    return true;
 }
 

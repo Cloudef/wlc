@@ -5,9 +5,6 @@
 #include "visibility.h"
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
@@ -19,6 +16,8 @@
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
+#include <time.h>
 
 #if defined(__linux__)
 #  include <linux/kd.h>
@@ -59,8 +58,10 @@ static struct {
       bool (*set_master)(void);
       bool (*drop_master)(void);
    } drm;
+   FILE *log_file;
    int socket;
    int tty;
+   int cached_tm_mday;
    bool active;
    bool init;
 } wlc;
@@ -102,13 +103,12 @@ struct msg_response {
    };
 };
 
-static void
-__attribute__((noreturn,format(printf,1,2)))
+WLC_LOG_ATTR(1, 2) static void
 die(const char *format, ...)
 {
    va_list vargs;
    va_start(vargs, format);
-   vfprintf(stderr, format, vargs);
+   wlc_vlog(WLC_LOG_ERROR, format, vargs);
    va_end(vargs);
    fflush(stderr);
    exit(EXIT_FAILURE);
@@ -183,7 +183,7 @@ fd_open(const char *path, const int flags, const enum wlc_fd_type type)
    }
 
    if (!pfd) {
-      fprintf(stderr, "-!- Maximum number of fds opened\n");
+      wlc_log(WLC_LOG_ERROR, "Maximum number of fds opened\n");
       return -1;
    }
 
@@ -198,7 +198,7 @@ fd_open(const char *path, const int flags, const enum wlc_fd_type type)
 #undef FILTER
 
    if (type > WLC_FD_LAST || memcmp(path, allow[type].base, allow[type].size)) {
-      fprintf(stderr, "-!- denying open from: %s\n", path);
+      wlc_log(WLC_LOG_WARN, "Denying open from: %s", path);
       return -1;
    }
 
@@ -206,7 +206,7 @@ fd_open(const char *path, const int flags, const enum wlc_fd_type type)
    pfd->type = type;
 
    if (pfd->fd < 0)
-      fprintf(stderr, "-!- error opening (%m): %s\n", path);
+      wlc_log(WLC_LOG_WARN, "Error opening (%m): %s", path);
 
    return pfd->fd;
 }
@@ -246,7 +246,7 @@ deactivate(void)
       switch (wlc.fds[i].type) {
          case WLC_FD_INPUT:
             if (ioctl(wlc.fds[i].fd, EVIOCREVOKE, 0) == -1) {
-               fprintf(stderr, "-!- Kernel does not support EVIOCREVOKE, can not revoke input devices\n");
+               wlc_log(WLC_LOG_WARN, "Kernel does not support EVIOCREVOKE, can not revoke input devices");
                return false;
             }
             close(wlc.fds[i].fd);
@@ -296,7 +296,7 @@ static void
 cleanup(void)
 {
    if (wlc.tty >= 0) {
-      fprintf(stderr, "-!- Restoring tty %d\n", wlc.tty);
+      wlc_log(WLC_LOG_INFO, "Restoring tty %d", wlc.tty);
       struct vt_mode mode = { .mode = VT_AUTO };
       ioctl(wlc.tty, VT_SETMODE, &mode);
       ioctl(wlc.tty, KDSETMODE, KD_GRAPHICS);
@@ -306,7 +306,7 @@ cleanup(void)
       close(wlc.tty);
    }
 
-   fprintf(stderr, "-!- Cleanup wlc\n");
+   wlc_log(WLC_LOG_INFO, "Cleanup wlc");
 }
 
 static void
@@ -321,7 +321,7 @@ communicate(const int sock, const pid_t parent)
          handle_request(sock, fd, &request);
    } while (kill(parent, 0) == 0);
 
-   fprintf(stderr, "-!- Parent exit (%u)\n", parent);
+   wlc_log(WLC_LOG_INFO, "Parent exit (%u)\n", parent);
    cleanup();
 }
 
@@ -360,7 +360,7 @@ static void
 write_or_die(const int sock, const int fd, const void *buffer, const ssize_t size)
 {
    if (write_fd(sock, (fd >= 0 ? fd : 0), buffer, size) != size)
-      die("-!- Failed to write %zu bytes to socket\n", size);
+      die("Failed to write %zu bytes to socket", size);
 }
 
 static bool
@@ -393,7 +393,7 @@ find_vt(const char *vt_string)
       die("Could not find unused VT");
 
    close(tty0_fd);
-   fprintf(stderr, "Running on VT %d\n", vt);
+   wlc_log(WLC_LOG_INFO, "Running on VT %d", vt);
    return vt;
 }
 
@@ -496,10 +496,10 @@ sigusr_handler(int signal)
 
    switch (signal) {
       case SIGUSR1:
-         fprintf(stderr, "-!- SIGUSR1\n");
+         wlc_log(WLC_LOG_INFO, "SIGUSR1");
 
          if (!wlc.drm.drop_master()) {
-            fprintf(stderr, "-!- Failed to drop DRM master\n");
+            wlc_log(WLC_LOG_WARN, "Failed to drop DRM master");
             return;
          }
 
@@ -512,10 +512,10 @@ sigusr_handler(int signal)
          ioctl(wlc.tty, VT_RELDISP, 1);
          break;
       case SIGUSR2:
-         fprintf(stderr, "-!- SIGUSR2\n");
+         wlc_log(WLC_LOG_INFO, "SIGUSR2");
 
          if (!wlc.drm.set_master()) {
-            fprintf(stderr, "-!- Failed to set DRM master\n");
+            wlc_log(WLC_LOG_WARN, "Failed to set DRM master");
             return;
          }
 
@@ -550,19 +550,21 @@ backtrace(int signal)
 #endif
 
    if (child_pid < 0) {
-      fprintf(stderr, "-!- Fork failed for gdb backtrace\n");
+      wlc_log(WLC_LOG_WARN, "Fork failed for gdb backtrace");
    } else if (child_pid == 0) {
       /*
        * NOTE: gdb-7.8 does not seem to work with this,
        *       either downgrade to 7.7 or use gdb from master.
        */
 
+      // FIXME: redirect output of backtrace to wlc_log
+
       /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
       char buf[255];
-      fprintf(stdout, "\n---- gdb ----\n");
+      wlc_log(WLC_LOG_INFO, "---- gdb ----");
       snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", getppid());
       execl("/bin/sh", "/bin/sh", "-c", buf, NULL);
-      fprintf(stderr, "-!- Failed to launch gdb for backtrace\n");
+      wlc_log(WLC_LOG_ERROR, "Failed to launch gdb for backtrace");
       _exit(EXIT_FAILURE);
    } else {
       waitpid(child_pid, NULL, 0);
@@ -577,7 +579,7 @@ static void
 fpehandler(int signal)
 {
    (void)signal;
-   fprintf(stderr, "\nSIGFPE signal received");
+   wlc_log(WLC_LOG_INFO, "SIGFPE signal received");
    abort();
 }
 
@@ -639,7 +641,7 @@ wlc_activate_vt(const int vt)
    if (wlc.tty < 0)
       return false;
 
-   fprintf(stderr, "-!- activate vt: %d\n", vt);
+   wlc_log(WLC_LOG_INFO, "Activate VT: %d\n", vt);
    return (ioctl(wlc.tty, VT_ACTIVATE, vt) != -1);
 }
 
@@ -660,6 +662,65 @@ bool
 wlc_has_init(void)
 {
    return wlc.init;
+}
+
+static inline void
+wlc_log_timestamp(FILE *out)
+{
+   struct timeval tv;
+   struct tm *brokendown_time;
+   gettimeofday(&tv, NULL);
+
+   if (!(brokendown_time = localtime(&tv.tv_sec))) {
+      fprintf(out, "[(NULL)localtime] ");
+      return;
+   }
+
+   char string[128];
+   if (brokendown_time->tm_mday != wlc.cached_tm_mday) {
+      strftime(string, sizeof(string), "%Y-%m-%d %Z", brokendown_time);
+      fprintf(out, "Date: %s\n", string);
+      wlc.cached_tm_mday = brokendown_time->tm_mday;
+   }
+
+   strftime(string, sizeof(string), "%H:%M:%S", brokendown_time);
+   fprintf(out, "[%s.%03li] ", string, tv.tv_usec / 1000);
+}
+
+WLC_API void
+wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap)
+{
+   FILE *out = (wlc.log_file ? wlc.log_file : (type == WLC_LOG_INFO ? stdout : stderr));
+   wlc_log_timestamp(out);
+
+   switch (type) {
+      case WLC_LOG_WARN:
+         fprintf(out, "(WARN) ");
+         break;
+      case WLC_LOG_ERROR:
+         fprintf(out, "(ERROR) ");
+         break;
+      default:
+         break;
+   }
+
+   vfprintf(out, fmt, ap);
+   fprintf(out, "\n");
+}
+
+WLC_API void
+wlc_log(const enum wlc_log_type type, const char *fmt, ...)
+{
+   va_list argp;
+   va_start(argp, fmt);
+   wlc_vlog(type, fmt, argp);
+   va_end(argp);
+}
+
+WLC_API void
+wlc_set_log_file(FILE *out)
+{
+   wlc.log_file = out;
 }
 
 WLC_API bool
@@ -706,15 +767,15 @@ wlc_init(const int argc, char *argv[])
    const char *display = getenv("DISPLAY");
 
    if (clearenv() != 0)
-      die("-!- Failed to clear environment\n");
+      die("Failed to clear environment");
 
    if (getuid() != geteuid() || getgid() != getegid()) {
-      fprintf(stdout, "-!- Doing work on SUID/SGID side and dropping permissions\n");
+      wlc_log(WLC_LOG_WARN, "Doing work on SUID/SGID side and dropping permissions");
    } else if (getuid() == 0) {
-      die("-!- Do not run wlc compositor as root\n");
+      die("Do not run wlc compositor as root");
       return false;
    } else if (!display && access("/dev/input/event0", R_OK | W_OK) != 0) {
-      fprintf(stdout, "-!- Not running from X11 and no access to /dev/input/event0\n");
+      wlc_log(WLC_LOG_WARN, "Not running from X11 and no access to /dev/input/event0");
       return false;
    }
 
@@ -732,7 +793,7 @@ wlc_init(const int argc, char *argv[])
    wlc.tty = -1;
    if (!display) {
       if (!setup_tty(xdg_vtnr))
-         die("-!- Failed to setup TTY");
+         die("Failed to setup TTY");
 
       struct sigaction action;
       memset(&action, 0, sizeof(action));
@@ -743,13 +804,13 @@ wlc_init(const int argc, char *argv[])
 
    int sock[2];
    if (socketpair(AF_LOCAL, SOCK_SEQPACKET, 0, sock) != 0)
-      die("-!- Failed to create fd passing unix domain socket pair: %m\n");
+      die("Failed to create fd passing unix domain socket pair: %m");
 
    if (fcntl(sock[0], F_SETFD, FD_CLOEXEC | O_NONBLOCK) != 0)
-      die("Could not set CLOEXEC and NONBLOCK on socket: %m\n");
+      die("Could not set CLOEXEC and NONBLOCK on socket: %m");
 
    if (fcntl(sock[1], F_SETFL, fcntl(sock[1], F_GETFL) & ~O_NONBLOCK) != 0)
-      die("Could not reset NONBLOCK on socket: %m\n");
+      die("Could not reset NONBLOCK on socket: %m");
 
    pid_t child;
    if ((child = fork()) == 0) {
@@ -758,20 +819,20 @@ wlc_init(const int argc, char *argv[])
       communicate(sock[1], getppid());
       _exit(EXIT_SUCCESS);
    } else if (child < 0) {
-      die("-!- Fork failed\n");
+      die("Fork failed");
    } else {
       close(sock[1]);
 
-      fprintf(stdout, "-!- Work done, dropping permissions and checking communication\n");
+      wlc_log(WLC_LOG_INFO, "Work done, dropping permissions and checking communication");
 
       if (setuid(getuid()) != 0 || setgid(getgid()) != 0)
-         die("-!- Could not drop permissions: %m");
+         die("Could not drop permissions: %m");
 
       if (kill(child, 0) != 0)
-         die("-!- Child process died\n");
+         die("Child process died");
 
       if (!check_socket(sock[0]))
-         die("-!- Communication between parent and child process seems to be broken\n");
+         die("Communication between parent and child process seems to be broken");
 
       wlc.socket = sock[0];
    }
@@ -779,7 +840,7 @@ wlc_init(const int argc, char *argv[])
    for (int i = 0; stored_env[i].env; ++i) {
       if (stored_env[i].value) {
          setenv(stored_env[i].env, stored_env[i].value, 0);
-         printf("%s: %s\n", stored_env[i].env, stored_env[i].value);
+         wlc_log(WLC_LOG_INFO, "%s: %s", stored_env[i].env, stored_env[i].value);
       }
    }
 

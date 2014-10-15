@@ -1,6 +1,7 @@
+#include "wlc.h"
+#include "macros.h"
 #include "shell.h"
 #include "surface.h"
-#include "macros.h"
 
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
@@ -8,8 +9,6 @@
 #include "compositor/view.h"
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
 
@@ -54,7 +53,7 @@ wl_shell_bind(struct wl_client *wl_client, void *data, unsigned int version, uns
    struct wl_resource *resource;
    if (!(resource = wl_resource_create(wl_client, &wl_shell_interface, MIN(version, 1), id))) {
       wl_client_post_no_memory(wl_client);
-      fprintf(stderr, "-!- failed create resource or bad version (%u > %u)\n", version, 1);
+      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 1);
       return;
    }
 
@@ -86,10 +85,10 @@ wlc_shell_new(struct wlc_compositor *compositor)
    return shell;
 
 out_of_memory:
-   fprintf(stderr, "-!- out of memory\n");
+   wlc_log(WLC_LOG_WARN, "Out of memory");
    goto fail;
 shell_interface_fail:
-   fprintf(stderr, "-!- failed to bind shell interface\n");
+   wlc_log(WLC_LOG_WARN, "Failed to bind shell interface");
 fail:
    if (shell)
       wlc_shell_free(shell);
