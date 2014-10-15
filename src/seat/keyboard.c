@@ -129,9 +129,11 @@ wlc_keyboard_free(struct wlc_keyboard *keyboard)
 {
    assert(keyboard);
 
-   struct wlc_client *client;
-   wl_list_for_each(client, &keyboard->compositor->clients, link)
-      client->input[WLC_KEYBOARD] = NULL;
+   if (keyboard->compositor) {
+      struct wlc_client *client;
+      wl_list_for_each(client, &keyboard->compositor->clients, link)
+         client->input[WLC_KEYBOARD] = NULL;
+   }
 
    if (keyboard->state)
       xkb_state_unref(keyboard->state);

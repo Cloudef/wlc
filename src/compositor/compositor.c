@@ -320,6 +320,8 @@ active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 static bool
 add_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
+   assert(output);
+
    if (compositor->context && !compositor->context->api.attach(output))
       return false;
 
@@ -349,7 +351,7 @@ add_output(struct wlc_compositor *compositor, struct wlc_output *output)
 static void
 remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
-   (void)compositor;
+   assert(output);
    wl_list_remove(&output->link);
 
    if (compositor->output == output) {
