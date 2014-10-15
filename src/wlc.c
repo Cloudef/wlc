@@ -557,12 +557,11 @@ backtrace(int signal)
        *       either downgrade to 7.7 or use gdb from master.
        */
 
-      // FIXME: redirect output of backtrace to wlc_log
-
       /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
       char buf[255];
       wlc_log(WLC_LOG_INFO, "---- gdb ----");
-      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", getppid());
+      const int fd = fileno((wlc.log_file ? wlc.log_file : stderr));
+      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}' >&%d", getppid(), fd);
       execl("/bin/sh", "/bin/sh", "-c", buf, NULL);
       wlc_log(WLC_LOG_ERROR, "Failed to launch gdb for backtrace");
       _exit(EXIT_FAILURE);
