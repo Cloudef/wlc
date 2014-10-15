@@ -706,6 +706,7 @@ wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap)
 
    vfprintf(out, fmt, ap);
    fprintf(out, "\n");
+   fflush(out);
 }
 
 WLC_API void
@@ -720,16 +721,25 @@ wlc_log(const enum wlc_log_type type, const char *fmt, ...)
 WLC_API void
 wlc_set_log_file(FILE *out)
 {
+   if (wlc.log_file && wlc.log_file != stdout && wlc.log_file != stderr)
+      fclose(wlc.log_file);
+
    wlc.log_file = out;
 }
 
 WLC_API bool
 wlc_init(const int argc, char *argv[])
 {
-   (void)argc;
-
    if (wlc_has_init())
       return true;
+
+   for (int i = 1; i < argc; ++i) {
+      if (!strcmp(argv[i], "--log")) {
+         if (i + 1 >= argc)
+            die("--log takes a argument (filename)");
+         wlc_set_log_file(fopen(argv[++i], "w"));
+      }
+   }
 
    /* env variables that need to be stored before clear */
    struct {
