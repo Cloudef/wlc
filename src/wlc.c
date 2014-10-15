@@ -197,7 +197,6 @@ fd_open(const char *path, const int flags, const enum wlc_fd_type type)
    };
 #undef FILTER
 
-
    if (type > WLC_FD_LAST || memcmp(path, allow[type].base, allow[type].size)) {
       fprintf(stderr, "-!- denying open from: %s\n", path);
       return -1;
