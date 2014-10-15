@@ -111,7 +111,7 @@ retry:
       goto no_open_display;
 
    char pid[12];
-   snprintf(pid, sizeof(pid), "%10d\n", getpid());
+   snprintf(pid, sizeof(pid), "%10d", getpid());
    if (write(lock_fd, pid, sizeof(pid) - 1) != sizeof(pid) -1) {
       unlink(lock_name);
       close(lock_fd);

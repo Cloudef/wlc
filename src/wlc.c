@@ -183,7 +183,7 @@ fd_open(const char *path, const int flags, const enum wlc_fd_type type)
    }
 
    if (!pfd) {
-      wlc_log(WLC_LOG_ERROR, "Maximum number of fds opened\n");
+      wlc_log(WLC_LOG_ERROR, "Maximum number of fds opened");
       return -1;
    }
 
@@ -321,7 +321,7 @@ communicate(const int sock, const pid_t parent)
          handle_request(sock, fd, &request);
    } while (kill(parent, 0) == 0);
 
-   wlc_log(WLC_LOG_INFO, "Parent exit (%u)\n", parent);
+   wlc_log(WLC_LOG_INFO, "Parent exit (%u)", parent);
    cleanup();
 }
 
@@ -641,7 +641,7 @@ wlc_activate_vt(const int vt)
    if (wlc.tty < 0)
       return false;
 
-   wlc_log(WLC_LOG_INFO, "Activate VT: %d\n", vt);
+   wlc_log(WLC_LOG_INFO, "Activate VT: %d", vt);
    return (ioctl(wlc.tty, VT_ACTIVATE, vt) != -1);
 }
 
