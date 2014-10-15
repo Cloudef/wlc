@@ -538,10 +538,11 @@ backtrace(int signal)
 {
    (void)signal;
 
+   if (clearenv() != 0)
+      exit(EXIT_FAILURE);
+
    /* GDB */
 #if defined(__linux__) || defined(__APPLE__)
-   char buf[1024];
-   pid_t dying_pid = getpid();
    pid_t child_pid = fork();
 
 #if HAS_YAMA_PRCTL
@@ -553,10 +554,10 @@ backtrace(int signal)
       fprintf(stderr, "-!- Fork failed for gdb backtrace\n");
    } else if (child_pid == 0) {
       /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
+      char buf[255];
       fprintf(stdout, "\n---- gdb ----\n");
-      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex thread -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", dying_pid);
-      const char* argv[] = { "sh", "-c", buf, NULL };
-      execve("/bin/sh", (char**)argv, NULL);
+      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex thread -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}'", getppid());
+      execl("/bin/sh", "/bin/sh", "-c", buf, NULL);
       fprintf(stderr, "-!- Failed to launch gdb for backtrace\n");
       _exit(EXIT_FAILURE);
    } else {
