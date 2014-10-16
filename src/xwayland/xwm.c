@@ -611,17 +611,36 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    wlc_log(WLC_LOG_INFO, "xwm started");
    return true;
 
-   // TODO: error handling or prints whatever
 xcb_connection_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to connect to Xwayland");
+   goto fail;
 emwh_init_atoms_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to init ewmh atoms");
+   goto fail;
 event_source_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to setup X11 event source");
+   goto fail;
 xfixes_extension_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to get xfixes extension");
+   goto fail;
 composite_extension_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to get composite extension");
+   goto fail;
 change_attributes_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to change root window attributes");
+   goto fail;
 redirect_subwindows_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to redirect subwindows");
+   goto fail;
 window_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to create wm window");
+   goto fail;
 emwh_init_atom_replies_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to get replies for ewmh atoms");
+   goto fail;
 atom_get_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to get atom");
+   goto fail;
 fail:
    wlc_xwm_deinit();
    return false;
