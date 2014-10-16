@@ -382,13 +382,7 @@ terminate(void)
 bool
 wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 {
-   if (!x11_load())
-      goto fail;
-
-   if (!x11_xcb_load())
-      goto fail;
-
-   if (!xcb_load())
+   if (!x11_load() || !x11_xcb_load() || !xcb_load())
       goto fail;
 
    if (!(x11.display = x11.api.XOpenDisplay(NULL)))

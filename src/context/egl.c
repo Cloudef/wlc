@@ -245,16 +245,25 @@ attach(struct wlc_output *output)
    };
 
    if ((eglo->context = egl.api.eglCreateContext(egl.display, egl.config, EGL_NO_CONTEXT, context_attribs)) == EGL_NO_CONTEXT)
-      goto fail;
+      goto context_create_fail;
 
    if ((eglo->surface = egl.api.eglCreateWindowSurface(egl.display, egl.config, egl.backend->api.window(output), NULL)) == EGL_NO_SURFACE)
-      goto fail;
+      goto window_surface_create_fail;
 
    if (!egl.api.eglMakeCurrent(egl.display, eglo->surface, eglo->surface, eglo->context))
-      goto fail;
+      goto make_current_fail;
 
    return (eglo->has_current = true);
 
+context_create_fail:
+   wlc_log(WLC_LOG_WARN, "EGL context creation failed");
+   goto fail;
+window_surface_create_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to create window surface");
+   goto fail;
+make_current_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to make current");
+   goto fail;
 fail:
    destroy(output);
    return false;

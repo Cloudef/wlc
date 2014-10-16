@@ -505,10 +505,7 @@ terminate(void)
 bool
 wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 {
-   if (!gbm_load())
-      goto fail;
-
-   if (!drm_load())
+   if (!gbm_load() || !drm_load())
       goto fail;
 
    if ((drm.fd = open("/dev/dri/card0", O_RDWR)) < 0)
