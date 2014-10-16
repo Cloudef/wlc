@@ -744,12 +744,12 @@ wlc_init(const int argc, char *argv[])
    const char *display = getenv("DISPLAY");
 
    if (getuid() != geteuid() || getgid() != getegid()) {
-      wlc_log(WLC_LOG_WARN, "Doing work on SUID/SGID side and dropping permissions");
+      wlc_log(WLC_LOG_INFO, "Doing work on SUID/SGID side and dropping permissions");
    } else if (getuid() == 0) {
       die("Do not run wlc compositor as root");
       return false;
    } else if (!display && access("/dev/input/event0", R_OK | W_OK) != 0) {
-      wlc_log(WLC_LOG_WARN, "Not running from X11 and no access to /dev/input/event0");
+      wlc_log(WLC_LOG_ERROR, "Not running from X11 and no access to /dev/input/event0");
       return false;
    }
 
