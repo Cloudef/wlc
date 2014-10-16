@@ -276,7 +276,7 @@ failed_to_create_fb:
    wlc_log(WLC_LOG_WARN, "Failed to create fb");
    goto fail;
 set_crtc_fail:
-   wlc_log(WLC_LOG_WARN, "Failed to set mode");
+   wlc_log(WLC_LOG_WARN, "Failed to set mode: %m");
    goto fail;
 failed_to_page_flip:
    wlc_log(WLC_LOG_WARN, "Failed to page flip: %m");
