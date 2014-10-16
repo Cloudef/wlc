@@ -546,7 +546,15 @@ backtrace(int signal)
 
 #if HAS_YAMA_PRCTL
    /* tell yama that we allow our child_pid to trace our process */
-   if (child_pid > 0) prctl(PR_SET_PTRACER, child_pid);
+   if (child_pid > 0) {
+      if (!prctl(PR_GET_DUMPABLE)) {
+         wlc_log(WLC_LOG_WARN, "Compositor binary is suid/sgid, most likely since you are running from TTY.");
+         wlc_log(WLC_LOG_WARN, "Kernel ptracing security policy does not allow attaching to suid/sgid processes.");
+         wlc_log(WLC_LOG_WARN, "If you don't get backtrace below, try `setcap cap_sys_ptrace=eip gdb` temporarily.");
+      }
+      prctl(PR_SET_DUMPABLE, 1);
+      prctl(PR_SET_PTRACER, child_pid);
+   }
 #endif
 
    if (child_pid < 0) {
@@ -559,9 +567,8 @@ backtrace(int signal)
 
       /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
       char buf[255];
-      wlc_log(WLC_LOG_INFO, "---- gdb ----");
       const int fd = fileno((wlc.log_file ? wlc.log_file : stderr));
-      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}' >&%d", getppid(), fd);
+      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}' 1>&%d", getppid(), fd);
       execl("/bin/sh", "/bin/sh", "-c", buf, NULL);
       wlc_log(WLC_LOG_ERROR, "Failed to launch gdb for backtrace");
       _exit(EXIT_FAILURE);
