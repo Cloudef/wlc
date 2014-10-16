@@ -1,5 +1,6 @@
 /* This is mostly based on swc's xwayland.c which is based on weston's xwayland/launcher.c */
 
+#define _DEFAULT_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include "wlc.h"
 #include "xwayland.h"
@@ -217,12 +218,12 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
       for (unsigned int i = 0; i < sizeof(fds) / sizeof(int); ++i) {
          if (fcntl(fds[i], F_SETFD, 0) != 0) {
             wlc_log(WLC_LOG_WARN, "fcntl() failed: %m");
-            exit(EXIT_FAILURE);
+            _exit(EXIT_FAILURE);
          }
 
          if (snprintf(strings[i], sizeof(strings[i]), "%d", fds[i]) >= (ssize_t)sizeof(strings[i])) {
             wlc_log(WLC_LOG_WARN, "FD is too large");
-            exit(EXIT_FAILURE);
+            _exit(EXIT_FAILURE);
          }
       }
 
@@ -232,9 +233,17 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
       struct sigaction action = { .sa_handler = SIG_IGN };
       if (sigaction(SIGUSR1, &action, NULL) != 0) {
          wlc_log(WLC_LOG_WARN, "Failed to set SIGUSR1 handler to SIG_IGN: %m");
-         exit(EXIT_FAILURE);
+         _exit(EXIT_FAILURE);
       }
 
+      const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
+
+      if (clearenv() != 0) {
+         wlc_log(WLC_LOG_WARN, "Failed to clear environment");
+         _exit(EXIT_FAILURE);
+      }
+
+      setenv("XDG_RUNTIME_DIR", xdg_runtime, true);
       setenv("WAYLAND_SOCKET", strings[0], true);
       execlp("Xwayland", "Xwayland",
             xserver.display_name,
@@ -244,8 +253,7 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
             "-listen", strings[3],
             "-wm", strings[1],
             NULL);
-
-      exit(EXIT_FAILURE);
+      _exit(EXIT_FAILURE);
    } else if (xserver.pid < 0) {
       goto fork_fail;
    }

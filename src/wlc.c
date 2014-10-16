@@ -740,43 +740,8 @@ wlc_init(const int argc, char *argv[])
       }
    }
 
-   /* env variables that need to be stored before clear */
-   struct {
-      char *env, *value;
-   } stored_env[] = {
-      { "DISPLAY", NULL },
-      { "XAUTHORITY", NULL },
-      { "HOME", NULL },
-      { "USER", NULL },
-      { "LOGNAME", NULL },
-      { "LANG", NULL },
-      { "PATH", NULL },
-      { "USER", NULL },
-      { "SHELL", NULL }, /* weston-terminal relies on this */
-      { "TERMINAL", NULL }, /* expose temporarily to loliwm */
-      { "XDG_RUNTIME_DIR", NULL },
-      { "XDG_CONFIG_HOME", NULL },
-      { "XDG_CONFIG_DIRS", NULL },
-      { "XDG_DATA_HOME", NULL },
-      { "XDG_DATA_DIRS", NULL },
-      { "XDG_CACHE_HOME", NULL },
-      { "XDG_SEAT", NULL },
-      { "XDG_VTNR", NULL },
-      { "XKB_DEFAULT_RULES", NULL },
-      { "XKB_DEFAULT_LAYOUT", NULL },
-      { "XKB_DEFAULT_VARIANT", NULL },
-      { "XKB_DEFAULT_OPTIONS", NULL },
-      { NULL, NULL }
-   };
-
-   for (int i = 0; stored_env[i].env; ++i)
-      stored_env[i].value = getenv(stored_env[i].env);
-
    const char *xdg_vtnr = getenv("XDG_VTNR");
    const char *display = getenv("DISPLAY");
-
-   if (clearenv() != 0)
-      die("Failed to clear environment");
 
    if (getuid() != geteuid() || getgid() != getegid()) {
       wlc_log(WLC_LOG_WARN, "Doing work on SUID/SGID side and dropping permissions");
@@ -824,6 +789,10 @@ wlc_init(const int argc, char *argv[])
    pid_t child;
    if ((child = fork()) == 0) {
       close(sock[0]);
+
+      if (clearenv() != 0)
+         die("Failed to clear environment");
+
       strncpy(argv[0], "wlc", strlen(argv[0]));
       communicate(sock[1], getppid());
       _exit(EXIT_SUCCESS);
@@ -844,13 +813,6 @@ wlc_init(const int argc, char *argv[])
          die("Communication between parent and child process seems to be broken");
 
       wlc.socket = sock[0];
-   }
-
-   for (int i = 0; stored_env[i].env; ++i) {
-      if (stored_env[i].value) {
-         setenv(stored_env[i].env, stored_env[i].value, 0);
-         wlc_log(WLC_LOG_INFO, "%s: %s", stored_env[i].env, stored_env[i].value);
-      }
    }
 
    wlc.active = true;
