@@ -252,7 +252,6 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
 
    close(wl[1]);
    close(wm[1]);
-   atexit(wlc_xwayland_deinit);
    return true;
 
 event_source_fail:
@@ -277,11 +276,6 @@ fail:
 void
 wlc_xwayland_deinit(void)
 {
-   if (xserver.pid > 0)
-      kill(xserver.pid, SIGINT);
-
-   close_display();
-
    if (xserver.event_source) {
       wl_event_source_remove(xserver.event_source);
       xserver.event_source = NULL;
@@ -289,6 +283,11 @@ wlc_xwayland_deinit(void)
 
    if (xserver.client)
       wl_client_destroy(xserver.client);
+
+   if (xserver.pid > 0)
+      kill(xserver.pid, SIGINT);
+
+   close_display();
 
    memset(&xserver, 0, sizeof(xserver));
 }
