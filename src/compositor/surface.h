@@ -19,6 +19,7 @@ struct wlc_surface_state {
    pixman_region32_t damage;
    int32_t sx, sy;
    bool newly_attached;
+   struct wl_list frame_cb_list;
 };
 
 struct wlc_surface {
@@ -27,7 +28,6 @@ struct wlc_surface {
    struct wlc_space *space;
    struct wlc_surface_state pending;
    struct wlc_surface_state commit;
-   struct wl_list frame_cb_list;
 
    /**
     * "Texture" as we use OpenGL terminology, but can be id to anything.
