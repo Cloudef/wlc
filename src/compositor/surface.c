@@ -144,16 +144,11 @@ wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, 
    // It seems to be owned by somebody else?
    // What use is user data which we can't use...
    //
-   // Workaround by branching, weston seems to hack with the container_of macro
+   // According to #wayland, user data isn't actually user data, but internal data of the resource.
+   // We only own the user data if the resource was created by us.
 
    struct wlc_buffer *buffer = NULL;
-   if (surface->pending.buffer && surface->pending.buffer->resource == buffer_resource) {
-      buffer = surface->pending.buffer;
-   } else if (surface->commit.buffer && surface->commit.buffer->resource == buffer_resource) {
-      buffer = surface->commit.buffer;
-   }
-
-   if (!buffer && buffer_resource && !(buffer = wlc_buffer_new(buffer_resource))) {
+   if (buffer_resource && !(buffer = wlc_buffer_resource_get_container(buffer_resource)) && !(buffer = wlc_buffer_new(buffer_resource))) {
       wl_client_post_no_memory(wl_client);
       return;
    }

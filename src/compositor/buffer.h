@@ -4,11 +4,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <wayland-server.h>
+
 struct wl_resource;
 struct wl_shm_buffer;
 
 struct wlc_buffer {
    struct wl_resource *resource;
+   struct wl_listener destroy_listener;
 
    union {
       struct wl_shm_buffer *shm_buffer;
@@ -19,6 +22,8 @@ struct wlc_buffer {
    int32_t width, height;
    bool y_inverted;
 };
+
+struct wlc_buffer* wlc_buffer_resource_get_container(struct wl_resource *buffer_resource);
 
 void wlc_buffer_free(struct wlc_buffer *buffer);
 struct wlc_buffer* wlc_buffer_use(struct wlc_buffer *buffer);
