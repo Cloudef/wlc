@@ -10,6 +10,7 @@ enum wlc_fd_type {
 
 bool wlc_has_init(void);
 bool wlc_is_active(void);
+bool wlc_no_egl_clients(void);
 void wlc_set_drm_control_functions(bool (*set_master)(void), bool (*drop_master)(void));
 bool wlc_activate_vt(const int vt);
 int wlc_fd_open(const char *path, const int flags, const enum wlc_fd_type type);

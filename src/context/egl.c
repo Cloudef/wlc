@@ -1,4 +1,5 @@
 #include "wlc.h"
+#include "wlc_internal.h"
 #include "egl.h"
 #include "context.h"
 
@@ -371,8 +372,10 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
       egl.api.eglUnbindWaylandDisplayWL = NULL;
    }
 
-   if (egl.api.eglBindWaylandDisplayWL && egl.api.eglBindWaylandDisplayWL(egl.display, compositor->display))
-      egl.wl_display = compositor->display;
+   if (!wlc_no_egl_clients()) {
+      if (egl.api.eglBindWaylandDisplayWL && egl.api.eglBindWaylandDisplayWL(egl.display, compositor->display))
+         egl.wl_display = compositor->display;
+   }
 
    if (!strstr(egl.extensions, "EGL_EXT_swap_buffers_with_damage")) {
       // FIXME: get hw that supports this feature
