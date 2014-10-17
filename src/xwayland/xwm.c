@@ -18,6 +18,8 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 
+// FIXME: contains global state
+
 struct wlc_x11_window {
    struct wlc_view *view;
    struct wl_list link;

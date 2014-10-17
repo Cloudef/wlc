@@ -139,6 +139,8 @@ wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, 
    if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &compositor->clients)))
       goto fail;
 
+   // FIXME: do not create view here yet, surface can hold all surface specific data
+   // And since surfaces can be other stuff as well (pointers, etc..)
    struct wlc_view *view;
    if (!(view = wlc_view_new(client, surface)))
       goto fail;
@@ -508,6 +510,9 @@ wlc_compositor_new(const struct wlc_interface *interface)
    if (!(compositor->backend = wlc_backend_init(compositor)))
       goto fail;
 
+   // TODO: Move context and renderer to wlc_output.
+   // Allow each output have own context and renderer as it should be.
+   // We also get rid of some user data pointers.
    if (!(compositor->context = wlc_context_init(compositor, compositor->backend)))
       goto fail;
 

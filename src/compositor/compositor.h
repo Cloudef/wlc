@@ -39,7 +39,7 @@ struct wlc_compositor {
       void (*active_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*resolution)(struct wlc_compositor *compositor, struct wlc_output *output, uint32_t width, uint32_t height);
       void (*schedule_repaint)(struct wlc_compositor *compositor, struct wlc_output *output, bool urgent);
-      uint32_t (*get_time)(void);
+      uint32_t (*get_time)(void); // XXX: <- wlc_get_time() ?
    } api;
 };
 

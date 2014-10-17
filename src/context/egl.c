@@ -17,6 +17,8 @@
 
 #include <wayland-server.h>
 
+// FIXME: contains global state
+
 struct egl_output {
    EGLContext context;
    EGLSurface surface;

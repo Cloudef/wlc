@@ -23,6 +23,8 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 
+// FIXME: contains global state
+
 #define NUM_FBS 2
 
 struct drm_output_information {

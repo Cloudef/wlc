@@ -24,8 +24,8 @@ struct wlc_surface_state {
 
 struct wlc_surface {
    struct wl_resource *resource;
-   struct wlc_compositor *compositor;
-   struct wlc_space *space;
+   struct wlc_compositor *compositor; // FIXME: can probably get rid of this
+   struct wlc_space *space; // XXX: change to wlc_renderer? space to view instead
    struct wlc_surface_state pending;
    struct wlc_surface_state commit;
 

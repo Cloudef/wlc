@@ -18,8 +18,8 @@ struct wlc_view {
    void *userdata;
    struct wlc_client *client;
    struct wlc_surface *surface;
-   struct wlc_shell_surface *shell_surface;
-   struct wlc_xdg_surface *xdg_surface;
+   struct wlc_shell_surface *shell_surface; // XXX: join into wlc_view ?
+   struct wlc_xdg_surface *xdg_surface; // XXX: join into wlc_view ?
    struct wlc_x11_window *x11_window;
    struct wl_list link, user_link;
    struct wl_array stored_state;

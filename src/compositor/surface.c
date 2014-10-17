@@ -25,6 +25,7 @@ create_notify(struct wlc_surface *surface)
    if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)))
       return;
 
+   // FIXME: decouple views from surfaces more, I don't think they belong here, nor we should use lists in first place.
    if (!view->shell_surface && !view->xdg_surface && !view->x11_window)
       return;
 

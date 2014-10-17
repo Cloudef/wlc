@@ -24,6 +24,8 @@
 #  include "udev/udev.h"
 #endif
 
+// FIXME: contains global state
+
 enum atom_name {
    WM_PROTOCOLS,
    WM_DELETE_WINDOW,

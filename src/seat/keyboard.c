@@ -88,6 +88,12 @@ wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl
 {
    assert(keyboard && resource);
 
+   // FIXME: this is hack (see also pointer.c)
+   // We could
+   // a) Use destroy listeners on resource.
+   // b) Fix wlc resource management to pools and handles, so we immediately know if resource is valid or not.
+   //    This is also safer against misbehaving clients, and simpler API.
+
    struct wlc_output *output;
    wl_list_for_each(output, &keyboard->compositor->outputs, link) {
       struct wlc_space *space;
