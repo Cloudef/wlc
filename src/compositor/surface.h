@@ -3,7 +3,8 @@
 
 #include <wayland-util.h>
 #include <pixman.h>
-#include <stdbool.h>
+
+#include "types/geometry.h"
 
 struct wl_resource;
 struct wlc_buffer;
@@ -28,6 +29,7 @@ struct wlc_surface {
    struct wlc_space *space; // XXX: change to wlc_renderer? space to view instead
    struct wlc_surface_state pending;
    struct wlc_surface_state commit;
+   struct wlc_size size;
 
    /**
     * "Texture" as we use OpenGL terminology, but can be id to anything.
@@ -46,7 +48,6 @@ struct wlc_surface {
       SURFACE_RGBA,
    } format;
 
-   int32_t width, height;
    bool created;
 };
 

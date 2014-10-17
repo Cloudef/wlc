@@ -74,8 +74,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
       wl_list_for_each_reverse(view, &pointer->compositor->output->space->views, link) {
          struct wlc_geometry b;
          wlc_view_get_bounds(view, &b);
-         if (x >= b.x && x <= b.x + b.w &&
-               y >= b.y && y <= b.y + b.h) {
+         if (x >= b.origin.x && x <= b.origin.x + (int32_t)b.size.w &&
+             y >= b.origin.y && y <= b.origin.y + (int32_t)b.size.h) {
             focused = view;
             break;
          }
@@ -89,8 +89,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 
    struct wlc_geometry b;
    wlc_view_get_bounds(focused, &b);
-   int32_t dx = (x - b.x) * focused->surface->width / b.w;
-   int32_t dy = (y - b.y) * focused->surface->height / b.h;
+   int32_t dx = (x - b.origin.x) * focused->surface->size.w / b.size.w;
+   int32_t dy = (y - b.origin.y) * focused->surface->size.h / b.size.h;
    wlc_pointer_focus(pointer, serial, focused, dx, dy);
 
    if (!is_valid_view(focused))
@@ -103,25 +103,26 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
       int32_t dy = y - wl_fixed_to_int(pointer->gy);
 
       if (pointer->action == WLC_GRAB_ACTION_MOVE) {
-         const int32_t x = focused->geometry.x + dx, y = focused->geometry.y + dy;
+         const int32_t x = focused->commit.geometry.origin.x + dx, y = focused->commit.geometry.origin.y + dy;
          if (focused->surface->compositor->interface.view.move) {
             focused->surface->compositor->interface.view.move(focused->surface->compositor, focused, x, y);
          } else {
             wlc_view_position(focused, x, y);
          }
       } else if (pointer->action == WLC_GRAB_ACTION_RESIZE) {
-         int32_t w = focused->geometry.w, h = focused->geometry.h;
+         int32_t x = focused->commit.geometry.origin.x, y = focused->commit.geometry.origin.y;
+         uint32_t w = focused->commit.geometry.size.w, h = focused->commit.geometry.size.h;
 
          if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
             w -= dx;
-            focused->geometry.x += dx;
+            x += dx;
          } else if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_RIGHT) {
             w += dx;
          }
 
          if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_TOP) {
             h -= dy;
-            focused->geometry.y += dy;
+            y += dy;
          } else if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_BOTTOM) {
             h += dy;
          }
@@ -130,6 +131,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
             focused->surface->compositor->interface.view.resize(focused->surface->compositor, focused, w, h);
          } else {
             wlc_view_resize(focused, w, h);
+            wlc_view_position(focused, x, y);
          }
       }
 

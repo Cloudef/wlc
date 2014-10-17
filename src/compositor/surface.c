@@ -32,8 +32,7 @@ create_notify(struct wlc_surface *surface)
    wl_list_remove(&view->link);
    wl_list_insert(surface->space->views.prev, &view->link);
 
-   view->geometry.w = surface->width;
-   view->geometry.h = surface->height;
+   view->pending.geometry.size = surface->size;
 
    if (surface->compositor->interface.view.created &&
       !surface->compositor->interface.view.created(surface->compositor, view)) {
@@ -57,13 +56,6 @@ wlc_surface_state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer 
 }
 
 static void
-wlc_surface_set_size(struct wlc_surface *surface, int32_t width, int32_t height)
-{
-   surface->width = width;
-   surface->height = height;
-}
-
-static void
 wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
    if (buffer) {
@@ -74,7 +66,7 @@ wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 
    surface->compositor->render->api.attach(surface, buffer);
 
-   int32_t width = 0, height = 0;
+   struct wlc_size size = { 0, 0 };
    if (buffer) {
 #if 0
       switch (transform) {
@@ -91,42 +83,41 @@ wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
             break;
       }
 #endif
-      width = buffer->width;
-      height = buffer->height;
+      size = buffer->size;
    }
 
-   wlc_surface_set_size(surface, width, height);
+   surface->size = size;
 }
 
 static void
-wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *state, struct wlc_surface_state *out)
+wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, struct wlc_surface_state *out)
 {
-   if (state->newly_attached)
-      wlc_surface_attach(surface, state->buffer);
+   if (pending->newly_attached)
+      wlc_surface_attach(surface, pending->buffer);
 
-   wlc_surface_state_set_buffer(out, state->buffer);
-   wlc_surface_state_set_buffer(state, NULL);
+   wlc_surface_state_set_buffer(out, pending->buffer);
+   wlc_surface_state_set_buffer(pending, NULL);
 
-   state->sx = state->sy = 0;
-   state->newly_attached = false;
+   pending->sx = pending->sy = 0;
+   pending->newly_attached = false;
 
-   wl_list_insert_list(&out->frame_cb_list, &state->frame_cb_list);
-   wl_list_init(&state->frame_cb_list);
+   wl_list_insert_list(&out->frame_cb_list, &pending->frame_cb_list);
+   wl_list_init(&pending->frame_cb_list);
 
-   pixman_region32_union(&out->damage, &out->damage, &state->damage);
-   pixman_region32_intersect_rect(&out->damage, &out->damage, 0, 0, surface->width, surface->height);
+   pixman_region32_union(&out->damage, &out->damage, &pending->damage);
+   pixman_region32_intersect_rect(&out->damage, &out->damage, 0, 0, surface->size.w, surface->size.h);
    pixman_region32_clear(&surface->pending.damage);
 
    pixman_region32_t opaque;
    pixman_region32_init(&opaque);
-   pixman_region32_intersect_rect(&opaque, &state->opaque, 0, 0, surface->width, surface->height);
+   pixman_region32_intersect_rect(&opaque, &pending->opaque, 0, 0, surface->size.w, surface->size.h);
 
    if (!pixman_region32_equal(&opaque, &out->opaque))
       pixman_region32_copy(&out->opaque, &opaque);
 
    pixman_region32_fini(&opaque);
 
-   pixman_region32_intersect_rect(&out->input, &state->input, 0, 0, surface->width, surface->height);
+   pixman_region32_intersect_rect(&out->input, &pending->input, 0, 0, surface->size.w, surface->size.h);
 }
 
 static void

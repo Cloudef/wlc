@@ -256,6 +256,8 @@ repaint(struct wlc_output *output)
          wl_callback_send_done(cb->resource, msec);
          wl_resource_destroy(cb->resource);
       }
+
+      wlc_view_commit_state(view, &view->pending, &view->commit);
    }
 
    if (compositor->output == output)

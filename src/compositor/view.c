@@ -23,63 +23,79 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-static void
-update_state(struct wlc_view *view)
+void
+wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
-   assert(view);
+   if (pending->state != out->state) {
+      struct {
+         uint32_t bit;
+         uint32_t state;
+      } map[] = {
+         { WLC_BIT_MAXIMIZED, XDG_SURFACE_STATE_MAXIMIZED },
+         { WLC_BIT_FULLSCREEN, XDG_SURFACE_STATE_FULLSCREEN },
+         { WLC_BIT_RESIZING, XDG_SURFACE_STATE_RESIZING },
+         { WLC_BIT_ACTIVATED, XDG_SURFACE_STATE_ACTIVATED },
+         { 0, 0 },
+      };
 
-   if (!view->xdg_surface)
-      return;
+      wl_array_release(&view->wl_state);
+      wl_array_init(&view->wl_state);
 
-   struct {
-      uint32_t bit;
-      uint32_t state;
-   } map[] = {
-      { WLC_BIT_MAXIMIZED, XDG_SURFACE_STATE_MAXIMIZED },
-      { WLC_BIT_FULLSCREEN, XDG_SURFACE_STATE_FULLSCREEN },
-      { WLC_BIT_RESIZING, XDG_SURFACE_STATE_RESIZING },
-      { WLC_BIT_ACTIVATED, XDG_SURFACE_STATE_ACTIVATED },
-      { 0, 0 },
-   };
+      for (unsigned int i = 0; map[i].state != 0; ++i) {
+         if (pending->state & map[i].bit) {
+            uint32_t *s = wl_array_add(&view->wl_state, sizeof(uint32_t));
+            *s = map[i].state;
+         }
+      }
 
-   struct wl_array array;
-   wl_array_init(&array);
+      if (view->x11_window) {
+         if ((pending->state & WLC_BIT_ACTIVATED) != (out->state & WLC_BIT_ACTIVATED)) {
+            wlc_x11_window_set_active(view->x11_window, (pending->state & WLC_BIT_ACTIVATED));
 
-   for (unsigned int i = 0; map[i].state != 0; ++i) {
-      if (view->state & map[i].bit) {
-         uint32_t *s = wl_array_add(&array, sizeof(uint32_t));
-         *s = map[i].state;
+            if (pending->state & WLC_BIT_ACTIVATED)
+               wlc_compositor_focus_view(view->surface->compositor, view);
+         }
       }
    }
 
    uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
-   xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, view->geometry.w, view->geometry.h, &array, serial);
-   wl_array_copy(&view->stored_state, &array);
+   if (pending->state != out->state || !wlc_size_equals(&pending->geometry.size, &out->geometry.size)) {
+      if (view->xdg_surface)
+         xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, pending->geometry.size.w, pending->geometry.size.h, &view->wl_state, serial);
+
+      if (view->x11_window && !wlc_size_equals(&pending->geometry.size, &out->geometry.size))
+         wlc_x11_window_resize(view->x11_window, pending->geometry.size.w, pending->geometry.size.h);
+   }
+
+   if (view->x11_window && !wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin))
+      wlc_x11_window_position(view->x11_window, pending->geometry.origin.x, pending->geometry.origin.y);
+
+   memcpy(out, pending, sizeof(struct wlc_view_state));
 }
 
 void
 wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
 {
    assert(out_bounds);
-   memcpy(out_bounds, &view->geometry, sizeof(struct wlc_geometry));
+   memcpy(out_bounds, &view->commit.geometry, sizeof(struct wlc_geometry));
 
-   if (view->xdg_surface && view->xdg_surface->visible_geometry.w > 0 && view->xdg_surface->visible_geometry.h > 0) {
-      out_bounds->x -= view->xdg_surface->visible_geometry.x;
-      out_bounds->y -= view->xdg_surface->visible_geometry.y;
-      out_bounds->w -= out_bounds->w - view->xdg_surface->visible_geometry.w;
-      out_bounds->w += view->xdg_surface->visible_geometry.y * 2;
-      out_bounds->h -= out_bounds->h - view->xdg_surface->visible_geometry.h;
-      out_bounds->h += view->xdg_surface->visible_geometry.x * 2;
+   if (view->xdg_surface && view->xdg_surface->visible_geometry.size.w > 0 && view->xdg_surface->visible_geometry.size.h > 0) {
+      out_bounds->origin.x -= view->xdg_surface->visible_geometry.origin.x;
+      out_bounds->origin.y -= view->xdg_surface->visible_geometry.origin.y;
+      out_bounds->size.w -= out_bounds->size.w - view->xdg_surface->visible_geometry.size.w;
+      out_bounds->size.w += view->xdg_surface->visible_geometry.origin.y * 2;
+      out_bounds->size.h -= out_bounds->size.h - view->xdg_surface->visible_geometry.size.h;
+      out_bounds->size.h += view->xdg_surface->visible_geometry.origin.x * 2;
 
-      if ((view->state & WLC_BIT_MAXIMIZED) || (view->state & WLC_BIT_FULLSCREEN)) {
-         out_bounds->w = MIN(out_bounds->w, view->geometry.w);
-         out_bounds->h = MIN(out_bounds->h, view->geometry.h);
+      if ((view->commit.state & WLC_BIT_MAXIMIZED) || (view->commit.state & WLC_BIT_FULLSCREEN)) {
+         out_bounds->size.w = MIN(out_bounds->size.w, view->commit.geometry.size.w);
+         out_bounds->size.h = MIN(out_bounds->size.h, view->commit.geometry.size.h);
       }
    }
 
    /* make sure bounds is never 0x0 w/h */
-   out_bounds->w = MAX(out_bounds->w, 1);
-   out_bounds->h = MAX(out_bounds->h, 1);
+   out_bounds->size.w = MAX(out_bounds->size.w, 1);
+   out_bounds->size.h = MAX(out_bounds->size.h, 1);
 }
 
 struct wlc_view*
@@ -120,7 +136,7 @@ wlc_view_free(struct wlc_view *view)
 
    view->surface->compositor->seat->notify.view_unfocus(view->surface->compositor->seat, view);
    wl_list_remove(&view->link);
-   wl_array_release(&view->stored_state);
+   wl_array_release(&view->wl_state);
    free(view);
 }
 
@@ -135,7 +151,7 @@ wlc_view_new(struct wlc_client *client, struct wlc_surface *surface)
 
    view->client = client;
    view->surface = surface;
-   wl_array_init(&view->stored_state);
+   wl_array_init(&view->wl_state);
    return view;
 }
 
@@ -143,91 +159,49 @@ WLC_API uint32_t
 wlc_view_get_state(struct wlc_view *view)
 {
    assert(view);
-   return view->state;
+   return view->pending.state;
 }
 
 WLC_API void
 wlc_view_set_maximized(struct wlc_view *view, bool maximized)
 {
    assert(view);
-
-   if (maximized == (view->state & WLC_BIT_MAXIMIZED))
-      return;
-
-   view->state = BIT_TOGGLE(view->state, WLC_BIT_MAXIMIZED, maximized);
-   update_state(view);
+   view->pending.state = BIT_TOGGLE(view->pending.state, WLC_BIT_MAXIMIZED, maximized);
 }
 
 WLC_API void
 wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen)
 {
    assert(view);
-
-   if (fullscreen == (view->state & WLC_BIT_FULLSCREEN))
-      return;
-
-   view->state = BIT_TOGGLE(view->state, WLC_BIT_FULLSCREEN, fullscreen);
-   update_state(view);
+   view->pending.state = BIT_TOGGLE(view->pending.state, WLC_BIT_FULLSCREEN, fullscreen);
 }
 
 WLC_API void
 wlc_view_set_resizing(struct wlc_view *view, bool resizing)
 {
    assert(view);
-
-   if (resizing == (view->state & WLC_BIT_RESIZING))
-      return;
-
-   view->state = BIT_TOGGLE(view->state, WLC_BIT_RESIZING, resizing);
-   update_state(view);
+   view->pending.state = BIT_TOGGLE(view->pending.state, WLC_BIT_RESIZING, resizing);
 }
 
 WLC_API void
 wlc_view_set_active(struct wlc_view *view, bool active)
 {
    assert(view);
-
-   if (active == (view->state & WLC_BIT_ACTIVATED))
-      return;
-
-   if (view->x11_window) {
-      wlc_x11_window_set_active(view->x11_window, active);
-
-      if (active)
-         wlc_compositor_focus_view(view->surface->compositor, view);
-   }
-
-   view->state = BIT_TOGGLE(view->state, WLC_BIT_ACTIVATED, active);
-   update_state(view);
+   view->pending.state = BIT_TOGGLE(view->pending.state, WLC_BIT_ACTIVATED, active);
 }
 
 WLC_API void
 wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height)
 {
    assert(view);
-
-   if (view->xdg_surface) {
-      uint32_t serial = wl_display_next_serial(view->surface->compositor->display);
-      xdg_surface_send_configure(view->xdg_surface->shell_surface->resource, width, height, &view->stored_state, serial);
-   }
-
-   if (view->x11_window)
-      wlc_x11_window_resize(view->x11_window, width, height);
-
-   view->geometry.w = width;
-   view->geometry.h = height;
+   view->pending.geometry.size = (struct wlc_size){ width, height };
 }
 
 WLC_API void
 wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
 {
    assert(view);
-
-   if (view->x11_window)
-      wlc_x11_window_position(view->x11_window, x, y);
-
-   view->geometry.x = x;
-   view->geometry.y = y;
+   view->pending.geometry.origin = (struct wlc_origin){ x, y };
 }
 
 WLC_API void

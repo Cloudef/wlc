@@ -412,8 +412,8 @@ static void
 shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm_buffer *shm_buffer)
 {
    buffer->shm_buffer = shm_buffer;
-   buffer->width = wl_shm_buffer_get_width(shm_buffer);
-   buffer->height = wl_shm_buffer_get_height(shm_buffer);
+   buffer->size.w = wl_shm_buffer_get_width(shm_buffer);
+   buffer->size.h = wl_shm_buffer_get_height(shm_buffer);
 
    int pitch;
    GLenum gl_format, gl_pixel_type;
@@ -451,7 +451,7 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    gl.api.glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
    wl_shm_buffer_begin_access(buffer->shm_buffer);
    void *data = wl_shm_buffer_get_data(buffer->shm_buffer);
-   gl.api.glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitch, buffer->height, 0, gl_format, gl_pixel_type, data);
+   gl.api.glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitch, buffer->size.h, 0, gl_format, gl_pixel_type, data);
    wl_shm_buffer_end_access(buffer->shm_buffer);
 }
 
@@ -459,8 +459,8 @@ static void
 egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t format)
 {
    buffer->legacy_buffer = (struct wlc_buffer*)buffer->resource;
-   wlc_egl_query_buffer(buffer->legacy_buffer, EGL_WIDTH, &buffer->width);
-   wlc_egl_query_buffer(buffer->legacy_buffer, EGL_HEIGHT, &buffer->height);
+   wlc_egl_query_buffer(buffer->legacy_buffer, EGL_WIDTH, (EGLint*)&buffer->size.w);
+   wlc_egl_query_buffer(buffer->legacy_buffer, EGL_HEIGHT, (EGLint*)&buffer->size.h);
    wlc_egl_query_buffer(buffer->legacy_buffer, EGL_WAYLAND_Y_INVERTED_WL, (EGLint*)&buffer->y_inverted);
 
    int num_planes;
@@ -544,10 +544,10 @@ view_render(struct wlc_view *view)
    wlc_view_get_bounds(view, &b);
 
    const GLint vertices[8] = {
-      b.x + b.w, b.y,
-      b.x, b.y,
-      b.x + b.w, b.y + b.h,
-      b.x, b.y + b.h,
+      b.origin.x + b.size.w, b.origin.y,
+      b.origin.x, b.origin.y,
+      b.origin.x + b.size.w, b.origin.y + b.size.h,
+      b.origin.x, b.origin.y + b.size.h,
    };
 
    // printf("%d,%d+%d,%d\n", b.w, b.h, b.x, b.y);
@@ -560,7 +560,7 @@ view_render(struct wlc_view *view)
    };
 
    set_program(gl.bind_context, (view->x11_window ? PROGRAM_RGB : view->surface->format));
-   gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_DIM], (view->state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
+   gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_DIM], (view->commit.state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
 
    for (int i = 0; i < 3; ++i) {
       if (!view->surface->textures[i])
@@ -570,7 +570,7 @@ view_render(struct wlc_view *view)
       gl.api.glBindTexture(GL_TEXTURE_2D, view->surface->textures[i]);
    }
 
-   if (view->surface->width != b.w || view->surface->height != b.h) {
+   if (view->surface->size.w != b.size.w || view->surface->size.h != b.size.h) {
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
    } else {

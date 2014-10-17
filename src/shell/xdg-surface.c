@@ -91,7 +91,7 @@ xdg_cb_surface_set_window_geometry(struct wl_client *wl_client, struct wl_resour
 {
    (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   xdg_surface->visible_geometry = (struct wlc_geometry){ x, y, width, height };
+   xdg_surface->visible_geometry = (struct wlc_geometry){ { x, y }, { width, height } };
 }
 
 static void

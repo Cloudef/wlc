@@ -1,10 +1,9 @@
 #ifndef _WLC_BUFFER_H_
 #define _WLC_BUFFER_H_
 
-#include <stdbool.h>
-#include <stdint.h>
-
 #include <wayland-server.h>
+
+#include "types/geometry.h"
 
 struct wl_resource;
 struct wl_shm_buffer;
@@ -12,6 +11,7 @@ struct wl_shm_buffer;
 struct wlc_buffer {
    struct wl_resource *resource;
    struct wl_listener destroy_listener;
+   struct wlc_size size;
 
    union {
       struct wl_shm_buffer *shm_buffer;
@@ -19,7 +19,6 @@ struct wlc_buffer {
    };
 
    uint32_t references;
-   int32_t width, height;
    bool y_inverted;
 };
 

@@ -410,7 +410,7 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    win->view = view;
    view->x11_window = win;
 
-   wlc_x11_window_resize(win, view->geometry.w, view->geometry.h);
+   wlc_x11_window_resize(win, view->commit.geometry.size.w, view->commit.geometry.size.h);
 
    wl_list_remove(&win->link);
    wl_list_insert(&xwm.windows, &win->link);

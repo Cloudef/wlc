@@ -14,6 +14,11 @@ struct wlc_shell_surface;
 struct wlc_xdg_surface;
 struct wlc_x11_window;
 
+struct wlc_view_state {
+   struct wlc_geometry geometry;
+   uint32_t state;
+};
+
 struct wlc_view {
    void *userdata;
    struct wlc_client *client;
@@ -22,11 +27,12 @@ struct wlc_view {
    struct wlc_xdg_surface *xdg_surface; // XXX: join into wlc_view ?
    struct wlc_x11_window *x11_window;
    struct wl_list link, user_link;
-   struct wl_array stored_state;
-   struct wlc_geometry geometry;
-   uint32_t state;
+   struct wlc_view_state pending;
+   struct wlc_view_state commit;
+   struct wl_array wl_state;
 };
 
+void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
 void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_geometry);
 struct wlc_view* wlc_view_for_surface_in_list(struct wlc_surface *surface, struct wl_list *list);
 void wlc_view_set_xdg_surface(struct wlc_view *view, struct wlc_xdg_surface *xdg_surface);
