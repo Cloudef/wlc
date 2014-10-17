@@ -40,6 +40,7 @@ static struct {
       const char* (*eglQueryString)(EGLDisplay, EGLint name);
       EGLBoolean (*eglChooseConfig)(EGLDisplay, EGLint const*, EGLConfig*, EGLint, EGLint*);
       EGLBoolean (*eglBindAPI)(EGLenum);
+      EGLBoolean (*eglQueryContext)(EGLDisplay, EGLContext, EGLint, EGLint*);
       EGLContext (*eglCreateContext)(EGLDisplay, EGLConfig, EGLContext, EGLint const*);
       EGLBoolean (*eglDestroyContext)(EGLDisplay, EGLContext);
       EGLSurface (*eglCreateWindowSurface)(EGLDisplay, EGLConfig, NativeWindowType, EGLint const*);
@@ -54,6 +55,7 @@ static struct {
       PFNEGLBINDWAYLANDDISPLAYWL eglBindWaylandDisplayWL;
       PFNEGLUNBINDWAYLANDDISPLAYWL eglUnbindWaylandDisplayWL;
       PFNEGLQUERYWAYLANDBUFFERWL eglQueryWaylandBufferWL;
+      PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC eglSwapBuffersWithDamage;
    } api;
 } egl;
 
@@ -82,6 +84,8 @@ egl_load(void)
    if (!load(eglChooseConfig))
       goto function_pointer_exception;
    if (!load(eglBindAPI))
+      goto function_pointer_exception;
+   if (!load(eglQueryContext))
       goto function_pointer_exception;
    if (!load(eglCreateContext))
       goto function_pointer_exception;
@@ -253,6 +257,20 @@ attach(struct wlc_output *output)
    if (!egl.api.eglMakeCurrent(egl.display, eglo->surface, eglo->surface, eglo->context))
       goto make_current_fail;
 
+   EGLint render_buffer;
+   if (!egl.api.eglQueryContext(egl.display, eglo->context, EGL_RENDER_BUFFER, &render_buffer))
+      goto context_create_fail;
+
+   switch (render_buffer) {
+      case EGL_SINGLE_BUFFER:
+         wlc_log(WLC_LOG_INFO, "EGL context is single buffered");
+         break;
+      case EGL_BACK_BUFFER:
+         wlc_log(WLC_LOG_INFO, "EGL context is double buffered");
+         break;
+      default:break;
+   }
+
    return (eglo->has_current = true);
 
 context_create_fail:
@@ -356,9 +374,15 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
    if (egl.api.eglBindWaylandDisplayWL && egl.api.eglBindWaylandDisplayWL(egl.display, compositor->display))
       egl.wl_display = compositor->display;
 
-   egl.api.eglSwapInterval(egl.display, 1);
+   if (!strstr(egl.extensions, "EGL_EXT_swap_buffers_with_damage")) {
+      // FIXME: get hw that supports this feature
+#if 0
+      wlc_log(WLC_LOG_WARN, "EGL_EXT_swap_buffers_with_damage not supported. Performance could be affected.");
+#endif
+      egl.api.eglSwapBuffersWithDamage = NULL;
+   }
 
-   wl_display_add_shm_format(compositor->display, WL_SHM_FORMAT_RGB565);
+   egl.api.eglSwapInterval(egl.display, 1);
 
    out_context->terminate = terminate;
    out_context->api.bind = bind;

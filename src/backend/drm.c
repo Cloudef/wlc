@@ -23,6 +23,8 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 
+#define NUM_FBS 2
+
 struct drm_output_information {
    drmModeConnector *connector;
    drmModeEncoder *encoder;
@@ -35,12 +37,16 @@ struct drm_output {
    struct gbm_surface *surface;
    drmModeConnector *connector;
    drmModeEncoder *encoder;
-   uint32_t stride;
 
-   struct {
-      uint32_t current_fb_id, next_fb_id;
-      struct gbm_bo *current_bo, *next_bo;
-   } flipper;
+   struct drm_fb {
+      struct gbm_bo *bo;
+      uint32_t fd;
+      uint32_t stride;
+   } fb[NUM_FBS];
+
+   uint32_t last_page_flip;
+   uint32_t stride;
+   uint8_t index;
 };
 
 static struct {
@@ -72,6 +78,7 @@ static struct {
 
       int (*drmSetMaster)(int);
       int (*drmDropMaster)(int);
+      int (*drmIoctl)(int fd, unsigned long request, void *arg);
       int (*drmModeAddFB)(int, uint32_t, uint32_t, uint8_t, uint8_t, uint32_t, uint32_t, uint32_t*);
       int (*drmModeRmFB)(int, uint32_t);
       int (*drmModePageFlip)(int, uint32_t, uint32_t, uint32_t, void*);
@@ -151,6 +158,8 @@ drm_load(void)
       goto function_pointer_exception;
    if (!load(drmDropMaster))
       goto function_pointer_exception;
+   if (!load(drmIoctl))
+      goto function_pointer_exception;
    if (!load(drmModeAddFB))
       goto function_pointer_exception;
    if (!load(drmModeRmFB))
@@ -186,25 +195,46 @@ function_pointer_exception:
 }
 
 static void
+release_fb(struct gbm_surface *surface, struct drm_fb *fb)
+{
+   assert(fb);
+
+   if (fb->fd > 0)
+      drm.api.drmModeRmFB(drm.fd, fb->fd);
+
+   if (fb->bo)
+      gbm.api.gbm_surface_release_buffer(surface, fb->bo);
+
+   fb->bo = NULL;
+   fb->fd = 0;
+}
+
+static void
 page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
 {
-   (void)frame, (void)sec, (void)usec;
+   (void)fd, (void)frame, (void)sec, (void)usec;
 
    struct wlc_output *output = data;
    assert(output->backend_info);
    struct drm_output *drmo = output->backend_info;
 
-   if (drmo->flipper.current_fb_id > 0)
-      drm.api.drmModeRmFB(fd, drmo->flipper.current_fb_id);
+   if (drmo->last_page_flip) {
+      unsigned int missed;
+      if ((missed = frame - drmo->last_page_flip - 1)) {
+         wlc_log(WLC_LOG_WARN,
+               "[DRM]: Missed %u VBlank(s) (Frame: %u, DRM frame: %u) on output (%p)",
+               missed, frame - drmo->last_page_flip, frame, output);
+      }
+   }
 
-   drmo->flipper.current_fb_id = drmo->flipper.next_fb_id;
-   drmo->flipper.next_fb_id = 0;
+   drmo->last_page_flip = frame;
 
-   if (drmo->flipper.current_bo)
-      gbm.api.gbm_surface_release_buffer(drmo->surface, drmo->flipper.current_bo);
+   uint8_t next = (drmo->index + 1) % NUM_FBS;
+   release_fb(drmo->surface, &drmo->fb[next]);
+   drmo->index = next;
+   output->pending = false;
 
-   drmo->flipper.current_bo = drmo->flipper.next_bo;
-   drmo->flipper.next_bo = NULL;
+   output->compositor->api.schedule_repaint(output->compositor, output, true);
 }
 
 static int
@@ -220,50 +250,25 @@ drm_event(int fd, uint32_t mask, void *data)
 }
 
 static bool
-page_flip(struct wlc_output *output)
+create_fb(struct gbm_surface *surface, struct drm_fb *fb)
 {
-   assert(output->backend_info);
-   struct drm_output *drmo = output->backend_info;
+   assert(surface && fb);
 
-   /**
-    * This is currently OpenGL specific (gbm).
-    * TODO: vblanks etc..
-    */
-
-   if (drmo->flipper.next_bo || drmo->flipper.next_fb_id > 0) {
-      fd_set rfds;
-      FD_ZERO(&rfds);
-      FD_SET(drm.fd, &rfds);
-
-      /* both buffers busy, wait for them to finish */
-      while (select(drm.fd + 1, &rfds, NULL, NULL, NULL) == -1);
-      drm_event(drm.fd, 0, output);
-   }
-
-   if (!gbm.api.gbm_surface_has_free_buffers(drmo->surface))
+   if (!gbm.api.gbm_surface_has_free_buffers(surface))
       goto no_buffers;
 
-   if (!(drmo->flipper.next_bo = gbm.api.gbm_surface_lock_front_buffer(drmo->surface)))
+   if (!(fb->bo = gbm.api.gbm_surface_lock_front_buffer(surface)))
       goto failed_to_lock;
 
-   uint32_t width = gbm.api.gbm_bo_get_width(drmo->flipper.next_bo);
-   uint32_t height = gbm.api.gbm_bo_get_height(drmo->flipper.next_bo);
-   uint32_t handle = gbm.api.gbm_bo_get_handle(drmo->flipper.next_bo).u32;
-   uint32_t stride = gbm.api.gbm_bo_get_stride(drmo->flipper.next_bo);
+   uint32_t width = gbm.api.gbm_bo_get_width(fb->bo);
+   uint32_t height = gbm.api.gbm_bo_get_height(fb->bo);
+   uint32_t handle = gbm.api.gbm_bo_get_handle(fb->bo).u32;
+   uint32_t stride = gbm.api.gbm_bo_get_stride(fb->bo);
 
-   if (drm.api.drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &drmo->flipper.next_fb_id))
+   if (drm.api.drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &fb->fd))
       goto failed_to_create_fb;
 
-   if (!drmo->flipper.current_bo || stride != drmo->stride) {
-      if (drm.api.drmModeSetCrtc(drm.fd, drmo->encoder->crtc_id, drmo->flipper.next_fb_id, 0, 0, &drmo->connector->connector_id, 1, &drmo->connector->modes[output->mode]))
-         goto set_crtc_fail;
-   }
-
-   drmo->stride = stride;
-
-   if (drm.api.drmModePageFlip(drm.fd, drmo->encoder->crtc_id, drmo->flipper.next_fb_id, DRM_MODE_PAGE_FLIP_EVENT, output))
-      goto failed_to_page_flip;
-
+   fb->stride = stride;
    return true;
 
 no_buffers:
@@ -275,20 +280,46 @@ failed_to_lock:
 failed_to_create_fb:
    wlc_log(WLC_LOG_WARN, "Failed to create fb");
    goto fail;
+fail:
+   release_fb(surface, fb);
+   return false;
+}
+
+static bool
+page_flip(struct wlc_output *output)
+{
+   assert(output->backend_info && !output->pending);
+   struct drm_output *drmo = output->backend_info;
+   struct drm_fb *fb = &drmo->fb[drmo->index];
+
+   if (fb->bo)
+      release_fb(drmo->surface, fb);
+
+   if (!create_fb(drmo->surface, fb))
+      return false;
+
+   if (fb->stride != drmo->stride) {
+      wlc_log(WLC_LOG_INFO, "Set crtc (%p)", output);
+
+      if (drm.api.drmModeSetCrtc(drm.fd, drmo->encoder->crtc_id, fb->fd, 0, 0, &drmo->connector->connector_id, 1, &drmo->connector->modes[output->mode]))
+         goto set_crtc_fail;
+
+      drmo->stride = fb->stride;
+   }
+
+   if (drm.api.drmModePageFlip(drm.fd, drmo->encoder->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, output))
+      goto failed_to_page_flip;
+
+   output->pending = true;
+   return true;
+
 set_crtc_fail:
    wlc_log(WLC_LOG_WARN, "Failed to set mode: %m");
    goto fail;
 failed_to_page_flip:
    wlc_log(WLC_LOG_WARN, "Failed to page flip: %m");
 fail:
-   if (drmo->flipper.next_fb_id > 0) {
-      drm.api.drmModeRmFB(drm.fd, drmo->flipper.next_fb_id);
-      drmo->flipper.next_fb_id = 0;
-   }
-   if (drmo->flipper.next_bo) {
-      gbm.api.gbm_surface_release_buffer(drmo->surface, drmo->flipper.next_bo);
-      drmo->flipper.next_bo = NULL;
-   }
+   release_fb(drmo->surface, fb);
    return false;
 }
 
@@ -391,12 +422,9 @@ setup_drm(int fd, struct wl_array *out_infos)
    if (!(resources = drm.api.drmModeGetResources(fd)))
       goto resources_fail;
 
-   drmModeModeInfo current_mode;
-   memset(&current_mode, 0, sizeof(current_mode));
-
-   for (int i = 0; i < resources->count_connectors; i++) {
+   for (int c = 0; c < resources->count_connectors; c++) {
       drmModeConnector *connector;
-      if (!(connector = drm.api.drmModeGetConnector(fd, resources->connectors[i])))
+      if (!(connector = drm.api.drmModeGetConnector(fd, resources->connectors[c])))
          continue;
 
       if (connector->connection != DRM_MODE_CONNECTED || connector->count_modes <= 0) {
@@ -432,9 +460,6 @@ setup_drm(int fd, struct wl_array *out_infos)
       info->info.physical_height = connector->mmHeight;
       info->info.subpixel = connector->subpixel;
 
-      if (crtc->mode_valid)
-         memcpy(&current_mode, &crtc->mode, sizeof(current_mode));
-
       for (int i = 0; i < connector->count_modes; ++i) {
          struct wlc_output_mode mode;
          memset(&mode, 0, sizeof(mode));
@@ -442,15 +467,21 @@ setup_drm(int fd, struct wl_array *out_infos)
          mode.width = connector->modes[i].hdisplay;
          mode.height = connector->modes[i].vdisplay;
 
-         if (connector->modes[i].type & DRM_MODE_TYPE_PREFERRED)
+         if (connector->modes[i].type & DRM_MODE_TYPE_PREFERRED) {
             mode.flags |= WL_OUTPUT_MODE_PREFERRED;
+            if (!info->width && !info->height) {
+               info->width = connector->modes[i].hdisplay;
+               info->height = connector->modes[i].vdisplay;
+            }
+         }
 
-         if (!memcmp(&connector->modes[i], &current_mode, sizeof(current_mode))) {
+         if (crtc->mode_valid && !memcmp(&connector->modes[i], &crtc->mode, sizeof(crtc->mode))) {
             mode.flags |= WL_OUTPUT_MODE_CURRENT;
             info->width = connector->modes[i].hdisplay;
             info->height = connector->modes[i].vdisplay;
          }
 
+         wlc_log(WLC_LOG_INFO, "MODE: (%d) %ux%u %s", c, mode.width, mode.height, (mode.flags & WL_OUTPUT_MODE_CURRENT ? "*" : (mode.flags & WL_OUTPUT_MODE_PREFERRED ? "!" : "")));
          wlc_output_information_add_mode(&info->info, &mode);
       }
 

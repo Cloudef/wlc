@@ -69,7 +69,7 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
    wl_array_for_each(mode, &output->information.modes) {
       wl_output_send_mode(resource, mode->flags, mode->width, mode->height, mode->refresh);
 
-      if (mode->flags & WL_OUTPUT_MODE_CURRENT)
+      if (mode->flags & WL_OUTPUT_MODE_CURRENT || (output->mode == UINT_MAX && (mode->flags & WL_OUTPUT_MODE_PREFERRED)))
          output->mode = m;
 
       ++m;
@@ -212,8 +212,6 @@ wlc_output_focus_space(struct wlc_output *output, struct wlc_space *space)
 
    if (output->compositor->interface.space.activated)
       output->compositor->interface.space.activated(output->compositor, space);
-
-   output->compositor->api.schedule_repaint(output->compositor);
 }
 
 WLC_API struct wlc_output*

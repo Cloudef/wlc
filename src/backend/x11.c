@@ -46,6 +46,7 @@ static struct {
    xcb_atom_t atoms[ATOM_LAST];
 
    struct wlc_compositor *compositor;
+   struct wl_event_source *repaint_timer;
 
    struct {
       void *x11_handle;
@@ -294,9 +295,6 @@ x11_event(int fd, uint32_t mask, void *data)
             }
          }
          break;
-         case XCB_EXPOSE:
-            seat->compositor->api.schedule_repaint(seat->compositor);
-            break;
          case XCB_CONFIGURE_NOTIFY: {
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
             struct wlc_output *output;
@@ -349,9 +347,25 @@ x11_event(int fd, uint32_t mask, void *data)
    return count;
 }
 
+static int
+cb_repaint_timer(void *data)
+{
+   struct wlc_compositor *compositor = data;
+
+   struct wlc_output *o;
+   wl_list_for_each(o, &compositor->outputs, link)
+      compositor->api.schedule_repaint(compositor, o, true);
+
+   wl_event_source_timer_update(x11.repaint_timer, 16);
+   return 1;
+}
+
 static void
 terminate(void)
 {
+   if (x11.repaint_timer)
+      wl_event_source_remove(x11.repaint_timer);
+
    if (x11.cursor)
       x11.api.xcb_free_cursor(x11.connection, x11.cursor);
 
@@ -495,6 +509,9 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
       goto event_source_fail;
 
    wl_event_source_check(seat.event_source);
+
+   x11.repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
+   wl_event_source_timer_update(x11.repaint_timer, 16);
 
    x11.compositor = compositor;
    out_backend->name = "X11";

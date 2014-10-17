@@ -49,6 +49,9 @@ struct wlc_output {
    struct {
       uint32_t width, height;
    } resolution;
+
+   bool pending;
+   bool scheduled;
 };
 
 bool wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode);

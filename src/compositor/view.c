@@ -216,8 +216,6 @@ wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height)
 
    view->geometry.w = width;
    view->geometry.h = height;
-
-   view->surface->compositor->api.schedule_repaint(view->surface->compositor);
 }
 
 WLC_API void
@@ -230,8 +228,6 @@ wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
 
    view->geometry.x = x;
    view->geometry.y = y;
-
-   view->surface->compositor->api.schedule_repaint(view->surface->compositor);
 }
 
 WLC_API void

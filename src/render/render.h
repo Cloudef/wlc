@@ -21,7 +21,6 @@ struct wlc_render {
       void (*pointer)(int32_t x, int32_t y);
       void (*clear)(void);
       void (*swap)(void);
-      void (*resolution)(struct wlc_output *output, int32_t width, int32_t height);
    } api;
 };
 

@@ -187,8 +187,6 @@ seat_pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
    if (!seat->pointer)
       return;
 
-   seat->compositor->api.schedule_repaint(seat->compositor);
-
    if (seat->compositor->interface.pointer.motion &&
       !seat->compositor->interface.pointer.motion(seat->compositor, seat->pointer->focus, x, y))
       return;

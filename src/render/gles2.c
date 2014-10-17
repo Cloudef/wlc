@@ -49,6 +49,7 @@ struct gl_context {
 
    GLuint cursor;
    enum program_type current_program;
+   uint32_t width, height;
 };
 
 static struct {
@@ -348,6 +349,18 @@ bind(struct wlc_output *output)
 
    gl.bind_context = output->render_info;
    gl.bind_output = output;
+
+   if (output->resolution.width != gl.bind_context->width || output->resolution.height != gl.bind_context->height) {
+      for (int i = 0; i < PROGRAM_LAST; ++i) {
+         set_program(gl.bind_context, i);
+         gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_WIDTH], output->resolution.width);
+         gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_HEIGHT], output->resolution.height);
+      }
+
+      gl.api.glViewport(0, 0, (gl.bind_context->width = output->resolution.width), (gl.bind_context->height = output->resolution.height));
+      wlc_log(WLC_LOG_INFO, "(%p) %ux%u %ux%u", output, gl.bind_context->width, gl.bind_context->height, output->resolution.width, output->resolution.height);
+   }
+
    return true;
 }
 
@@ -438,7 +451,6 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    void *data = wl_shm_buffer_get_data(buffer->shm_buffer);
    gl.api.glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitch, buffer->height, 0, gl_format, gl_pixel_type, data);
    wl_shm_buffer_end_access(buffer->shm_buffer);
-   wl_resource_queue_event(buffer->resource, WL_BUFFER_RELEASE);
 }
 
 static void
@@ -494,8 +506,6 @@ egl_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t form
       gl.api.glBindTexture(target, surface->textures[i]);
       gl.api.glEGLImageTargetTexture2DOES(target, surface->images[i]);
    }
-
-   wl_resource_queue_event(buffer->resource, WL_BUFFER_RELEASE);
 }
 
 static void
@@ -622,24 +632,6 @@ clear(void)
 }
 
 static void
-resolution(struct wlc_output *output, int32_t width, int32_t height)
-{
-   struct wlc_output *old = gl.bind_output;
-   bind(output);
-
-   for (int i = 0; i < PROGRAM_LAST; ++i) {
-      set_program(gl.bind_context, i);
-      gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_WIDTH], width);
-      gl.api.glUniform1f(gl.bind_context->programs[gl.bind_context->current_program].uniforms[UNIFORM_HEIGHT], height);
-   }
-
-   gl.api.glViewport(0, 0, width, height);
-
-   if (old)
-      bind(old);
-}
-
-static void
 terminate(void)
 {
    if (gl.api.handle)
@@ -666,7 +658,6 @@ wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render)
    out_render->api.clear = clear;
    out_render->api.swap = swap;
    out_render->api.bind = bind;
-   out_render->api.resolution = resolution;
 
    wlc_log(WLC_LOG_INFO, "GLES2 renderer initialized");
    return true;
