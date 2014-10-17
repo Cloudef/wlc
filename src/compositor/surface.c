@@ -16,6 +16,34 @@
 #include <wayland-server.h>
 
 static void
+create_notify(struct wlc_surface *surface)
+{
+   if (surface->created)
+      return;
+
+   struct wlc_view *view;
+   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)))
+      return;
+
+   if (!view->shell_surface && !view->xdg_surface && !view->x11_window)
+      return;
+
+   wl_list_remove(&view->link);
+   wl_list_insert(surface->space->views.prev, &view->link);
+
+   view->geometry.w = surface->width;
+   view->geometry.h = surface->height;
+
+   if (surface->compositor->interface.view.created &&
+      !surface->compositor->interface.view.created(surface->compositor, view)) {
+      wlc_surface_free(surface);
+      return;
+   }
+
+   surface->created = true;
+}
+
+static void
 wlc_surface_state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer *buffer)
 {
    if (state->buffer == buffer)
@@ -37,12 +65,13 @@ wlc_surface_set_size(struct wlc_surface *surface, int32_t width, int32_t height)
 static void
 wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
-   if (!buffer) {
+   if (buffer) {
+      create_notify(surface);
+   } else {
       /* TODO: unmap surface if mapped */
    }
 
-   if (surface->created)
-      surface->compositor->render->api.attach(surface, buffer);
+   surface->compositor->render->api.attach(surface, buffer);
 
    int32_t width = 0, height = 0;
    if (buffer) {
@@ -147,7 +176,6 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    wl_list_insert(&surface->pending.frame_cb_list, &callback->link);
 
-   wlc_surface_create_notify(surface);
    return;
 
 fail:
@@ -229,31 +257,6 @@ wl_cb_surface_destructor(struct wl_resource *resource)
       surface->resource = NULL;
       wlc_surface_free(surface);
    }
-}
-
-void
-wlc_surface_create_notify(struct wlc_surface *surface)
-{
-   if (surface->created)
-      return;
-
-   struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)))
-      return;
-
-   wl_list_remove(&view->link);
-   wl_list_insert(surface->space->views.prev, &view->link);
-
-   view->geometry.w = surface->width;
-   view->geometry.h = surface->height;
-
-   if (surface->compositor->interface.view.created &&
-      !surface->compositor->interface.view.created(surface->compositor, view)) {
-      wlc_surface_free(surface);
-      return;
-   }
-
-   surface->created = true;
 }
 
 void

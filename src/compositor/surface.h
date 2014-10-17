@@ -50,7 +50,6 @@ struct wlc_surface {
    bool created;
 };
 
-void wlc_surface_create_notify(struct wlc_surface *surface);
 void wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource);
 void wlc_surface_free(struct wlc_surface *surface);
 struct wlc_surface* wlc_surface_new(struct wlc_compositor *compositor, struct wlc_space *space);

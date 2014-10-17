@@ -409,7 +409,6 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    view->x11_window = win;
 
    wlc_x11_window_resize(win, view->geometry.w, view->geometry.h);
-   wlc_surface_create_notify(view->surface);
 
    wl_list_remove(&win->link);
    wl_list_insert(&xwm.windows, &win->link);

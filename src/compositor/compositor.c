@@ -358,9 +358,7 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
             compositor->render->api.destroy(view->surface);
 
          view->surface->created = false;
-
-         if ((view->surface->space = (compositor->output ? compositor->output->space : NULL)))
-            wlc_surface_create_notify(view->surface);
+         view->surface->space = (compositor->output ? compositor->output->space : NULL);
       }
    }
 
