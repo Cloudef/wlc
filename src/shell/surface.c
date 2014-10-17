@@ -13,6 +13,19 @@
 #include <wayland-server.h>
 
 static void
+request_state(struct wlc_shell_surface *shell_surface, enum wlc_view_bit state, bool toggle)
+{
+   if (!shell_surface->surface->compositor->interface.view.request.state)
+      return;
+
+   // FIXME: Ugly, maybe even move to view. But this is another thing addressed by resource management.
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->space->views)) ||
+       (view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->unmapped)))
+      shell_surface->surface->compositor->interface.view.request.state(shell_surface->surface->compositor, view, state, toggle);
+}
+
+static void
 wl_cb_shell_surface_pong(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
 {
    (void)wl_client, (void)serial;
@@ -37,7 +50,8 @@ static void
 wl_cb_shell_surface_set_toplevel(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client, (void)resource;
-   STUBL(resource);
+   struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
+   request_state(shell_surface, WLC_BIT_FULLSCREEN, false);
 }
 
 static void
@@ -57,11 +71,7 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resour
 
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
    // wlc_shell_surface_set_output(shell_surface, output);
-
-   struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->space->views)) ||
-       (view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->unmapped)))
-      wlc_view_set_fullscreen(view, true);
+   request_state(shell_surface, WLC_BIT_FULLSCREEN, true);
 }
 
 static void
@@ -81,11 +91,7 @@ wl_cb_shell_surface_set_maximized(struct wl_client *wl_client, struct wl_resourc
 
    struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
    // wlc_shell_surface_set_output(shell_surface, output);
-
-   struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->space->views)) ||
-       (view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->unmapped)))
-      wlc_view_set_maximized(view, true);
+   request_state(shell_surface, WLC_BIT_MAXIMIZED, true);
 }
 
 static void

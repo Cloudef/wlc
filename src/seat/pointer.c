@@ -104,8 +104,9 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 
       if (pointer->action == WLC_GRAB_ACTION_MOVE) {
          const int32_t x = focused->commit.geometry.origin.x + dx, y = focused->commit.geometry.origin.y + dy;
-         if (focused->surface->compositor->interface.view.move) {
-            focused->surface->compositor->interface.view.move(focused->surface->compositor, focused, x, y);
+         const uint32_t w = focused->commit.geometry.size.w, h = focused->commit.geometry.size.h;
+         if (focused->surface->compositor->interface.view.request.geometry) {
+            focused->surface->compositor->interface.view.request.geometry(focused->surface->compositor, focused, x, y, w, h);
          } else {
             wlc_view_position(focused, x, y);
          }
@@ -127,12 +128,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
             h += dy;
          }
 
-         if (focused->surface->compositor->interface.view.resize) {
-            focused->surface->compositor->interface.view.resize(focused->surface->compositor, focused, w, h);
-         } else {
-            wlc_view_resize(focused, w, h);
-            wlc_view_position(focused, x, y);
-         }
+         if (focused->surface->compositor->interface.view.request.geometry)
+            focused->surface->compositor->interface.view.request.geometry(focused->surface->compositor, focused, x, y, w, h);
       }
 
       pointer->gx = pointer->x;

@@ -19,9 +19,13 @@
 #include <wayland-server.h>
 #include "wayland-xdg-shell-server-protocol.h"
 
-#define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
+#ifndef MIN
+#  define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
+
+#ifndef MAX
+#  define MAX(a,b) (((a)>(b))?(a):(b))
+#endif
 
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
@@ -163,31 +167,12 @@ wlc_view_get_state(struct wlc_view *view)
 }
 
 WLC_API void
-wlc_view_set_maximized(struct wlc_view *view, bool maximized)
+wlc_view_set_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle)
 {
    assert(view);
-   view->pending.state = BIT_TOGGLE(view->pending.state, WLC_BIT_MAXIMIZED, maximized);
-}
-
-WLC_API void
-wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen)
-{
-   assert(view);
-   view->pending.state = BIT_TOGGLE(view->pending.state, WLC_BIT_FULLSCREEN, fullscreen);
-}
-
-WLC_API void
-wlc_view_set_resizing(struct wlc_view *view, bool resizing)
-{
-   assert(view);
-   view->pending.state = BIT_TOGGLE(view->pending.state, WLC_BIT_RESIZING, resizing);
-}
-
-WLC_API void
-wlc_view_set_active(struct wlc_view *view, bool active)
-{
-   assert(view);
-   view->pending.state = BIT_TOGGLE(view->pending.state, WLC_BIT_ACTIVATED, active);
+#define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
+   view->pending.state = BIT_TOGGLE(view->pending.state, state, toggle);
+#undef BIT_TOGGLE
 }
 
 WLC_API void

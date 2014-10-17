@@ -17,6 +17,19 @@
 #include "wayland-xdg-shell-server-protocol.h"
 
 static void
+request_state(struct wlc_xdg_surface *xdg_surface, enum wlc_view_bit state, bool toggle)
+{
+   if (!xdg_surface->shell_surface->surface->compositor->interface.view.request.state)
+      return;
+
+   // FIXME: Ugly, maybe even move to view. But this is another thing addressed by resource management.
+   struct wlc_view *view;
+   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
+       (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
+      xdg_surface->shell_surface->surface->compositor->interface.view.request.state(xdg_surface->shell_surface->surface->compositor, view, state, toggle);
+}
+
+static void
 xdg_cb_surface_destroy(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client, (void)resource;
@@ -99,11 +112,7 @@ xdg_cb_surface_set_maximized(struct wl_client *wl_client, struct wl_resource *re
 {
    (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-
-   struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
-       (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
-      wlc_view_set_maximized(view, true);
+   request_state(xdg_surface, WLC_BIT_MAXIMIZED, true);
 }
 
 static void
@@ -111,11 +120,7 @@ xdg_cb_surface_unset_maximized(struct wl_client *wl_client, struct wl_resource *
 {
    (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-
-   struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
-       (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
-      wlc_view_set_maximized(view, false);
+   request_state(xdg_surface, WLC_BIT_MAXIMIZED, false);
 }
 
 static void
@@ -128,11 +133,7 @@ xdg_cb_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resource *r
 
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
    // wlc_shell_surface_set_output(xdg_surface->shell_surface, output);
-
-   struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
-       (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
-      wlc_view_set_fullscreen(view, true);
+   request_state(xdg_surface, WLC_BIT_FULLSCREEN, true);
 }
 
 static void
@@ -140,11 +141,7 @@ xdg_cb_surface_unset_fullscreen(struct wl_client *wl_client, struct wl_resource 
 {
    (void)wl_client;
    struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-
-   struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
-       (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
-      wlc_view_set_fullscreen(view, false);
+   request_state(xdg_surface, WLC_BIT_FULLSCREEN, false);
 }
 
 static void

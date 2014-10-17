@@ -68,8 +68,11 @@ struct wlc_interface {
    struct {
       bool (*created)(struct wlc_compositor*, struct wlc_view*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_view*);
-      void (*move)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y);
-      void (*resize)(struct wlc_compositor*, struct wlc_view*, uint32_t width, uint32_t height);
+
+      struct {
+         void (*geometry)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y, uint32_t width, uint32_t height);
+         void (*state)(struct wlc_compositor*, struct wlc_view*, enum wlc_view_bit state, bool toggle);
+      } request;
    } view;
 
    struct {
@@ -83,14 +86,14 @@ struct wlc_interface {
    } pointer;
 
    struct {
-      void (*created)(struct wlc_compositor*, struct wlc_output*);
+      bool (*created)(struct wlc_compositor*, struct wlc_output*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_output*);
       void (*activated)(struct wlc_compositor*, struct wlc_output*);
       void (*resolution)(struct wlc_compositor*, struct wlc_output*, uint32_t width, uint32_t height);
    } output;
 
    struct {
-      void (*created)(struct wlc_compositor*, struct wlc_space*);
+      bool (*created)(struct wlc_compositor*, struct wlc_space*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_space*);
       void (*activated)(struct wlc_compositor*, struct wlc_space*);
    } space;
@@ -121,10 +124,7 @@ struct wlc_space* wlc_space_add(struct wlc_output *output);
 
 struct wlc_space* wlc_view_get_space(struct wlc_view *view);
 uint32_t wlc_view_get_state(struct wlc_view *view);
-void wlc_view_set_maximized(struct wlc_view *view, bool maximized);
-void wlc_view_set_fullscreen(struct wlc_view *view, bool fullscreen);
-void wlc_view_set_resizing(struct wlc_view *view, bool resizing);
-void wlc_view_set_active(struct wlc_view *view, bool active);
+void wlc_view_set_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle);
 void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
 void wlc_view_position(struct wlc_view *view, int32_t x, int32_t y);
 void wlc_view_close(struct wlc_view *view);
