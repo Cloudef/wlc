@@ -15,12 +15,13 @@ struct wlc_buffer {
       void *legacy_buffer;
    };
 
+   uint32_t references;
    int32_t width, height;
-   uint32_t busy_count;
    bool y_inverted;
 };
 
 void wlc_buffer_free(struct wlc_buffer *buffer);
+struct wlc_buffer* wlc_buffer_use(struct wlc_buffer *buffer);
 struct wlc_buffer* wlc_buffer_new(struct wl_resource *resource);
 
 #endif /* _WLC_BUFFER_H_ */

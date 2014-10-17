@@ -50,9 +50,9 @@ wlc_surface_state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer 
       return;
 
    if (state->buffer)
-      wl_resource_queue_event(state->buffer->resource, WL_BUFFER_RELEASE);
+      wlc_buffer_free(state->buffer);
 
-   state->buffer = buffer;
+   state->buffer = wlc_buffer_use(buffer);
 }
 
 static void
@@ -104,7 +104,7 @@ wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *
       wlc_surface_attach(surface, state->buffer);
 
    wlc_surface_state_set_buffer(out, state->buffer);
-   state->buffer = NULL;
+   wlc_surface_state_set_buffer(state, NULL);
 
    state->sx = state->sy = 0;
    state->newly_attached = false;
@@ -139,14 +139,27 @@ static void
 wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *buffer_resource, int32_t x, int32_t y)
 {
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
-   struct wlc_buffer *buffer = NULL;
 
-   if (buffer_resource && !(buffer = wlc_buffer_new(buffer_resource))) {
+   // XXX: We can't set or get buffer_resource user data.
+   // It seems to be owned by somebody else?
+   // What use is user data which we can't use...
+   //
+   // Workaround by branching, weston seems to hack with the container_of macro
+
+   struct wlc_buffer *buffer = NULL;
+   if (surface->pending.buffer && surface->pending.buffer->resource == buffer_resource) {
+      buffer = surface->pending.buffer;
+   } else if (surface->commit.buffer && surface->commit.buffer->resource == buffer_resource) {
+      buffer = surface->commit.buffer;
+   }
+
+   if (!buffer && buffer_resource && !(buffer = wlc_buffer_new(buffer_resource))) {
       wl_client_post_no_memory(wl_client);
       return;
    }
 
    wlc_surface_state_set_buffer(&surface->pending, buffer);
+
    surface->pending.sx = x;
    surface->pending.sy = y;
    surface->pending.newly_attached = true;
@@ -301,6 +314,12 @@ wlc_surface_free(struct wlc_surface *surface)
 
    if (surface->compositor && surface->compositor->render)
       surface->compositor->render->api.destroy(surface);
+
+   if (surface->commit.buffer)
+      wlc_buffer_free(surface->commit.buffer);
+
+   if (surface->pending.buffer)
+      wlc_buffer_free(surface->pending.buffer);
 
    free(surface);
 }
