@@ -484,6 +484,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
          if (i < NUM_OUTPUTS) {
             struct wl_array cpy;
+            wl_array_init(&cpy);
             wl_array_copy(&cpy, &info.modes);
             memcpy(&info.modes, &cpy, sizeof(struct wl_array));
          }
