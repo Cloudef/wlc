@@ -96,7 +96,6 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
    if (!is_valid_view(focused))
       return;
 
-   printf("%d, %d\n", dx, dy);
    wl_pointer_send_motion(focused->client->input[WLC_POINTER], time, wl_fixed_from_int(dx), wl_fixed_from_int(dy));
 
    if (pointer->grabbing) {
