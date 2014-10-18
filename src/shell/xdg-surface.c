@@ -66,7 +66,7 @@ xdg_cb_surface_move(struct wl_client *wl_client, struct wl_resource *resource, s
 static void
 xdg_cb_surface_resize(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial, uint32_t edges)
 {
-   (void)wl_client, (void)resource, (void)serial, (void)edges;
+   (void)wl_client, (void)resource, (void)serial;
    struct wlc_seat *seat = wl_resource_get_user_data(seat_resource);
 
    if (!seat->pointer || !seat->pointer->focus)

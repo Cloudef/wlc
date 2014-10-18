@@ -1,6 +1,9 @@
 #include "surface.h"
 #include "macros.h"
 
+#include "seat/seat.h"
+#include "seat/pointer.h"
+
 #include "compositor/view.h"
 #include "compositor/output.h"
 
@@ -17,17 +20,28 @@ wl_cb_shell_surface_pong(struct wl_client *wl_client, struct wl_resource *resour
 }
 
 static void
-wl_cb_shell_surface_move(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial)
+wl_cb_shell_surface_move(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial)
 {
-   (void)wl_client, (void)resource, (void)seat, (void)serial;
-   STUB(resource);
+   (void)wl_client, (void)resource, (void)serial;
+   struct wlc_seat *seat = wl_resource_get_user_data(seat_resource);
+
+   if (!seat->pointer || !seat->pointer->focus)
+      return;
+
+   seat->pointer->action = WLC_GRAB_ACTION_MOVE;
 }
 
 static void
-wl_cb_shell_surface_resize(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, uint32_t edges)
+wl_cb_shell_surface_resize(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial, uint32_t edges)
 {
-   (void)wl_client, (void)seat, (void)serial, (void)edges;
-   STUB(resource);
+   (void)wl_client, (void)resource, (void)serial;
+   struct wlc_seat *seat = wl_resource_get_user_data(seat_resource);
+
+   if (!seat->pointer || !seat->pointer->focus)
+      return;
+
+   seat->pointer->action = WLC_GRAB_ACTION_RESIZE;
+   seat->pointer->action_edges = edges;
 }
 
 static void
