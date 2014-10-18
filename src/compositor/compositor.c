@@ -73,12 +73,12 @@ wl_cb_subsurface_set_desync(struct wl_client *wl_client, struct wl_resource *res
 }
 
 static const struct wl_subsurface_interface wl_subsurface_implementation = {
-   wl_cb_subsurface_destroy,
-   wl_cb_subsurface_set_position,
-   wl_cb_subsurface_place_above,
-   wl_cb_subsurface_place_below,
-   wl_cb_subsurface_set_sync,
-   wl_cb_subsurface_set_desync
+   .destroy = wl_cb_subsurface_destroy,
+   .set_position = wl_cb_subsurface_set_position,
+   .place_above = wl_cb_subsurface_place_above,
+   .place_below = wl_cb_subsurface_place_below,
+   .set_sync = wl_cb_subsurface_set_sync,
+   .set_desync = wl_cb_subsurface_set_desync
 };
 
 static void
@@ -104,8 +104,8 @@ wl_cb_subcompositor_destroy(struct wl_client *wl_client, struct wl_resource *res
 }
 
 static const struct wl_subcompositor_interface wl_subcompositor_implementation = {
-   wl_cb_subcompositor_destroy,
-   wl_cb_subcompositor_get_subsurface
+   .destroy = wl_cb_subcompositor_destroy,
+   .get_subsurface = wl_cb_subcompositor_get_subsurface
 };
 
 static void
@@ -164,8 +164,8 @@ fail:
 }
 
 static const struct wl_compositor_interface wl_compositor_implementation = {
-   wl_cb_surface_create,
-   wl_cb_region_create
+   .create_surface = wl_cb_surface_create,
+   .create_region = wl_cb_region_create
 };
 
 static void

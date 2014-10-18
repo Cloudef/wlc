@@ -44,7 +44,7 @@ wl_cb_shell_get_shell_surface(struct wl_client *wl_client, struct wl_resource *r
 }
 
 static const struct wl_shell_interface wl_shell_implementation = {
-   wl_cb_shell_get_shell_surface
+   .get_shell_surface = wl_cb_shell_get_shell_surface
 };
 
 static void

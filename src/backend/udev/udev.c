@@ -44,8 +44,8 @@ input_close_restricted(int fd, void *user_data)
 }
 
 static const struct libinput_interface libinput_implementation = {
-   input_open_restricted,
-   input_close_restricted,
+   .open_restricted = input_open_restricted,
+   .close_restricted = input_close_restricted,
 };
 
 static int

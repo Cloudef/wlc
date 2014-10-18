@@ -136,20 +136,20 @@ xdg_cb_surface_set_minimized(struct wl_client *wl_client, struct wl_resource *re
 }
 
 const struct xdg_surface_interface xdg_surface_implementation = {
-   xdg_cb_surface_destroy,
-   xdg_cb_surface_set_parent,
-   xdg_cb_surface_set_title,
-   xdg_cb_surface_set_app_id,
-   xdg_cb_surface_show_window_menu,
-   xdg_cb_surface_move,
-   xdg_cb_surface_resize,
-   xdg_cb_surface_ack_configure,
-   xdg_cb_surface_set_window_geometry,
-   xdg_cb_surface_set_maximized,
-   xdg_cb_surface_unset_maximized,
-   xdg_cb_surface_set_fullscreen,
-   xdg_cb_surface_unset_fullscreen,
-   xdg_cb_surface_set_minimized
+   .destroy = xdg_cb_surface_destroy,
+   .set_parent = xdg_cb_surface_set_parent,
+   .set_title = xdg_cb_surface_set_title,
+   .set_app_id = xdg_cb_surface_set_app_id,
+   .show_window_menu = xdg_cb_surface_show_window_menu,
+   .move = xdg_cb_surface_move,
+   .resize = xdg_cb_surface_resize,
+   .ack_configure = xdg_cb_surface_ack_configure,
+   .set_window_geometry = xdg_cb_surface_set_window_geometry,
+   .set_maximized = xdg_cb_surface_set_maximized,
+   .unset_maximized = xdg_cb_surface_unset_maximized,
+   .set_fullscreen = xdg_cb_surface_set_fullscreen,
+   .unset_fullscreen = xdg_cb_surface_unset_fullscreen,
+   .set_minimized = xdg_cb_surface_set_minimized
 };
 
 static void

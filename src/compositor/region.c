@@ -23,7 +23,7 @@ wl_cb_region_add(struct wl_client *wl_client, struct wl_resource *resource, int3
 }
 
 static void
-wl_cb_region_substract(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
+wl_cb_region_subtract(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
 {
    (void)wl_client;
    struct wlc_region *region = wl_resource_get_user_data(resource);
@@ -35,9 +35,9 @@ wl_cb_region_substract(struct wl_client *wl_client, struct wl_resource *resource
 }
 
 static const struct wl_region_interface wl_region_implementation = {
-   wl_cb_region_destroy,
-   wl_cb_region_add,
-   wl_cb_region_substract,
+   .destroy = wl_cb_region_destroy,
+   .add = wl_cb_region_add,
+   .subtract = wl_cb_region_subtract,
 };
 
 static void

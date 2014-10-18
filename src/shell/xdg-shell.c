@@ -68,10 +68,10 @@ xdg_cb_shell_pong(struct wl_client *wl_client, struct wl_resource *resource, uin
 }
 
 static const struct xdg_shell_interface xdg_shell_implementation = {
-   xdg_cb_shell_use_unstable_version,
-   xdg_cb_shell_get_surface,
-   xdg_cb_shell_get_popup,
-   xdg_cb_shell_pong
+   .use_unstable_version = xdg_cb_shell_use_unstable_version,
+   .get_xdg_surface = xdg_cb_shell_get_surface,
+   .get_xdg_popup = xdg_cb_shell_get_popup,
+   .pong = xdg_cb_shell_pong
 };
 
 static void

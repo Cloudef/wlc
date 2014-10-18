@@ -93,16 +93,16 @@ wl_cb_shell_surface_set_class(struct wl_client *wl_client, struct wl_resource *r
 }
 
 static const struct wl_shell_surface_interface wl_shell_surface_implementation = {
-   wl_cb_shell_surface_pong,
-   wl_cb_shell_surface_move,
-   wl_cb_shell_surface_resize,
-   wl_cb_shell_surface_set_toplevel,
-   wl_cb_shell_surface_set_transient,
-   wl_cb_shell_surface_set_fullscreen,
-   wl_cb_shell_surface_set_popup,
-   wl_cb_shell_surface_set_maximized,
-   wl_cb_shell_surface_set_title,
-   wl_cb_shell_surface_set_class,
+   .pong = wl_cb_shell_surface_pong,
+   .move = wl_cb_shell_surface_move,
+   .resize = wl_cb_shell_surface_resize,
+   .set_toplevel = wl_cb_shell_surface_set_toplevel,
+   .set_transient = wl_cb_shell_surface_set_transient,
+   .set_fullscreen = wl_cb_shell_surface_set_fullscreen,
+   .set_popup = wl_cb_shell_surface_set_popup,
+   .set_maximized = wl_cb_shell_surface_set_maximized,
+   .set_title = wl_cb_shell_surface_set_title,
+   .set_class = wl_cb_shell_surface_set_class,
 };
 
 static void

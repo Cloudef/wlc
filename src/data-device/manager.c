@@ -89,9 +89,9 @@ wl_cb_data_offer_destroy(struct wl_client *wl_client, struct wl_resource *resour
 }
 
 static struct wl_data_offer_interface wl_data_offer_implementation = {
-   wl_cb_data_offer_accept,
-   wl_cb_data_offer_receive,
-   wl_cb_data_offer_destroy
+   .accept = wl_cb_data_offer_accept,
+   .receive = wl_cb_data_offer_receive,
+   .destroy = wl_cb_data_offer_destroy
 };
 
 static void
@@ -122,8 +122,8 @@ wl_cb_data_source_destroy(struct wl_client *wl_client, struct wl_resource *resou
 }
 
 static struct wl_data_source_interface wl_data_source_implementation = {
-   wl_cb_data_source_offer,
-   wl_cb_data_source_destroy
+   .offer = wl_cb_data_source_offer,
+   .destroy = wl_cb_data_source_destroy
 };
 
 static void
@@ -184,8 +184,8 @@ wl_cb_data_device_set_selection(struct wl_client *wl_client, struct wl_resource 
 }
 
 static struct wl_data_device_interface wl_data_device_implementation = {
-   wl_cb_data_device_start_drag,
-   wl_cb_data_device_set_selection
+   .start_drag = wl_cb_data_device_start_drag,
+   .set_selection = wl_cb_data_device_set_selection
 };
 
 static void
@@ -212,8 +212,8 @@ wl_cb_manager_get_data_device(struct wl_client *wl_client, struct wl_resource *r
 }
 
 static const struct wl_data_device_manager_interface wl_data_device_manager_implementation = {
-   wl_cb_manager_create_data_source,
-   wl_cb_manager_get_data_device
+   .create_data_source = wl_cb_manager_create_data_source,
+   .get_data_device = wl_cb_manager_get_data_device
 };
 
 static void

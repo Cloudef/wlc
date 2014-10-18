@@ -41,8 +41,8 @@ wl_cb_input_resource_release(struct wl_client *wl_client, struct wl_resource *re
 }
 
 static const struct wl_pointer_interface wl_pointer_implementation = {
-   wl_cb_pointer_set_cursor,
-   wl_cb_input_resource_release
+   .set_cursor = wl_cb_pointer_set_cursor,
+   .release = wl_cb_input_resource_release
 };
 
 static void
@@ -78,7 +78,7 @@ wl_cb_seat_get_pointer(struct wl_client *wl_client, struct wl_resource *resource
 }
 
 static const struct wl_keyboard_interface wl_keyboard_implementation = {
-   wl_cb_input_resource_release,
+   .release = wl_cb_input_resource_release,
 };
 
 static void
@@ -142,9 +142,9 @@ wl_cb_seat_get_touch(struct wl_client *wl_client, struct wl_resource *resource, 
 }
 
 static const struct wl_seat_interface wl_seat_implementation = {
-   wl_cb_seat_get_pointer,
-   wl_cb_seat_get_keyboard,
-   wl_cb_seat_get_touch
+   .get_pointer = wl_cb_seat_get_pointer,
+   .get_keyboard = wl_cb_seat_get_keyboard,
+   .get_touch = wl_cb_seat_get_touch
 };
 
 static void

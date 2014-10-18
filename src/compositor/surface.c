@@ -214,15 +214,15 @@ wl_cb_surface_set_buffer_scale(struct wl_client *wl_client, struct wl_resource *
 }
 
 static const struct wl_surface_interface wl_surface_implementation = {
-   wl_cb_surface_destroy,
-   wl_cb_surface_attach,
-   wl_cb_surface_damage,
-   wl_cb_surface_frame,
-   wl_cb_surface_set_opaque_region,
-   wl_cb_surface_set_input_region,
-   wl_cb_surface_commit,
-   wl_cb_surface_set_buffer_transform,
-   wl_cb_surface_set_buffer_scale
+   .destroy = wl_cb_surface_destroy,
+   .attach = wl_cb_surface_attach,
+   .damage = wl_cb_surface_damage,
+   .frame = wl_cb_surface_frame,
+   .set_opaque_region = wl_cb_surface_set_opaque_region,
+   .set_input_region = wl_cb_surface_set_input_region,
+   .commit = wl_cb_surface_commit,
+   .set_buffer_transform = wl_cb_surface_set_buffer_transform,
+   .set_buffer_scale = wl_cb_surface_set_buffer_scale
 };
 
 static void
