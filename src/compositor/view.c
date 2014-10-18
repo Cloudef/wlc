@@ -51,15 +51,6 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
             *s = map[i].state;
          }
       }
-
-      if (view->x11_window) {
-         if ((pending->state & WLC_BIT_ACTIVATED) != (out->state & WLC_BIT_ACTIVATED)) {
-            wlc_x11_window_set_active(view->x11_window, (pending->state & WLC_BIT_ACTIVATED));
-
-            if (pending->state & WLC_BIT_ACTIVATED)
-               wlc_compositor_focus_view(view->compositor, view);
-         }
-      }
    }
 
    uint32_t serial = wl_display_next_serial(view->compositor->display);
@@ -167,6 +158,16 @@ wlc_view_set_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle)
 #define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
    view->pending.state = BIT_TOGGLE(view->pending.state, state, toggle);
 #undef BIT_TOGGLE
+
+   // XXX: this is bit of hack since it relies on state
+   //      we should do this in the focus call from public api
+   //      and handle unfocus somehow (xwm should keep state I guess)
+   if (view->x11_window && state == WLC_BIT_ACTIVATED) {
+      wlc_x11_window_set_active(view->x11_window, toggle);
+
+      if (toggle)
+         wlc_compositor_focus_view(view->compositor, view);
+   }
 }
 
 WLC_API void
