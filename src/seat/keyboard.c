@@ -7,6 +7,8 @@
 #include "compositor/surface.h"
 #include "compositor/compositor.h"
 
+#include "xwayland/xwm.h"
+
 #include <stdlib.h>
 #include <assert.h>
 
@@ -68,10 +70,17 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
    if (keyboard->focus == view)
       return;
 
-   if (is_valid_view(keyboard->focus))
+   if (is_valid_view(keyboard->focus)) {
       wl_keyboard_send_leave(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
 
+      if (keyboard->focus->x11_window)
+         wlc_x11_window_set_active(keyboard->focus->x11_window, false);
+   }
+
    if (is_valid_view(view)) {
+      if (view->x11_window)
+         wlc_x11_window_set_active(view->x11_window, true);
+
       struct wl_array keys;
       wl_array_init(&keys);
       wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keys);
