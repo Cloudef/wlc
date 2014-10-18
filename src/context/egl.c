@@ -17,8 +17,6 @@
 
 #include <wayland-server.h>
 
-// FIXME: contains global state
-
 struct ctx {
    const char *extensions;
    struct wlc_backend_surface *bsurface;

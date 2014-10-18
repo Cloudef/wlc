@@ -20,8 +20,6 @@
 
 #include <wayland-server.h>
 
-// FIXME: contains global state
-
 unsigned char cursor_rgba[];
 
 enum program_type {
