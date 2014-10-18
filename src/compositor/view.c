@@ -102,20 +102,6 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
    out_bounds->size.h = MAX(out_bounds->size.h, 1);
 }
 
-struct wlc_view*
-wlc_view_for_surface_in_list(struct wlc_surface *surface, struct wl_list *list)
-{
-   assert(surface && list);
-
-   struct wlc_view *view;
-   wl_list_for_each(view, list, link) {
-      if (view->surface == surface)
-         return view;
-   }
-
-   return NULL;
-}
-
 void
 wlc_view_request_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle)
 {

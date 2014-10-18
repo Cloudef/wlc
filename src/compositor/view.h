@@ -39,7 +39,6 @@ struct wlc_view {
 void wlc_view_request_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle);
 void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
 void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_geometry);
-struct wlc_view* wlc_view_for_surface_in_list(struct wlc_surface *surface, struct wl_list *list);
 void wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent);
 void wlc_view_free(struct wlc_view *view);
 struct wlc_view* wlc_view_new(struct wlc_compositor *compositor, struct wlc_client *client, struct wlc_surface *surface);
