@@ -7,16 +7,25 @@
 struct wlc_compositor;
 struct wlc_output;
 
-struct wlc_backend {
-   const char *name;
-   void (*terminate)(void);
+struct wlc_backend_surface {
+   void *internal;
+   EGLNativeDisplayType display;
+   EGLNativeWindowType window;
 
    struct {
-      EGLNativeDisplayType (*display)(struct wlc_output*);
-      EGLNativeWindowType (*window)(struct wlc_output*);
-      bool (*page_flip)(struct wlc_output*);
+      void (*terminate)(struct wlc_backend_surface *surface);
+      bool (*page_flip)(struct wlc_backend_surface *surface);
    } api;
 };
+
+struct wlc_backend {
+   struct {
+      void (*terminate)(void);
+   } api;
+};
+
+struct wlc_backend_surface* wlc_backend_surface_new(void (*destructor)(struct wlc_backend_surface*), size_t internal_size);
+void wlc_backend_surface_free(struct wlc_backend_surface *surface);
 
 void wlc_backend_terminate(struct wlc_backend *backend);
 struct wlc_backend* wlc_backend_init(struct wlc_compositor *compositor);

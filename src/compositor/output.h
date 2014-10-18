@@ -6,9 +6,13 @@
 #include <wayland-util.h>
 
 #include "types/string.h"
+#include "types/geometry.h"
 
 struct wl_global;
+struct wlc_backend_surface;
 struct wlc_compositor;
+struct wlc_surface;
+struct wlc_buffer;
 
 struct wlc_space {
    void *userdata;
@@ -35,27 +39,27 @@ struct wlc_output_information {
 
 struct wlc_output {
    void *userdata;
-   void *backend_info;
-   void *context_info;
-   void *render_info;
+   struct wlc_backend_surface *surface;
    struct wlc_compositor *compositor;
+   struct wlc_context *context;
+   struct wlc_render *render;
    struct wlc_space *space;
    struct wl_global *global;
    struct wlc_output_information information;
+   struct wlc_size resolution;
    struct wl_list resources, spaces;
    struct wl_list link;
    uint32_t mode;
-
-   struct {
-      uint32_t width, height;
-   } resolution;
 
    bool pending;
    bool scheduled;
 };
 
 bool wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode);
-struct wlc_output* wlc_output_new(struct wlc_compositor *compositor, struct wlc_output_information *info);
+bool wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface, struct wlc_buffer *buffer);
+void wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surface);
+void wlc_output_schedule_repaint(struct wlc_output *output, bool urgent);
+struct wlc_output* wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *surface, struct wlc_output_information *info);
 void wlc_output_free(struct wlc_output *output);
 
 #endif /* _WLC_OUTPUT_H_ */

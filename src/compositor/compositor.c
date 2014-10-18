@@ -20,8 +20,6 @@
 #include "shell/xdg-shell.h"
 
 #include "backend/backend.h"
-#include "context/context.h"
-#include "render/render.h"
 
 #include "xwayland/xwayland.h"
 
@@ -131,21 +129,9 @@ wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, 
    if (!(surface_resource = wl_resource_create(wl_client, &wl_surface_interface, 1, id)))
       goto fail;
 
-   struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
-   if (!(surface = wlc_surface_new(compositor, compositor->output->space)))
+   if (!(surface = wlc_surface_new()))
       goto fail;
 
-   struct wlc_client *client;
-   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &compositor->clients)))
-      goto fail;
-
-   // FIXME: do not create view here yet, surface can hold all surface specific data
-   // And since surfaces can be other stuff as well (pointers, etc..)
-   struct wlc_view *view;
-   if (!(view = wlc_view_new(client, surface)))
-      goto fail;
-
-   wl_list_insert(&compositor->unmapped, &view->link);
    wlc_surface_implement(surface, surface_resource);
    return;
 
@@ -227,80 +213,6 @@ get_time(void)
 }
 
 static void
-repaint(struct wlc_output *output)
-{
-   assert(output);
-   output->scheduled = false;
-
-   if (!wlc_is_active() || output->pending)
-      return;
-
-   uint32_t msec = get_time();
-
-   struct wlc_compositor *compositor = output->compositor;
-
-   if (!compositor->render->api.bind(output))
-      return;
-
-   compositor->render->api.clear();
-
-   struct wlc_view *view;
-   wl_list_for_each(view, &output->space->views, link) {
-      if (!view->surface->created)
-         continue;
-
-      compositor->render->api.render(view);
-
-      struct wlc_callback *cb, *cbn;
-      wl_list_for_each_safe(cb, cbn, &view->surface->commit.frame_cb_list, link) {
-         wl_callback_send_done(cb->resource, msec);
-         wl_resource_destroy(cb->resource);
-      }
-
-      wlc_view_commit_state(view, &view->pending, &view->commit);
-   }
-
-   if (compositor->output == output)
-      compositor->render->api.pointer(wl_fixed_to_int(compositor->seat->pointer->x), wl_fixed_to_int(compositor->seat->pointer->y));
-
-   compositor->render->api.swap();
-}
-
-static void
-cb_repaint_idle(void *data)
-{
-   repaint(data);
-}
-
-static void
-schedule_repaint(struct wlc_compositor *compositor, struct wlc_output *output, bool urgent)
-{
-   if (urgent) {
-      repaint(output);
-      return;
-   }
-
-   if (output->scheduled)
-      return;
-
-   wl_event_loop_add_idle(compositor->event_loop, cb_repaint_idle, output);
-   output->scheduled = true;
-}
-
-static void
-resolution(struct wlc_compositor *compositor, struct wlc_output *output, uint32_t width, uint32_t height)
-{
-   if (output->resolution.width == width && output->resolution.height == height)
-      return;
-
-   output->resolution.width = width;
-   output->resolution.height = height;
-
-   if (compositor->interface.output.resolution)
-      compositor->interface.output.resolution(compositor, output, width, height);
-}
-
-static void
 active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
    if (output == compositor->output)
@@ -316,10 +228,6 @@ static bool
 add_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
    assert(output);
-
-   if (compositor->context && !compositor->context->api.attach(output))
-      return false;
-
    wl_list_insert(&compositor->outputs, &output->link);
 
    if (compositor->interface.output.created)
@@ -328,10 +236,7 @@ add_output(struct wlc_compositor *compositor, struct wlc_output *output)
    if (!compositor->output)
       active_output(compositor, output);
 
-   struct wlc_output_mode *mode = output->information.modes.data + (output->mode * sizeof(struct wlc_output_mode));
-   resolution(compositor, output, mode->width, mode->height);
-
-   schedule_repaint(compositor, output, false);
+   wlc_output_schedule_repaint(output, false);
    return true;
 }
 
@@ -349,21 +254,8 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    struct wlc_space *space;
    wl_list_for_each(space, &output->spaces, link) {
       struct wlc_view *view, *vn;
-      wl_list_for_each(view, &compositor->unmapped, link) {
-         if (view->surface->space == space)
-            view->surface->space = NULL;
-      }
-
-      wl_list_for_each_safe(view, vn, &space->views, link) {
-         wl_list_remove(&view->link);
-         wl_list_insert(&compositor->unmapped, &view->link);
-
-         if (compositor->render)
-            compositor->render->api.destroy(view->surface);
-
-         view->surface->created = false;
-         view->surface->space = (compositor->output ? compositor->output->space : NULL);
-      }
+      wl_list_for_each_safe(view, vn, &space->views, link)
+         wlc_view_set_space(view, (compositor->output ? compositor->output->space : NULL));
    }
 
    if (compositor->interface.output.destroyed)
@@ -419,12 +311,6 @@ wlc_compositor_free(struct wlc_compositor *compositor)
 
    // FIXME: destroy xwm for this compositor
 
-   if (compositor->render)
-      wlc_render_terminate(compositor->render);
-
-   if (compositor->context)
-      wlc_context_terminate(compositor->context);
-
    if (compositor->backend)
       wlc_backend_terminate(compositor->backend);
 
@@ -468,8 +354,6 @@ wlc_compositor_new(const struct wlc_interface *interface)
    compositor->api.add_output = add_output;
    compositor->api.remove_output = remove_output;
    compositor->api.active_output = active_output;
-   compositor->api.schedule_repaint = schedule_repaint;
-   compositor->api.resolution = resolution;
    compositor->api.get_time = get_time;
 
    if (!(compositor->display = wl_display_create()))
@@ -482,7 +366,6 @@ wlc_compositor_new(const struct wlc_interface *interface)
    setenv("WAYLAND_DISPLAY", socket_name, true);
 
    wl_list_init(&compositor->clients);
-   wl_list_init(&compositor->unmapped);
    wl_list_init(&compositor->outputs);
 
    if (!(compositor->global = wl_global_create(compositor->display, &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
@@ -511,19 +394,6 @@ wlc_compositor_new(const struct wlc_interface *interface)
 
    if (!(compositor->backend = wlc_backend_init(compositor)))
       goto fail;
-
-   // TODO: Move context and renderer to wlc_output.
-   // Allow each output have own context and renderer as it should be.
-   // We also get rid of some user data pointers.
-   if (!(compositor->context = wlc_context_init(compositor, compositor->backend)))
-      goto fail;
-
-   if (!(compositor->render = wlc_render_init(compositor->context)))
-      goto fail;
-
-   struct wlc_output *output;
-   wl_list_for_each(output, &compositor->outputs, link)
-      compositor->context->api.attach(output);
 
    // FIXME: do this on demand (when X client is spawned)
    // xwm should be compositor specific, xserver should be global

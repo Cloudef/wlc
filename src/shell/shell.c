@@ -8,6 +8,8 @@
 #include "compositor/output.h"
 #include "compositor/view.h"
 
+#include "seat/client.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -17,12 +19,12 @@
 static void
 wl_cb_shell_get_shell_surface(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
 {
+   struct wlc_shell *shell = wl_resource_get_user_data(resource);
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
 
-   struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)) &&
-       !(view = wlc_view_for_surface_in_list(surface, &surface->space->views))) {
-      wl_resource_post_error(resource, 1, "view was not found for client");
+   struct wlc_client *client;
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &shell->compositor->clients))) {
+      wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find wlc_client for wl_client");
       return;
    }
 
@@ -32,15 +34,13 @@ wl_cb_shell_get_shell_surface(struct wl_client *wl_client, struct wl_resource *r
       return;
    }
 
-   struct wlc_shell_surface *shell_surface;
-   if (!(shell_surface = wlc_shell_surface_new(surface))) {
+   if (!surface->view && !(surface->view = wlc_view_new(shell->compositor, client, surface))) {
       wl_resource_destroy(shell_surface_resource);
       wl_resource_post_no_memory(resource);
       return;
    }
 
-   wlc_view_set_shell_surface(view, shell_surface);
-   wlc_shell_surface_implement(shell_surface, shell_surface_resource);
+   wlc_shell_surface_implement(&surface->view->shell_surface, surface->view, shell_surface_resource);
 }
 
 static const struct wl_shell_interface wl_shell_implementation = {

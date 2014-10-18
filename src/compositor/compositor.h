@@ -26,19 +26,15 @@ struct wlc_compositor {
    struct wlc_shell *shell;
    struct wlc_xdg_shell *xdg_shell;
    struct wlc_backend *backend;
-   struct wlc_context *context;
-   struct wlc_render *render;
    struct wlc_output *output;
    struct wlc_interface interface;
 
-   struct wl_list clients, unmapped, outputs;
+   struct wl_list clients, outputs;
 
    struct {
       bool (*add_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*remove_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*active_output)(struct wlc_compositor *compositor, struct wlc_output *output);
-      void (*resolution)(struct wlc_compositor *compositor, struct wlc_output *output, uint32_t width, uint32_t height);
-      void (*schedule_repaint)(struct wlc_compositor *compositor, struct wlc_output *output, bool urgent);
       uint32_t (*get_time)(void); // XXX: <- wlc_get_time() ?
    } api;
 };

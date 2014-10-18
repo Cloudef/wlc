@@ -8,28 +8,32 @@
 
 struct wl_resource;
 struct wlc_buffer;
-struct wlc_compositor;
 struct wlc_callback;
 struct wlc_surface_state;
-struct wlc_space;
+struct wlc_render;
+struct wlc_view;
 
 struct wlc_surface_state {
    struct wlc_buffer *buffer;
+   struct wl_list frame_cb_list;
    pixman_region32_t opaque;
    pixman_region32_t input;
    pixman_region32_t damage;
    int32_t sx, sy;
-   bool newly_attached;
-   struct wl_list frame_cb_list;
+   bool attached;
 };
 
 struct wlc_surface {
    struct wl_resource *resource;
-   struct wlc_compositor *compositor; // FIXME: can probably get rid of this
-   struct wlc_space *space; // XXX: change to wlc_renderer? space to view instead
    struct wlc_surface_state pending;
    struct wlc_surface_state commit;
    struct wlc_size size;
+
+   /* Set if this surface is bind to view */
+   struct wlc_view *view;
+
+   /* Current output the surface is attached to */
+   struct wlc_output *output;
 
    /**
     * "Texture" as we use OpenGL terminology, but can be id to anything.
@@ -47,12 +51,11 @@ struct wlc_surface {
       SURFACE_RGB,
       SURFACE_RGBA,
    } format;
-
-   bool created;
 };
 
+void wlc_surface_invalidate(struct wlc_surface *surface);
 void wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource);
 void wlc_surface_free(struct wlc_surface *surface);
-struct wlc_surface* wlc_surface_new(struct wlc_compositor *compositor, struct wlc_space *space);
+struct wlc_surface* wlc_surface_new(void);
 
 #endif /* _WLC_SURFACE_H_ */

@@ -19,21 +19,28 @@
 
 // FIXME: contains global state
 
-struct egl_output {
+struct ctx {
+   const char *extensions;
+   struct wlc_backend_surface *bsurface;
+   struct wl_display *wl_display;
+   EGLDisplay display;
    EGLContext context;
    EGLSurface surface;
-   bool has_current;
+   EGLConfig config;
    bool flip_failed;
+
+   struct {
+      // Needed for EGL hw surfaces
+      PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR;
+      PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR;
+      PFNEGLQUERYWAYLANDBUFFERWL eglQueryWaylandBufferWL;
+      PFNEGLBINDWAYLANDDISPLAYWL eglBindWaylandDisplayWL;
+      PFNEGLUNBINDWAYLANDDISPLAYWL eglUnbindWaylandDisplayWL;
+      PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC eglSwapBuffersWithDamage;
+   } api;
 };
 
 static struct {
-   struct wlc_backend *backend;
-   struct wl_display *wl_display;
-
-   EGLDisplay display;
-   EGLConfig config;
-   const char *extensions;
-
    struct {
       void *handle;
       EGLint (*eglGetError)(void);
@@ -168,17 +175,16 @@ egl_error_string(const EGLint error)
     return "UNKNOWN EGL ERROR";
 }
 
-#if 0
 static bool
-has_extension(const char *extension)
+has_extension(const struct ctx *context, const char *extension)
 {
-   assert(extension);
+   assert(context && extension);
 
-   if (!egl.extensions)
+   if (!context->extensions)
       return false;
 
    size_t len = strlen(extension), pos;
-   const char *s = egl.extensions;
+   const char *s = context->extensions;
    while ((pos = strcspn(s, " ")) != 0) {
       size_t next = pos + (s[pos] != 0);
 
@@ -187,149 +193,55 @@ has_extension(const char *extension)
 
       s += next;
    }
-   return false;
-}
-#endif
 
-static void
-swap_buffers(struct wlc_output *output)
-{
-   assert(output->context_info);
-   struct egl_output *eglo = output->context_info;
-
-   if (!eglo->flip_failed)
-      egl.api.eglSwapBuffers(egl.display, eglo->surface);
-
-   if (egl.backend->api.page_flip)
-      eglo->flip_failed = !egl.backend->api.page_flip(output);
-}
-
-static void
-terminate(void)
-{
-   if (egl.display) {
-      if (egl.api.eglUnbindWaylandDisplayWL && egl.wl_display)
-         egl.api.eglUnbindWaylandDisplayWL(egl.display, egl.wl_display);
-
-      egl.api.eglTerminate(egl.display);
-   }
-
-   if (egl.api.handle)
-      dlclose(egl.api.handle);
-
-   memset(&egl, 0, sizeof(egl));
-}
-
-void
-destroy(struct wlc_output *output)
-{
-   assert(output->context_info);
-   struct egl_output *eglo = output->context_info;
-
-   if (eglo->has_current)
-      egl.api.eglMakeCurrent(egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-
-   if (eglo->surface)
-      egl.api.eglDestroySurface(egl.display, eglo->surface);
-
-   if (eglo->context)
-      egl.api.eglDestroyContext(egl.display, eglo->context);
-
-   free(output->context_info);
-   output->context_info = NULL;
-}
-
-bool
-attach(struct wlc_output *output)
-{
-   struct egl_output *eglo;
-   if (!(output->context_info = eglo = calloc(1, sizeof(struct egl_output))))
-      return false;
-
-   static const EGLint context_attribs[] = {
-      EGL_CONTEXT_CLIENT_VERSION, 2,
-      EGL_NONE
-   };
-
-   if ((eglo->context = egl.api.eglCreateContext(egl.display, egl.config, EGL_NO_CONTEXT, context_attribs)) == EGL_NO_CONTEXT)
-      goto context_create_fail;
-
-   if ((eglo->surface = egl.api.eglCreateWindowSurface(egl.display, egl.config, egl.backend->api.window(output), NULL)) == EGL_NO_SURFACE)
-      goto window_surface_create_fail;
-
-   if (!egl.api.eglMakeCurrent(egl.display, eglo->surface, eglo->surface, eglo->context))
-      goto make_current_fail;
-
-   EGLint render_buffer;
-   if (!egl.api.eglQueryContext(egl.display, eglo->context, EGL_RENDER_BUFFER, &render_buffer))
-      goto context_create_fail;
-
-   switch (render_buffer) {
-      case EGL_SINGLE_BUFFER:
-         wlc_log(WLC_LOG_INFO, "EGL context is single buffered");
-         break;
-      case EGL_BACK_BUFFER:
-         wlc_log(WLC_LOG_INFO, "EGL context is double buffered");
-         break;
-      default:break;
-   }
-
-   return (eglo->has_current = true);
-
-context_create_fail:
-   wlc_log(WLC_LOG_WARN, "EGL context creation failed");
-   goto fail;
-window_surface_create_fail:
-   wlc_log(WLC_LOG_WARN, "Failed to create window surface");
-   goto fail;
-make_current_fail:
-   wlc_log(WLC_LOG_WARN, "Failed to make current");
-   goto fail;
-fail:
-   destroy(output);
    return false;
 }
 
-static bool
-bind(struct wlc_output *output)
+static void
+terminate(struct ctx *context)
 {
-   assert(output->context_info);
-   struct egl_output *eglo = output->context_info;
-   return (eglo->has_current ? egl.api.eglMakeCurrent(egl.display, eglo->surface, eglo->surface, eglo->context) : false);
+   assert(context);
+
+   egl.api.eglMakeCurrent(context->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+   if (context->surface)
+      egl.api.eglDestroySurface(context->display, context->surface);
+
+   if (context->context)
+      egl.api.eglDestroyContext(context->display, context->context);
+
+   if (context->display) {
+      if (context->api.eglUnbindWaylandDisplayWL && context->wl_display)
+         context->api.eglUnbindWaylandDisplayWL(context->display, context->wl_display);
+
+      // XXX: This is shared on all backends
+      // egl.api.eglTerminate(context->display);
+   }
+
+   if (context->bsurface && context->bsurface->api.terminate)
+      context->bsurface->api.terminate(context->bsurface);
+
+   free(context);
 }
 
-EGLBoolean
-wlc_egl_query_buffer(struct wl_resource *buffer, EGLint attribute, EGLint *value)
+static struct ctx*
+create_context(struct wlc_backend_surface *surface)
 {
-   if (egl.api.eglQueryWaylandBufferWL)
-      return egl.api.eglQueryWaylandBufferWL(egl.display, buffer, attribute, value);
-   return EGL_FALSE;
-}
+   assert(surface);
 
-EGLImageKHR
-wlc_egl_create_image(struct wlc_output *output, EGLenum target, EGLClientBuffer buffer, const EGLint *attrib_list)
-{
-   assert(output->context_info);
-   struct egl_output *eglo = output->context_info;
+   struct ctx *context;
+   if (!(context = calloc(1, sizeof(struct ctx))))
+      return NULL;
 
-   if (egl.api.eglCreateImageKHR)
-      return egl.api.eglCreateImageKHR(egl.display, eglo->context, target, buffer, attrib_list);
-   return NULL;
-}
+   if (!(context->display = egl.api.eglGetDisplay(surface->display)))
+      goto egl_fail;
 
-EGLBoolean
-wlc_egl_destroy_image(EGLImageKHR image)
-{
-   if (egl.api.eglDestroyImageKHR)
-      return egl.api.eglDestroyImageKHR(egl.display, image);
-   return EGL_FALSE;
-}
+   EGLint major, minor;
+   if (!egl.api.eglInitialize(context->display, &major, &minor))
+      goto egl_fail;
 
-bool
-wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, struct wlc_context *out_context)
-{
-   if (!egl_load())
-      goto fail;
+   if (!egl.api.eglBindAPI(EGL_OPENGL_ES_API))
+      goto egl_fail;
 
    static const EGLint config_attribs[] = {
       EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -342,60 +254,66 @@ wlc_egl_init(struct wlc_compositor *compositor, struct wlc_backend *backend, str
       EGL_NONE
    };
 
-   egl.backend = backend;
-
-   // FIXME: output ignored for now, but it's possible for outputs to have different display
-   if (!(egl.display = egl.api.eglGetDisplay(egl.backend->api.display(NULL))))
+   EGLint n;
+   if (!egl.api.eglChooseConfig(context->display, config_attribs, &context->config, 1, &n) || n < 1)
       goto egl_fail;
 
-   EGLint major, minor;
-   if (!egl.api.eglInitialize(egl.display, &major, &minor))
+   static const EGLint context_attribs[] = {
+      EGL_CONTEXT_CLIENT_VERSION, 2,
+      EGL_NONE
+   };
+
+   if ((context->context = egl.api.eglCreateContext(context->display, context->config, EGL_NO_CONTEXT, context_attribs)) == EGL_NO_CONTEXT)
       goto egl_fail;
 
-   if (!egl.api.eglBindAPI(EGL_OPENGL_ES_API))
+   if ((context->surface = egl.api.eglCreateWindowSurface(context->display, context->config, surface->window, NULL)) == EGL_NO_SURFACE)
       goto egl_fail;
+
+   if (!egl.api.eglMakeCurrent(context->display, context->surface, context->surface, context->context))
+      goto egl_fail;
+
+   EGLint render_buffer;
+   if (!egl.api.eglQueryContext(context->display, context->context, EGL_RENDER_BUFFER, &render_buffer))
+      goto egl_fail;
+
+   switch (render_buffer) {
+      case EGL_SINGLE_BUFFER:
+         wlc_log(WLC_LOG_INFO, "EGL context is single buffered");
+         break;
+      case EGL_BACK_BUFFER:
+         wlc_log(WLC_LOG_INFO, "EGL context is double buffered");
+         break;
+      default:break;
+   }
 
    const char *str;
-   str = egl.api.eglQueryString(egl.display, EGL_VERSION);
+   str = egl.api.eglQueryString(context->display, EGL_VERSION);
    wlc_log(WLC_LOG_INFO, "EGL version: %s", str ? str : "(null)");
-   str = egl.api.eglQueryString(egl.display, EGL_VENDOR);
+   str = egl.api.eglQueryString(context->display, EGL_VENDOR);
    wlc_log(WLC_LOG_INFO, "EGL vendor: %s", str ? str : "(null)");
-   str = egl.api.eglQueryString(egl.display, EGL_CLIENT_APIS);
+   str = egl.api.eglQueryString(context->display, EGL_CLIENT_APIS);
    wlc_log(WLC_LOG_INFO, "EGL client APIs: %s", str ? str : "(null)");
 
-   egl.extensions = egl.api.eglQueryString(egl.display, EGL_EXTENSIONS);
+   context->extensions = egl.api.eglQueryString(context->display, EGL_EXTENSIONS);
 
-   EGLint n;
-   if (!egl.api.eglChooseConfig(egl.display, config_attribs, &egl.config, 1, &n) || n < 1)
-      goto egl_fail;
-
-   if (!strstr(egl.extensions, "EGL_WL_bind_wayland_display")) {
-      egl.api.eglBindWaylandDisplayWL = NULL;
-      egl.api.eglUnbindWaylandDisplayWL = NULL;
+   if (has_extension(context, "EGL_WL_bind_wayland_display") && has_extension(context, "EGL_KHR_image_base")) {
+      context->api.eglCreateImageKHR = egl.api.eglCreateImageKHR;
+      context->api.eglDestroyImageKHR = egl.api.eglDestroyImageKHR;
+      context->api.eglBindWaylandDisplayWL = egl.api.eglBindWaylandDisplayWL;
+      context->api.eglUnbindWaylandDisplayWL = egl.api.eglUnbindWaylandDisplayWL;
+      context->api.eglQueryWaylandBufferWL = egl.api.eglQueryWaylandBufferWL;
    }
 
-   if (!wlc_no_egl_clients()) {
-      if (egl.api.eglBindWaylandDisplayWL && egl.api.eglBindWaylandDisplayWL(egl.display, compositor->display))
-         egl.wl_display = compositor->display;
-   }
-
-   if (!strstr(egl.extensions, "EGL_EXT_swap_buffers_with_damage")) {
+   if (has_extension(context, "EGL_EXT_swap_buffers_with_damage")) {
       // FIXME: get hw that supports this feature
-#if 0
-      wlc_log(WLC_LOG_WARN, "EGL_EXT_swap_buffers_with_damage not supported. Performance could be affected.");
-#endif
-      egl.api.eglSwapBuffersWithDamage = NULL;
+      context->api.eglSwapBuffersWithDamage = egl.api.eglSwapBuffersWithDamage;
+   } else {
+      // FIXME: get hw that supports this feature
+      // wlc_log(WLC_LOG_WARN, "EGL_EXT_swap_buffers_with_damage not supported. Performance could be affected.");
    }
 
-   egl.api.eglSwapInterval(egl.display, 1);
-
-   out_context->terminate = terminate;
-   out_context->api.bind = bind;
-   out_context->api.attach = attach;
-   out_context->api.destroy = destroy;
-   out_context->api.swap = swap_buffers;
-   wlc_log(WLC_LOG_INFO, "EGL (%s) context created", egl.backend->name);
-   return true;
+   egl.api.eglSwapInterval(context->display, 1);
+   return context;
 
 egl_fail:
    {
@@ -403,8 +321,103 @@ egl_fail:
       if ((error = egl.api.eglGetError()) != EGL_SUCCESS)
          wlc_log(WLC_LOG_WARN, "%s", egl_error_string(error));
    }
-fail:
-   terminate();
-   return false;
+   terminate(context);
+   return NULL;
+}
+
+static bool
+bind(struct ctx *context)
+{
+   assert(context);
+   return egl.api.eglMakeCurrent(context->display, context->surface, context->surface, context->context);
+}
+
+static bool
+bind_to_wl_display(struct ctx *context, struct wl_display *wl_display)
+{
+   assert(context);
+
+   if (wlc_no_egl_clients())
+      return false;
+
+   if (context->api.eglBindWaylandDisplayWL && context->api.eglBindWaylandDisplayWL(context->display, wl_display))
+      context->wl_display = wl_display;
+
+   return (context->wl_display ? true : false);
+}
+
+static void
+swap(struct ctx *context)
+{
+   assert(context);
+
+   if (!context->flip_failed)
+      egl.api.eglSwapBuffers(context->display, context->surface);
+
+   if (context->bsurface->api.page_flip)
+      context->flip_failed = !context->bsurface->api.page_flip(context->bsurface);
+}
+
+static EGLBoolean
+query_buffer(struct ctx *context, struct wl_resource *buffer, EGLint attribute, EGLint *value)
+{
+   assert(context);
+   if (context->api.eglQueryWaylandBufferWL)
+      return context->api.eglQueryWaylandBufferWL(context->display, buffer, attribute, value);
+   return EGL_FALSE;
+}
+
+static EGLImageKHR
+create_image(struct ctx *context, EGLenum target, EGLClientBuffer buffer, const EGLint *attrib_list)
+{
+   assert(context);
+   if (context->api.eglCreateImageKHR)
+      return context->api.eglCreateImageKHR(context->display, context->context, target, buffer, attrib_list);
+   return NULL;
+}
+
+static EGLBoolean
+destroy_image(struct ctx *context, EGLImageKHR image)
+{
+   assert(context);
+   if (context->api.eglDestroyImageKHR)
+      return context->api.eglDestroyImageKHR(context->display, image);
+   return EGL_FALSE;
+}
+
+static void
+egl_unload(void)
+{
+   if (egl.api.handle)
+      dlclose(egl.api.handle);
+
+   memset(&egl, 0, sizeof(egl));
+}
+
+void*
+wlc_egl_new(struct wlc_backend_surface *surface, struct wlc_context_api *api)
+{
+   assert(surface && api);
+
+   if (!egl.api.handle && !egl_load()) {
+      egl_unload();
+      return NULL;
+   }
+
+   struct ctx *context;
+   if (!(context = create_context(surface)))
+      return NULL;
+
+   context->bsurface = surface;
+
+   api->terminate = terminate;
+   api->bind = bind;
+   api->bind_to_wl_display = bind_to_wl_display;
+   api->swap = swap;
+   api->destroy_image = destroy_image;
+   api->create_image = create_image;
+   api->query_buffer = query_buffer;
+   wlc_log(WLC_LOG_INFO, "EGL context created");
+   return context;
 }
 

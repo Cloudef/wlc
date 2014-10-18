@@ -66,8 +66,9 @@ enum wlc_button_state {
 
 struct wlc_interface {
    struct {
-      bool (*created)(struct wlc_compositor*, struct wlc_view*);
+      bool (*created)(struct wlc_compositor*, struct wlc_view*, struct wlc_space*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_view*);
+      void (*will_move_to_space)(struct wlc_compositor*, struct wlc_view*, struct wlc_space*);
 
       struct {
          void (*geometry)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y, uint32_t width, uint32_t height);
@@ -104,6 +105,7 @@ void wlc_set_log_file(FILE *out);
 WLC_LOG_ATTR(2, 3) void wlc_log(const enum wlc_log_type type, const char *fmt, ...);
 void wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap);
 
+void wlc_output_set_resolution(struct wlc_output *output, uint32_t width, uint32_t height);
 void wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height);
 struct wlc_space* wlc_output_get_active_space(struct wlc_output *output);
 struct wl_list* wlc_output_get_spaces(struct wlc_output *output);
@@ -122,6 +124,9 @@ void* wlc_space_get_userdata(struct wlc_space *space);
 void wlc_space_remove(struct wlc_space *space);
 struct wlc_space* wlc_space_add(struct wlc_output *output);
 
+void wlc_view_set_title(struct wlc_view *view, const char *title);
+void wlc_view_set_class(struct wlc_view *view, const char *_class);
+void wlc_view_set_space(struct wlc_view *view, struct wlc_space *space);
 struct wlc_space* wlc_view_get_space(struct wlc_view *view);
 uint32_t wlc_view_get_state(struct wlc_view *view);
 void wlc_view_set_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle);

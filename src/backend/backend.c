@@ -6,15 +6,40 @@
 #include <stdlib.h>
 #include <assert.h>
 
-void
-wlc_backend_terminate(struct wlc_backend *context)
+struct wlc_backend_surface*
+wlc_backend_surface_new(void (*destructor)(struct wlc_backend_surface*), size_t internal_size)
 {
-   assert(context);
+   struct wlc_backend_surface *surface;
+   if (!(surface = calloc(1, sizeof(struct wlc_backend_surface))))
+      return NULL;
 
-   if (context->terminate)
-      context->terminate();
+   if (internal_size > 0 && !(surface->internal = calloc(1, internal_size)))
+      goto fail;
 
-   free(context);
+   surface->api.terminate = destructor;
+   return surface;
+
+fail:
+   free(surface);
+   return NULL;
+}
+
+void wlc_backend_surface_free(struct wlc_backend_surface *surface)
+{
+   assert(surface);
+
+   if (surface->internal)
+      free(surface->internal);
+
+   free(surface);
+}
+
+void
+wlc_backend_terminate(struct wlc_backend *backend)
+{
+   assert(backend);
+   backend->api.terminate();
+   free(backend);
 }
 
 struct wlc_backend*

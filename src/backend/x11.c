@@ -36,10 +36,6 @@ enum atom_name {
    ATOM_LAST
 };
 
-struct x11_output {
-   xcb_window_t window;
-};
-
 static struct {
    Display *display;
    xcb_connection_t *connection;
@@ -61,6 +57,7 @@ static struct {
       xcb_connection_t* (*XGetXCBConnection)(Display*);
       void (*XSetEventQueueOwner)(Display*, enum XEventQueueOwner);
 
+      int (*xcb_flush)(xcb_connection_t*);
       int (*xcb_connection_has_error)(xcb_connection_t*);
       const xcb_setup_t* (*xcb_get_setup)(xcb_connection_t*);
       xcb_screen_iterator_t (*xcb_setup_roots_iterator)(const xcb_setup_t*);
@@ -156,6 +153,8 @@ xcb_load(void)
 
 #define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
 
+   if (!load(xcb_flush))
+      goto function_pointer_exception;
    if (!load(xcb_connection_has_error))
       goto function_pointer_exception;
    if (!load(xcb_get_setup))
@@ -208,34 +207,29 @@ function_pointer_exception:
    return false;
 }
 
-static EGLNativeDisplayType
-get_display(struct wlc_output *output)
+static void
+surface_free(struct wlc_backend_surface *surface)
 {
-   (void)output;
-   return (EGLNativeDisplayType)x11.display;
-}
+   if (surface->window != x11.screen->root)
+      x11.api.xcb_destroy_window(x11.connection, surface->window);
 
-static EGLNativeWindowType
-get_window(struct wlc_output *output)
-{
-   assert(output->backend_info);
-   struct x11_output *x11o = output->backend_info;
-   return (EGLNativeWindowType)x11o->window;
+   wlc_backend_surface_free(surface);
 }
 
 static bool
 add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_output_information *info)
 {
-   struct x11_output *x11o = NULL;
    struct wlc_output *output = NULL;
+   struct wlc_backend_surface *surface = NULL;
 
-   if (!(output = wlc_output_new(compositor, info)))
+   if (!(surface = wlc_backend_surface_new(surface_free, 0)))
       goto fail;
 
-   if (!(output->backend_info = x11o = calloc(1, sizeof(struct x11_output))))
-      goto fail;
+   surface->window = window;
+   surface->display = x11.display;
 
-   x11o->window = window;
+   if (!(output = wlc_output_new(compositor, surface, info)))
+      goto fail;
 
    if (!compositor->api.add_output(compositor, output))
       goto fail;
@@ -245,22 +239,13 @@ add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_ou
 fail:
    if (output)
       wlc_output_free(output);
-   if (x11o)
-      free(x11o);
    return false;
 }
 
 static int
 remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
-   assert(output->backend_info);
-   struct x11_output *x11o = output->backend_info;
    compositor->api.remove_output(compositor, output);
-
-   if (x11o->window && x11o->window != x11.screen->root)
-      x11.api.xcb_destroy_window(x11.connection, x11o->window);
-
-   free(x11o);
    wlc_output_free(output);
    return wl_list_length(&compositor->outputs);
 }
@@ -270,8 +255,7 @@ output_for_window(xcb_window_t window, struct wl_list *outputs)
 {
    struct wlc_output *output;
    wl_list_for_each(output, outputs, link) {
-      struct x11_output *x11o = output->backend_info;
-      if (x11o->window == window)
+      if (output->surface->window == window)
          return output;
    }
    return NULL;
@@ -301,7 +285,7 @@ x11_event(int fd, uint32_t mask, void *data)
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
             struct wlc_output *output;
             if ((output = output_for_window(ev->event, &seat->compositor->outputs)))
-               seat->compositor->api.resolution(seat->compositor, output, ev->width, ev->height);
+               wlc_output_set_resolution(output, ev->width, ev->height); // XXX: make a request?
          }
          break;
          case XCB_FOCUS_IN: {
@@ -346,6 +330,7 @@ x11_event(int fd, uint32_t mask, void *data)
       count += 1;
    }
 
+   x11.api.xcb_flush(x11.connection);
    return count;
 }
 
@@ -356,7 +341,7 @@ cb_repaint_timer(void *data)
 
    struct wlc_output *o;
    wl_list_for_each(o, &compositor->outputs, link)
-      compositor->api.schedule_repaint(compositor, o, true);
+      wlc_output_schedule_repaint(o, true);
 
    wl_event_source_timer_update(x11.repaint_timer, 16);
    return 1;
@@ -446,7 +431,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    x11.api.xcb_free_gc(x11.connection, gc);
    x11.api.xcb_free_pixmap(x11.connection, pixmap);
 
-#define NUM_OUTPUTS 1
+#define NUM_OUTPUTS 2
 
    struct wlc_output_information info;
    memset(&info, 0, sizeof(info));
@@ -496,6 +481,12 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
          if (!add_output(compositor, window, &info))
             goto output_fail;
+
+         if (i < NUM_OUTPUTS) {
+            struct wl_array cpy;
+            wl_array_copy(&cpy, &info.modes);
+            memcpy(&info.modes, &cpy, sizeof(struct wl_array));
+         }
       }
    } else {
       if (!add_output(compositor, x11.screen->root, &info))
@@ -516,10 +507,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    wl_event_source_timer_update(x11.repaint_timer, 16);
 
    x11.compositor = compositor;
-   out_backend->name = "X11";
-   out_backend->terminate = terminate;
-   out_backend->api.display = get_display;
-   out_backend->api.window = get_window;
+   out_backend->api.terminate = terminate;
    return true;
 
 display_open_fail:

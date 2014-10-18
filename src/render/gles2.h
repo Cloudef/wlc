@@ -1,11 +1,9 @@
 #ifndef _WLC_GLES2_H_
 #define _WLC_GLES2_H_
 
-#include <stdbool.h>
-
 struct wlc_context;
-struct wlc_render;
+struct wlc_render_api;
 
-bool wlc_gles2_init(struct wlc_context *context, struct wlc_render *out_render);
+void* wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api);
 
 #endif /* _WLC_GLES2_H_ */

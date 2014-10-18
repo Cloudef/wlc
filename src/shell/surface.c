@@ -1,29 +1,13 @@
 #include "surface.h"
 #include "macros.h"
 
-#include "compositor/compositor.h"
-#include "compositor/surface.h"
-#include "compositor/output.h"
 #include "compositor/view.h"
+#include "compositor/output.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 
 #include <wayland-server.h>
-
-static void
-request_state(struct wlc_shell_surface *shell_surface, enum wlc_view_bit state, bool toggle)
-{
-   if (!shell_surface->surface->compositor->interface.view.request.state)
-      return;
-
-   // FIXME: Ugly, maybe even move to view. But this is another thing addressed by resource management.
-   struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->space->views)) ||
-       (view = wlc_view_for_surface_in_list(shell_surface->surface, &shell_surface->surface->compositor->unmapped)))
-      shell_surface->surface->compositor->interface.view.request.state(shell_surface->surface->compositor, view, state, toggle);
-}
 
 static void
 wl_cb_shell_surface_pong(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
@@ -50,8 +34,8 @@ static void
 wl_cb_shell_surface_set_toplevel(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client, (void)resource;
-   struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
-   request_state(shell_surface, WLC_BIT_FULLSCREEN, false);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_view_request_state(view, WLC_BIT_FULLSCREEN, false);
 }
 
 static void
@@ -66,12 +50,11 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resour
 {
    (void)wl_client, (void)method, (void)framerate;
 
-   if (output_resource)
-        wl_resource_get_user_data(output_resource);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   struct wlc_output *output = (output_resource ? wl_resource_get_user_data(output_resource) : view->space->output);
 
-   struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
-   // wlc_shell_surface_set_output(shell_surface, output);
-   request_state(shell_surface, WLC_BIT_FULLSCREEN, true);
+   // wlc_view_set_output(view, output);
+   wlc_view_request_state(view, WLC_BIT_FULLSCREEN, true);
 }
 
 static void
@@ -86,28 +69,27 @@ wl_cb_shell_surface_set_maximized(struct wl_client *wl_client, struct wl_resourc
 {
    (void)wl_client;
 
-   if (output_resource)
-      wl_resource_get_user_data(output_resource);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   struct wlc_output *output = (output_resource ? wl_resource_get_user_data(output_resource) : view->space->output);
 
-   struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
-   // wlc_shell_surface_set_output(shell_surface, output);
-   request_state(shell_surface, WLC_BIT_MAXIMIZED, true);
+   // wlc_view_set_output(view, output);
+   wlc_view_request_state(view, WLC_BIT_MAXIMIZED, true);
 }
 
 static void
 wl_cb_shell_surface_set_title(struct wl_client *wl_client, struct wl_resource *resource, const char *title)
 {
    (void)wl_client;
-   struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_title(shell_surface, title);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_view_set_title(view, title);
 }
 
 static void
 wl_cb_shell_surface_set_class(struct wl_client *wl_client, struct wl_resource *resource, const char *class_)
 {
    (void)wl_client;
-   struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_class(shell_surface, class_);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_view_set_class(view, class_);
 }
 
 static const struct wl_shell_surface_interface wl_shell_surface_implementation = {
@@ -127,16 +109,13 @@ static void
 wl_cb_shell_surface_destructor(struct wl_resource *resource)
 {
    assert(resource);
-   struct wlc_shell_surface *shell_surface = wl_resource_get_user_data(resource);
-
-   if (shell_surface) {
-      shell_surface->resource = NULL;
-      wlc_shell_surface_free(shell_surface);
-   }
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   view->shell_surface.resource = NULL;
+   wlc_shell_surface_release(&view->shell_surface);
 }
 
 void
-wlc_shell_surface_implement(struct wlc_shell_surface *shell_surface, struct wl_resource *resource)
+wlc_shell_surface_implement(struct wlc_shell_surface *shell_surface, struct wlc_view *view, struct wl_resource *resource)
 {
    assert(shell_surface);
 
@@ -147,29 +126,11 @@ wlc_shell_surface_implement(struct wlc_shell_surface *shell_surface, struct wl_r
       wl_resource_destroy(shell_surface->resource);
 
    shell_surface->resource = resource;
-   wl_resource_set_implementation(shell_surface->resource, &wl_shell_surface_implementation, shell_surface, wl_cb_shell_surface_destructor);
+   wl_resource_set_implementation(shell_surface->resource, &wl_shell_surface_implementation, view, wl_cb_shell_surface_destructor);
 }
 
 void
-wlc_shell_surface_set_parent(struct wlc_shell_surface *shell_surface, struct wlc_shell_surface *parent)
-{
-   shell_surface->parent = parent;
-}
-
-void
-wlc_shell_surface_set_title(struct wlc_shell_surface *shell_surface, const char *title)
-{
-   wlc_string_set(&shell_surface->title, title, true);
-}
-
-void
-wlc_shell_surface_set_class(struct wlc_shell_surface *shell_surface, const char *class_)
-{
-   wlc_string_set(&shell_surface->class, class_, true);
-}
-
-void
-wlc_shell_surface_free(struct wlc_shell_surface *shell_surface)
+wlc_shell_surface_release(struct wlc_shell_surface *shell_surface)
 {
    assert(shell_surface);
 
@@ -177,19 +138,5 @@ wlc_shell_surface_free(struct wlc_shell_surface *shell_surface)
       wl_resource_destroy(shell_surface->resource);
 
    wlc_string_release(&shell_surface->title);
-   wlc_string_release(&shell_surface->class);
-   free(shell_surface);
-}
-
-struct wlc_shell_surface*
-wlc_shell_surface_new(struct wlc_surface *surface)
-{
-   assert(surface);
-
-   struct wlc_shell_surface *shell_surface;
-   if (!(shell_surface = calloc(1, sizeof(struct wlc_shell_surface))))
-      return NULL;
-
-   shell_surface->surface = surface;
-   return shell_surface;
+   wlc_string_release(&shell_surface->_class);
 }

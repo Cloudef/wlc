@@ -34,7 +34,8 @@ struct drm_output_information {
    uint32_t width, height;
 };
 
-struct drm_output {
+struct drm_surface {
+   struct wlc_output *output;
    struct gbm_device *device;
    struct gbm_surface *surface;
    drmModeConnector *connector;
@@ -215,28 +216,25 @@ static void
 page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
 {
    (void)fd, (void)frame, (void)sec, (void)usec;
+   struct drm_surface *dsurface = data;
 
-   struct wlc_output *output = data;
-   assert(output->backend_info);
-   struct drm_output *drmo = output->backend_info;
-
-   if (drmo->last_page_flip) {
+   if (dsurface->last_page_flip) {
       unsigned int missed;
-      if ((missed = frame - drmo->last_page_flip - 1)) {
+      if ((missed = frame - dsurface->last_page_flip - 1)) {
          wlc_log(WLC_LOG_WARN,
                "[DRM]: Missed %u VBlank(s) (Frame: %u, DRM frame: %u) on output (%p)",
-               missed, frame - drmo->last_page_flip, frame, output);
+               missed, frame - dsurface->last_page_flip, frame, dsurface->output);
       }
    }
 
-   drmo->last_page_flip = frame;
+   dsurface->last_page_flip = frame;
 
-   uint8_t next = (drmo->index + 1) % NUM_FBS;
-   release_fb(drmo->surface, &drmo->fb[next]);
-   drmo->index = next;
-   output->pending = false;
+   uint8_t next = (dsurface->index + 1) % NUM_FBS;
+   release_fb(dsurface->surface, &dsurface->fb[next]);
+   dsurface->index = next;
+   dsurface->output->pending = false;
 
-   output->compositor->api.schedule_repaint(output->compositor, output, true);
+   wlc_output_schedule_repaint(dsurface->output, true);
 }
 
 static int
@@ -288,31 +286,29 @@ fail:
 }
 
 static bool
-page_flip(struct wlc_output *output)
+page_flip(struct wlc_backend_surface *bsurface)
 {
-   assert(output->backend_info && !output->pending);
-   struct drm_output *drmo = output->backend_info;
-   struct drm_fb *fb = &drmo->fb[drmo->index];
+   struct drm_surface *dsurface = bsurface->internal;
+   assert(!dsurface->output->pending);
+   struct drm_fb *fb = &dsurface->fb[dsurface->index];
 
    if (fb->bo)
-      release_fb(drmo->surface, fb);
+      release_fb(dsurface->surface, fb);
 
-   if (!create_fb(drmo->surface, fb))
+   if (!create_fb(dsurface->surface, fb))
       return false;
 
-   if (fb->stride != drmo->stride) {
-      wlc_log(WLC_LOG_INFO, "Set crtc (%p)", output);
-
-      if (drm.api.drmModeSetCrtc(drm.fd, drmo->encoder->crtc_id, fb->fd, 0, 0, &drmo->connector->connector_id, 1, &drmo->connector->modes[output->mode]))
+   if (fb->stride != dsurface->stride) {
+      if (drm.api.drmModeSetCrtc(drm.fd, dsurface->encoder->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[dsurface->output->mode]))
          goto set_crtc_fail;
 
-      drmo->stride = fb->stride;
+      dsurface->stride = fb->stride;
    }
 
-   if (drm.api.drmModePageFlip(drm.fd, drmo->encoder->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, output))
+   if (drm.api.drmModePageFlip(drm.fd, dsurface->encoder->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, dsurface))
       goto failed_to_page_flip;
 
-   output->pending = true;
+   dsurface->output->pending = true;
    return true;
 
 set_crtc_fail:
@@ -321,81 +317,64 @@ set_crtc_fail:
 failed_to_page_flip:
    wlc_log(WLC_LOG_WARN, "Failed to page flip: %m");
 fail:
-   release_fb(drmo->surface, fb);
+   release_fb(dsurface->surface, fb);
    return false;
 }
 
-static EGLNativeDisplayType
-get_display(struct wlc_output *output)
+static void
+surface_free(struct wlc_backend_surface *bsurface)
 {
-#if 0
-   assert(output->backend_info);
-   struct drm_output *drmo = output->backend_info;
-   return (EGLNativeDisplayType)drmo->device;
-#else
-   (void)output;
-   return (EGLNativeDisplayType)gbm.device;
-#endif
-}
+   struct drm_surface *surface = bsurface->internal;
 
-static EGLNativeWindowType
-get_window(struct wlc_output *output)
-{
-   assert(output->backend_info);
-   struct drm_output *drmo = output->backend_info;
-   return (EGLNativeWindowType)drmo->surface;
+   if (surface->surface)
+      gbm.api.gbm_surface_destroy(surface->surface);
+
+   if (surface->encoder)
+      drm.api.drmModeFreeEncoder(surface->encoder);
+
+   if (surface->connector)
+      drm.api.drmModeFreeConnector(surface->connector);
+
+   wlc_backend_surface_free(bsurface);
 }
 
 static bool
 add_output(struct wlc_compositor *compositor, struct gbm_device *device, struct gbm_surface *surface, struct drm_output_information *info)
 {
-   struct drm_output *drmo = NULL;
-   struct wlc_output *output = NULL;
-
-   if (!(output = wlc_output_new(compositor, &info->info)))
+   struct wlc_backend_surface *bsurface = NULL;
+   if (!(bsurface = wlc_backend_surface_new(surface_free, sizeof(struct drm_surface))))
       goto fail;
 
-   if (!(output->backend_info = drmo = calloc(1, sizeof(struct drm_output))))
+   struct drm_surface *dsurface = bsurface->internal;
+   dsurface->connector = info->connector;
+   dsurface->encoder = info->encoder;
+   dsurface->surface = surface;
+   dsurface->device = device;
+
+   bsurface->display = (EGLNativeDisplayType)device;
+   bsurface->window = (EGLNativeWindowType)surface;
+   bsurface->api.page_flip = page_flip;
+
+   if (!(dsurface->output = wlc_output_new(compositor, bsurface, &info->info)))
       goto fail;
 
-   drmo->connector = info->connector;
-   drmo->encoder = info->encoder;
-   drmo->surface = surface;
-   drmo->device = device;
-
-   if (!compositor->api.add_output(compositor, output))
+   if (!compositor->api.add_output(compositor, dsurface->output))
       goto fail;
 
    return true;
 
 fail:
-   gbm.api.gbm_surface_destroy(surface);
-   drm.api.drmModeFreeEncoder(info->encoder);
-   drm.api.drmModeFreeConnector(info->connector);
-   if (output)
-      wlc_output_free(output);
-   if (drmo)
-      free(drmo);
+   if (bsurface)
+      wlc_backend_surface_free(bsurface);
+   if (bsurface && dsurface->output)
+      wlc_output_free(dsurface->output);
    return false;
 }
 
 static int
 remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
-   assert(output->backend_info);
-   struct drm_output *drmo = output->backend_info;
    compositor->api.remove_output(compositor, output);
-
-   if (drmo->surface)
-      gbm.api.gbm_surface_destroy(drmo->surface);
-
-   if (drmo->encoder)
-      drm.api.drmModeFreeEncoder(drmo->encoder);
-
-   if (drmo->connector)
-      drm.api.drmModeFreeConnector(drmo->connector);
-
-   free(drmo);
    wlc_output_free(output);
    return wl_list_length(&compositor->outputs);
 }
@@ -578,12 +557,7 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
       goto fail;
 
    wlc_set_drm_control_functions(set_master, drop_master);
-
-   out_backend->name = "drm";
-   out_backend->terminate = terminate;
-   out_backend->api.display = get_display;
-   out_backend->api.window = get_window;
-   out_backend->api.page_flip = page_flip;
+   out_backend->api.terminate = terminate;
    return true;
 
 card_open_fail:

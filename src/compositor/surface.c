@@ -16,55 +16,10 @@
 #include <wayland-server.h>
 
 static void
-create_notify(struct wlc_surface *surface)
+surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
-   if (surface->created)
-      return;
-
-   struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)))
-      return;
-
-   // FIXME: decouple views from surfaces more, I don't think they belong here, nor we should use lists in first place.
-   if (!view->shell_surface && !view->xdg_surface && !view->x11_window)
-      return;
-
-   wl_list_remove(&view->link);
-   wl_list_insert(surface->space->views.prev, &view->link);
-
-   view->pending.geometry.size = surface->size;
-
-   if (surface->compositor->interface.view.created &&
-      !surface->compositor->interface.view.created(surface->compositor, view)) {
-      wlc_surface_free(surface);
-      return;
-   }
-
-   surface->created = true;
-}
-
-static void
-wlc_surface_state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer *buffer)
-{
-   if (state->buffer == buffer)
-      return;
-
-   if (state->buffer)
-      wlc_buffer_free(state->buffer);
-
-   state->buffer = wlc_buffer_use(buffer);
-}
-
-static void
-wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
-{
-   if (buffer) {
-      create_notify(surface);
-   } else {
-      /* TODO: unmap surface if mapped */
-   }
-
-   surface->compositor->render->api.attach(surface, buffer);
+   if (surface->view && (!surface->view->space || !buffer))
+      wlc_view_set_space(surface->view, (buffer && surface->view->compositor->output ? surface->view->compositor->output->space : NULL));
 
    struct wlc_size size = { 0, 0 };
    if (buffer) {
@@ -90,16 +45,29 @@ wlc_surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 }
 
 static void
-wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, struct wlc_surface_state *out)
+state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer *buffer)
 {
-   if (pending->newly_attached)
-      wlc_surface_attach(surface, pending->buffer);
+   if (state->buffer == buffer)
+      return;
 
-   wlc_surface_state_set_buffer(out, pending->buffer);
-   wlc_surface_state_set_buffer(pending, NULL);
+   if (state->buffer)
+      wlc_buffer_free(state->buffer);
+
+   state->buffer = wlc_buffer_use(buffer);
+}
+
+static void
+commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, struct wlc_surface_state *out)
+{
+   if (pending->attached) {
+      surface_attach(surface, pending->buffer);
+      out->attached = pending->attached = false;
+   }
+
+   state_set_buffer(out, pending->buffer);
+   state_set_buffer(pending, NULL);
 
    pending->sx = pending->sy = 0;
-   pending->newly_attached = false;
 
    wl_list_insert_list(&out->frame_cb_list, &pending->frame_cb_list);
    wl_list_init(&pending->frame_cb_list);
@@ -121,6 +89,13 @@ wlc_surface_commit_state(struct wlc_surface *surface, struct wlc_surface_state *
 }
 
 static void
+release_state(struct wlc_surface_state *state)
+{
+   if (state->buffer)
+      wlc_buffer_free(state->buffer);
+}
+
+static void
 wl_cb_surface_destroy(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client;
@@ -132,12 +107,15 @@ wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, 
 {
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
 
-   // XXX: We can't set or get buffer_resource user data.
+   // We can't set or get buffer_resource user data.
    // It seems to be owned by somebody else?
    // What use is user data which we can't use...
    //
    // According to #wayland, user data isn't actually user data, but internal data of the resource.
    // We only own the user data if the resource was created by us.
+   //
+   // See what wlc_buffer_resource_get_container does, we implement destroy listener which we need anyways,
+   // and the container_of macro to get owner.
 
    struct wlc_buffer *buffer = NULL;
    if (buffer_resource && !(buffer = wlc_buffer_resource_get_container(buffer_resource)) && !(buffer = wlc_buffer_new(buffer_resource))) {
@@ -145,11 +123,11 @@ wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, 
       return;
    }
 
-   wlc_surface_state_set_buffer(&surface->pending, buffer);
+   state_set_buffer(&surface->pending, buffer);
 
    surface->pending.sx = x;
    surface->pending.sy = y;
-   surface->pending.newly_attached = true;
+   surface->pending.attached = true;
 }
 
 static void
@@ -218,7 +196,7 @@ wl_cb_surface_commit(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client;
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
-   wlc_surface_commit_state(surface, &surface->pending, &surface->commit);
+   commit_state(surface, &surface->pending, &surface->commit);
 }
 
 static void
@@ -275,6 +253,15 @@ wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource)
 }
 
 void
+wlc_surface_invalidate(struct wlc_surface *surface)
+{
+   if (!surface->output)
+      return;
+
+   wlc_output_surface_destroy(surface->output, surface);
+}
+
+void
 wlc_surface_free(struct wlc_surface *surface)
 {
    assert(surface);
@@ -284,42 +271,24 @@ wlc_surface_free(struct wlc_surface *surface)
       return;
    }
 
-   struct wlc_view *view;
-   if ((surface->space && (view = wlc_view_for_surface_in_list(surface, &surface->space->views))) ||
-       (view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped))) {
+   if (surface->view)
+      wlc_view_free(surface->view);
 
-      if (surface->created) {
-         wl_list_remove(&view->link);
-         wl_list_insert(&surface->compositor->unmapped, &view->link);
-      }
+   wlc_surface_invalidate(surface);
 
-      if (surface->created && surface->compositor->interface.view.destroyed)
-         surface->compositor->interface.view.destroyed(surface->compositor, view);
-
-      wlc_view_free(view);
-   }
-
-   if (surface->compositor && surface->compositor->render)
-      surface->compositor->render->api.destroy(surface);
-
-   if (surface->commit.buffer)
-      wlc_buffer_free(surface->commit.buffer);
-
-   if (surface->pending.buffer)
-      wlc_buffer_free(surface->pending.buffer);
+   release_state(&surface->commit);
+   release_state(&surface->pending);
 
    free(surface);
 }
 
 struct wlc_surface*
-wlc_surface_new(struct wlc_compositor *compositor, struct wlc_space *space)
+wlc_surface_new(void)
 {
    struct wlc_surface *surface;
    if (!(surface = calloc(1, sizeof(struct wlc_surface))))
       return NULL;
 
-   surface->space = space;
-   surface->compositor = compositor;
    wl_list_init(&surface->commit.frame_cb_list);
    wl_list_init(&surface->pending.frame_cb_list);
    return surface;

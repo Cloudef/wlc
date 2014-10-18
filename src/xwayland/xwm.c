@@ -6,6 +6,9 @@
 #include "compositor/output.h"
 #include "compositor/view.h"
 
+#include "seat/seat.h"
+#include "seat/client.h"
+
 #include <string.h>
 #include <assert.h>
 #include <dlfcn.h>
@@ -47,6 +50,7 @@ enum atom_name {
 };
 
 static struct {
+   struct wlc_compositor *compositor;
    struct wl_client *client;
    struct wl_event_source *event_source;
    struct wl_list windows, unpaired_windows;
@@ -401,16 +405,22 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    if (!resource || win->surface_id != 0)
       return;
 
-   struct wlc_surface *surface = wl_resource_get_user_data(resource);
-
-   struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)))
+   struct wlc_client *client;
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(xwm.client, &xwm.compositor->clients))) {
+      wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find wlc_client for wl_client");
       return;
+   }
 
-   win->view = view;
-   view->x11_window = win;
+   struct wlc_surface *surface = wl_resource_get_user_data(resource);
+   if (!surface->view && !(surface->view = wlc_view_new(xwm.compositor, client, surface))) {
+      wl_resource_post_no_memory(resource);
+      return;
+   }
 
-   wlc_x11_window_resize(win, view->commit.geometry.size.w, view->commit.geometry.size.h);
+   win->view = surface->view;
+   win->view->x11_window = win;
+
+   wlc_x11_window_resize(win, win->view->commit.geometry.size.w, win->view->commit.geometry.size.h);
 
    wl_list_remove(&win->link);
    wl_list_insert(&xwm.windows, &win->link);
@@ -609,6 +619,7 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    x11.api.xcb_flush(x11.connection);
 
    xwm.client = client;
+   xwm.compositor = compositor;
    wlc_log(WLC_LOG_INFO, "xwm started");
    return true;
 

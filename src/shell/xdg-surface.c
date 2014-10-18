@@ -1,33 +1,17 @@
 #include "xdg-surface.h"
-#include "surface.h"
 #include "macros.h"
 
 #include "seat/seat.h"
 #include "seat/pointer.h"
-#include "compositor/compositor.h"
-#include "compositor/surface.h"
-#include "compositor/output.h"
+
 #include "compositor/view.h"
+#include "compositor/output.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 
 #include <wayland-server.h>
 #include "wayland-xdg-shell-server-protocol.h"
-
-static void
-request_state(struct wlc_xdg_surface *xdg_surface, enum wlc_view_bit state, bool toggle)
-{
-   if (!xdg_surface->shell_surface->surface->compositor->interface.view.request.state)
-      return;
-
-   // FIXME: Ugly, maybe even move to view. But this is another thing addressed by resource management.
-   struct wlc_view *view;
-   if ((view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->space->views)) ||
-       (view = wlc_view_for_surface_in_list(xdg_surface->shell_surface->surface, &xdg_surface->shell_surface->surface->compositor->unmapped)))
-      xdg_surface->shell_surface->surface->compositor->interface.view.request.state(xdg_surface->shell_surface->surface->compositor, view, state, toggle);
-}
 
 static void
 xdg_cb_surface_destroy(struct wl_client *wl_client, struct wl_resource *resource)
@@ -40,24 +24,24 @@ static void
 xdg_cb_surface_set_parent(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *parent_resource)
 {
    (void)wl_client;
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_parent(xdg_surface->shell_surface, (parent_resource ? wl_resource_get_user_data(parent_resource) : NULL));
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_view_set_parent(view, (parent_resource ? wl_resource_get_user_data(parent_resource) : NULL));
 }
 
 static void
 xdg_cb_surface_set_title(struct wl_client *wl_client, struct wl_resource *resource, const char *title)
 {
    (void)wl_client;
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_shell_surface_set_title(xdg_surface->shell_surface, title);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_view_set_title(view, title);
 }
 
 static void
 xdg_cb_surface_set_app_id(struct wl_client *wl_client, struct wl_resource *resource, const char *app_id)
 {
    (void)wl_client;
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_xdg_surface_set_app_id(xdg_surface, app_id);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_string_set(&view->xdg_surface.app_id, app_id, true);
 }
 
 static void
@@ -103,24 +87,24 @@ static void
 xdg_cb_surface_set_window_geometry(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
 {
    (void)wl_client;
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   xdg_surface->visible_geometry = (struct wlc_geometry){ { x, y }, { width, height } };
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   view->xdg_surface.visible_geometry = (struct wlc_geometry){ { x, y }, { width, height } };
 }
 
 static void
 xdg_cb_surface_set_maximized(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client;
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   request_state(xdg_surface, WLC_BIT_MAXIMIZED, true);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_view_request_state(view, WLC_BIT_MAXIMIZED, true);
 }
 
 static void
 xdg_cb_surface_unset_maximized(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client;
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   request_state(xdg_surface, WLC_BIT_MAXIMIZED, false);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_view_request_state(view, WLC_BIT_MAXIMIZED, false);
 }
 
 static void
@@ -128,28 +112,27 @@ xdg_cb_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resource *r
 {
    (void)wl_client;
 
-   if (output_resource)
-      wl_resource_get_user_data(output_resource);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   struct wlc_output *output = (output_resource ? wl_resource_get_user_data(output_resource) : view->space->output);
 
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   // wlc_shell_surface_set_output(xdg_surface->shell_surface, output);
-   request_state(xdg_surface, WLC_BIT_FULLSCREEN, true);
+   // wlc_view_set_output(view, output);
+   wlc_view_request_state(view, WLC_BIT_FULLSCREEN, true);
 }
 
 static void
 xdg_cb_surface_unset_fullscreen(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client;
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   request_state(xdg_surface, WLC_BIT_FULLSCREEN, false);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_view_request_state(view, WLC_BIT_FULLSCREEN, false);
 }
 
 static void
 xdg_cb_surface_set_minimized(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client;
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-   wlc_xdg_surface_set_minimized(xdg_surface, true);
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   wlc_xdg_surface_set_minimized(&view->xdg_surface, true);
 }
 
 const struct xdg_surface_interface xdg_surface_implementation = {
@@ -173,69 +156,47 @@ static void
 xdg_cb_surface_destructor(struct wl_resource *resource)
 {
    assert(resource);
-   struct wlc_xdg_surface *xdg_surface = wl_resource_get_user_data(resource);
-
-   if (xdg_surface) {
-      if (xdg_surface->shell_surface)
-         xdg_surface->shell_surface->resource = NULL;
-      wlc_xdg_surface_free(xdg_surface);
-   }
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   view->xdg_surface.resource = NULL;
+   wlc_xdg_surface_release(&view->xdg_surface);
 }
 
 void
-wlc_xdg_surface_implement(struct wlc_xdg_surface *xdg_surface, struct wl_resource *resource)
+wlc_xdg_surface_implement(struct wlc_xdg_surface *xdg_surface, struct wlc_view *view, struct wl_resource *resource)
 {
    assert(xdg_surface);
 
-   if (xdg_surface->shell_surface->resource == resource)
+   if (xdg_surface->resource == resource)
       return;
 
-   if (xdg_surface->shell_surface->resource)
-      wl_resource_destroy(xdg_surface->shell_surface->resource);
+   if (xdg_surface->resource)
+      wl_resource_destroy(xdg_surface->resource);
 
-   xdg_surface->shell_surface->resource = resource;
-   wl_resource_set_implementation(xdg_surface->shell_surface->resource, &xdg_surface_implementation, xdg_surface, xdg_cb_surface_destructor);
+   xdg_surface->resource = resource;
+   wl_resource_set_implementation(xdg_surface->resource, &xdg_surface_implementation, view, xdg_cb_surface_destructor);
 }
 
 void
 wlc_xdg_surface_set_app_id(struct wlc_xdg_surface *xdg_surface, const char *app_id)
 {
+   assert(xdg_surface);
    wlc_string_set(&xdg_surface->app_id, app_id, true);
 }
 
 void
 wlc_xdg_surface_set_minimized(struct wlc_xdg_surface *xdg_surface, bool minimized)
 {
+   assert(xdg_surface);
    xdg_surface->minimized = minimized;
 }
 
 void
-wlc_xdg_surface_free(struct wlc_xdg_surface *xdg_surface)
+wlc_xdg_surface_release(struct wlc_xdg_surface *xdg_surface)
 {
    assert(xdg_surface);
 
-   if (xdg_surface->shell_surface)
-      wlc_shell_surface_free(xdg_surface->shell_surface);
+   if (xdg_surface->resource)
+      wl_resource_destroy(xdg_surface->resource);
 
    wlc_string_release(&xdg_surface->app_id);
-   free(xdg_surface);
-}
-
-struct wlc_xdg_surface*
-wlc_xdg_surface_new(struct wlc_surface *surface)
-{
-   assert(surface);
-
-   struct wlc_xdg_surface *xdg_surface;
-   if (!(xdg_surface = calloc(1, sizeof(struct wlc_xdg_surface))))
-      return NULL;
-
-   if (!(xdg_surface->shell_surface = wlc_shell_surface_new(surface)))
-      goto fail;
-
-   return xdg_surface;
-
-fail:
-   wlc_xdg_surface_free(xdg_surface);
-   return NULL;
 }

@@ -8,6 +8,8 @@
 #include "compositor/output.h"
 #include "compositor/view.h"
 
+#include "seat/client.h"
+
 #include <stdlib.h>
 #include <assert.h>
 
@@ -27,12 +29,12 @@ xdg_cb_shell_use_unstable_version(struct wl_client *wl_client, struct wl_resourc
 static void
 xdg_cb_shell_get_surface(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
 {
+   struct wlc_xdg_shell *xdg_shell = wl_resource_get_user_data(resource);
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
 
-   struct wlc_view *view;
-   if (!(view = wlc_view_for_surface_in_list(surface, &surface->compositor->unmapped)) &&
-       !(view = wlc_view_for_surface_in_list(surface, &surface->space->views))) {
-      wl_resource_post_error(resource, 1, "view was not found for client");
+   struct wlc_client *client;
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &xdg_shell->compositor->clients))) {
+      wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find wlc_client for wl_client");
       return;
    }
 
@@ -42,15 +44,13 @@ xdg_cb_shell_get_surface(struct wl_client *wl_client, struct wl_resource *resour
       return;
    }
 
-   struct wlc_xdg_surface *xdg_surface;
-   if (!(xdg_surface = wlc_xdg_surface_new(surface))) {
+   if (!surface->view && !(surface->view = wlc_view_new(xdg_shell->compositor, client, surface))) {
       wl_resource_destroy(xdg_surface_resource);
       wl_resource_post_no_memory(resource);
       return;
    }
 
-   wlc_view_set_xdg_surface(view, xdg_surface);
-   wlc_xdg_surface_implement(xdg_surface, xdg_surface_resource);
+   wlc_xdg_surface_implement(&surface->view->xdg_surface, surface->view, xdg_surface_resource);
 }
 
 static void
@@ -59,7 +59,6 @@ xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource
    (void)wl_client, (void)resource, (void)id, (void)parent, (void)seat, (void)serial, (void)x, (void)y, (void)flags;
    STUB(surface_resource);
 }
-
 
 static void
 xdg_cb_shell_pong(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
