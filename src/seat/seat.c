@@ -116,21 +116,12 @@ wl_cb_seat_get_keyboard(struct wl_client *wl_client, struct wl_resource *resourc
    if (seat->keymap)
       wl_keyboard_send_keymap(keyboard_resource, seat->keymap->format, seat->keymap->fd, seat->keymap->size);
 
-   if (seat->compositor->interface.keyboard.init) {
-      struct wlc_output *output;
-      wl_list_for_each(output, &seat->compositor->outputs, link) {
-         struct wlc_space *space;
-         wl_list_for_each(space, &output->spaces, link) {
-            struct wlc_view *view;
-            wl_list_for_each_reverse(view, &space->views, link) {
-               if (view->client != client)
-                  continue;
-
-               seat->compositor->interface.keyboard.init(seat->compositor, view);
-               break;
-            }
-         }
-      }
+   if (seat->keyboard->focus && seat->keyboard->focus->client == client) {
+      // We refocus the client here so it gets input correctly.
+      // This way we avoid the ugly keyboard.init public interface hack.
+      struct wlc_view *focused_view_without_input_resource = seat->keyboard->focus;
+      seat->keyboard->focus = NULL;
+      seat->notify.keyboard_focus(seat, focused_view_without_input_resource);
    }
 }
 

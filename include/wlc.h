@@ -77,7 +77,6 @@ struct wlc_interface {
    } view;
 
    struct {
-      void (*init)(struct wlc_compositor*, struct wlc_view*);
       bool (*key)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, uint32_t key, enum wlc_key_state state);
    } keyboard;
 
