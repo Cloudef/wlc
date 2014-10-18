@@ -402,7 +402,7 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 static void
 link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
 {
-   if (!resource || win->surface_id != 0)
+   if (!resource)
       return;
 
    struct wlc_client *client;
@@ -492,6 +492,19 @@ x11_event(int fd, uint32_t mask, void *data)
 
       free(event);
       count += 1;
+   }
+
+   /* Xwayland will send the wayland requests to create the
+    * wl_surface before sending this client message.  Even so, we
+    * can end up handling the X event before the wayland requests
+    * and thus when we try to look up the surface ID, the surface
+    * hasn't been created yet. */
+   struct wlc_x11_window *win, *wn;
+   wl_list_for_each_safe(win, wn, &xwm.unpaired_windows, link) {
+      if (!win->surface_id)
+         continue;
+
+      link_surface(win, wl_client_get_object(xwm.client, win->surface_id));
    }
 
    x11.api.xcb_flush(x11.connection);
