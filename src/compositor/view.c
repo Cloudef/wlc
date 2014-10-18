@@ -96,8 +96,10 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
 void
 wlc_view_request_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle)
 {
-   if (!view->compositor->interface.view.request.state)
-      view->compositor->interface.view.request.state(view->compositor, view, state, toggle);
+   if (!view->created || !view->compositor->interface.view.request.state)
+      return;
+
+   view->compositor->interface.view.request.state(view->compositor, view, state, toggle);
 }
 
 void
