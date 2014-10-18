@@ -431,7 +431,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    x11.api.xcb_free_gc(x11.connection, gc);
    x11.api.xcb_free_pixmap(x11.connection, pixmap);
 
-#define NUM_OUTPUTS 2
+#define NUM_OUTPUTS 1
 
    struct wlc_output_information info;
    memset(&info, 0, sizeof(info));
