@@ -122,6 +122,8 @@ wlc_view_free(struct wlc_view *view)
 
    view->compositor->seat->notify.view_unfocus(view->compositor->seat, view);
 
+   wlc_view_set_parent(view, NULL);
+
    struct wlc_view *v, *vn;
    wl_list_for_each_safe(v, vn, &view->childs, parent_link)
       wlc_view_set_parent(v, NULL);
