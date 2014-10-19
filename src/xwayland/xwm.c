@@ -420,6 +420,9 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    win->view = surface->view;
    win->view->x11_window = win;
 
+   // Make sure the view is mapped to space.
+   // The timing with xwayland <-> wayland events might be bit off, so this does not hurt.
+   wlc_view_set_space(win->view, (xwm.compositor->output ? xwm.compositor->output->space : NULL));
    wlc_x11_window_resize(win, win->view->commit.geometry.size.w, win->view->commit.geometry.size.h);
 
    wl_list_remove(&win->link);
