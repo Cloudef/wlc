@@ -73,6 +73,9 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
    if (is_valid_view(keyboard->focus)) {
       wl_keyboard_send_leave(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
 
+      if (keyboard->focus->xdg_popup.resource)
+         wlc_view_close(keyboard->focus);
+
       if (keyboard->focus->x11_window)
          wlc_x11_window_set_active(keyboard->focus->x11_window, false);
    }

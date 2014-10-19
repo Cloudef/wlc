@@ -187,7 +187,9 @@ wlc_view_close(struct wlc_view *view)
 {
    assert(view);
 
-   if (view->xdg_surface.resource) {
+   if (view->xdg_popup.resource) {
+      xdg_popup_send_popup_done(view->xdg_popup.resource, wl_display_next_serial(view->compositor->display));
+   } else if (view->xdg_surface.resource) {
       xdg_surface_send_close(view->xdg_surface.resource);
    } else if (view->x11_window) {
       wlc_x11_window_close(view->x11_window);
