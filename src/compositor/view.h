@@ -7,6 +7,7 @@
 #include "wlc.h"
 #include "shell/surface.h"
 #include "shell/xdg-surface.h"
+#include "shell/xdg-popup.h"
 #include "types/geometry.h"
 
 struct wl_resource;
@@ -29,6 +30,7 @@ struct wlc_view {
    struct wlc_x11_window *x11_window;
    struct wlc_shell_surface shell_surface;
    struct wlc_xdg_surface xdg_surface;
+   struct wlc_xdg_popup xdg_popup;
    struct wl_list link, user_link;
    struct wlc_view_state pending;
    struct wlc_view_state commit;

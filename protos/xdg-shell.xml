@@ -48,6 +48,9 @@
       <entry name="current" value="4" summary="Always the latest version"/>
     </enum>
 
+    <enum name="error">
+      <entry name="role" value="0" summary="given wl_surface has another role"/>
+    </enum>
 
     <request name="use_unstable_version">
       <description summary="enable use of this unstable version">
@@ -64,6 +67,9 @@
       <description summary="create a shell surface from a surface">
 	Create a shell surface for an existing surface.
 
+	This request gives the surface the role of xdg_surface. If the
+	surface already has another role, it raises a protocol error.
+
 	Only one shell or popup surface can be associated with a given
 	surface.
       </description>
@@ -74,6 +80,9 @@
     <request name="get_xdg_popup">
       <description summary="create a shell surface from a surface">
 	Create a popup surface for an existing surface.
+
+	This request gives the surface the role of xdg_popup. If the
+	surface already has another role, it raises a protocol error.
 
 	Only one shell or popup surface can be associated with a given
 	surface.

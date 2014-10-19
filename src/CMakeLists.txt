@@ -22,6 +22,7 @@ SET(SRC
    seat/seat.c
    shell/shell.c
    shell/surface.c
+   shell/xdg-popup.c
    shell/xdg-shell.c
    shell/xdg-surface.c
    types/string.c

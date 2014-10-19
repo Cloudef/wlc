@@ -119,6 +119,7 @@ wlc_view_free(struct wlc_view *view)
 
    wlc_shell_surface_release(&view->shell_surface);
    wlc_xdg_surface_release(&view->xdg_surface);
+   wlc_xdg_popup_release(&view->xdg_popup);
 
    if (view->x11_window)
       wlc_x11_window_free(view->x11_window);
