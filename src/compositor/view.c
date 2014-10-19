@@ -119,6 +119,8 @@ wlc_view_free(struct wlc_view *view)
    if (view->x11_window)
       wlc_x11_window_free(view->x11_window);
 
+   if (view->surface)
+      view->surface->view = NULL;
 
    if (view->space)
       wl_list_remove(&view->link);
