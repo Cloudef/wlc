@@ -12,7 +12,6 @@ wl_cb_callback_destructor(struct wl_resource *resource)
 
    if (callback) {
       callback->resource = NULL;
-      wl_list_remove(&callback->link);
       wlc_callback_free(callback);
    }
 }
@@ -28,9 +27,12 @@ wlc_callback_free(struct wlc_callback *callback)
 {
    assert(callback);
 
-   if (callback->resource)
+   if (callback->resource) {
+      wl_resource_set_user_data(callback->resource, NULL);
       wl_resource_destroy(callback->resource);
+   }
 
+   wl_list_remove(&callback->link);
    free(callback);
 }
 

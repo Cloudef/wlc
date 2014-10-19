@@ -124,7 +124,7 @@ repaint(struct wlc_output *output)
       struct wlc_callback *cb, *cbn;
       wl_list_for_each_safe(cb, cbn, &view->surface->commit.frame_cb_list, link) {
          wl_callback_send_done(cb->resource, msec);
-         wl_resource_destroy(cb->resource);
+         wlc_callback_free(cb);
       }
 
       wlc_view_commit_state(view, &view->pending, &view->commit);

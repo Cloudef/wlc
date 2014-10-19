@@ -104,6 +104,10 @@ release_state(struct wlc_surface_state *state)
 {
    if (state->buffer)
       wlc_buffer_free(state->buffer);
+
+   struct wlc_callback *cb, *cbn;
+   wl_list_for_each_safe(cb, cbn, &state->frame_cb_list, link)
+      wlc_callback_free(cb);
 }
 
 static void
@@ -164,7 +168,6 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
 
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    wl_list_insert(&surface->pending.frame_cb_list, &callback->link);
-
    return;
 
 fail:
