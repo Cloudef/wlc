@@ -110,6 +110,8 @@ wlc_view_free(struct wlc_view *view)
    if (view->created && view->compositor->interface.view.destroyed)
       view->compositor->interface.view.destroyed(view->compositor, view);
 
+   view->compositor->seat->notify.view_unfocus(view->compositor->seat, view);
+
    wlc_shell_surface_release(&view->shell_surface);
    wlc_xdg_surface_release(&view->xdg_surface);
    wlc_xdg_popup_release(&view->xdg_popup);
@@ -117,7 +119,6 @@ wlc_view_free(struct wlc_view *view)
    if (view->x11_window)
       wlc_x11_window_free(view->x11_window);
 
-   view->compositor->seat->notify.view_unfocus(view->compositor->seat, view);
 
    if (view->space)
       wl_list_remove(&view->link);
