@@ -18,12 +18,41 @@
 static void
 surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
+   struct wlc_space *space = (buffer && surface->view && surface->view->compositor->output ? surface->view->compositor->output->space : NULL);
+
+   if (space) {
+      if (!wlc_output_surface_attach(space->output, surface, buffer))
+         return;
+
+      struct wlc_size size = { 0, 0 };
+      if (buffer) {
+#if 0
+         switch (transform) {
+            case WL_OUTPUT_TRANSFORM_90:
+            case WL_OUTPUT_TRANSFORM_270:
+            case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+            case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+               width = surface->buffer_ref.buffer->height / vp->buffer.scale;
+               height = surface->buffer_ref.buffer->width / vp->buffer.scale;
+               break;
+            default:
+               width = surface->buffer_ref.buffer->width / vp->buffer.scale;
+               height = surface->buffer_ref.buffer->height / vp->buffer.scale;
+               break;
+         }
+#endif
+         size = buffer->size;
+      }
+
+      surface->size = size;
+      surface->output = space->output;
+      surface->commit.attached = true;
+   }
+
    // Change view space only if surface has no space already (unmapped)
    // Or the buffer is NULL (unmaps the view)
-   if (!surface->view || (surface->view->space && buffer))
-      return;
-
-   wlc_view_set_space(surface->view, (buffer && surface->view->compositor->output ? surface->view->compositor->output->space : NULL));
+   if (surface->view && (!surface->view->space || !buffer))
+      wlc_view_set_space(surface->view, space);
 }
 
 static void
@@ -43,7 +72,7 @@ commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, str
 {
    if (pending->attached) {
       surface_attach(surface, pending->buffer);
-      out->attached = pending->attached = false;
+      pending->attached = false;
    }
 
    state_set_buffer(out, pending->buffer);

@@ -116,10 +116,7 @@ repaint(struct wlc_output *output)
 
    struct wlc_view *view;
    wl_list_for_each(view, &output->space->views, link) {
-      if (!view->created)
-         continue;
-
-      if (!view->surface->commit.attached && !wlc_output_surface_attach(output, view->surface, view->surface->commit.buffer))
+      if (!view->created || !view->surface->commit.attached)
          continue;
 
       wlc_render_view_paint(output->render, view);
@@ -171,35 +168,12 @@ wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface
 {
    assert(output && surface);
 
-   if (surface->output)
+   if (surface->output && surface->output != output)
       wlc_output_surface_destroy(surface->output, surface);
 
    if (!wlc_render_surface_attach(output->render, surface, buffer))
       return false;
 
-   struct wlc_size size = { 0, 0 };
-   if (buffer) {
-#if 0
-      switch (transform) {
-         case WL_OUTPUT_TRANSFORM_90:
-         case WL_OUTPUT_TRANSFORM_270:
-         case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-         case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-            width = surface->buffer_ref.buffer->height / vp->buffer.scale;
-            height = surface->buffer_ref.buffer->width / vp->buffer.scale;
-            break;
-         default:
-            width = surface->buffer_ref.buffer->width / vp->buffer.scale;
-            height = surface->buffer_ref.buffer->height / vp->buffer.scale;
-            break;
-      }
-#endif
-      size = buffer->size;
-   }
-
-   surface->size = size;
-   surface->output = output;
-   surface->commit.attached = true;
    return true;
 }
 

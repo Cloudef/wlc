@@ -283,7 +283,9 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
    if (space)
       wl_list_insert(space->views.prev, &view->link);
 
-   wlc_surface_invalidate(view->surface);
+   if (!space || space->output != view->surface->output)
+      wlc_surface_invalidate(view->surface);
+
    view->space = space;
 
    if (space && !view->created) {
