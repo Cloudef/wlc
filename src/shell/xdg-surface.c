@@ -5,6 +5,7 @@
 #include "seat/pointer.h"
 
 #include "compositor/view.h"
+#include "compositor/surface.h"
 #include "compositor/output.h"
 
 #include <stdlib.h>
@@ -25,7 +26,8 @@ xdg_cb_surface_set_parent(struct wl_client *wl_client, struct wl_resource *resou
 {
    (void)wl_client;
    struct wlc_view *view = wl_resource_get_user_data(resource);
-   wlc_view_set_parent(view, (parent_resource ? wl_resource_get_user_data(parent_resource) : NULL));
+   struct wlc_surface *surface = (parent_resource ? wl_resource_get_user_data(parent_resource) : NULL);
+   wlc_view_set_parent(view, (surface ? surface->view : NULL));
 }
 
 static void
