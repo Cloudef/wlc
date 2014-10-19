@@ -412,6 +412,9 @@ surface_destroy(struct ctx *context, struct wlc_surface *surface)
 {
    assert(context && surface);
 
+   if (!surface->output)
+      return;
+
    if (!wlc_context_bind(surface->output->context))
       return;
 
