@@ -31,7 +31,8 @@ struct wlc_view {
    struct wlc_shell_surface shell_surface;
    struct wlc_xdg_surface xdg_surface;
    struct wlc_xdg_popup xdg_popup;
-   struct wl_list link, user_link;
+   struct wl_list childs;
+   struct wl_list link, user_link, parent_link;
    struct wlc_view_state pending;
    struct wlc_view_state commit;
    struct wl_array wl_state;

@@ -64,8 +64,13 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
 void
 wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
 {
-   assert(out_bounds);
+   assert(view && out_bounds);
    memcpy(out_bounds, &view->commit.geometry, sizeof(struct wlc_geometry));
+
+   for (struct wlc_view *parent = view->parent; parent; parent = parent->parent) {
+      out_bounds->origin.x += parent->commit.geometry.origin.x;
+      out_bounds->origin.y += parent->commit.geometry.origin.y;
+   }
 
    if (view->xdg_surface.resource && view->xdg_surface.visible_geometry.size.w > 0 && view->xdg_surface.visible_geometry.size.h > 0) {
       out_bounds->origin.x -= view->xdg_surface.visible_geometry.origin.x;
@@ -98,8 +103,13 @@ wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, boo
 void
 wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent)
 {
-   assert(view);
-   view->parent = parent;
+   assert(view && view != parent);
+
+   if (!parent && view->parent)
+      wl_list_remove(&view->parent_link);
+
+   if ((view->parent = parent))
+      wl_list_insert(&parent->childs, &view->parent_link);
 }
 
 void
@@ -111,6 +121,10 @@ wlc_view_free(struct wlc_view *view)
       view->compositor->interface.view.destroyed(view->compositor, view);
 
    view->compositor->seat->notify.view_unfocus(view->compositor->seat, view);
+
+   struct wlc_view *v, *vn;
+   wl_list_for_each_safe(v, vn, &view->childs, parent_link)
+      wlc_view_set_parent(v, NULL);
 
    wlc_shell_surface_release(&view->shell_surface);
    wlc_xdg_surface_release(&view->xdg_surface);
@@ -142,6 +156,7 @@ wlc_view_new(struct wlc_compositor *compositor, struct wlc_client *client, struc
    view->surface = surface;
    view->compositor = compositor;
    wl_array_init(&view->wl_state);
+   wl_list_init(&view->childs);
    return view;
 }
 
@@ -346,4 +361,11 @@ wlc_view_set_class(struct wlc_view *view, const char *_class)
 {
    assert(view);
    wlc_string_set(&view->shell_surface._class, _class, true);
+}
+
+WLC_API struct wlc_view*
+wlc_view_get_parent(struct wlc_view *view)
+{
+   assert(view);
+   return view->parent;
 }

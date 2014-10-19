@@ -146,6 +146,7 @@ struct wl_list* wlc_view_get_link(struct wlc_view *view);
 struct wlc_view* wlc_view_from_link(struct wl_list *view_link);
 struct wl_list* wlc_view_get_user_link(struct wlc_view *view);
 struct wlc_view* wlc_view_from_user_link(struct wl_list *view_link);
+struct wlc_view* wlc_view_get_parent(struct wlc_view *view);
 void wlc_view_set_userdata(struct wlc_view *view, void *userdata);
 void* wlc_view_get_userdata(struct wlc_view *view);
 

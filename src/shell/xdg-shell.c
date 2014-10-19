@@ -54,11 +54,17 @@ xdg_cb_shell_get_surface(struct wl_client *wl_client, struct wl_resource *resour
 }
 
 static void
-xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent, struct wl_resource *seat, uint32_t serial, int32_t x, int32_t y, uint32_t flags)
+xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent_resource, struct wl_resource *seat_resource, uint32_t serial, int32_t x, int32_t y, uint32_t flags)
 {
-   (void)wl_client, (void)id, (void)parent, (void)seat, (void)serial, (void)flags;
+   (void)wl_client, (void)id, (void)seat_resource, (void)serial, (void)flags;
    struct wlc_xdg_shell *xdg_shell = wl_resource_get_user_data(resource);
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
+   struct wlc_surface *psurface = wl_resource_get_user_data(parent_resource);
+
+   if (!psurface || !psurface->view) {
+      wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find parent surface for popup");
+      return;
+   }
 
    struct wlc_client *client;
    if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &xdg_shell->compositor->clients))) {
@@ -79,6 +85,7 @@ xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource
    }
 
    wlc_view_position(surface->view, x, y);
+   wlc_view_set_parent(surface->view, psurface->view);
    wlc_xdg_popup_implement(&surface->view->xdg_popup, surface->view, xdg_popup_resource);
    surface->view->type |= WLC_BIT_POPUP;
 }
