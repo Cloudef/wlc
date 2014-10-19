@@ -124,7 +124,7 @@ static void
 wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, uint32_t callback_id)
 {
    struct wl_resource *callback_resource;
-   if (!(callback_resource = wl_resource_create(wl_client, &wl_callback_interface, 1, callback_id)))
+   if (!(callback_resource = wl_resource_create(wl_client, &wl_callback_interface, wl_resource_get_version(resource), callback_id)))
       goto fail;
 
    struct wlc_callback *callback;

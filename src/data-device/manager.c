@@ -137,7 +137,7 @@ static void
 wl_cb_manager_create_data_source(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id)
 {
    struct wl_resource *source_resource;
-   if (!(source_resource = wl_resource_create(wl_client, &wl_data_source_interface, 1, id)))
+   if (!(source_resource = wl_resource_create(wl_client, &wl_data_source_interface, wl_resource_get_version(resource), id)))
       goto fail;
 
    struct wlc_data_source *source;
@@ -202,7 +202,7 @@ wl_cb_manager_get_data_device(struct wl_client *wl_client, struct wl_resource *r
       return;
 
    struct wl_resource *device_resource;
-   if (!(device_resource = wl_resource_create(wl_client, &wl_data_device_interface, 1, id))) {
+   if (!(device_resource = wl_resource_create(wl_client, &wl_data_device_interface, wl_resource_get_version(resource), id))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -238,7 +238,7 @@ wlc_data_device_offer(struct wlc_data_device *device, struct wl_client *wl_clien
 
    struct wlc_data_source *source = (device->source_resource ? wl_resource_get_user_data(device->source_resource) : NULL);
    struct wl_resource *offer = NULL;
-   if (source && !(offer = wl_resource_create(wl_client, &wl_data_offer_interface, 1, 0)))
+   if (source && !(offer = wl_resource_create(wl_client, &wl_data_offer_interface, wl_resource_get_version(resource), 0)))
       return;
 
    if (offer) {

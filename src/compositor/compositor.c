@@ -88,7 +88,7 @@ wl_cb_subcompositor_get_subsurface(struct wl_client *wl_client, struct wl_resour
    STUBL(resource);
 
    struct wl_resource *subsurface_resource;
-   if (!(subsurface_resource = wl_resource_create(wl_client, &wl_subsurface_interface, 1, id))) {
+   if (!(subsurface_resource = wl_resource_create(wl_client, &wl_subsurface_interface, wl_resource_get_version(resource), id))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -126,7 +126,7 @@ wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, 
 {
    struct wlc_surface *surface = NULL;
    struct wl_resource *surface_resource;
-   if (!(surface_resource = wl_resource_create(wl_client, &wl_surface_interface, 1, id)))
+   if (!(surface_resource = wl_resource_create(wl_client, &wl_surface_interface, wl_resource_get_version(resource), id)))
       goto fail;
 
    if (!(surface = wlc_surface_new()))
@@ -147,7 +147,7 @@ static void
 wl_cb_region_create(struct wl_client *wl_client, struct wl_resource *resource, unsigned int id)
 {
    struct wl_resource *region_resource;
-   if (!(region_resource = wl_resource_create(wl_client, &wl_region_interface, 1, id)))
+   if (!(region_resource = wl_resource_create(wl_client, &wl_region_interface, wl_resource_get_version(resource), id)))
       goto fail;
 
    struct wlc_region *region;

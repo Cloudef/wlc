@@ -29,7 +29,7 @@ wl_cb_shell_get_shell_surface(struct wl_client *wl_client, struct wl_resource *r
    }
 
    struct wl_resource *shell_surface_resource;
-   if (!(shell_surface_resource = wl_resource_create(wl_client, &wl_shell_surface_interface, 1, id))) {
+   if (!(shell_surface_resource = wl_resource_create(wl_client, &wl_shell_surface_interface, wl_resource_get_version(resource), id))) {
       wl_resource_post_no_memory(resource);
       return;
    }

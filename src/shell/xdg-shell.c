@@ -39,7 +39,7 @@ xdg_cb_shell_get_surface(struct wl_client *wl_client, struct wl_resource *resour
    }
 
    struct wl_resource *xdg_surface_resource;
-   if (!(xdg_surface_resource = wl_resource_create(wl_client, &xdg_surface_interface, 1, id))) {
+   if (!(xdg_surface_resource = wl_resource_create(wl_client, &xdg_surface_interface, wl_resource_get_version(resource), id))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -68,7 +68,7 @@ xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource
    }
 
    struct wl_resource *xdg_popup_resource;
-   if (!(xdg_popup_resource = wl_resource_create(wl_client, &xdg_popup_interface, 1, id))) {
+   if (!(xdg_popup_resource = wl_resource_create(wl_client, &xdg_popup_interface, wl_resource_get_version(resource), id))) {
       wl_resource_post_no_memory(resource);
       return;
    }

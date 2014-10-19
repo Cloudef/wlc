@@ -1,4 +1,5 @@
 #include "view.h"
+#include "macros.h"
 #include "visibility.h"
 #include "compositor.h"
 #include "output.h"
@@ -18,14 +19,6 @@
 
 #include <wayland-server.h>
 #include "wayland-xdg-shell-server-protocol.h"
-
-#ifndef MIN
-#  define MIN(a,b) (((a)<(b))?(a):(b))
-#endif
-
-#ifndef MAX
-#  define MAX(a,b) (((a)>(b))?(a):(b))
-#endif
 
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
