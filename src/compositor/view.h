@@ -35,10 +35,11 @@ struct wlc_view {
    struct wlc_view_state pending;
    struct wlc_view_state commit;
    struct wl_array wl_state;
+   uint32_t type;
    bool created;
 };
 
-void wlc_view_request_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle);
+void wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
 void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
 void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_geometry);
 void wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent);

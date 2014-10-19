@@ -81,6 +81,7 @@ xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource
 
    wlc_view_position(surface->view, x, y);
    wlc_xdg_popup_implement(&surface->view->xdg_popup, surface->view, xdg_popup_resource);
+   surface->view->type |= WLC_BIT_POPUP;
 }
 
 static void

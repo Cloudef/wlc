@@ -26,11 +26,16 @@ enum wlc_log_type {
 };
 
 /** wlc_view_get_state(); */
-enum wlc_view_bit {
+enum wlc_view_state_bit {
    WLC_BIT_MAXIMIZED = 1<<0,
    WLC_BIT_FULLSCREEN = 1<<1,
    WLC_BIT_RESIZING = 1<<2,
    WLC_BIT_ACTIVATED = 1<<3,
+};
+
+/** wlc_view_get_type(); */
+enum wlc_view_type_bit {
+   WLC_BIT_POPUP = 1<<0,
 };
 
 /** mods in interface.keyboard.key function */
@@ -72,7 +77,7 @@ struct wlc_interface {
 
       struct {
          void (*geometry)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y, uint32_t width, uint32_t height);
-         void (*state)(struct wlc_compositor*, struct wlc_view*, enum wlc_view_bit state, bool toggle);
+         void (*state)(struct wlc_compositor*, struct wlc_view*, enum wlc_view_state_bit state, bool toggle);
       } request;
    } view;
 
@@ -127,8 +132,9 @@ void wlc_view_set_title(struct wlc_view *view, const char *title);
 void wlc_view_set_class(struct wlc_view *view, const char *_class);
 void wlc_view_set_space(struct wlc_view *view, struct wlc_space *space);
 struct wlc_space* wlc_view_get_space(struct wlc_view *view);
+uint32_t wlc_view_get_type(struct wlc_view *view);
 uint32_t wlc_view_get_state(struct wlc_view *view);
-void wlc_view_set_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle);
+void wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
 void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
 void wlc_view_position(struct wlc_view *view, int32_t x, int32_t y);
 void wlc_view_close(struct wlc_view *view);

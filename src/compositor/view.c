@@ -87,7 +87,7 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
 }
 
 void
-wlc_view_request_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle)
+wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {
    if (!view->created || !view->compositor->interface.view.request.state)
       return;
@@ -146,6 +146,13 @@ wlc_view_new(struct wlc_compositor *compositor, struct wlc_client *client, struc
 }
 
 WLC_API uint32_t
+wlc_view_get_type(struct wlc_view *view)
+{
+   assert(view);
+   return view->type;
+}
+
+WLC_API uint32_t
 wlc_view_get_state(struct wlc_view *view)
 {
    assert(view);
@@ -153,7 +160,7 @@ wlc_view_get_state(struct wlc_view *view)
 }
 
 WLC_API void
-wlc_view_set_state(struct wlc_view *view, enum wlc_view_bit state, bool toggle)
+wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {
    assert(view);
 #define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
