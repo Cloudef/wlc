@@ -60,7 +60,6 @@ xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource
    struct wlc_xdg_shell *xdg_shell = wl_resource_get_user_data(resource);
    struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
 
-   puts("ASD");
    struct wlc_client *client;
    if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &xdg_shell->compositor->clients))) {
       wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find wlc_client for wl_client");
