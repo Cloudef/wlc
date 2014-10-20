@@ -18,7 +18,7 @@
 static void
 surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
-   struct wlc_space *space = (buffer && surface->view && surface->view->compositor->output ? surface->view->compositor->output->space : NULL);
+   struct wlc_space *space = (buffer && surface->view ? wlc_view_get_mapped_space(surface->view) : NULL);
 
    if (space) {
       if (!wlc_output_surface_attach(space->output, surface, buffer))

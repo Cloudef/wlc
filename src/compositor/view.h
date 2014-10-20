@@ -44,6 +44,7 @@ void wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state
 void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
 void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_geometry);
 void wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent);
+struct wlc_space* wlc_view_get_mapped_space(struct wlc_view *view);
 void wlc_view_free(struct wlc_view *view);
 struct wlc_view* wlc_view_new(struct wlc_compositor *compositor, struct wlc_client *client, struct wlc_surface *surface);
 

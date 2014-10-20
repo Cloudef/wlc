@@ -112,6 +112,12 @@ wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent)
       wl_list_insert(&parent->childs, &view->parent_link);
 }
 
+struct wlc_space*
+wlc_view_get_mapped_space(struct wlc_view *view)
+{
+   return (view->space ? view->space : (view->compositor->output ? view->compositor->output->space : NULL));
+}
+
 void
 wlc_view_free(struct wlc_view *view)
 {
