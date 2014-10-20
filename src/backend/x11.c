@@ -1,4 +1,5 @@
 #include "wlc.h"
+#include "wlc_internal.h"
 #include "x11.h"
 #include "backend.h"
 
@@ -431,8 +432,6 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    x11.api.xcb_free_gc(x11.connection, gc);
    x11.api.xcb_free_pixmap(x11.connection, pixmap);
 
-#define NUM_OUTPUTS 1
-
    struct wlc_output_information info;
    memset(&info, 0, sizeof(info));
    wlc_string_set(&info.make, "Xorg", false);
@@ -462,7 +461,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
          x11.cursor,
       };
 
-      for (int i = 0; i < NUM_OUTPUTS; ++i) {
+      for (int i = 0; i < wlc_fake_outputs(); ++i) {
          xcb_window_t window;
          if (!(window = x11.api.xcb_generate_id(x11.connection)))
             goto window_fail;
@@ -482,7 +481,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
          if (!add_output(compositor, window, &info))
             goto output_fail;
 
-         if (i < NUM_OUTPUTS) {
+         if (i < wlc_fake_outputs()) {
             struct wl_array cpy;
             wl_array_init(&cpy);
             wl_array_copy(&cpy, &info.modes);

@@ -62,6 +62,7 @@ static struct {
    int socket;
    int tty;
    int cached_tm_mday;
+   int fake_outputs; // for x11
    bool no_egl_clients;
    bool active;
    bool init;
@@ -677,6 +678,12 @@ wlc_no_egl_clients(void)
    return wlc.no_egl_clients;
 }
 
+int
+wlc_fake_outputs(void)
+{
+   return (wlc.fake_outputs > 0 ? wlc.fake_outputs : 1);
+}
+
 static inline void
 wlc_log_timestamp(FILE *out)
 {
@@ -751,6 +758,10 @@ wlc_init(const int argc, char *argv[])
          if (i + 1 >= argc)
             die("--log takes a argument (filename)");
          wlc_set_log_file(fopen(argv[++i], "w"));
+      } else if (!strcmp(argv[i], "--outputs")) {
+         if (i + 1 >= argc)
+            die("--outputs takes a argument (number of outputs)");
+         wlc.fake_outputs = strtoul(argv[++i], NULL, 10);
       } else if (!strcmp(argv[i], "--shm")) {
          wlc.no_egl_clients = true;
       }
