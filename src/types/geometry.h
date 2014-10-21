@@ -19,6 +19,10 @@ struct wlc_geometry {
    struct wlc_size size;
 };
 
+static const struct wlc_origin wlc_origin_zero = { 0, 0 };
+static const struct wlc_size wlc_size_zero = { 0, 0 };
+static const struct wlc_geometry wlc_geometry_zero = { { 0, 0 }, { 0, 0 } };
+
 static inline bool
 wlc_origin_equals(const struct wlc_origin *a, const struct wlc_origin *b)
 {
