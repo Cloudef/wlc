@@ -5,6 +5,7 @@
 #include "seat/pointer.h"
 
 #include "compositor/view.h"
+#include "compositor/surface.h"
 #include "compositor/output.h"
 
 #include <stdlib.h>
@@ -47,16 +48,19 @@ wl_cb_shell_surface_resize(struct wl_client *wl_client, struct wl_resource *reso
 static void
 wl_cb_shell_surface_set_toplevel(struct wl_client *wl_client, struct wl_resource *resource)
 {
-   (void)wl_client, (void)resource;
+   (void)wl_client;
    struct wlc_view *view = wl_resource_get_user_data(resource);
    wlc_view_request_state(view, WLC_BIT_FULLSCREEN, false);
 }
 
 static void
-wl_cb_shell_surface_set_transient(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *parent, int32_t x, int32_t y, uint32_t flags)
+wl_cb_shell_surface_set_transient(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *parent_resource, int32_t x, int32_t y, uint32_t flags)
 {
-   (void)wl_client, (void)resource, (void)parent, (void)x, (void)y, (void)flags;
-   STUBL(resource);
+   (void)wl_client, (void)flags;
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   struct wlc_surface *surface = (parent_resource ? wl_resource_get_user_data(parent_resource) : NULL);
+   wlc_view_set_parent(view, (surface ? surface->view : NULL));
+   wlc_view_position(view, x, y);
 }
 
 static void
@@ -67,7 +71,7 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resour
    struct wlc_view *view = wl_resource_get_user_data(resource);
    struct wlc_output *output = (output_resource ? wl_resource_get_user_data(output_resource) : view->space->output);
 
-   // wlc_view_set_output(view, output);
+   wlc_view_set_space(view, output->space);
    wlc_view_request_state(view, WLC_BIT_FULLSCREEN, true);
 }
 
@@ -86,7 +90,7 @@ wl_cb_shell_surface_set_maximized(struct wl_client *wl_client, struct wl_resourc
    struct wlc_view *view = wl_resource_get_user_data(resource);
    struct wlc_output *output = (output_resource ? wl_resource_get_user_data(output_resource) : view->space->output);
 
-   // wlc_view_set_output(view, output);
+   wlc_view_set_space(view, output->space);
    wlc_view_request_state(view, WLC_BIT_MAXIMIZED, true);
 }
 
