@@ -61,6 +61,7 @@ input_event(int fd, uint32_t mask, void *data)
    struct libinput_event *event;
    while ((event = libinput_get_event(input->handle))) {
       struct libinput *handle = libinput_event_get_context(event);
+      (void)handle;
 
       switch (libinput_event_get_type(event)) {
          case LIBINPUT_EVENT_DEVICE_ADDED:
@@ -75,7 +76,7 @@ input_event(int fd, uint32_t mask, void *data)
             {
                struct libinput_event_keyboard *kev = libinput_event_get_keyboard_event(event);
                uint32_t key = libinput_event_keyboard_get_key(kev);
-               seat->notify.keyboard_key(seat, key, libinput_event_keyboard_get_key_state(kev));
+               seat->notify.keyboard_key(seat, key, (enum wl_keyboard_key_state)libinput_event_keyboard_get_key_state(kev));
             }
             break;
 
@@ -103,7 +104,7 @@ input_event(int fd, uint32_t mask, void *data)
             {
                struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
                uint32_t button = libinput_event_pointer_get_button(pev);
-               seat->notify.pointer_button(seat, button, libinput_event_pointer_get_button_state(pev));
+               seat->notify.pointer_button(seat, button, (enum wl_pointer_button_state)libinput_event_pointer_get_button_state(pev));
             }
             break;
 
