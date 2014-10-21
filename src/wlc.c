@@ -756,11 +756,11 @@ wlc_init(const int argc, char *argv[])
    for (int i = 1; i < argc; ++i) {
       if (!strcmp(argv[i], "--log")) {
          if (i + 1 >= argc)
-            die("--log takes a argument (filename)");
+            die("--log takes an argument (filename)");
          wlc_set_log_file(fopen(argv[++i], "w"));
       } else if (!strcmp(argv[i], "--outputs")) {
          if (i + 1 >= argc)
-            die("--outputs takes a argument (number of outputs)");
+            die("--outputs takes an argument (number of outputs)");
          wlc.fake_outputs = strtoul(argv[++i], NULL, 10);
       } else if (!strcmp(argv[i], "--shm")) {
          wlc.no_egl_clients = true;
