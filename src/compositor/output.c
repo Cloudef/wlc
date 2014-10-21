@@ -119,6 +119,7 @@ repaint(struct wlc_output *output)
       if (!view->created || !view->surface->commit.attached)
          continue;
 
+      wlc_view_commit_state(view, &view->pending, &view->commit);
       wlc_render_view_paint(output->render, view);
 
       struct wlc_callback *cb, *cbn;
@@ -127,7 +128,6 @@ repaint(struct wlc_output *output)
          wlc_callback_free(cb);
       }
 
-      wlc_view_commit_state(view, &view->pending, &view->commit);
    }
 
    if (output->compositor->output == output) // XXX: Make this option instead, and give each output current cursor coords
