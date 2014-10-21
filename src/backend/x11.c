@@ -299,7 +299,7 @@ x11_event(int fd, uint32_t mask, void *data)
 #if !X11_USE_UDEV_LIBINPUT
          case XCB_MOTION_NOTIFY: {
             xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t*)event;
-            seat->notify.pointer_motion(seat, ev->event_x, ev->event_y);
+            seat->notify.pointer_motion(seat, &(struct wlc_origin){ ev->event_x, ev->event_y });
          }
          break;
          case XCB_BUTTON_PRESS: {

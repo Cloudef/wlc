@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <wayland-util.h>
 
+#include "types/geometry.h"
+
 enum grab_action {
    WLC_GRAB_ACTION_NONE,
    WLC_GRAB_ACTION_MOVE,
@@ -22,16 +24,18 @@ struct wlc_pointer {
    struct wlc_compositor *compositor;
    struct wlc_view *focus;
 
-   wl_fixed_t x, y;
-   wl_fixed_t gx, gy;
+   struct wlc_origin pos;
+   struct wlc_origin grab;
+
    uint32_t action_edges;
    enum grab_action action;
    bool grabbing;
 };
 
-void wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, int32_t x, int32_t y);
+void wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, const struct wlc_origin *pos);
 void wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button, enum wl_pointer_button_state state);
-void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, int32_t x, int32_t y);
+void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, const struct wlc_origin *pos);
+void wlc_pointer_update(struct wlc_pointer *pointer);
 void wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource);
 void wlc_pointer_free(struct wlc_pointer *pointer);
 struct wlc_pointer* wlc_pointer_new(struct wlc_compositor *compositor);

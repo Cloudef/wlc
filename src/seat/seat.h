@@ -10,6 +10,7 @@ struct wlc_pointer;
 struct wlc_keyboard;
 struct wlc_compositor;
 struct wlc_data_device;
+struct wlc_origin;
 
 struct wlc_seat {
    struct wl_global *global;
@@ -21,7 +22,7 @@ struct wlc_seat {
 
    struct {
       // FIXME: use listener instead, these are global events
-      void (*pointer_motion)(struct wlc_seat *seat, int32_t x, int32_t y);
+      void (*pointer_motion)(struct wlc_seat *seat, const struct wlc_origin *pos);
       void (*pointer_button)(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_state state);
       void (*keyboard_key)(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_state state);
       void (*keyboard_focus)(struct wlc_seat *seat, struct wlc_view *view);

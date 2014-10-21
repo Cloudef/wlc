@@ -173,18 +173,18 @@ wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsi
 }
 
 static void
-seat_pointer_motion(struct wlc_seat *seat, int32_t x, int32_t y)
+seat_pointer_motion(struct wlc_seat *seat, const struct wlc_origin *pos)
 {
    if (!seat->pointer)
       return;
 
    if (seat->compositor->interface.pointer.motion &&
-      !seat->compositor->interface.pointer.motion(seat->compositor, seat->pointer->focus, x, y))
+      !seat->compositor->interface.pointer.motion(seat->compositor, seat->pointer->focus, pos->x, pos->y))
       return;
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
    uint32_t time = seat->compositor->api.get_time();
-   wlc_pointer_motion(seat->pointer, serial, time, x, y);
+   wlc_pointer_motion(seat->pointer, serial, time, pos);
 }
 
 static void
@@ -276,7 +276,7 @@ seat_view_unfocus(struct wlc_seat *seat, struct wlc_view *view)
       wlc_keyboard_focus(seat->keyboard, serial, NULL);
 
    if (seat->pointer && seat->pointer->focus == view)
-      wlc_pointer_focus(seat->pointer, serial, NULL, 0, 0);
+      wlc_pointer_focus(seat->pointer, serial, NULL, &wlc_origin_zero);
 }
 
 void

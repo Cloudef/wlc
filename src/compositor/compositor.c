@@ -220,6 +220,8 @@ active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 
    compositor->output = output;
 
+   wlc_pointer_update(compositor->seat->pointer);
+
    if (compositor->interface.output.activated)
       compositor->interface.output.activated(compositor, output);
 }
