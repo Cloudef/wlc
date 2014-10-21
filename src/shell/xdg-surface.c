@@ -117,7 +117,7 @@ xdg_cb_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resource *r
    struct wlc_view *view = wl_resource_get_user_data(resource);
    struct wlc_output *output = (output_resource ? wl_resource_get_user_data(output_resource) : view->space->output);
 
-   // wlc_view_set_output(view, output);
+   wlc_view_set_space(view, output->space);
    wlc_view_request_state(view, WLC_BIT_FULLSCREEN, true);
 }
 
