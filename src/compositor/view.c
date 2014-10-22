@@ -115,6 +115,7 @@ wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent)
 struct wlc_space*
 wlc_view_get_mapped_space(struct wlc_view *view)
 {
+   assert(view);
    return (view->space ? view->space : (view->compositor->output ? view->compositor->output->space : NULL));
 }
 
