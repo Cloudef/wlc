@@ -17,6 +17,7 @@ struct wlc_x11_window;
 
 struct wlc_view_state {
    struct wlc_geometry geometry;
+   struct wlc_geometry visible;
    uint32_t state;
 };
 
@@ -37,6 +38,7 @@ struct wlc_view {
    struct wlc_view_state commit;
    struct wl_array wl_state;
    uint32_t type;
+   uint32_t resizing;
    bool created;
 };
 

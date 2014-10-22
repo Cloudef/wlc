@@ -75,6 +75,25 @@ wlc_view_ack_xdg_surface(struct wlc_view *view, struct wlc_size *old_surface_siz
 {
    bool reconfigure = false;
 
+   if (view->resizing) {
+      struct wlc_geometry r = view->pending.geometry;
+      if (view->resizing & WL_SHELL_SURFACE_RESIZE_LEFT)
+         r.origin.x += old_surface_size->w - view->surface->size.w;
+      if (view->resizing & WL_SHELL_SURFACE_RESIZE_TOP)
+         r.origin.y += old_surface_size->h - view->surface->size.h;
+
+      if (view->compositor->interface.view.request.geometry) {
+         view->pending.geometry = view->commit.geometry; // Reset to last state.
+         view->compositor->interface.view.request.geometry(view->compositor, view, r.origin.x, r.origin.y, r.size.w, r.size.h);
+
+         // User did not follow the request, reconfigure.
+         if (!wlc_geometry_equals(&r, &view->pending.geometry))
+            reconfigure = true;
+      } else {
+         view->pending.geometry = r;
+      }
+   }
+
    if (reconfigure) {
       uint32_t serial = wl_display_next_serial(view->compositor->display);
       xdg_surface_send_configure(view->xdg_surface.resource, view->pending.geometry.size.w, view->pending.geometry.size.h, &view->wl_state, serial);
@@ -96,21 +115,20 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
       out_bounds->origin.y += parent->commit.geometry.origin.y;
    }
 
-   if (view->xdg_surface.resource && view->xdg_surface.visible_geometry.size.w > 0 && view->xdg_surface.visible_geometry.size.h > 0) {
-      out_bounds->origin.x -= view->xdg_surface.visible_geometry.origin.x;
-      out_bounds->origin.y -= view->xdg_surface.visible_geometry.origin.y;
-      out_bounds->size.w -= out_bounds->size.w - view->xdg_surface.visible_geometry.size.w;
-      out_bounds->size.w += view->xdg_surface.visible_geometry.origin.y * 2;
-      out_bounds->size.h -= out_bounds->size.h - view->xdg_surface.visible_geometry.size.h;
-      out_bounds->size.h += view->xdg_surface.visible_geometry.origin.x * 2;
+   if (view->xdg_surface.resource && view->commit.visible.size.w > 0 && view->commit.visible.size.h > 0) {
+      // xdg-surface client that draws drop shadows or other stuff.
+      // Only obey visible hints when not maximized or fullscreen.
+      if (!(view->commit.state & WLC_BIT_MAXIMIZED) && !(view->commit.state & WLC_BIT_FULLSCREEN)) {
+         out_bounds->origin.x -= view->commit.visible.origin.x;
+         out_bounds->origin.y -= view->commit.visible.origin.y;
 
-      if ((view->commit.state & WLC_BIT_MAXIMIZED) || (view->commit.state & WLC_BIT_FULLSCREEN)) {
-         out_bounds->size.w = MIN(out_bounds->size.w, view->commit.geometry.size.w);
-         out_bounds->size.h = MIN(out_bounds->size.h, view->commit.geometry.size.h);
+         // Make sure size is at least what we want, but may be bigger (shadows etc...)
+         out_bounds->size.w = MAX(view->surface->size.w, view->commit.geometry.size.w);
+         out_bounds->size.h = MAX(view->surface->size.h, view->commit.geometry.size.h);
       }
    }
 
-   /* make sure bounds is never 0x0 w/h */
+   // Make sure bounds is never 0x0 w/h
    out_bounds->size.w = MAX(out_bounds->size.w, 1);
    out_bounds->size.h = MAX(out_bounds->size.h, 1);
 }

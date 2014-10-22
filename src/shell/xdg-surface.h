@@ -18,7 +18,6 @@ enum wlc_xdg_surface_ack {
 // Inherted by wlc_view
 struct wlc_xdg_surface {
    struct wl_resource *resource;
-   struct wlc_geometry visible_geometry;
    struct wlc_string app_id;
    enum wlc_xdg_surface_ack ack;
    bool minimized;

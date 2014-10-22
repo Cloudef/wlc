@@ -1,4 +1,5 @@
 #include "pointer.h"
+#include "macros.h"
 #include "client.h"
 
 #include "compositor/view.h"
@@ -20,6 +21,17 @@ is_valid_view(const struct wlc_view *view)
    return (view && view->client && view->client->input[WLC_POINTER] && view->surface && view->surface->resource);
 }
 
+static void
+degrab(struct wlc_pointer *pointer)
+{
+   if (pointer->focus && pointer->grabbing)
+      pointer->focus->resizing = 0;
+
+   pointer->grabbing = false;
+   pointer->action = WLC_GRAB_ACTION_NONE;
+   pointer->action_edges = 0;
+}
+
 void
 wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, const struct wlc_origin *pos)
 {
@@ -38,9 +50,7 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
       wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
 
    pointer->focus = view;
-   pointer->grabbing = false;
-   pointer->action = WLC_GRAB_ACTION_NONE;
-   pointer->action_edges = 0;
+   degrab(pointer);
 }
 
 void
