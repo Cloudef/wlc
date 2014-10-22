@@ -56,7 +56,7 @@ commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, str
    state_set_buffer(out, pending->buffer);
    state_set_buffer(pending, NULL);
 
-   pending->sx = pending->sy = 0;
+   pending->offset = wlc_origin_zero;
 
    wl_list_insert_list(&out->frame_cb_list, &pending->frame_cb_list);
    wl_list_init(&pending->frame_cb_list);
@@ -118,8 +118,7 @@ wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, 
 
    state_set_buffer(&surface->pending, buffer);
 
-   surface->pending.sx = x;
-   surface->pending.sy = y;
+   surface->pending.offset = (struct wlc_origin){ x, y };
    surface->pending.attached = true;
 }
 

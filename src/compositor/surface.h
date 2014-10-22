@@ -20,7 +20,7 @@ struct wlc_surface_state {
    pixman_region32_t opaque;
    pixman_region32_t input;
    pixman_region32_t damage;
-   int32_t sx, sy;
+   struct wlc_origin offset;
    bool attached;
 };
 
