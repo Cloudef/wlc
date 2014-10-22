@@ -34,6 +34,9 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
    if (is_valid_view(view))
       wl_pointer_send_enter(view->client->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(pos->x), wl_fixed_from_int(pos->y));
 
+   if (!view)
+      wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
+
    pointer->focus = view;
    pointer->grabbing = false;
    pointer->action = WLC_GRAB_ACTION_NONE;
@@ -165,6 +168,32 @@ wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_re
             return;
          }
       }
+   }
+}
+
+void
+wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_origin *tip)
+{
+   assert(pointer);
+
+   memcpy(&pointer->tip, tip, sizeof(pointer->tip));
+
+   if (pointer->surface)
+      wlc_surface_invalidate(pointer->surface);
+
+   if ((pointer->surface = surface))
+      wlc_surface_attach_to_output(surface, pointer->compositor->output, surface->commit.buffer);
+}
+
+void
+wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render)
+{
+   assert(pointer);
+
+   if (pointer->surface) {
+      wlc_render_surface_paint(render, pointer->surface, &(struct wlc_origin){ pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y });
+   } else {
+      wlc_render_pointer_paint(render, &pointer->pos);
    }
 }
 

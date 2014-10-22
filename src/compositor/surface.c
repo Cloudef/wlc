@@ -20,39 +20,17 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
    struct wlc_space *space = (buffer && surface->view ? wlc_view_get_mapped_space(surface->view) : NULL);
 
-   if (space) {
-      if (!wlc_output_surface_attach(space->output, surface, buffer))
-         return;
+   // We automatically attach view surfaces.
+   // Everything else like cursors etc, needs to be mapped once explicitly.
+   // We know what resources we use.
+   struct wlc_output *output = (space ? space->output : surface->output);
 
-      struct wlc_size size = { 0, 0 };
-      if (buffer) {
-#if 0
-         switch (transform) {
-            case WL_OUTPUT_TRANSFORM_90:
-            case WL_OUTPUT_TRANSFORM_270:
-            case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-            case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-               width = surface->buffer_ref.buffer->height / vp->buffer.scale;
-               height = surface->buffer_ref.buffer->width / vp->buffer.scale;
-               break;
-            default:
-               width = surface->buffer_ref.buffer->width / vp->buffer.scale;
-               height = surface->buffer_ref.buffer->height / vp->buffer.scale;
-               break;
-         }
-#endif
-         size = buffer->size;
-      }
 
-      surface->size = size;
-      surface->output = space->output;
-      surface->commit.attached = true;
-   }
+   if (output)
+      wlc_surface_attach_to_output(surface, output, buffer);
 
    // Change view space only if surface has no space already (unmapped)
    // Or the buffer is NULL (unmaps the view)
-   if (surface->view && (!surface->view->space || !buffer))
-      wlc_view_set_space(surface->view, space);
 }
 
 static void
@@ -264,6 +242,40 @@ wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource)
 
    surface->resource = resource;
    wl_resource_set_implementation(surface->resource, &wl_surface_implementation, surface, wl_cb_surface_destructor);
+}
+
+void
+wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *output, struct wlc_buffer *buffer)
+{
+   assert(output);
+
+   if (!wlc_output_surface_attach(output, surface, buffer))
+      return;
+
+   struct wlc_size size = wlc_size_zero;
+
+   if (buffer) {
+#if 0
+      switch (transform) {
+         case WL_OUTPUT_TRANSFORM_90:
+         case WL_OUTPUT_TRANSFORM_270:
+         case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+         case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+            width = surface->buffer_ref.buffer->height / vp->buffer.scale;
+            height = surface->buffer_ref.buffer->width / vp->buffer.scale;
+            break;
+         default:
+            width = surface->buffer_ref.buffer->width / vp->buffer.scale;
+            height = surface->buffer_ref.buffer->height / vp->buffer.scale;
+            break;
+      }
+#endif
+      size = buffer->size;
+   }
+
+   surface->size = size;
+   surface->output = output;
+   surface->commit.attached = true;
 }
 
 void

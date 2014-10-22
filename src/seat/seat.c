@@ -9,6 +9,7 @@
 
 #include "compositor/compositor.h"
 #include "compositor/output.h"
+#include "compositor/surface.h"
 #include "compositor/view.h"
 
 #include "data-device/manager.h"
@@ -23,14 +24,10 @@
 static void
 wl_cb_pointer_set_cursor(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial, struct wl_resource *surface_resource, int32_t hotspot_x, int32_t hotspot_y)
 {
-   (void)wl_client, (void)resource, (void)serial, (void)hotspot_x, (void)hotspot_y;
-   // struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
-   STUBL(resource);
-
-   if (surface_resource) {
-      // struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
-      /* TODO: change pointer surface */
-   }
+   (void)wl_client, (void)serial;
+   struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
+   struct wlc_surface *surface = (surface_resource ? wl_resource_get_user_data(surface_resource) : NULL);
+   wlc_pointer_set_surface(pointer, surface, &(struct wlc_origin){ hotspot_x, hotspot_y });
 }
 
 static void

@@ -131,7 +131,7 @@ repaint(struct wlc_output *output)
    }
 
    if (output->compositor->output == output) // XXX: Make this option instead, and give each output current cursor coords
-      wlc_render_pointer_paint(output->render, wl_fixed_to_int(output->compositor->seat->pointer->x), wl_fixed_to_int(output->compositor->seat->pointer->y));
+      wlc_pointer_paint(output->compositor->seat->pointer, output->render);
 
    wlc_render_swap(output->render);
 }

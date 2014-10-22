@@ -36,10 +36,16 @@ void wlc_render_view_paint(struct wlc_render *render, struct wlc_view *view)
    render->api.view_paint(render->render, view);
 }
 
-void wlc_render_pointer_paint(struct wlc_render *render, int32_t x, int32_t y)
+void wlc_render_surface_paint(struct wlc_render *render, struct wlc_surface *surface, struct wlc_origin *pos)
 {
    assert(render);
-   render->api.pointer_paint(render->render, x, y);
+   render->api.surface_paint(render->render, surface, pos);
+}
+
+void wlc_render_pointer_paint(struct wlc_render *render, struct wlc_origin *pos)
+{
+   assert(render);
+   render->api.pointer_paint(render->render, pos);
 }
 
 void wlc_render_clear(struct wlc_render *render)

@@ -62,6 +62,10 @@ struct ctx {
    } api;
 };
 
+struct paint {
+   float dim;
+};
+
 static struct {
    struct {
       void *handle;
@@ -462,6 +466,9 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
          return false;
    }
 
+   if (surface->view && surface->view->x11_window)
+      surface->format = SURFACE_RGB;
+
    surface_gen_textures(surface, 1);
    gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[0]);
    gl.api.glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, pitch);
@@ -562,21 +569,16 @@ surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buff
 }
 
 static void
-view_paint(struct ctx *context, struct wlc_view *view)
+surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct wlc_geometry *geometry, struct paint *settings)
 {
-   assert(context);
-
-   struct wlc_geometry b;
-   wlc_view_get_bounds(view, &b);
+   assert(context && surface && geometry && settings);
 
    const GLint vertices[8] = {
-      b.origin.x + b.size.w, b.origin.y,
-      b.origin.x, b.origin.y,
-      b.origin.x + b.size.w, b.origin.y + b.size.h,
-      b.origin.x, b.origin.y + b.size.h,
+      geometry->origin.x + geometry->size.w, geometry->origin.y,
+      geometry->origin.x,                    geometry->origin.y,
+      geometry->origin.x + geometry->size.w, geometry->origin.y + geometry->size.h,
+      geometry->origin.x,                    geometry->origin.y + geometry->size.h,
    };
-
-   // printf("%d,%d+%d,%d\n", b.w, b.h, b.x, b.y);
 
    const GLint coords[8] = {
       1, 0,
@@ -585,18 +587,18 @@ view_paint(struct ctx *context, struct wlc_view *view)
       0, 1
    };
 
-   set_program(context, (view->x11_window ? PROGRAM_RGB : view->surface->format));
-   gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], (view->commit.state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f));
+   set_program(context, surface->format);
+   gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], settings->dim);
 
    for (int i = 0; i < 3; ++i) {
-      if (!view->surface->textures[i])
+      if (!surface->textures[i])
          break;
 
       gl.api.glActiveTexture(GL_TEXTURE0 + i);
-      gl.api.glBindTexture(GL_TEXTURE_2D, view->surface->textures[i]);
+      gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[i]);
    }
 
-   if (view->surface->size.w != b.size.w || view->surface->size.h != b.size.h) {
+   if (surface->size.w != geometry->size.w || surface->size.h != geometry->size.h) {
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
    } else {
@@ -610,16 +612,41 @@ view_paint(struct ctx *context, struct wlc_view *view)
 }
 
 static void
-pointer_paint(struct ctx *context, int32_t x, int32_t y)
+surface_paint(struct ctx *context, struct wlc_surface *surface, struct wlc_origin *pos)
+{
+   struct paint settings;
+   memset(&settings, 0, sizeof(settings));
+   settings.dim = 1.0f;
+   surface_paint_internal(context, surface, &(struct wlc_geometry){ { pos->x, pos->y }, { surface->size.w, surface->size.h } }, &settings);
+}
+
+static void
+view_paint(struct ctx *context, struct wlc_view *view)
+{
+   assert(context && view);
+
+   struct paint settings;
+   memset(&settings, 0, sizeof(settings));
+   settings.dim = (view->commit.state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f);
+
+   struct wlc_geometry geometry;
+   wlc_view_get_bounds(view, &geometry);
+   surface_paint_internal(context, view->surface, &geometry, &settings);
+}
+
+static void
+pointer_paint(struct ctx *context, struct wlc_origin *pos)
 {
    assert(context);
 
+   // FIXME: Maybe see if it's possible to create wlc_surface from pointer and just use surface_paint
+
    static const GLint size = 32;
    const GLint vertices[8] = {
-      x + size, y,
-      x, y,
-      x + size, y + size,
-      x, y + size,
+      pos->x + size, pos->y,
+      pos->x,        pos->y,
+      pos->x + size, pos->y + size,
+      pos->x,        pos->y + size,
    };
 
    const GLint coords[8] = {
@@ -700,6 +727,7 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
    api->surface_destroy = surface_destroy;
    api->surface_attach = surface_attach;
    api->view_paint = view_paint;
+   api->surface_paint = surface_paint;
    api->pointer_paint = pointer_paint;
    api->clear = clear;
    api->swap = swap;

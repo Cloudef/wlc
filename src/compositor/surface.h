@@ -11,6 +11,7 @@ struct wlc_buffer;
 struct wlc_callback;
 struct wlc_surface_state;
 struct wlc_render;
+struct wlc_output;
 struct wlc_view;
 
 struct wlc_surface_state {
@@ -53,6 +54,7 @@ struct wlc_surface {
    } format;
 };
 
+void wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *output, struct wlc_buffer *buffer);
 void wlc_surface_invalidate(struct wlc_surface *surface);
 void wlc_surface_implement(struct wlc_surface *surface, struct wl_resource *resource);
 void wlc_surface_free(struct wlc_surface *surface);
