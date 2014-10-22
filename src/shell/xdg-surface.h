@@ -9,11 +9,18 @@
 struct wl_resource;
 struct wlc_view;
 
+enum wlc_xdg_surface_ack {
+   XDG_ACK_NONE,
+   XDG_ACK_PENDING,
+   XDG_ACK_NEXT_COMMIT
+};
+
 // Inherted by wlc_view
 struct wlc_xdg_surface {
    struct wl_resource *resource;
    struct wlc_geometry visible_geometry;
    struct wlc_string app_id;
+   enum wlc_xdg_surface_ack ack;
    bool minimized;
 };
 

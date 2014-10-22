@@ -25,12 +25,22 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
    // We know what resources we use.
    struct wlc_output *output = (space ? space->output : surface->output);
 
+   // Old surface size for xdg-surface commit
+   struct wlc_size old_size = surface->size;
 
    if (output)
       wlc_surface_attach_to_output(surface, output, buffer);
 
    // Change view space only if surface has no space already (unmapped)
    // Or the buffer is NULL (unmaps the view)
+   if (surface->view) {
+      if (!surface->view->space || !buffer)
+         wlc_view_set_space(surface->view, space);
+
+      // Commit acknowledged xdg-surface configure
+      if (surface->view->xdg_surface.ack == XDG_ACK_NEXT_COMMIT)
+         wlc_view_ack_xdg_surface(surface->view, &old_size);
+   }
 }
 
 static void

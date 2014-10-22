@@ -81,8 +81,9 @@ xdg_cb_surface_resize(struct wl_client *wl_client, struct wl_resource *resource,
 static void
 xdg_cb_surface_ack_configure(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
 {
-   (void)wl_client, (void)resource, (void)serial;
-   STUBL(resource);
+   (void)wl_client, (void)serial;
+   struct wlc_view *view = wl_resource_get_user_data(resource);
+   view->xdg_surface.ack = XDG_ACK_NEXT_COMMIT;
 }
 
 static void
