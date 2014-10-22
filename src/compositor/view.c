@@ -20,6 +20,25 @@
 #include <wayland-server.h>
 #include "wayland-xdg-shell-server-protocol.h"
 
+static bool
+request_resize(struct wlc_view *view, struct wlc_view_state *pending, const struct wlc_geometry *o, const struct wlc_geometry *r)
+{
+   bool granted = true;
+
+   if (view->compositor->interface.view.request.geometry) {
+      memcpy(&pending->geometry, o, sizeof(pending->geometry)); // Reset to before request
+      view->compositor->interface.view.request.geometry(view->compositor, view, r->origin.x, r->origin.y, r->size.w, r->size.h);
+
+      // User did not follow the request.
+      if (!wlc_geometry_equals(r, &pending->geometry))
+         granted = false;
+   } else {
+      memcpy(&pending->geometry, r, sizeof(pending->geometry));
+   }
+
+   return granted;
+}
+
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
@@ -54,6 +73,8 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       if (view->xdg_surface.resource) {
          xdg_surface_send_configure(view->xdg_surface.resource, pending->geometry.size.w, pending->geometry.size.h, &view->wl_state, serial);
          view->xdg_surface.ack = XDG_ACK_PENDING;
+      } else {
+         request_resize(view, &view->pending, &out->geometry, &pending->geometry);
       }
 
       if (view->x11_window && !wlc_size_equals(&pending->geometry.size, &out->geometry.size))
@@ -82,16 +103,8 @@ wlc_view_ack_xdg_surface(struct wlc_view *view, struct wlc_size *old_surface_siz
       if (view->resizing & WL_SHELL_SURFACE_RESIZE_TOP)
          r.origin.y += old_surface_size->h - view->surface->size.h;
 
-      if (view->compositor->interface.view.request.geometry) {
-         view->pending.geometry = view->commit.geometry; // Reset to last state.
-         view->compositor->interface.view.request.geometry(view->compositor, view, r.origin.x, r.origin.y, r.size.w, r.size.h);
-
-         // User did not follow the request, reconfigure.
-         if (!wlc_geometry_equals(&r, &view->pending.geometry))
-            reconfigure = true;
-      } else {
-         view->pending.geometry = r;
-      }
+      if (!request_resize(view, &view->pending, &view->commit.geometry, &r))
+         reconfigure = true;
    }
 
    if (reconfigure) {
