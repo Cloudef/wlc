@@ -129,12 +129,16 @@ void wlc_space_remove(struct wlc_space *space);
 struct wlc_space* wlc_space_add(struct wlc_output *output);
 
 void wlc_view_set_title(struct wlc_view *view, const char *title);
+const char* wlc_view_get_title(struct wlc_view *view);
 void wlc_view_set_class(struct wlc_view *view, const char *_class);
+const char* wlc_view_get_class(struct wlc_view *view);
 void wlc_view_set_space(struct wlc_view *view, struct wlc_space *space);
 struct wlc_space* wlc_view_get_space(struct wlc_view *view);
 uint32_t wlc_view_get_type(struct wlc_view *view);
 uint32_t wlc_view_get_state(struct wlc_view *view);
 void wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
+uint32_t wlc_view_get_width(struct wlc_view *view);
+uint32_t wlc_view_get_height(struct wlc_view *view);
 void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
 void wlc_view_position(struct wlc_view *view, int32_t x, int32_t y);
 void wlc_view_close(struct wlc_view *view);

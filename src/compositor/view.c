@@ -423,6 +423,13 @@ wlc_view_set_title(struct wlc_view *view, const char *title)
    wlc_string_set(&view->shell_surface.title, title, true);
 }
 
+WLC_API const char*
+wlc_view_get_title(struct wlc_view *view)
+{
+   assert(view);
+   return view->shell_surface.title.data;
+}
+
 WLC_API void
 wlc_view_set_class(struct wlc_view *view, const char *_class)
 {
@@ -430,9 +437,30 @@ wlc_view_set_class(struct wlc_view *view, const char *_class)
    wlc_string_set(&view->shell_surface._class, _class, true);
 }
 
+WLC_API const char*
+wlc_view_get_class(struct wlc_view *view)
+{
+   assert(view);
+   return view->shell_surface._class.data;
+}
+
 WLC_API struct wlc_view*
 wlc_view_get_parent(struct wlc_view *view)
 {
    assert(view);
    return view->parent;
+}
+
+WLC_API uint32_t
+wlc_view_get_width(struct wlc_view *view)
+{
+   assert(view);
+   return view->pending.geometry.size.w;
+}
+
+WLC_API uint32_t
+wlc_view_get_height(struct wlc_view *view)
+{
+   assert(view);
+   return view->pending.geometry.size.h;
 }
