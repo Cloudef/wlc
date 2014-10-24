@@ -73,6 +73,8 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       if (view->xdg_surface.resource) {
          xdg_surface_send_configure(view->xdg_surface.resource, pending->geometry.size.w, pending->geometry.size.h, &view->wl_state, serial);
          view->xdg_surface.ack = XDG_ACK_PENDING;
+      } else if (view->shell_surface.resource) {
+         wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, pending->geometry.size.w, pending->geometry.size.h);
       } else if (!wlc_size_equals(&pending->geometry.size, &out->geometry.size)) {
          struct wlc_geometry r = pending->geometry;
          request_resize(view, &view->pending, &out->geometry, &r);
