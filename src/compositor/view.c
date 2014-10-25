@@ -9,6 +9,7 @@
 #include "shell/xdg-surface.h"
 
 #include "seat/seat.h"
+#include "seat/client.h"
 
 #include "xwayland/xwm.h"
 
@@ -292,6 +293,7 @@ wlc_view_close(struct wlc_view *view)
       wlc_x11_window_close(view->x11_window);
    } else {
       wlc_surface_free(view->surface);
+      wlc_client_free(view->client);
    }
 }
 
