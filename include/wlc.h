@@ -30,7 +30,8 @@ enum wlc_view_state_bit {
    WLC_BIT_MAXIMIZED = 1<<0,
    WLC_BIT_FULLSCREEN = 1<<1,
    WLC_BIT_RESIZING = 1<<2,
-   WLC_BIT_ACTIVATED = 1<<3,
+   WLC_BIT_MOVING = 1<<3,
+   WLC_BIT_ACTIVATED = 1<<4,
 };
 
 /** wlc_view_get_type(); */

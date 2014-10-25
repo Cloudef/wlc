@@ -24,8 +24,18 @@ is_valid_view(const struct wlc_view *view)
 static void
 degrab(struct wlc_pointer *pointer)
 {
-   if (pointer->focus && pointer->grabbing)
+   if (pointer->focus && pointer->grabbing) {
+      switch (pointer->action) {
+         case WLC_GRAB_ACTION_MOVE:
+            wlc_view_set_state(pointer->focus, WLC_BIT_MOVING, false);
+            break;
+         case WLC_GRAB_ACTION_RESIZE:
+            wlc_view_set_state(pointer->focus, WLC_BIT_RESIZING, false);
+            break;
+         default: break;
+      }
       pointer->focus->resizing = 0;
+   }
 
    pointer->grabbing = false;
    pointer->action = WLC_GRAB_ACTION_NONE;
@@ -117,6 +127,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
       int32_t dy = pos->y - pointer->grab.y;
 
       if (pointer->action == WLC_GRAB_ACTION_MOVE) {
+         wlc_view_set_state(focused, WLC_BIT_MOVING, true);
+
          if (focused->compositor->interface.view.request.geometry) {
             focused->compositor->interface.view.request.geometry(focused->compositor, focused, g.origin.x + dx, g.origin.y + dy, g.size.w, g.size.h);
          } else {
@@ -137,6 +149,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
             g.size.h = MAX(min.h, g.size.h + dy);
          }
 
+         wlc_view_set_state(focused, WLC_BIT_RESIZING, true);
          focused->resizing = pointer->action_edges;
          wlc_view_resize(focused, g.size.w, g.size.h);
       }
