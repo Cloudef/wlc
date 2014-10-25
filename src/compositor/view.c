@@ -42,7 +42,7 @@ request_resize(struct wlc_view *view, struct wlc_view_state *pending, const stru
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
-   if (view->xdg_surface.ack != XDG_ACK_NONE)
+   if (view->ack != ACK_NONE)
       return;
 
    if (pending->state != out->state) {
@@ -68,26 +68,27 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       }
    }
 
-   uint32_t serial = wl_display_next_serial(view->compositor->display);
-   if (pending->state != out->state || !wlc_size_equals(&pending->geometry.size, &out->geometry.size)) {
+   bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) && !wlc_size_equals(&pending->geometry.size, &view->surface->size));
+
+   if (pending->state != out->state || size_changed) {
       if (view->xdg_surface.resource) {
+         uint32_t serial = wl_display_next_serial(view->compositor->display);
          xdg_surface_send_configure(view->xdg_surface.resource, pending->geometry.size.w, pending->geometry.size.h, &view->wl_state, serial);
-         view->xdg_surface.ack = XDG_ACK_PENDING;
+         view->ack = ACK_PENDING;
       } else if (view->shell_surface.resource) {
          wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, pending->geometry.size.w, pending->geometry.size.h);
-      } else if (!wlc_size_equals(&pending->geometry.size, &out->geometry.size)) {
-         struct wlc_geometry r = pending->geometry;
-         request_resize(view, &view->pending, &out->geometry, &r);
-
-         if (view->x11_window)
-            wlc_x11_window_resize(view->x11_window, pending->geometry.size.w, pending->geometry.size.h);
+         view->ack = ACK_NEXT_COMMIT;
       }
    }
 
-   if (view->x11_window && !wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin))
-      wlc_x11_window_position(view->x11_window, pending->geometry.origin.x, pending->geometry.origin.y);
+   if (view->x11_window) {
+      if (!wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin))
+         wlc_x11_window_position(view->x11_window, pending->geometry.origin.x, pending->geometry.origin.y);
+      if (size_changed)
+         wlc_x11_window_resize(view->x11_window, pending->geometry.size.w, pending->geometry.size.h);
+   }
 
-   if (view->xdg_surface.ack == XDG_ACK_NONE) {
+   if (view->ack == ACK_NONE) {
       // xdg surfaces will commit after an ACK configure if one sent
       // XXX: We may need to detect frozen client
       memcpy(out, pending, sizeof(struct wlc_view_state));
@@ -95,8 +96,17 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
 }
 
 void
-wlc_view_ack_xdg_surface(struct wlc_view *view, struct wlc_size *old_surface_size)
+wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_size)
 {
+   if (!view->resizing && !wlc_size_equals(&view->surface->size, old_surface_size) && !wlc_size_equals(&view->pending.geometry.size, &view->surface->size)) {
+      struct wlc_geometry r = view->pending.geometry, p = view->pending.geometry;
+      r.size = view->surface->size;
+      request_resize(view, &view->pending, &p, &r);
+   }
+
+   if (view->ack != ACK_NEXT_COMMIT)
+      return;
+
    bool reconfigure = false;
 
    if (view->resizing) {
@@ -111,13 +121,18 @@ wlc_view_ack_xdg_surface(struct wlc_view *view, struct wlc_size *old_surface_siz
    }
 
    if (reconfigure) {
-      uint32_t serial = wl_display_next_serial(view->compositor->display);
-      xdg_surface_send_configure(view->xdg_surface.resource, view->pending.geometry.size.w, view->pending.geometry.size.h, &view->wl_state, serial);
+      if (view->xdg_surface.resource) {
+         uint32_t serial = wl_display_next_serial(view->compositor->display);
+         xdg_surface_send_configure(view->xdg_surface.resource, view->pending.geometry.size.w, view->pending.geometry.size.h, &view->wl_state, serial);
+         view->ack = ACK_PENDING;
+      } else if (view->shell_surface.resource) {
+         wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, view->pending.geometry.size.w, view->pending.geometry.size.h);
+         view->ack = ACK_NEXT_COMMIT;
+      }
    } else {
       memcpy(&view->commit, &view->pending, sizeof(view->commit));
+      view->ack = ACK_NONE;
    }
-
-   view->xdg_surface.ack = XDG_ACK_NONE;
 }
 
 void

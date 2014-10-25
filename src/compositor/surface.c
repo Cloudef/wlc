@@ -37,9 +37,7 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
       if (!surface->view->space || !buffer)
          wlc_view_set_space(surface->view, space);
 
-      // Commit acknowledged xdg-surface configure
-      if (surface->view->xdg_surface.ack == XDG_ACK_NEXT_COMMIT)
-         wlc_view_ack_xdg_surface(surface->view, &old_size);
+      wlc_view_ack_surface_attach(surface->view, &old_size);
    }
 }
 
