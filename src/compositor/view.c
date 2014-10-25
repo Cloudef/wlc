@@ -385,9 +385,6 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
    if (view->space == space)
       return;
 
-   if (view->created && space && view->compositor->interface.view.will_move_to_space)
-      view->compositor->interface.view.will_move_to_space(view->compositor, view, space);
-
    if (view->space)
       wl_list_remove(&view->link);
 
@@ -397,6 +394,7 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
    if (!space || space->output != view->surface->output)
       wlc_surface_invalidate(view->surface);
 
+   struct wlc_space *old_space = view->space;
    view->space = space;
 
    if (space && !view->created) {
@@ -409,6 +407,8 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
       }
 
       view->created = true;
+   } else if (old_space && space && view->compositor->interface.view.switch_space) {
+      view->compositor->interface.view.switch_space(view->compositor, view, old_space, space);
    }
 }
 

@@ -74,7 +74,7 @@ struct wlc_interface {
    struct {
       bool (*created)(struct wlc_compositor*, struct wlc_view*, struct wlc_space*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_view*);
-      void (*will_move_to_space)(struct wlc_compositor*, struct wlc_view*, struct wlc_space*);
+      void (*switch_space)(struct wlc_compositor*, struct wlc_view*, struct wlc_space *from, struct wlc_space *to);
 
       struct {
          void (*geometry)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y, uint32_t width, uint32_t height);
