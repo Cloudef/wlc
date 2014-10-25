@@ -753,6 +753,8 @@ wlc_init(const int argc, char *argv[])
    if (wlc_has_init())
       return true;
 
+   unsetenv("TERM");
+
    for (int i = 1; i < argc; ++i) {
       if (!strcmp(argv[i], "--log")) {
          if (i + 1 >= argc)
