@@ -27,7 +27,10 @@ wl_cb_pointer_set_cursor(struct wl_client *wl_client, struct wl_resource *resour
    (void)wl_client, (void)serial;
    struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
    struct wlc_surface *surface = (surface_resource ? wl_resource_get_user_data(surface_resource) : NULL);
-   wlc_pointer_set_surface(pointer, surface, &(struct wlc_origin){ hotspot_x, hotspot_y });
+
+   // Only accept request if we happen to have focus.
+   if (pointer->focus)
+      wlc_pointer_set_surface(pointer, surface, &(struct wlc_origin){ hotspot_x, hotspot_y });
 }
 
 static void

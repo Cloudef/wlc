@@ -215,7 +215,7 @@ wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render)
 
    if (pointer->surface) {
       wlc_render_surface_paint(render, pointer->surface, &(struct wlc_origin){ pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y });
-   } else {
+   } else if (!pointer->focus) {
       wlc_render_pointer_paint(render, &pointer->pos);
    }
 }
