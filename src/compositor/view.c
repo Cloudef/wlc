@@ -9,6 +9,7 @@
 #include "shell/xdg-surface.h"
 
 #include "seat/seat.h"
+#include "seat/pointer.h"
 #include "seat/client.h"
 
 #include "xwayland/xwm.h"
@@ -222,6 +223,8 @@ wlc_view_free(struct wlc_view *view)
    if (view->space)
       wl_list_remove(&view->link);
 
+   wlc_pointer_update(view->compositor->seat->pointer);
+
    wl_array_release(&view->wl_state);
    free(view);
 }
@@ -413,6 +416,8 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
       if (view->compositor->interface.view.switch_space)
          view->compositor->interface.view.switch_space(view->compositor, view, old_space, space);
    }
+
+   wlc_pointer_update(view->compositor->seat->pointer);
 }
 
 WLC_API struct wlc_space*
