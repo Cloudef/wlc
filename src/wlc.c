@@ -789,7 +789,13 @@ wlc_init(const int argc, char *argv[])
       action.sa_handler = backtrace;
       sigaction(SIGABRT, &action, NULL);
       sigaction(SIGSEGV, &action, NULL);
-      fpesetup(&action);
+
+      // XXX: Some weird sigfpes seems to come when running
+      // wlc compositor inside wlc compositor (X11 backend).
+      // Seems to be caused by resolution changes and mouse clicks.
+      // Gather more information about this later and see what's going on.
+      if (!getenv("WAYLAND_DISPLAY"))
+         fpesetup(&action);
    }
 #endif
 
