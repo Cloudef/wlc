@@ -86,12 +86,14 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    if (view->x11_window) {
       if (!wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin))
          wlc_x11_window_position(view->x11_window, pending->geometry.origin.x, pending->geometry.origin.y);
-      if (size_changed)
+      if (size_changed) {
          wlc_x11_window_resize(view->x11_window, pending->geometry.size.w, pending->geometry.size.h);
+         view->ack = ACK_NEXT_COMMIT;
+      }
    }
 
    if (view->ack == ACK_NONE) {
-      // xdg surfaces will commit after an ACK configure if one sent
+      // Commit immediately if no ack requested
       // XXX: We may need to detect frozen client
       memcpy(out, pending, sizeof(struct wlc_view_state));
    }
@@ -129,6 +131,9 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
          view->ack = ACK_PENDING;
       } else if (view->shell_surface.resource) {
          wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, view->pending.geometry.size.w, view->pending.geometry.size.h);
+         view->ack = ACK_NEXT_COMMIT;
+      } else if (view->x11_window) {
+         wlc_x11_window_resize(view->x11_window, view->pending.geometry.size.w, view->pending.geometry.size.h);
          view->ack = ACK_NEXT_COMMIT;
       }
    } else {
