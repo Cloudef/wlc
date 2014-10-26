@@ -407,8 +407,11 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
       }
 
       view->created = true;
-   } else if (old_space && space && view->compositor->interface.view.switch_space) {
-      view->compositor->interface.view.switch_space(view->compositor, view, old_space, space);
+   } else if (old_space && space) {
+      wlc_surface_attach_to_output(view->surface, space->output, view->surface->commit.buffer);
+
+      if (view->compositor->interface.view.switch_space)
+         view->compositor->interface.view.switch_space(view->compositor, view, old_space, space);
    }
 }
 
