@@ -127,7 +127,6 @@ repaint(struct wlc_output *output)
          wl_callback_send_done(cb->resource, msec);
          wlc_callback_free(cb);
       }
-
    }
 
    if (output->compositor->output == output) // XXX: Make this option instead, and give each output current cursor coords

@@ -36,10 +36,9 @@ struct wlc_pointer {
    bool grabbing;
 };
 
-void wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, const struct wlc_origin *pos);
+void wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, struct wlc_origin *out_pos);
 void wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button, enum wl_pointer_button_state state);
 void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, const struct wlc_origin *pos);
-void wlc_pointer_update(struct wlc_pointer *pointer);
 void wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource);
 void wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_origin *tip);
 void wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render);

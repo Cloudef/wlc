@@ -21,6 +21,25 @@ is_valid_view(const struct wlc_view *view)
    return (view && view->client && view->client->input[WLC_POINTER] && view->surface && view->surface->resource);
 }
 
+static struct wlc_view*
+view_under_pointer(struct wlc_pointer *pointer)
+{
+   if (pointer->focus && pointer->grabbing)
+      return pointer->focus;
+
+   struct wlc_view *view;
+   wl_list_for_each_reverse(view, &pointer->compositor->output->space->views, link) {
+      struct wlc_geometry b;
+      wlc_view_get_bounds(view, &b);
+      if (pointer->pos.x >= b.origin.x && pointer->pos.x <= b.origin.x + (int32_t)b.size.w &&
+          pointer->pos.y >= b.origin.y && pointer->pos.y <= b.origin.y + (int32_t)b.size.h) {
+         return view;
+      }
+   }
+
+   return NULL;
+}
+
 static void
 degrab(struct wlc_pointer *pointer)
 {
@@ -43,9 +62,21 @@ degrab(struct wlc_pointer *pointer)
 }
 
 void
-wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, const struct wlc_origin *pos)
+wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, struct wlc_origin *out_pos)
 {
    assert(pointer);
+
+   struct wlc_origin d;
+
+   if (view) {
+      struct wlc_geometry b;
+      wlc_view_get_bounds(view, &b);
+      d.x = (pointer->pos.x - b.origin.x) * view->surface->size.w / b.size.w;
+      d.y = (pointer->pos.y - b.origin.y) * view->surface->size.h / b.size.h;
+
+      if (out_pos)
+         memcpy(out_pos, &d, sizeof(d));
+   }
 
    if (pointer->focus == view)
       return;
@@ -54,7 +85,7 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
       wl_pointer_send_leave(pointer->focus->client->input[WLC_POINTER], serial, pointer->focus->surface->resource);
 
    if (is_valid_view(view))
-      wl_pointer_send_enter(view->client->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(pos->x), wl_fixed_from_int(pos->y));
+      wl_pointer_send_enter(view->client->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(d.x), wl_fixed_from_int(d.y));
 
    if (!view)
       wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
@@ -86,34 +117,9 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 {
    assert(pointer);
    memcpy(&pointer->pos, pos, sizeof(pointer->pos));
+   struct wlc_view *focused = view_under_pointer(pointer);
 
-   struct wlc_view *focused = NULL;
-   if (pointer->focus && pointer->grabbing) {
-      focused = pointer->focus;
-   } else {
-      struct wlc_view *view;
-      wl_list_for_each_reverse(view, &pointer->compositor->output->space->views, link) {
-         struct wlc_geometry b;
-         wlc_view_get_bounds(view, &b);
-         if (pos->x >= b.origin.x && pos->x <= b.origin.x + (int32_t)b.size.w &&
-             pos->y >= b.origin.y && pos->y <= b.origin.y + (int32_t)b.size.h) {
-            focused = view;
-            break;
-         }
-      }
-   }
-
-   if (!focused) {
-      wlc_pointer_focus(pointer, 0, NULL, &wlc_origin_zero);
-      return;
-   }
-
-   struct wlc_geometry b;
-   wlc_view_get_bounds(focused, &b);
-   struct wlc_origin d = {
-      (pos->x - b.origin.x) * focused->surface->size.w / b.size.w,
-      (pos->y - b.origin.y) * focused->surface->size.h / b.size.h
-   };
+   struct wlc_origin d;
    wlc_pointer_focus(pointer, serial, focused, &d);
 
    if (!is_valid_view(focused))
@@ -159,15 +165,6 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 }
 
 void
-wlc_pointer_update(struct wlc_pointer *pointer)
-{
-   assert(pointer);
-   uint32_t serial = wl_display_next_serial(pointer->compositor->display);
-   uint32_t time = pointer->compositor->api.get_time();
-   wlc_pointer_motion(pointer, serial, time, &pointer->pos);
-}
-
-void
 wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource)
 {
    assert(pointer && resource);
@@ -183,7 +180,7 @@ wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_re
 
             if (pointer->focus && pointer->focus->client && pointer->focus->client->input[WLC_POINTER] == resource) {
                view->client->input[WLC_POINTER] = NULL;
-               wlc_pointer_focus(pointer, 0, NULL, &wlc_origin_zero);
+               wlc_pointer_focus(pointer, 0, NULL, NULL);
             } else {
                view->client->input[WLC_POINTER] = NULL;
             }
@@ -212,6 +209,15 @@ void
 wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render)
 {
    assert(pointer);
+
+   // XXX: Do this check for now every render loop.
+   // Maybe later we may do something nicer, like if any view moved or
+   // geometry changed then update pointer.
+   struct wlc_view *focused = view_under_pointer(pointer);
+   if (pointer->focus != focused) {
+      uint32_t serial = wl_display_next_serial(pointer->compositor->display);
+      wlc_pointer_focus(pointer, serial, focused, NULL);
+   }
 
    if (pointer->surface) {
       wlc_render_surface_paint(render, pointer->surface, &(struct wlc_origin){ pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y });
