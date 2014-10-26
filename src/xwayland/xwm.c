@@ -54,6 +54,7 @@ static struct {
    struct wl_client *client;
    struct wl_event_source *event_source;
    struct wl_list windows, unpaired_windows;
+   xcb_window_t focus;
 } xwm;
 
 static struct {
@@ -298,6 +299,20 @@ wlc_x11_window_for_id(struct wl_list *list, xcb_window_t window)
    return NULL;
 }
 
+static void
+focus_window(xcb_window_t window)
+{
+   xcb_client_message_event_t m;
+   m.response_type = XCB_CLIENT_MESSAGE;
+   m.format = 32;
+   m.window = window;
+   m.type = x11.atoms[WM_PROTOCOLS];
+   m.data.data32[0] = x11.atoms[WM_TAKE_FOCUS];
+   m.data.data32[1] = XCB_TIME_CURRENT_TIME;
+   x11.api.xcb_send_event(x11.connection, 0, window, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, (char*)&m);
+   x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, window, XCB_CURRENT_TIME);
+}
+
 static struct wlc_x11_window*
 wlc_x11_window_new(xcb_window_t window, bool override_redirect)
 {
@@ -315,6 +330,9 @@ void
 wlc_x11_window_free(struct wlc_x11_window *win)
 {
    assert(win);
+
+   if (xwm.focus == win->id)
+      xwm.focus = 0;
 
    if (win->view) {
       win->view->x11_window = NULL;
@@ -382,18 +400,17 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 {
    assert(win);
 
+   if (xwm.focus == win->id)
+      return;
+
    if (active) {
-      xcb_client_message_event_t m;
-      m.response_type = XCB_CLIENT_MESSAGE;
-      m.format = 32;
-      m.window = win->id;
-      m.type = x11.atoms[WM_PROTOCOLS];
-      m.data.data32[0] = x11.atoms[WM_TAKE_FOCUS];
-      m.data.data32[1] = XCB_TIME_CURRENT_TIME;
-      x11.api.xcb_send_event(x11.connection, 0, win->id, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, (char*)&m);
-      x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, win->id, XCB_CURRENT_TIME);
+      focus_window(win->id);
+      xwm.focus = win->id;
    } else {
       x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_CURRENT_TIME);
+
+      if (xwm.focus == win->id)
+         xwm.focus = 0;
    }
 
    x11.api.xcb_flush(x11.connection);
@@ -461,6 +478,7 @@ x11_event(int fd, uint32_t mask, void *data)
             break;
             case XCB_MAP_REQUEST: {
                xcb_map_request_event_t *ev = (xcb_map_request_event_t*)event;
+               x11.api.xcb_change_window_attributes_checked(x11.connection, ev->window, XCB_CW_EVENT_MASK, &(uint32_t){XCB_EVENT_MASK_FOCUS_CHANGE});
                x11.api.xcb_map_window_checked(x11.connection, ev->window);
             }
             break;
@@ -475,12 +493,20 @@ x11_event(int fd, uint32_t mask, void *data)
                }
             }
             break;
+            case XCB_FOCUS_IN: {
+               // Do not let clients to steal focus
+               xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
+               if (xwm.focus != ev->event)
+                  focus_window(xwm.focus);
+            }
+            break;
             case XCB_SELECTION_NOTIFY:
             break;
             case XCB_PROPERTY_NOTIFY:
             break;
             case XCB_SELECTION_REQUEST:
             break;
+            case XCB_FOCUS_OUT:
             case XCB_CONFIGURE_REQUEST:
             case XCB_CONFIGURE_NOTIFY:
             case XCB_MAP_NOTIFY:
