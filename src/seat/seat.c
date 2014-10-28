@@ -246,8 +246,9 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
    }
 
    if (seat->compositor->interface.keyboard.key &&
-      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, leds, mods, key, (enum wlc_key_state)state))
-      return;
+      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, leds, mods, key, (enum wlc_key_state)state) &&
+      state == WL_KEYBOARD_KEY_STATE_PRESSED) // do not allow to return if this is release event
+      return;                                 // XXX: maybe check if pressed, keep list of pressed keys
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
    uint32_t time = seat->compositor->api.get_time();
