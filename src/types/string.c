@@ -5,25 +5,40 @@
 #include <assert.h>
 
 static char*
-c_strdup(const char *str)
+ccopy(const char *str, size_t len)
 {
-   size_t size = strlen(str);
-   char *cpy = calloc(1, size + 1);
-   return (cpy ? memcpy(cpy, str, size) : NULL);
+   char *cpy = calloc(1, len + 1);
+   return (cpy ? memcpy(cpy, str, len) : NULL);
 }
 
-void
+bool
 wlc_string_set(struct wlc_string *string, const char *data, bool is_heap)
 {
    assert(string);
 
-   if (string->is_heap && string->data) {
-      free(string->data);
-      string->data = NULL;
-   }
+   char *copy = NULL;
+   if (is_heap && data && !(copy = ccopy(data, strlen(data))))
+      return false;
 
-   string->is_heap = is_heap;
-   string->data = (data && is_heap ? c_strdup(data) : (char*)data);
+   wlc_string_release(string);
+   string->is_heap = (copy ? true : false);
+   string->data = (copy ? copy : (char*)data);
+   return true;
+}
+
+bool
+wlc_string_set_with_length(struct wlc_string *string, const char *data, size_t length)
+{
+   assert(string);
+
+   char *copy = NULL;
+   if (data && length > 0 && !(copy = ccopy(data, length)))
+      return false;
+
+   wlc_string_release(string);
+   string->is_heap = (copy ? true : false);
+   string->data = copy;
+   return true;
 }
 
 void
