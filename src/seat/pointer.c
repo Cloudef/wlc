@@ -210,6 +210,11 @@ wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render)
 {
    assert(pointer);
 
+   // Skip draw if surface is not on same context.
+   // XXX: Should we draw default instead?
+   if (pointer->surface && pointer->surface->output->render != render)
+      return;
+
    // XXX: Do this check for now every render loop.
    // Maybe later we may do something nicer, like if any view moved or
    // geometry changed then update pointer.
