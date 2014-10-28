@@ -21,6 +21,8 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 
+#define LENGTH(x) (sizeof(x) / sizeof(x)[0])
+
 // FIXME: contains global state
 
 struct wlc_x11_window {
@@ -29,6 +31,8 @@ struct wlc_x11_window {
    xcb_window_t id;
    uint32_t surface_id;
    bool override_redirect;
+   bool has_delete_window;
+   bool has_alpha;
 };
 
 enum atom_name {
@@ -36,16 +40,34 @@ enum atom_name {
    WM_DELETE_WINDOW,
    WM_TAKE_FOCUS,
    WM_PROTOCOLS,
+   WM_NORMAL_HINTS,
+   MOTIF_WM_HINTS,
    UTF8_STRING,
    CLIPBOARD,
    CLIPBOARD_MANAGER,
    WM_S0,
    NET_WM_S0,
+   NET_WM_PID,
    NET_WM_NAME,
    NET_WM_STATE,
    NET_WM_STATE_FULLSCREEN,
    NET_SUPPORTED,
    NET_SUPPORTING_WM_CHECK,
+   NET_WM_WINDOW_TYPE,
+   NET_WM_WINDOW_TYPE_DESKTOP,
+   NET_WM_WINDOW_TYPE_DOCK,
+   NET_WM_WINDOW_TYPE_TOOLBAR,
+   NET_WM_WINDOW_TYPE_MENU,
+   NET_WM_WINDOW_TYPE_UTILITY,
+   NET_WM_WINDOW_TYPE_SPLASH,
+   NET_WM_WINDOW_TYPE_DIALOG,
+   NET_WM_WINDOW_TYPE_DROPDOWN_MENU,
+   NET_WM_WINDOW_TYPE_POPUP_MENU,
+   NET_WM_WINDOW_TYPE_TOOLTIP,
+   NET_WM_WINDOW_TYPE_NOTIFICATION,
+   NET_WM_WINDOW_TYPE_COMBO,
+   NET_WM_WINDOW_TYPE_DND,
+   NET_WM_WINDOW_TYPE_NORMAL,
    ATOM_LAST
 };
 
@@ -76,9 +98,16 @@ static struct {
       const xcb_setup_t* (*xcb_get_setup)(xcb_connection_t*);
       xcb_screen_iterator_t (*xcb_setup_roots_iterator)(const xcb_setup_t*);
       uint32_t (*xcb_generate_id)(xcb_connection_t*);
+      xcb_get_property_cookie_t (*xcb_get_property)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_atom_t, xcb_atom_t, uint32_t, uint32_t);
+      xcb_get_property_reply_t* (*xcb_get_property_reply)(xcb_connection_t*, xcb_get_property_cookie_t, xcb_generic_error_t**);
+      void* (*xcb_get_property_value)(xcb_get_property_reply_t*);
+      int (*xcb_get_property_value_length)(xcb_get_property_reply_t*);
+      xcb_get_geometry_cookie_t (*xcb_get_geometry)(xcb_connection_t*, xcb_drawable_t);
+      xcb_get_geometry_reply_t* (*xcb_get_geometry_reply)(xcb_connection_t*, xcb_get_geometry_cookie_t, xcb_generic_error_t**);
       xcb_void_cookie_t (*xcb_create_window_checked)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_window_t, int16_t, int16_t, uint16_t, uint16_t, uint16_t, uint16_t, xcb_visualid_t, uint32_t, const uint32_t*);
       xcb_void_cookie_t (*xcb_destroy_window)(xcb_connection_t*, xcb_window_t);
       xcb_void_cookie_t (*xcb_map_window_checked)(xcb_connection_t*, xcb_window_t);
+      xcb_void_cookie_t (*xcb_unmap_window_checked)(xcb_connection_t*, xcb_window_t);
       xcb_void_cookie_t (*xcb_change_property)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_atom_t, xcb_atom_t, uint8_t, uint32_t, const void*);
       xcb_void_cookie_t (*xcb_change_window_attributes_checked)(xcb_connection_t*, xcb_window_t, uint32_t, const uint32_t*);
       xcb_void_cookie_t (*xcb_configure_window_checked)(xcb_connection_t*, xcb_window_t, uint16_t, const uint32_t*);
@@ -135,11 +164,25 @@ xcb_load(void)
       goto function_pointer_exception;
    if (!load(xcb_generate_id))
       goto function_pointer_exception;
+   if (!load(xcb_get_property))
+      goto function_pointer_exception;
+   if (!load(xcb_get_property_reply))
+      goto function_pointer_exception;
+   if (!load(xcb_get_property_value))
+      goto function_pointer_exception;
+   if (!load(xcb_get_property_value_length))
+      goto function_pointer_exception;
+   if (!load(xcb_get_geometry))
+      goto function_pointer_exception;
+   if (!load(xcb_get_geometry_reply))
+      goto function_pointer_exception;
    if (!load(xcb_create_window_checked))
       goto function_pointer_exception;
    if (!load(xcb_destroy_window))
       goto function_pointer_exception;
    if (!load(xcb_map_window_checked))
+      goto function_pointer_exception;
+   if (!load(xcb_unmap_window_checked))
       goto function_pointer_exception;
    if (!load(xcb_change_property))
       goto function_pointer_exception;
@@ -343,30 +386,33 @@ wlc_x11_window_free(struct wlc_x11_window *win)
    free(win);
 }
 
-static void deletewindow(const xcb_window_t window)
+static void
+deletewindow(xcb_window_t window)
 {
-    xcb_client_message_event_t ev;
-    ev.response_type = XCB_CLIENT_MESSAGE;
-    ev.window = window;
-    ev.format = 32;
-    ev.sequence = 0;
-    ev.type = x11.atoms[WM_PROTOCOLS];
-    ev.data.data32[0] = x11.atoms[WM_DELETE_WINDOW];
-    ev.data.data32[1] = XCB_CURRENT_TIME;
-    x11.api.xcb_send_event(x11.connection, 0, window, XCB_EVENT_MASK_NO_EVENT, (char*)&ev);
+   xcb_client_message_event_t ev;
+   ev.response_type = XCB_CLIENT_MESSAGE;
+   ev.window = window;
+   ev.format = 32;
+   ev.sequence = 0;
+   ev.type = x11.atoms[WM_PROTOCOLS];
+   ev.data.data32[0] = x11.atoms[WM_DELETE_WINDOW];
+   ev.data.data32[1] = XCB_CURRENT_TIME;
+   x11.api.xcb_send_event(x11.connection, 0, window, XCB_EVENT_MASK_NO_EVENT, (char*)&ev);
+}
+
+enum wlc_surface_format
+wlc_x11_window_get_surface_format(struct wlc_x11_window *win)
+{
+   assert(win);
+   return (win->has_alpha ? SURFACE_RGBA : SURFACE_RGB);
 }
 
 void
 wlc_x11_window_close(struct wlc_x11_window *win)
 {
-   bool got = false;
-   xcb_icccm_get_wm_protocols_reply_t reply;
-   if (x11.api.xcb_icccm_get_wm_protocols_reply(x11.connection, x11.api.xcb_icccm_get_wm_protocols(x11.connection, win->id, x11.atoms[WM_PROTOCOLS]), &reply, NULL)) {
-      for(unsigned int n = 0; n != reply.atoms_len; ++n) if ((got = reply.atoms[n] == x11.atoms[WM_DELETE_WINDOW])) break;
-      x11.api.xcb_icccm_get_wm_protocols_reply_wipe(&reply);
-   }
+   assert(win);
 
-   if (got) {
+   if (win->has_delete_window) {
       deletewindow(win->id);
    } else {
       x11.api.xcb_kill_client_checked(x11.connection, win->id);
@@ -406,19 +452,137 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
    if (active) {
       focus_window(win->id);
       xwm.focus = win->id;
-   } else {
+   } else if (win->id == xwm.focus) {
       x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_CURRENT_TIME);
-
-      if (xwm.focus == win->id)
-         xwm.focus = 0;
+      xwm.focus = 0;
    }
 
    x11.api.xcb_flush(x11.connection);
 }
 
 static void
+set_parent(struct wlc_x11_window *win, xcb_window_t parent_id)
+{
+   assert(win && win->view);
+
+   if (!parent_id) {
+      wlc_view_set_parent(win->view, NULL);
+      return;
+   }
+
+   struct wlc_x11_window *parent;
+   if ((parent = wlc_x11_window_for_id(&xwm.windows, parent_id)) && parent->view)
+      wlc_view_set_parent(win->view, parent->view);
+}
+
+static void
+read_properties(struct wlc_x11_window *win)
+{
+   assert(win);
+
+#define TYPE_WM_PROTOCOLS    XCB_ATOM_CUT_BUFFER0
+#define TYPE_MOTIF_WM_HINTS  XCB_ATOM_CUT_BUFFER1
+#define TYPE_NET_WM_STATE    XCB_ATOM_CUT_BUFFER2
+#define TYPE_WM_NORMAL_HINTS XCB_ATOM_CUT_BUFFER3
+
+   const struct {
+      xcb_atom_t atom;
+      xcb_atom_t type;
+   } props[] = {
+      { XCB_ATOM_WM_CLASS, XCB_ATOM_STRING },
+      { XCB_ATOM_WM_NAME, XCB_ATOM_STRING },
+      { XCB_ATOM_WM_TRANSIENT_FOR, XCB_ATOM_WINDOW },
+      { x11.atoms[WM_PROTOCOLS], TYPE_WM_PROTOCOLS },
+      { x11.atoms[WM_NORMAL_HINTS], TYPE_WM_NORMAL_HINTS },
+      { x11.atoms[NET_WM_STATE], TYPE_NET_WM_STATE },
+      { x11.atoms[NET_WM_WINDOW_TYPE], XCB_ATOM_ATOM },
+      { x11.atoms[NET_WM_NAME], XCB_ATOM_STRING },
+      { x11.atoms[NET_WM_PID], XCB_ATOM_CARDINAL },
+      { x11.atoms[MOTIF_WM_HINTS], TYPE_MOTIF_WM_HINTS },
+   };
+
+   xcb_get_property_cookie_t *cookies;
+   if (!(cookies = calloc(LENGTH(props), sizeof(xcb_get_property_cookie_t))))
+      return;
+
+   for (uint32_t i = 0; i < LENGTH(props); ++i)
+      cookies[i] = x11.api.xcb_get_property(x11.connection, 0, win->id, props[i].atom, XCB_ATOM_ANY, 0, 2048);
+
+   for (uint32_t i = 0; i < LENGTH(props); ++i) {
+      xcb_get_property_reply_t *reply;
+      if (!(reply = x11.api.xcb_get_property_reply(x11.connection, cookies[i], NULL)))
+         continue;
+
+      if (reply->type == XCB_ATOM_NONE) {
+         free(reply);
+         continue;
+      }
+
+      switch (props[i].type) {
+         case XCB_ATOM_STRING:
+            // Class && Name
+            if (props[i].atom == XCB_ATOM_WM_CLASS) {
+               wlc_string_set_with_length(&win->view->shell_surface._class, x11.api.xcb_get_property_value(reply), x11.api.xcb_get_property_value_length(reply));
+            } else if (props[i].atom == XCB_ATOM_WM_NAME) {
+               wlc_string_set_with_length(&win->view->shell_surface.title, x11.api.xcb_get_property_value(reply), x11.api.xcb_get_property_value_length(reply));
+            }
+            break;
+         case XCB_ATOM_WINDOW: {
+            // Transient
+            xcb_window_t *xid = x11.api.xcb_get_property_value(reply);
+            set_parent(win, *xid);
+         }
+         break;
+         case XCB_ATOM_CARDINAL:
+         // PID
+         break;
+         case XCB_ATOM_ATOM: {
+            // Window type
+         }
+         break;
+         case TYPE_WM_PROTOCOLS: {
+            xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
+            for (uint32_t i = 0; i < reply->value_len; ++i) {
+               if (atoms[i] == x11.atoms[WM_DELETE_WINDOW])
+                  win->has_delete_window = true;
+            }
+         }
+         break;
+         case TYPE_WM_NORMAL_HINTS:
+         break;
+         case TYPE_NET_WM_STATE: {
+            bool fullscreen = false;
+            xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
+            for (uint32_t i = 0; i < reply->value_len; ++i) {
+               if (atoms[i] == x11.atoms[NET_WM_STATE_FULLSCREEN]) {
+                  fullscreen = true;
+                  break;
+               }
+            }
+            wlc_view_request_state(win->view, WLC_BIT_FULLSCREEN, fullscreen);
+         }
+         break;
+         case TYPE_MOTIF_WM_HINTS:
+         // Motif hints
+         break;
+      }
+
+      free(reply);
+   }
+
+   free(cookies);
+
+#undef TYPE_WM_PROTOCOLS
+#undef TYPE_MOTIF_WM_HINTS
+#undef TYPE_NET_WM_STATE
+#undef TYPE_WM_NORMAL_HINTS
+}
+
+static void
 link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
 {
+   assert(win);
+
    if (!resource)
       return;
 
@@ -437,13 +601,52 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    win->view = surface->view;
    win->view->x11_window = win;
 
-   // Make sure the view is mapped to space.
-   // The timing with xwayland <-> wayland events might be bit off, so this does not hurt.
-   wlc_view_set_space(win->view, (xwm.compositor->output ? xwm.compositor->output->space : NULL));
-   wlc_x11_window_resize(win, win->view->commit.geometry.size.w, win->view->commit.geometry.size.h);
+   if (win->override_redirect)
+      win->view->type |= WLC_BIT_OVERRIDE_REDIRECT;
+
+   read_properties(win);
+
+   xcb_get_geometry_reply_t *reply;
+   if ((reply = x11.api.xcb_get_geometry_reply(x11.connection, x11.api.xcb_get_geometry(x11.connection, win->id), NULL))) {
+      win->view->pending.geometry.origin = (struct wlc_origin){ reply->x, reply->y };
+      win->view->pending.geometry.size = (struct wlc_size){ reply->width, reply->height };
+      win->has_alpha = (reply->depth == 32);
+      free(reply);
+   }
+
+   if (surface->output) {
+      // Make sure the view is mapped to space.
+      // The timing with xwayland <-> wayland events might be bit off, so this does not hurt.
+      wlc_view_set_space(win->view, surface->output->space);
+   }
 
    wl_list_remove(&win->link);
    wl_list_insert(&xwm.windows, &win->link);
+}
+
+static void
+handle_client_message(xcb_client_message_event_t *ev)
+{
+   assert(ev);
+
+   if (ev->type == x11.atoms[WL_SURFACE_ID]) {
+      struct wlc_x11_window *win;
+      if (!(win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
+         return;
+
+      link_surface(win, wl_client_get_object(xwm.client, ev->data.data32[0]));
+      win->surface_id = ev->data.data32[0];
+      return;
+   }
+
+   struct wlc_x11_window *win;
+   if (!(win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || !win->view)
+      return;
+
+   if (ev->type == x11.atoms[NET_WM_STATE]) {
+      if (ev->data.data32[1] == x11.atoms[NET_WM_STATE_FULLSCREEN])
+         wlc_view_request_state(win->view, WLC_BIT_FULLSCREEN, ev->data.data32[0]);
+   }
 }
 
 static int
@@ -469,6 +672,14 @@ x11_event(int fd, uint32_t mask, void *data)
                wlc_x11_window_new(ev->window, ev->override_redirect);
             }
             break;
+
+            case XCB_MAP_NOTIFY: {
+               xcb_map_notify_event_t *ev = (xcb_map_notify_event_t*)event;
+               if (!wlc_x11_window_for_id(&xwm.windows, ev->window) && !wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window))
+                  wlc_x11_window_new(ev->window, ev->override_redirect);
+            }
+            break;
+
             case XCB_DESTROY_NOTIFY: {
                xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)event;
                struct wlc_x11_window *win;
@@ -476,23 +687,18 @@ x11_event(int fd, uint32_t mask, void *data)
                   wlc_x11_window_free(win);
             }
             break;
+
             case XCB_MAP_REQUEST: {
                xcb_map_request_event_t *ev = (xcb_map_request_event_t*)event;
                x11.api.xcb_change_window_attributes_checked(x11.connection, ev->window, XCB_CW_EVENT_MASK, &(uint32_t){XCB_EVENT_MASK_FOCUS_CHANGE});
                x11.api.xcb_map_window_checked(x11.connection, ev->window);
             }
             break;
-            case XCB_CLIENT_MESSAGE: {
-               xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
-               if (ev->type == x11.atoms[WL_SURFACE_ID]) {
-                  struct wlc_x11_window *win;
-                  if ((win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window))) {
-                     link_surface(win, wl_client_get_object(xwm.client, ev->data.data32[0]));
-                     win->surface_id = ev->data.data32[0];
-                  }
-               }
-            }
+
+            case XCB_CLIENT_MESSAGE:
+               handle_client_message((xcb_client_message_event_t*)event);
             break;
+
             case XCB_FOCUS_IN: {
                // Do not let clients to steal focus
                xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
@@ -500,19 +706,61 @@ x11_event(int fd, uint32_t mask, void *data)
                   focus_window(xwm.focus);
             }
             break;
-            case XCB_SELECTION_NOTIFY:
+
+            case XCB_PROPERTY_NOTIFY: {
+               xcb_property_notify_event_t *ev = (xcb_property_notify_event_t*)event;
+               struct wlc_x11_window *win;
+               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)))
+                  read_properties(win);
+            }
             break;
-            case XCB_PROPERTY_NOTIFY:
+
+            case XCB_CONFIGURE_REQUEST: {
+               xcb_configure_request_event_t *ev = (xcb_configure_request_event_t*)event;
+               struct wlc_x11_window *win;
+               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) && win->view) {
+                  set_parent(win, ev->parent);
+                  struct wlc_geometry r = { { ev->x, ev->y }, { ev->width, ev->height } };
+                  wlc_view_request_geometry(win->view, &r);
+               }
+
+            }
+            break;
+
+            case XCB_CONFIGURE_NOTIFY: {
+               // XXX: Maybe we could ac here?
+               xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
+               struct wlc_x11_window *win;
+               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) && win->view) {
+                  // win->view->ack = ACK_NEXT_COMMIT;
+
+                  if (win->override_redirect != ev->override_redirect) {
+                     if (ev->override_redirect)
+                        win->view->type |= WLC_BIT_OVERRIDE_REDIRECT;
+                     else
+                        win->view->type &= ~WLC_BIT_OVERRIDE_REDIRECT;
+                     win->override_redirect = ev->override_redirect;
+                  }
+               }
+            }
+            break;
+
+            case XCB_UNMAP_NOTIFY: {
+               xcb_unmap_notify_event_t *ev = (xcb_unmap_notify_event_t*)event;
+               x11.api.xcb_unmap_window_checked(x11.connection, ev->window);
+            }
+            break;
+
+            // TODO: Handle?
+            case XCB_SELECTION_NOTIFY:
             break;
             case XCB_SELECTION_REQUEST:
             break;
             case XCB_FOCUS_OUT:
-            case XCB_CONFIGURE_REQUEST:
-            case XCB_CONFIGURE_NOTIFY:
-            case XCB_MAP_NOTIFY:
-            case XCB_UNMAP_NOTIFY:
+            break;
             case XCB_MAPPING_NOTIFY:
             break;
+
             default:
                wlc_log(WLC_LOG_WARN, "xwm: unimplemented %d", event->response_type & ~0x80);
             break;
@@ -573,16 +821,34 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
       { "WM_DELETE_WINDOW", WM_DELETE_WINDOW },
       { "WM_TAKE_FOCUS", WM_TAKE_FOCUS },
       { "WM_PROTOCOLS", WM_PROTOCOLS },
+      { "WM_NORMAL_HINTS", WM_NORMAL_HINTS },
+      { "_MOTIF_WM_HINTS", MOTIF_WM_HINTS },
       { "UTF8_STRING", UTF8_STRING },
       { "CLIPBOARD", CLIPBOARD },
       { "CLIPBOARD_MANAGER", CLIPBOARD_MANAGER },
       { "WM_S0", WM_S0 },
-      { "_NET_WM_S0", NET_WM_S0 },
+      { "_NET_WM_CM_S0", NET_WM_S0 },
+      { "_NET_WM_PID", NET_WM_PID },
       { "_NET_WM_NAME", NET_WM_NAME },
       { "_NET_WM_STATE", NET_WM_STATE },
       { "_NET_WM_STATE_FULLSCREEN", NET_WM_STATE_FULLSCREEN },
       { "_NET_SUPPORTED", NET_SUPPORTED },
       { "_NET_SUPPORTING_WM_CHECK", NET_SUPPORTING_WM_CHECK },
+      { "_NET_WM_WINDOW_TYPE", NET_WM_WINDOW_TYPE },
+      { "_NET_WM_WINDOW_TYPE_DESKTOP", NET_WM_WINDOW_TYPE_DESKTOP },
+      { "_NET_WM_WINDOW_TYPE_DOCK", NET_WM_WINDOW_TYPE_DOCK },
+      { "_NET_WM_WINDOW_TYPE_TOOLBAR", NET_WM_WINDOW_TYPE_TOOLBAR },
+      { "_NET_WM_WINDOW_TYPE_MENU", NET_WM_WINDOW_TYPE_MENU },
+      { "_NET_WM_WINDOW_TYPE_UTILITY", NET_WM_WINDOW_TYPE_UTILITY },
+      { "_NET_WM_WINDOW_TYPE_SPLASH", NET_WM_WINDOW_TYPE_SPLASH },
+      { "_NET_WM_WINDOW_TYPE_DIALOG", NET_WM_WINDOW_TYPE_DIALOG },
+      { "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU", NET_WM_WINDOW_TYPE_DROPDOWN_MENU },
+      { "_NET_WM_WINDOW_TYPE_POPUP_MENU", NET_WM_WINDOW_TYPE_POPUP_MENU },
+      { "_NET_WM_WINDOW_TYPE_TOOLTIP", NET_WM_WINDOW_TYPE_TOOLTIP },
+      { "_NET_WM_WINDOW_TYPE_NOTIFICATION", NET_WM_WINDOW_TYPE_NOTIFICATION },
+      { "_NET_WM_WINDOW_TYPE_COMBO", NET_WM_WINDOW_TYPE_COMBO },
+      { "_NET_WM_WINDOW_TYPE_DND", NET_WM_WINDOW_TYPE_DND },
+      { "_NET_WM_WINDOW_TYPE_NORMAL", NET_WM_WINDOW_TYPE_NORMAL },
    };
 
    xcb_intern_atom_cookie_t atom_cookies[ATOM_LAST];
@@ -610,6 +876,7 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
       goto xfixes_extension_fail;
 
    wlc_log(WLC_LOG_INFO, "xfixes (%d.%d)", xfixes_reply->major_version, xfixes_reply->minor_version);
+   free(xfixes_reply);
 
    const xcb_query_extension_reply_t *composite_extension;
    if (!(composite_extension = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_composite_id)) || !composite_extension->present)
@@ -650,11 +917,30 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
          x11.screen->root_visual, XCB_CW_EVENT_MASK, (uint32_t[]){XCB_EVENT_MASK_PROPERTY_CHANGE});
 
    xcb_atom_t supported[] = {
+      x11.atoms[NET_WM_S0],
+      x11.atoms[NET_WM_PID],
+      x11.atoms[NET_WM_NAME],
       x11.atoms[NET_WM_STATE],
-      x11.atoms[NET_WM_STATE_FULLSCREEN]
+      x11.atoms[NET_WM_STATE_FULLSCREEN],
+      x11.atoms[NET_SUPPORTING_WM_CHECK],
+      x11.atoms[NET_WM_WINDOW_TYPE],
+      x11.atoms[NET_WM_WINDOW_TYPE_DESKTOP],
+      x11.atoms[NET_WM_WINDOW_TYPE_DOCK],
+      x11.atoms[NET_WM_WINDOW_TYPE_TOOLBAR],
+      x11.atoms[NET_WM_WINDOW_TYPE_MENU],
+      x11.atoms[NET_WM_WINDOW_TYPE_UTILITY],
+      x11.atoms[NET_WM_WINDOW_TYPE_SPLASH],
+      x11.atoms[NET_WM_WINDOW_TYPE_DIALOG],
+      x11.atoms[NET_WM_WINDOW_TYPE_DROPDOWN_MENU],
+      x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU],
+      x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP],
+      x11.atoms[NET_WM_WINDOW_TYPE_NOTIFICATION],
+      x11.atoms[NET_WM_WINDOW_TYPE_COMBO],
+      x11.atoms[NET_WM_WINDOW_TYPE_DND],
+      x11.atoms[NET_WM_WINDOW_TYPE_NORMAL],
    };
 
-   x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTED], XCB_ATOM_ATOM, 32, 2, supported);
+   x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTED], XCB_ATOM_ATOM, 32, LENGTH(supported), supported);
    x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window);
    x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window);
    x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, strlen("xwlc"), "xwlc");

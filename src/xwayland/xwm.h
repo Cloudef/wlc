@@ -9,6 +9,7 @@ struct wlc_compositor;
 struct wlc_surface;
 struct wlc_x11_window;
 
+enum wlc_surface_format wlc_x11_window_get_surface_format(struct wlc_x11_window *win);
 void wlc_x11_window_position(struct wlc_x11_window *win, const int32_t x, const int32_t y);
 void wlc_x11_window_resize(struct wlc_x11_window *win, const uint32_t width, const uint32_t height);
 void wlc_x11_window_set_active(struct wlc_x11_window *win, bool active);

@@ -12,6 +12,9 @@
 #  define WLC_LOG_ATTR(x, y)
 #endif
 
+// FIXME: expose wlc_geometry, wlc_origin, wlc_size
+//        get rid of wl_list, etc...
+
 struct wlc_compositor;
 struct wlc_view;
 struct wlc_output;
@@ -36,7 +39,8 @@ enum wlc_view_state_bit {
 
 /** wlc_view_get_type(); */
 enum wlc_view_type_bit {
-   WLC_BIT_POPUP = 1<<0,
+   WLC_BIT_OVERRIDE_REDIRECT = 1<<0, // override redirect x11 windows
+   WLC_BIT_POPUP = 1<<1, // xdg-shell, wl-shell popups
 };
 
 /** mods in interface.keyboard.key function */

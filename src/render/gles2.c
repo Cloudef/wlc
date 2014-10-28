@@ -9,6 +9,7 @@
 #include "compositor/buffer.h"
 #include "compositor/output.h"
 #include "shell/xdg-surface.h"
+#include "xwayland/xwm.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -467,7 +468,7 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    }
 
    if (surface->view && surface->view->x11_window)
-      surface->format = SURFACE_RGB;
+      surface->format = wlc_x11_window_get_surface_format(surface->view->x11_window);
 
    surface_gen_textures(surface, 1);
    gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[0]);

@@ -48,7 +48,7 @@ struct wlc_surface {
     */
    void *images[3];
 
-   enum {
+   enum wlc_surface_format {
       SURFACE_RGB,
       SURFACE_RGBA,
    } format;

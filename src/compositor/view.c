@@ -136,7 +136,7 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
    assert(view && out_bounds);
    memcpy(out_bounds, &view->commit.geometry, sizeof(struct wlc_geometry));
 
-   for (struct wlc_view *parent = view->parent; parent; parent = parent->parent) {
+   for (struct wlc_view *parent = view->parent; !(view->type & WLC_BIT_OVERRIDE_REDIRECT) && parent; parent = parent->parent) {
       out_bounds->origin.x += parent->commit.geometry.origin.x;
       out_bounds->origin.y += parent->commit.geometry.origin.y;
    }
