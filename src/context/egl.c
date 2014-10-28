@@ -349,10 +349,12 @@ swap(struct ctx *context)
 {
    assert(context);
 
-   if (!context->flip_failed)
-      egl.api.eglSwapBuffers(context->display, context->surface);
+   EGLBoolean ret = EGL_FALSE;
 
-   if (context->bsurface->api.page_flip)
+   if (!context->flip_failed)
+      ret = egl.api.eglSwapBuffers(context->display, context->surface);
+
+   if (ret == EGL_TRUE && context->bsurface->api.page_flip)
       context->flip_failed = !context->bsurface->api.page_flip(context->bsurface);
 }
 
