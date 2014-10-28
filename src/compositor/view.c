@@ -392,7 +392,8 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
    view->space = space;
 
    if (space && !view->created) {
-      view->pending.geometry.size = view->surface->size;
+      if (!wlc_size_equals(&view->pending.geometry.size, &wlc_size_zero))
+         view->pending.geometry.size = view->surface->size;
 
       if (view->compositor->interface.view.created &&
          !view->compositor->interface.view.created(view->compositor, view, space)) {
