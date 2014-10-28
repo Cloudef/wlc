@@ -22,25 +22,6 @@
 #include <wayland-server.h>
 #include "wayland-xdg-shell-server-protocol.h"
 
-static bool
-request_resize(struct wlc_view *view, struct wlc_view_state *pending, const struct wlc_geometry *o, const struct wlc_geometry *r)
-{
-   bool granted = true;
-
-   if (view->compositor->interface.view.request.geometry) {
-      memcpy(&pending->geometry, o, sizeof(pending->geometry)); // Reset to before request
-      view->compositor->interface.view.request.geometry(view->compositor, view, r->origin.x, r->origin.y, r->size.w, r->size.h);
-
-      // User did not follow the request.
-      if (!wlc_geometry_equals(r, &pending->geometry))
-         granted = false;
-   } else {
-      memcpy(&pending->geometry, r, sizeof(pending->geometry));
-   }
-
-   return granted;
-}
-
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
@@ -103,9 +84,8 @@ void
 wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_size)
 {
    if (!view->resizing && !wlc_size_equals(&view->surface->size, old_surface_size) && !wlc_size_equals(&view->pending.geometry.size, &view->surface->size)) {
-      struct wlc_geometry r = view->pending.geometry, p = view->pending.geometry;
-      r.size = view->surface->size;
-      request_resize(view, &view->pending, &p, &r);
+      struct wlc_geometry r = { view->pending.geometry.origin, view->surface->size };
+      wlc_view_request_geometry(view, &r);
    }
 
    if (view->ack != ACK_NEXT_COMMIT)
@@ -120,7 +100,11 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
       if (view->resizing & WL_SHELL_SURFACE_RESIZE_TOP)
          r.origin.y += old_surface_size->h - view->surface->size.h;
 
-      if (!request_resize(view, &view->pending, &view->commit.geometry, &r))
+      // reset to before resize
+      memcpy(&view->pending.geometry, &view->commit.geometry, sizeof(view->pending.geometry));
+
+      // request resize
+      if (!wlc_view_request_geometry(view, &r))
          reconfigure = true;
    }
 
