@@ -159,25 +159,31 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
    out_bounds->size.h = MAX(out_bounds->size.h, 1);
 }
 
-void
-wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
+bool
+wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
 {
-   if (!view->created || !view->compositor->interface.view.request.state)
-      return;
+   bool granted = true;
 
-   view->compositor->interface.view.request.state(view->compositor, view, state, toggle);
+   if (view->compositor->interface.view.request.geometry) {
+      view->compositor->interface.view.request.geometry(view->compositor, view, r->origin.x, r->origin.y, r->size.w, r->size.h);
+
+      // User did not follow the request.
+      if (!wlc_geometry_equals(r, &view->pending.geometry))
+         granted = false;
+   } else {
+      memcpy(&view->pending.geometry, r, sizeof(view->pending.geometry));
+   }
+
+   return granted;
 }
 
 void
-wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent)
+wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {
-   assert(view && view != parent);
+   if (!view->created || !view->compositor->interface.view.request.state || (view->pending.state & state) == toggle)
+      return;
 
-   if (!parent && view->parent)
-      wl_list_remove(&view->parent_link);
-
-   if ((view->parent = parent))
-      wl_list_insert(&parent->childs, &view->parent_link);
+   view->compositor->interface.view.request.state(view->compositor, view, state, toggle);
 }
 
 struct wlc_space*
@@ -457,6 +463,18 @@ wlc_view_get_class(struct wlc_view *view)
 {
    assert(view);
    return view->shell_surface._class.data;
+}
+
+WLC_API void
+wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent)
+{
+   assert(view && view != parent);
+
+   if (!parent && view->parent)
+      wl_list_remove(&view->parent_link);
+
+   if ((view->parent = parent))
+      wl_list_insert(&parent->childs, &view->parent_link);
 }
 
 WLC_API struct wlc_view*
