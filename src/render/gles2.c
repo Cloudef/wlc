@@ -628,7 +628,7 @@ view_paint(struct ctx *context, struct wlc_view *view)
 
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
-   settings.dim = (view->commit.state & WLC_BIT_ACTIVATED ? 1.0f : 0.5f);
+   settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : 0.5f);
 
    struct wlc_geometry geometry;
    wlc_view_get_bounds(view, &geometry);
