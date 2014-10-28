@@ -25,8 +25,6 @@ struct wlc_keyboard {
       uint32_t locked;
       uint32_t group;
    } mods;
-
-   bool request;
 };
 
 bool wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t leds, uint32_t mods, uint32_t key, enum wl_keyboard_key_state state);
