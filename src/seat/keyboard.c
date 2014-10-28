@@ -58,16 +58,25 @@ update_keys(struct wl_array *keys, uint32_t key, enum wl_keyboard_key_state stat
    return true;
 }
 
-void
-wlc_keyboard_reset(struct wlc_keyboard *keyboard)
+static void
+send_release_for_keys(struct wlc_view *view, struct wl_array *keys)
 {
-   if (is_valid_view(keyboard->focus)) {
-      uint32_t *k;
-      uint32_t time = keyboard->compositor->api.get_time();
-      uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
-      wl_array_for_each(k, &keyboard->keys)
-         wl_keyboard_send_key(keyboard->focus->client->input[WLC_KEYBOARD], serial, time, *k, WL_KEYBOARD_KEY_STATE_RELEASED);
-   }
+   assert(view && keys);
+
+   uint32_t *k;
+   uint32_t time = view->compositor->api.get_time();
+   uint32_t serial = wl_display_next_serial(view->compositor->display);
+   wl_array_for_each(k, keys)
+      wl_keyboard_send_key(view->client->input[WLC_KEYBOARD], serial, time, *k, WL_KEYBOARD_KEY_STATE_RELEASED);
+}
+
+void
+reset_keyboard(struct wlc_keyboard *keyboard)
+{
+   assert(keyboard);
+
+   if (is_valid_view(keyboard->focus))
+      send_release_for_keys(keyboard->focus, &keyboard->keys);
 
    wl_array_release(&keyboard->keys);
    wl_array_init(&keyboard->keys);
@@ -110,6 +119,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
       return;
 
    if (is_valid_view(keyboard->focus)) {
+      send_release_for_keys(keyboard->focus, &keyboard->keys);
       wl_keyboard_send_leave(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
 
       if (keyboard->focus->xdg_popup.resource)
