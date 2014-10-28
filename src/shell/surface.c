@@ -51,6 +51,7 @@ wl_cb_shell_surface_set_toplevel(struct wl_client *wl_client, struct wl_resource
    (void)wl_client;
    struct wlc_view *view = wl_resource_get_user_data(resource);
    wlc_view_request_state(view, WLC_BIT_FULLSCREEN, false);
+   view->fullscreen_mode = WLC_FULLSCREEN_MODE_DEFAULT;
 }
 
 static void
@@ -70,6 +71,7 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *wl_client, struct wl_resour
 
    struct wlc_view *view = wl_resource_get_user_data(resource);
    struct wlc_output *output = (output_resource ? wl_resource_get_user_data(output_resource) : view->space->output);
+   view->fullscreen_mode = method;
 
    wlc_view_set_space(view, output->space);
    wlc_view_request_state(view, WLC_BIT_FULLSCREEN, true);

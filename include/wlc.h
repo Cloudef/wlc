@@ -43,6 +43,29 @@ enum wlc_view_type_bit {
    WLC_BIT_POPUP = 1<<1, // xdg-shell, wl-shell popups
 };
 
+/** wlc_view_get_fullscreen_mode(); */
+enum wlc_view_fullscreen_mode {
+   /**
+    * No preference, apply default policy.
+    */
+   WLC_FULLSCREEN_MODE_DEFAULT,
+
+   /**
+    * Scale, preserve the surface's aspect ratio and center on output.
+    */
+   WLC_FULLSCREEN_MODE_SCALE,
+
+   /**
+    * Switch output mode to the smallest mode that can fit the surface, add black borders to compensate size mismatch.
+    */
+   WLC_FULLSCREEN_MODE_DRIVER,
+
+   /**
+    * No upscaling, center on output and add black borders to compensate size mismatch.
+    */
+   WLC_FULLSCREEN_MODE_FILL,
+};
+
 /** mods in interface.keyboard.key function */
 enum wlc_modifier_bit {
    WLC_BIT_MOD_SHIFT = 1<<0,
@@ -142,6 +165,7 @@ struct wlc_space* wlc_view_get_space(struct wlc_view *view);
 uint32_t wlc_view_get_type(struct wlc_view *view);
 uint32_t wlc_view_get_state(struct wlc_view *view);
 void wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
+enum wlc_view_fullscreen_mode wlc_view_get_fullscreen_mode(struct wlc_view *view);
 uint32_t wlc_view_get_width(struct wlc_view *view);
 uint32_t wlc_view_get_height(struct wlc_view *view);
 void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
