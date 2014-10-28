@@ -24,29 +24,64 @@ static void
 update_modifiers(struct wlc_keyboard *keyboard)
 {
    assert(keyboard);
+   keyboard->mods.depressed = xkb_state_serialize_mods(keyboard->state, XKB_STATE_DEPRESSED);
+   keyboard->mods.latched = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LATCHED);
+   keyboard->mods.locked = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LOCKED);
+   keyboard->mods.group = xkb_state_serialize_layout(keyboard->state, XKB_STATE_LAYOUT_EFFECTIVE);
+}
 
-   uint32_t depressed = xkb_state_serialize_mods(keyboard->state, XKB_STATE_DEPRESSED);
-   uint32_t latched = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LATCHED);
-   uint32_t locked = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LOCKED);
-   uint32_t group = xkb_state_serialize_group(keyboard->state, XKB_STATE_EFFECTIVE);
+static bool
+update_keys(struct wl_array *keys, uint32_t key, enum wl_keyboard_key_state state)
+{
+   assert(keys);
 
-   if (depressed == keyboard->mods.depressed &&
-       latched == keyboard->mods.latched &&
-       locked == keyboard->mods.locked &&
-       group == keyboard->mods.group)
-      return;
+   uint32_t *k, *end = keys->data + keys->size;
+   for (k = keys->data; k < end; ++k) {
+      if (*k != key)
+         continue;
 
-   keyboard->mods.depressed = depressed;
-   keyboard->mods.latched = latched;
-   keyboard->mods.locked = locked;
-   keyboard->mods.group = group;
+      if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+         return false;
+
+      *k = *--end;
+      break;
+   }
+
+   keys->size = (void*)end - keys->data;
+   if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+      if (!(k = wl_array_add(keys, sizeof(uint32_t))))
+         return false;
+
+      *k = key;
+   }
+
+   return true;
 }
 
 void
+wlc_keyboard_reset(struct wlc_keyboard *keyboard)
+{
+   if (is_valid_view(keyboard->focus)) {
+      uint32_t *k;
+      uint32_t time = keyboard->compositor->api.get_time();
+      uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
+      wl_array_for_each(k, &keyboard->keys)
+         wl_keyboard_send_key(keyboard->focus->client->input[WLC_KEYBOARD], serial, time, *k, WL_KEYBOARD_KEY_STATE_RELEASED);
+   }
+
+   wl_array_release(&keyboard->keys);
+   wl_array_init(&keyboard->keys);
+}
+
+bool
 wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state)
 {
+   if (!update_keys(&keyboard->keys, key, state))
+      return false;
+
    xkb_state_update_key(keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
    update_modifiers(keyboard);
+   return true;
 }
 
 void
@@ -88,12 +123,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
       if (view->x11_window)
          wlc_x11_window_set_active(view->x11_window, true);
 
-      struct wl_array keys;
-      wl_array_init(&keys);
-      wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keys);
-      wl_keyboard_send_modifiers(view->client->input[WLC_KEYBOARD], serial,
-            keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
-      wl_array_release(&keys);
+      wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keyboard->keys);
    }
 
    keyboard->focus = view;
@@ -160,6 +190,7 @@ wlc_keyboard_free(struct wlc_keyboard *keyboard)
    if (keyboard->state)
       xkb_state_unref(keyboard->state);
 
+   wl_array_release(&keyboard->keys);
    free(keyboard);
 }
 
@@ -176,6 +207,7 @@ wlc_keyboard_new(struct wlc_keymap *keymap, struct wlc_compositor *compositor)
       goto fail;
 
    keyboard->compositor = compositor;
+   wl_array_init(&keyboard->keys);
    return keyboard;
 
 fail:

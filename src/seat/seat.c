@@ -205,7 +205,7 @@ seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_butt
 static void
 seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_state state)
 {
-   if (!seat->keyboard)
+   if (!seat->keyboard || !wlc_keyboard_update(seat->keyboard, key, state))
       return;
 
    static enum wlc_modifier_bit mod_bits[WLC_MOD_LAST] = {
@@ -224,8 +224,6 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
       WLC_BIT_LED_CAPS,
       WLC_BIT_LED_SCROLL,
    };
-
-   wlc_keyboard_update(seat->keyboard, key, state);
 
    uint32_t mods = 0, lookup = seat->keyboard->mods.depressed | seat->keyboard->mods.latched;
    for (int i = 0; i < WLC_MOD_LAST; ++i) {
@@ -246,9 +244,10 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
    }
 
    if (seat->compositor->interface.keyboard.key &&
-      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, leds, mods, key, (enum wlc_key_state)state) &&
-      state == WL_KEYBOARD_KEY_STATE_PRESSED) // do not allow to return if this is release event
-      return;                                 // XXX: maybe check if pressed, keep list of pressed keys
+      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, leds, mods, key, (enum wlc_key_state)state)) {
+      wlc_keyboard_reset(seat->keyboard);
+      return;
+   }
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
    uint32_t time = seat->compositor->api.get_time();

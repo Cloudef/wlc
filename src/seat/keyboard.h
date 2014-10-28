@@ -17,6 +17,7 @@ struct wlc_keyboard {
    struct wlc_compositor *compositor;
    struct xkb_state *state;
    struct wlc_view *focus;
+   struct wl_array keys;
 
    struct {
       uint32_t depressed;
@@ -26,7 +27,8 @@ struct wlc_keyboard {
    } mods;
 };
 
-void wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state);
+void wlc_keyboard_reset(struct wlc_keyboard *keyboard);
+bool wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state);
 void wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t serial, uint32_t time, uint32_t key, enum wl_keyboard_key_state state);
 void wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_view *view);
 void wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl_resource *resource);
