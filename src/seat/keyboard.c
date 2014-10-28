@@ -57,9 +57,8 @@ wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t serial, uint32_t time, 
    if (!is_valid_view(keyboard->focus))
       return;
 
+   wl_keyboard_send_modifiers(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
    wl_keyboard_send_key(keyboard->focus->client->input[WLC_KEYBOARD], serial, time, key, state);
-   wl_keyboard_send_modifiers(keyboard->focus->client->input[WLC_KEYBOARD], serial,
-         keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
 }
 
 void
