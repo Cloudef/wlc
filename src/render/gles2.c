@@ -428,7 +428,8 @@ surface_destroy(struct ctx *context, struct wlc_surface *surface)
    surface_flush_textures(surface);
    surface_flush_images(surface->output->context, surface);
 
-   wlc_context_bind(context->context);
+   if (surface->output->context != context->context)
+      wlc_context_bind(context->context);
 }
 
 static bool
