@@ -240,7 +240,7 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
    }
 
    if ((mods & WLC_BIT_MOD_CTRL) && (mods & WLC_BIT_MOD_ALT) && key >= 59 && key <= 88) {
-      if (state == WL_KEYBOARD_KEY_STATE_RELEASED)
+      if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
          wlc_activate_vt((key - 59) + 1);
       return;
    }
