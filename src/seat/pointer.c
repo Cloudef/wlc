@@ -221,7 +221,9 @@ wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render)
 
    if (pointer->surface) {
       wlc_render_surface_paint(render, pointer->surface, &(struct wlc_origin){ pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y });
-   } else if (!pointer->focus) {
+   } else if (!pointer->focus || pointer->focus->x11_window) {
+      // Show default cursor when no focus and no surface, or if the focused window is x11_window.
+      // In x11 you hide cursor with surface that has transparent pixels.
       wlc_render_pointer_paint(render, &pointer->pos);
    }
 }
