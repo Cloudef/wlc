@@ -523,6 +523,18 @@ x11_event(int fd, uint32_t mask, void *data)
       count += 1;
    }
 
+   x11.api.xcb_flush(x11.connection);
+   return count;
+}
+
+void
+wlc_xwm_surface_notify(struct wlc_compositor *compositor)
+{
+   (void)compositor;
+
+   if (!xwm.compositor)
+      return;
+
    /* Xwayland will send the wayland requests to create the
     * wl_surface before sending this client message.  Even so, we
     * can end up handling the X event before the wayland requests
@@ -535,9 +547,6 @@ x11_event(int fd, uint32_t mask, void *data)
 
       link_surface(win, wl_client_get_object(xwm.client, win->surface_id));
    }
-
-   x11.api.xcb_flush(x11.connection);
-   return count;
 }
 
 bool

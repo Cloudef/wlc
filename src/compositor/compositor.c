@@ -22,6 +22,7 @@
 #include "backend/backend.h"
 
 #include "xwayland/xwayland.h"
+#include "xwayland/xwm.h"
 
 #include <sys/time.h>
 #include <stdlib.h>
@@ -133,6 +134,7 @@ wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, 
       goto fail;
 
    wlc_surface_implement(surface, surface_resource);
+   wlc_xwm_surface_notify(wl_resource_get_user_data(resource));
    return;
 
 fail:
