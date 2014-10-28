@@ -276,7 +276,7 @@ seat_view_unfocus(struct wlc_seat *seat, struct wlc_view *view)
       wlc_keyboard_focus(seat->keyboard, serial, NULL);
 
    if (seat->pointer && seat->pointer->focus == view)
-      wlc_pointer_focus(seat->pointer, serial, NULL, &wlc_origin_zero);
+      wlc_pointer_focus(seat->pointer, serial, NULL, NULL);
 }
 
 void
