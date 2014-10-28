@@ -36,6 +36,12 @@ enum {
    UNIFORM_LAST,
 };
 
+enum {
+   TEXTURE_BLACK,
+   TEXTURE_CURSOR,
+   TEXTURE_LAST
+};
+
 static const char *uniform_names[UNIFORM_LAST] = {
    "width",
    "height",
@@ -55,7 +61,7 @@ struct ctx {
 
    struct wlc_size resolution;
 
-   GLuint cursor;
+   GLuint textures[TEXTURE_LAST];
 
    struct {
       // EGL surfaces
@@ -67,6 +73,7 @@ struct paint {
    float dim;
    enum program_type program;
    bool filter;
+   bool scale;
 };
 
 static struct {
@@ -335,11 +342,24 @@ create_context(void)
    if (has_extension(context, "GL_OES_EGL_image_external"))
       context->api.glEGLImageTargetTexture2DOES = gl.api.glEGLImageTargetTexture2DOES;
 
-   gl.api.glGenTextures(1, &context->cursor);
-   gl.api.glBindTexture(GL_TEXTURE_2D, context->cursor);
-   gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-   gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-   gl.api.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 32, 32, 0, GL_RGBA, GL_UNSIGNED_BYTE, cursor_rgba);
+   struct {
+      GLenum format;
+      GLuint w, h;
+      GLenum type;
+      void *data;
+   } images[TEXTURE_LAST] = {
+      { GL_LUMINANCE, 1, 1, GL_UNSIGNED_BYTE, (GLubyte[]){ 0 } }, // TEXTURE_BLACK
+      { GL_RGBA, 32, 32, GL_UNSIGNED_BYTE, cursor_rgba },         // TEXTURE_CURSOR
+   };
+
+   gl.api.glGenTextures(TEXTURE_LAST, context->textures);
+
+   for (uint32_t i = 0; i < TEXTURE_LAST; ++i) {
+      gl.api.glBindTexture(GL_TEXTURE_2D, context->textures[i]);
+      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      gl.api.glTexImage2D(GL_TEXTURE_2D, 0, images[i].format, images[i].w, images[i].h, 0, images[i].format, images[i].type, images[i].data);
+   }
 
    gl.api.glEnableVertexAttribArray(0);
    gl.api.glEnableVertexAttribArray(1);
@@ -618,8 +638,19 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
 {
    assert(context && surface && geometry && settings);
 
-   if (surface->size.w != geometry->size.w || surface->size.h != geometry->size.h)
-      settings->filter = true;
+   if (surface->size.w != geometry->size.w || surface->size.h != geometry->size.h) {
+      if (settings->scale && (surface->size.w < geometry->size.w || surface->size.h < geometry->size.h)) {
+         // Add black borders if surface size is smaller than geometry
+         // XXX: We could create method for getting the offsets and scaling for different fullscreen modes for example.
+         texture_paint(context, &context->textures[TEXTURE_BLACK], 1, geometry, settings);
+         geometry->origin.x += geometry->size.w * 0.5 - surface->size.w * 0.5;
+         geometry->origin.y += geometry->size.h * 0.5 - surface->size.h * 0.5;
+         geometry->size = surface->size;
+      } else {
+         // Filter, if surface size != geometry size and not smaller
+         settings->filter = true;
+      }
+   }
 
    texture_paint(context, surface->textures, 3, geometry, settings);
 }
@@ -643,6 +674,7 @@ view_paint(struct ctx *context, struct wlc_view *view)
    memset(&settings, 0, sizeof(settings));
    settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : 0.5f);
    settings.program = (enum program_type)view->surface->format;
+   settings.scale = (view->shell_surface.resource != NULL || view->x11_window);
 
    struct wlc_geometry geometry;
    wlc_view_get_bounds(view, &geometry);
@@ -658,7 +690,7 @@ pointer_paint(struct ctx *context, struct wlc_origin *pos)
    settings.dim = 1.0;
    settings.program = PROGRAM_RGBA;
    struct wlc_geometry g = { *pos, { 32, 32 } };
-   texture_paint(context, &context->cursor, 1, &g, &settings);
+   texture_paint(context, &context->textures[TEXTURE_CURSOR], 1, &g, &settings);
 }
 
 static void

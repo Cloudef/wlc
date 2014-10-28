@@ -257,13 +257,6 @@ wlc_view_get_state(struct wlc_view *view)
    return view->pending.state;
 }
 
-WLC_API enum wlc_view_fullscreen_mode
-wlc_view_get_fullscreen_mode(struct wlc_view *view)
-{
-   assert(view);
-   return view->fullscreen_mode;
-}
-
 WLC_API void
 wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {

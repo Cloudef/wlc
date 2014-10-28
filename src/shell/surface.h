@@ -1,6 +1,8 @@
 #ifndef _WLC_SHELL_SURFACE_H_
 #define _WLC_SHELL_SURFACE_H_
 
+#include <wayland-server-protocol.h>
+
 #include "types/string.h"
 
 struct wl_resource;
@@ -11,6 +13,7 @@ struct wlc_shell_surface {
    struct wl_resource *resource;
    struct wlc_string title;
    struct wlc_string _class;
+   enum wl_shell_surface_fullscreen_method fullscreen_mode;
 };
 
 void wlc_shell_surface_implement(struct wlc_shell_surface *shell_surface, struct wlc_view *view, struct wl_resource *resource);

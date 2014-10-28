@@ -45,7 +45,6 @@ struct wlc_view {
    struct wl_array wl_state;
    uint32_t type;
    uint32_t resizing;
-   enum wlc_view_fullscreen_mode fullscreen_mode;
    enum wlc_view_ack ack;
    bool created;
 };
