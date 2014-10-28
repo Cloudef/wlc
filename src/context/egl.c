@@ -17,6 +17,8 @@
 
 #include <wayland-server.h>
 
+static void *bound = NULL;
+
 struct ctx {
    const char *extensions;
    struct wlc_backend_surface *bsurface;
@@ -327,7 +329,12 @@ static bool
 bind(struct ctx *context)
 {
    assert(context);
-   return egl.api.eglMakeCurrent(context->display, context->surface, context->surface, context->context);
+
+   if (egl.api.eglMakeCurrent(context->display, context->surface, context->surface, context->context) != EGL_TRUE)
+      return false;
+
+   bound = context;
+   return true;
 }
 
 static bool
@@ -350,6 +357,11 @@ swap(struct ctx *context)
    assert(context);
 
    EGLBoolean ret = EGL_FALSE;
+
+   if (bound != context) {
+      wlc_log(WLC_LOG_ERROR, "Bound context is wrong, eglSwapBuffers will fail!");
+      abort();
+   }
 
    if (!context->flip_failed)
       ret = egl.api.eglSwapBuffers(context->display, context->surface);
