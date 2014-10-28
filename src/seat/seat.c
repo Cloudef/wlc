@@ -243,11 +243,8 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
       return;
    }
 
-   if (seat->compositor->interface.keyboard.key &&
-      !seat->compositor->interface.keyboard.key(seat->compositor, seat->keyboard->focus, leds, mods, key, (enum wlc_key_state)state)) {
-      wlc_keyboard_reset(seat->keyboard);
+   if (!wlc_keyboard_request_key(seat->keyboard, leds, mods, key, state))
       return;
-   }
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
    uint32_t time = seat->compositor->api.get_time();

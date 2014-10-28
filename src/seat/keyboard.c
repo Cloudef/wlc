@@ -83,6 +83,24 @@ reset_keyboard(struct wlc_keyboard *keyboard)
 }
 
 bool
+wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t leds, uint32_t mods, uint32_t key, enum wl_keyboard_key_state state)
+{
+   if (!keyboard->compositor->interface.keyboard.key)
+      return true;
+
+   keyboard->request = true;
+   bool handle = keyboard->compositor->interface.keyboard.key(keyboard->compositor, keyboard->focus, leds, mods, key, (enum wlc_key_state)state);
+   keyboard->request = false;
+
+   if (!handle) {
+      reset_keyboard(keyboard);
+      return false;
+   }
+
+   return true;
+}
+
+bool
 wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state)
 {
    if (!update_keys(&keyboard->keys, key, state))
@@ -132,6 +150,11 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, uint32_t serial, struct wlc_vi
    if (is_valid_view(view)) {
       if (view->x11_window)
          wlc_x11_window_set_active(view->x11_window, true);
+
+      // Focus called inside callback
+      // We don't want binding to leak
+      if (keyboard->request)
+         reset_keyboard(keyboard);
 
       wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keyboard->keys);
    }
