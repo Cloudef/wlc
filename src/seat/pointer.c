@@ -212,7 +212,7 @@ wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render)
 
    // Skip draw if surface is not on same context.
    // XXX: Should we draw default instead?
-   if (pointer->surface && pointer->surface->output->render != render)
+   if (pointer->surface && (!pointer->surface->output || pointer->surface->output->render != render))
       return;
 
    // XXX: Do this check for now every render loop.
