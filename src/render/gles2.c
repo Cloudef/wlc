@@ -588,7 +588,7 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
       0, 1
    };
 
-   set_program(context, surface->format);
+   set_program(context, (enum program_type)surface->format);
    gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], settings->dim);
 
    for (int i = 0; i < 3; ++i) {
