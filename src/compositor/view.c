@@ -65,11 +65,15 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    }
 
    if (view->x11_window) {
-      if (!wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin))
+      // XXX: Maybe we can ack x11 windows with CONFIGURE_NOTIFY too.
+
+      if (!wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin)) {
          wlc_x11_window_position(view->x11_window, pending->geometry.origin.x, pending->geometry.origin.y);
+         // view->ack = ACK_NEXT_COMMIT;
+      }
       if (size_changed) {
          wlc_x11_window_resize(view->x11_window, pending->geometry.size.w, pending->geometry.size.h);
-         view->ack = ACK_NEXT_COMMIT;
+         // view->ack = ACK_NEXT_COMMIT;
       }
    }
 
