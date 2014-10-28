@@ -65,6 +65,8 @@ struct ctx {
 
 struct paint {
    float dim;
+   enum program_type program;
+   bool filter;
 };
 
 static struct {
@@ -570,10 +572,8 @@ surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buff
 }
 
 static void
-surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct wlc_geometry *geometry, struct paint *settings)
+texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_geometry *geometry, struct paint *settings)
 {
-   assert(context && surface && geometry && settings);
-
    const GLint vertices[8] = {
       geometry->origin.x + geometry->size.w, geometry->origin.y,
       geometry->origin.x,                    geometry->origin.y,
@@ -588,18 +588,18 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
       0, 1
    };
 
-   set_program(context, (enum program_type)surface->format);
+   set_program(context, settings->program);
    gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], settings->dim);
 
-   for (int i = 0; i < 3; ++i) {
-      if (!surface->textures[i])
+   for (GLuint i = 0; i < nmemb; ++i) {
+      if (!textures[i])
          break;
 
       gl.api.glActiveTexture(GL_TEXTURE0 + i);
-      gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[i]);
+      gl.api.glBindTexture(GL_TEXTURE_2D, textures[i]);
    }
 
-   if (surface->size.w != geometry->size.w || surface->size.h != geometry->size.h) {
+   if (settings->filter) {
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
    } else {
@@ -613,11 +613,23 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
 }
 
 static void
+surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct wlc_geometry *geometry, struct paint *settings)
+{
+   assert(context && surface && geometry && settings);
+
+   if (surface->size.w != geometry->size.w || surface->size.h != geometry->size.h)
+      settings->filter = true;
+
+   texture_paint(context, surface->textures, 3, geometry, settings);
+}
+
+static void
 surface_paint(struct ctx *context, struct wlc_surface *surface, struct wlc_origin *pos)
 {
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
    settings.dim = 1.0f;
+   settings.program = (enum program_type)surface->format;
    surface_paint_internal(context, surface, &(struct wlc_geometry){ { pos->x, pos->y }, { surface->size.w, surface->size.h } }, &settings);
 }
 
@@ -629,6 +641,7 @@ view_paint(struct ctx *context, struct wlc_view *view)
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
    settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : 0.5f);
+   settings.program = (enum program_type)view->surface->format;
 
    struct wlc_geometry geometry;
    wlc_view_get_bounds(view, &geometry);
@@ -639,36 +652,12 @@ static void
 pointer_paint(struct ctx *context, struct wlc_origin *pos)
 {
    assert(context);
-
-   // FIXME: Maybe see if it's possible to create wlc_surface from pointer and just use surface_paint
-
-   static const GLint size = 32;
-   const GLint vertices[8] = {
-      pos->x + size, pos->y,
-      pos->x,        pos->y,
-      pos->x + size, pos->y + size,
-      pos->x,        pos->y + size,
-   };
-
-   const GLint coords[8] = {
-      1, 0,
-      0, 0,
-      1, 1,
-      0, 1
-   };
-
-   set_program(context, PROGRAM_RGBA);
-   gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], 1.0f);
-
-   gl.api.glActiveTexture(GL_TEXTURE0);
-   gl.api.glBindTexture(GL_TEXTURE_2D, context->cursor);
-
-   gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-   gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-   gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices);
-   gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords);
-   gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+   struct paint settings;
+   memset(&settings, 0, sizeof(settings));
+   settings.dim = 1.0;
+   settings.program = PROGRAM_RGBA;
+   struct wlc_geometry g = { *pos, { 32, 32 } };
+   texture_paint(context, &context->cursor, 1, &g, &settings);
 }
 
 static void
