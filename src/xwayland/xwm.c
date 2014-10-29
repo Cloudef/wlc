@@ -420,12 +420,14 @@ read_properties(struct wlc_x11_window *win)
          break;
          case XCB_ATOM_ATOM: {
             // Window type
-            win->view->type &= ~WLC_BIT_UNMANAGED;
+            win->view->type &= ~WLC_BIT_UNMANAGED | ~WLC_BIT_SPLASH;
             xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
             for (uint32_t i = 0; i < reply->value_len; ++i) {
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP]  ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DND])
                   win->view->type |= WLC_BIT_UNMANAGED;
+               if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH])
+                  win->view->type |= WLC_BIT_SPLASH;
             }
          }
          break;
