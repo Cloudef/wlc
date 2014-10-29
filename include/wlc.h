@@ -240,14 +240,14 @@ struct wlc_compositor* wlc_compositor_new(const struct wlc_interface *interface)
              wlc_view_get_link(item) != (list);                     \
              item = wlc_view_from_link(wlc_view_get_link(item)->prev))
 
-#define wl_view_for_each_safe(item, tmp, list)                      \
+#define wlc_view_for_each_safe(item, tmp, list)                      \
         for (item = wlc_view_from_link((list)->next),               \
              tmp = wlc_view_from_link((list)->next->next);          \
              wlc_view_get_link(item) != (list);                     \
              item = tmp,                                            \
              tmp = wlc_view_from_link(wlc_view_get_link(item)->next))
 
-#define wl_view_for_each_safe_reverse(item, tmp, list)              \
+#define wlc_view_for_each_safe_reverse(item, tmp, list)              \
         for (item = wlc_view_from_link((list)->prev),               \
              tmp = wlc_view_from_link((list)->prev->prev);          \
              wlc_view_get_link(item) != (list);                     \
