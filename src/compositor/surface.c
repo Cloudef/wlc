@@ -37,7 +37,9 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
       if (!surface->view->space || !buffer)
          wlc_view_set_space(surface->view, space);
 
-      wlc_view_ack_surface_attach(surface->view, &old_size);
+      // The view may not be created if the API user does not want to
+      if (surface->view)
+         wlc_view_ack_surface_attach(surface->view, &old_size);
    }
 }
 
