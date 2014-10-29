@@ -644,7 +644,7 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
    }
 
    if (!wlc_size_equals(&surface->size, &geometry->size)) {
-      if (wlc_geometry_equals(&settings->visible, &wlc_geometry_zero)) {
+      if (wlc_geometry_equals(&settings->visible, geometry)) {
          settings->filter = true;
       } else {
          // black borders are requested
