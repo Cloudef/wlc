@@ -133,7 +133,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
 }
 
 void
-wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
+wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible)
 {
    assert(view && out_bounds);
    memcpy(out_bounds, &view->commit.geometry, sizeof(struct wlc_geometry));
@@ -159,6 +159,21 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds)
    // Make sure bounds is never 0x0 w/h
    out_bounds->size.w = MAX(out_bounds->size.w, 1);
    out_bounds->size.h = MAX(out_bounds->size.h, 1);
+
+   if (!out_visible)
+      return;
+
+   // Actual visible area of the view
+   // The idea is to draw black borders to the bounds area, while centering the visible area.
+   if ((view->shell_surface.resource || view->x11_window) &&
+       (view->surface->size.w < out_bounds->size.w || view->surface->size.h < out_bounds->size.h)) {
+      // shell surface or x11 window and bounds less than surface buffer size
+      out_visible->origin.x = out_bounds->origin.x + out_bounds->size.w * 0.5 - view->surface->size.w * 0.5;
+      out_visible->origin.y = out_bounds->origin.y + out_bounds->size.h * 0.5 - view->surface->size.h * 0.5;
+      out_visible->size = view->surface->size;
+   } else {
+      memcpy(out_visible, out_bounds, sizeof(struct wlc_geometry));
+   }
 }
 
 bool

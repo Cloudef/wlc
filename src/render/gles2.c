@@ -70,10 +70,10 @@ struct ctx {
 };
 
 struct paint {
+   struct wlc_geometry visible;
    float dim;
    enum program_type program;
    bool filter;
-   bool scale;
 };
 
 static struct {
@@ -643,17 +643,13 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
       return;
    }
 
-   if (surface->size.w != geometry->size.w || surface->size.h != geometry->size.h) {
-      if (settings->scale && (surface->size.w < geometry->size.w || surface->size.h < geometry->size.h)) {
-         // Add black borders if surface size is smaller than geometry
-         // XXX: We could create method for getting the offsets and scaling for different fullscreen modes for example.
-         texture_paint(context, &context->textures[TEXTURE_BLACK], 1, geometry, settings);
-         geometry->origin.x += geometry->size.w * 0.5 - surface->size.w * 0.5;
-         geometry->origin.y += geometry->size.h * 0.5 - surface->size.h * 0.5;
-         geometry->size = surface->size;
-      } else {
-         // Filter, if surface size != geometry size and not smaller
+   if (!wlc_size_equals(&surface->size, &geometry->size)) {
+      if (wlc_geometry_equals(&settings->visible, &wlc_geometry_zero)) {
          settings->filter = true;
+      } else {
+         // black borders are requested
+         texture_paint(context, &context->textures[TEXTURE_BLACK], 1, geometry, settings);
+         memcpy(geometry, &settings->visible, sizeof(struct wlc_geometry));
       }
    }
 
@@ -679,10 +675,9 @@ view_paint(struct ctx *context, struct wlc_view *view)
    memset(&settings, 0, sizeof(settings));
    settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : 0.5f);
    settings.program = (enum program_type)view->surface->format;
-   settings.scale = (view->shell_surface.resource != NULL || view->x11_window);
 
    struct wlc_geometry geometry;
-   wlc_view_get_bounds(view, &geometry);
+   wlc_view_get_bounds(view, &geometry, &settings.visible);
    surface_paint_internal(context, view->surface, &geometry, &settings);
 }
 

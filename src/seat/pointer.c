@@ -30,7 +30,7 @@ view_under_pointer(struct wlc_pointer *pointer)
    struct wlc_view *view;
    wl_list_for_each_reverse(view, &pointer->compositor->output->space->views, link) {
       struct wlc_geometry b;
-      wlc_view_get_bounds(view, &b);
+      wlc_view_get_bounds(view, &b, NULL);
       if (pointer->pos.x >= b.origin.x && pointer->pos.x <= b.origin.x + (int32_t)b.size.w &&
           pointer->pos.y >= b.origin.y && pointer->pos.y <= b.origin.y + (int32_t)b.size.h) {
          return view;
@@ -69,10 +69,10 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
    struct wlc_origin d;
 
    if (view) {
-      struct wlc_geometry b;
-      wlc_view_get_bounds(view, &b);
-      d.x = (pointer->pos.x - b.origin.x) * view->surface->size.w / b.size.w;
-      d.y = (pointer->pos.y - b.origin.y) * view->surface->size.h / b.size.h;
+      struct wlc_geometry b, v;
+      wlc_view_get_bounds(view, &b, &v);
+      d.x = (pointer->pos.x - v.origin.x) * view->surface->size.w / v.size.w;
+      d.y = (pointer->pos.y - v.origin.y) * view->surface->size.h / v.size.h;
 
       if (out_pos)
          memcpy(out_pos, &d, sizeof(d));
