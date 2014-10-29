@@ -638,6 +638,11 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
 {
    assert(context && surface && geometry && settings);
 
+   if (!surface->output || surface->output->context != context->context) {
+      wlc_log(WLC_LOG_ERROR, "Trying to paint surface with wrong context or none (%p != %p)", context->context, (surface->output ? surface->output->context : NULL));
+      return;
+   }
+
    if (surface->size.w != geometry->size.w || surface->size.h != geometry->size.h) {
       if (settings->scale && (surface->size.w < geometry->size.w || surface->size.h < geometry->size.h)) {
          // Add black borders if surface size is smaller than geometry
