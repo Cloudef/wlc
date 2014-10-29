@@ -470,7 +470,7 @@ wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent)
 {
    assert(view && view != parent);
 
-   if (!parent && view->parent)
+   if (view->parent)
       wl_list_remove(&view->parent_link);
 
    if ((view->parent = parent))
