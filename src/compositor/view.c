@@ -332,13 +332,13 @@ wlc_view_from_link(struct wl_list *view_link)
 WLC_API void
 wlc_view_send_below(struct wlc_view *view, struct wlc_view *below)
 {
-   assert(view && below);
+   assert(view && below && view != below);
 
    if (below->link.next == &view->link)
       return;
 
    wl_list_remove(&view->link);
-   wl_list_insert(below->link.next, &view->link);
+   wl_list_insert(&below->link, &view->link);
 }
 
 WLC_API void
@@ -357,7 +357,7 @@ wlc_view_send_to_back(struct wlc_view *view)
 WLC_API void
 wlc_view_bring_above(struct wlc_view *view, struct wlc_view *above)
 {
-   assert(view && above);
+   assert(view && above && view != above);
 
    if (above->link.prev == &view->link)
       return;
