@@ -87,6 +87,8 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
 void
 wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_size)
 {
+   assert(view && old_surface_size);
+
    if (!view->resizing && !wlc_size_equals(&view->surface->size, old_surface_size) && !wlc_size_equals(&view->pending.geometry.size, &view->surface->size)) {
       struct wlc_geometry r = { view->pending.geometry.origin, view->surface->size };
       wlc_view_request_geometry(view, &r);
