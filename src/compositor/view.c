@@ -165,13 +165,29 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
 
    // Actual visible area of the view
    // The idea is to draw black borders to the bounds area, while centering the visible area.
-   if ((view->shell_surface.resource || view->x11_window) &&
-       (view->surface->size.w < out_bounds->size.w || view->surface->size.h < out_bounds->size.h)) {
-      // shell surface or x11 window and bounds less than surface buffer size
-      out_visible->origin.x = out_bounds->origin.x + out_bounds->size.w * 0.5 - view->surface->size.w * 0.5;
-      out_visible->origin.y = out_bounds->origin.y + out_bounds->size.h * 0.5 - view->surface->size.h * 0.5;
+   if ((view->x11_window || view->shell_surface.resource) && !wlc_size_equals(&view->surface->size, &out_bounds->size)) {
       out_visible->size = view->surface->size;
+
+      // Scale visible area retaining aspect
+      float ba = (float)out_bounds->size.w / (float)out_bounds->size.h;
+      float sa = (float)view->surface->size.w / (float)view->surface->size.h;
+      if (ba < sa) {
+         out_visible->size.w *= (float)out_bounds->size.w / view->surface->size.w;
+         out_visible->size.h *= (float)out_bounds->size.w / view->surface->size.w;
+      } else {
+         out_visible->size.w *= (float)out_bounds->size.h / view->surface->size.h;
+         out_visible->size.h *= (float)out_bounds->size.h / view->surface->size.h;
+      }
+
+      // Center visible area
+      out_visible->origin.x = out_bounds->origin.x + out_bounds->size.w * 0.5 - out_visible->size.w * 0.5;
+      out_visible->origin.y = out_bounds->origin.y + out_bounds->size.h * 0.5 - out_visible->size.h * 0.5;
+
+      // Make sure visible is never 0x0 w/h
+      out_visible->size.w = MAX(out_visible->size.w, 1);
+      out_visible->size.h = MAX(out_visible->size.h, 1);
    } else {
+      // For non wl_shell or x11 surfaces, just memcpy
       memcpy(out_visible, out_bounds, sizeof(struct wlc_geometry));
    }
 }
