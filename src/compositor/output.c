@@ -19,6 +19,7 @@
 #include <string.h>
 #include <assert.h>
 #include <limits.h>
+#include <time.h>
 
 #include <wayland-server.h>
 
@@ -102,17 +103,19 @@ static void
 repaint(struct wlc_output *output)
 {
    assert(output);
-   output->scheduled = false;
 
-   if (!wlc_is_active() || output->pending)
+   if (!wlc_is_active() || output->pending) {
+      output->activity = output->scheduled = false;
       return;
-
-   uint32_t msec = output->compositor->api.get_time();
+   }
 
    if (!wlc_render_bind(output->render, output))
       return;
 
    wlc_render_clear(output->render);
+
+   struct wl_list callbacks;
+   wl_list_init(&callbacks);
 
    struct wlc_view *view;
    wl_list_for_each(view, &output->space->views, link) {
@@ -122,23 +125,45 @@ repaint(struct wlc_output *output)
       wlc_view_commit_state(view, &view->pending, &view->commit);
       wlc_render_view_paint(output->render, view);
 
-      struct wlc_callback *cb, *cbn;
-      wl_list_for_each_safe(cb, cbn, &view->surface->commit.frame_cb_list, link) {
-         wl_callback_send_done(cb->resource, msec);
-         wlc_callback_free(cb);
-      }
+      wl_list_insert_list(&callbacks, &view->surface->commit.frame_cb_list);
+      wl_list_init(&view->surface->commit.frame_cb_list);
    }
 
    if (output->compositor->output == output) // XXX: Make this option instead, and give each output current cursor coords
       wlc_pointer_paint(output->compositor->seat->pointer, output->render);
 
    wlc_render_swap(output->render);
+
+   struct wlc_callback *cb, *cbn;
+   wl_list_for_each_safe(cb, cbn, &callbacks, link) {
+      wl_callback_send_done(cb->resource, output->frame_time);
+      wlc_callback_free(cb);
+   }
+
+   output->activity = false;
 }
 
 static void
 cb_repaint_idle(void *data)
 {
    repaint(data);
+}
+
+void
+wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
+{
+   // TODO: handle presentation feedback here
+
+   output->frame_time = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
+
+   static uint32_t st = 0;
+   printf("PAINT %u\n", output->frame_time - st);
+   st = output->frame_time;
+
+   if (output->activity)
+      repaint(output);
+
+   output->scheduled = false;
 }
 
 bool
@@ -160,6 +185,7 @@ wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surfac
    assert(output && surface);
    wlc_render_surface_destroy(output->render, surface);
    surface->output = NULL;
+   wlc_output_schedule_repaint(output);
 }
 
 bool
@@ -173,18 +199,16 @@ wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface
    if (!wlc_render_surface_attach(output->render, surface, buffer))
       return false;
 
+   wlc_output_schedule_repaint(output);
    return true;
 }
 
 void
-wlc_output_schedule_repaint(struct wlc_output *output, bool urgent)
+wlc_output_schedule_repaint(struct wlc_output *output)
 {
    assert(output);
 
-   if (urgent) {
-      repaint(output);
-      return;
-   }
+   output->activity = true;
 
    if (output->scheduled)
       return;
@@ -271,6 +295,8 @@ wlc_output_set_resolution(struct wlc_output *output, uint32_t width, uint32_t he
 
    if (output->compositor->interface.output.resolution)
       output->compositor->interface.output.resolution(output->compositor, output, width, height);
+
+   wlc_output_schedule_repaint(output);
 }
 
 WLC_API void
@@ -337,6 +363,8 @@ wlc_output_focus_space(struct wlc_output *output, struct wlc_space *space)
 
    if (output->compositor->interface.space.activated)
       output->compositor->interface.space.activated(output->compositor, space);
+
+   wlc_output_schedule_repaint(output);
 }
 
 WLC_API struct wlc_output*

@@ -206,15 +206,6 @@ wl_compositor_bind(struct wl_client *wl_client, void *data, unsigned int version
    wl_resource_set_implementation(resource, &wl_compositor_implementation, data, wl_cb_compositor_client_destructor);
 }
 
-static uint32_t
-get_time(void)
-{
-   /* TODO: change to monotonic time */
-   struct timeval tv;
-   gettimeofday(&tv, NULL);
-   return tv.tv_sec * 1000 + tv.tv_usec / 1000;
-}
-
 static void
 active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
@@ -239,7 +230,7 @@ add_output(struct wlc_compositor *compositor, struct wlc_output *output)
    if (!compositor->output)
       active_output(compositor, output);
 
-   wlc_output_schedule_repaint(output, false);
+   wlc_output_schedule_repaint(output);
    return true;
 }
 
@@ -357,7 +348,6 @@ wlc_compositor_new(const struct wlc_interface *interface)
    compositor->api.add_output = add_output;
    compositor->api.remove_output = remove_output;
    compositor->api.active_output = active_output;
-   compositor->api.get_time = get_time;
 
    if (!(compositor->display = wl_display_create()))
       goto display_create_fail;

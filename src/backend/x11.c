@@ -45,7 +45,6 @@ static struct {
    xcb_atom_t atoms[ATOM_LAST];
 
    struct wlc_compositor *compositor;
-   struct wl_event_source *repaint_timer;
 
    struct {
       void *x11_handle;
@@ -209,6 +208,25 @@ function_pointer_exception:
 }
 
 static void
+cb_finish_idle(void *data)
+{
+   struct wlc_output *output = data;
+   output->pending = false;
+   struct timespec ts;
+   wlc_get_time(&ts);
+   wlc_output_finish_frame(output, &ts);
+}
+
+static bool
+page_flip(struct wlc_backend_surface *surface)
+{
+   struct wlc_output *output = surface->internal;
+   output->pending = true;
+   wl_event_loop_add_idle(output->compositor->event_loop, cb_finish_idle, output);
+   return true;
+}
+
+static void
 surface_free(struct wlc_backend_surface *surface)
 {
    if (surface->window != x11.screen->root)
@@ -228,9 +246,12 @@ add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_ou
 
    surface->window = window;
    surface->display = x11.display;
+   surface->api.page_flip = page_flip;
 
    if (!(output = wlc_output_new(compositor, surface, info)))
       goto fail;
+
+   surface->internal = output;
 
    if (!compositor->api.add_output(compositor, output))
       goto fail;
@@ -273,6 +294,13 @@ x11_event(int fd, uint32_t mask, void *data)
 
    while ((event = x11.api.xcb_poll_for_event(x11.connection))) {
       switch (event->response_type & ~0x80) {
+         case XCB_EXPOSE: {
+            xcb_expose_event_t *ev = (xcb_expose_event_t*)event;
+            struct wlc_output *output;
+            if (!(output = output_for_window(ev->window, &seat->compositor->outputs)))
+               wlc_output_schedule_repaint(output);
+         }
+         break;
          case XCB_CLIENT_MESSAGE: {
             xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
             if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
@@ -350,25 +378,9 @@ x11_event(int fd, uint32_t mask, void *data)
    return count;
 }
 
-static int
-cb_repaint_timer(void *data)
-{
-   struct wlc_compositor *compositor = data;
-
-   struct wlc_output *o;
-   wl_list_for_each(o, &compositor->outputs, link)
-      wlc_output_schedule_repaint(o, true);
-
-   wl_event_source_timer_update(x11.repaint_timer, 16);
-   return 1;
-}
-
 static void
 terminate(void)
 {
-   if (x11.repaint_timer)
-      wl_event_source_remove(x11.repaint_timer);
-
    if (x11.cursor)
       x11.api.xcb_free_cursor(x11.connection, x11.cursor);
 
@@ -516,9 +528,6 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
       goto event_source_fail;
 
    wl_event_source_check(seat.event_source);
-
-   x11.repaint_timer = wl_event_loop_add_timer(compositor->event_loop, cb_repaint_timer, compositor);
-   wl_event_source_timer_update(x11.repaint_timer, 16);
 
    x11.compositor = compositor;
    out_backend->api.terminate = terminate;

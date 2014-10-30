@@ -22,6 +22,17 @@
 #include <wayland-server.h>
 #include "wayland-xdg-shell-server-protocol.h"
 
+static void
+update(struct wlc_view *view)
+{
+   assert(view);
+
+   if (!view->space || !memcmp(&view->pending, &view->commit, sizeof(view->commit)))
+      return;
+
+   wlc_output_schedule_repaint(view->space->output);
+}
+
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
@@ -297,6 +308,7 @@ wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool to
 #define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
    view->pending.state = BIT_TOGGLE(view->pending.state, state, toggle);
 #undef BIT_TOGGLE
+   update(view);
 }
 
 WLC_API void
@@ -304,6 +316,7 @@ wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height)
 {
    assert(view);
    view->pending.geometry.size = (struct wlc_size){ width, height };
+   update(view);
 }
 
 WLC_API void
@@ -311,6 +324,7 @@ wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
 {
    assert(view);
    view->pending.geometry.origin = (struct wlc_origin){ x, y };
+   update(view);
 }
 
 WLC_API void
@@ -372,6 +386,7 @@ wlc_view_send_below(struct wlc_view *view, struct wlc_view *below)
 
    wl_list_remove(&view->link);
    wl_list_insert(&below->link, &view->link);
+   update(view);
 }
 
 WLC_API void
@@ -385,6 +400,7 @@ wlc_view_send_to_back(struct wlc_view *view)
 
    wl_list_remove(&view->link);
    wl_list_insert(views->prev, &view->link);
+   update(view);
 }
 
 WLC_API void
@@ -397,6 +413,7 @@ wlc_view_bring_above(struct wlc_view *view, struct wlc_view *above)
 
    wl_list_remove(&view->link);
    wl_list_insert(above->link.prev, &view->link);
+   update(view);
 }
 
 WLC_API void
@@ -410,6 +427,7 @@ wlc_view_bring_to_front(struct wlc_view *view)
 
    wl_list_remove(&view->link);
    wl_list_insert(views->prev, &view->link);
+   update(view);
 }
 
 WLC_API void
@@ -449,6 +467,8 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
       if (view->compositor->interface.view.switch_space)
          view->compositor->interface.view.switch_space(view->compositor, view, old_space, space);
    }
+
+   update(view);
 }
 
 WLC_API struct wlc_space*
@@ -510,6 +530,8 @@ wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent)
 
    if ((view->parent = parent))
       wl_list_insert(&parent->childs, &view->parent_link);
+
+   update(view);
 }
 
 WLC_API struct wlc_view*

@@ -35,7 +35,6 @@ struct wlc_compositor {
       bool (*add_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*remove_output)(struct wlc_compositor *compositor, struct wlc_output *output);
       void (*active_output)(struct wlc_compositor *compositor, struct wlc_output *output);
-      uint32_t (*get_time)(void); // XXX: <- wlc_get_time() ?
    } api;
 };
 

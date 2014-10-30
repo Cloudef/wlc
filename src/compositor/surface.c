@@ -154,7 +154,7 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
    wlc_callback_implement(callback);
 
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
-   wl_list_insert(&surface->pending.frame_cb_list, &callback->link);
+   wl_list_insert(surface->pending.frame_cb_list.prev, &callback->link);
    return;
 
 fail:

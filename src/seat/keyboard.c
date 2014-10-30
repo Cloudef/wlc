@@ -1,3 +1,4 @@
+#include "wlc_internal.h"
 #include "keyboard.h"
 #include "keymap.h"
 #include "client.h"
@@ -64,7 +65,7 @@ send_release_for_keys(struct wlc_view *view, struct wl_array *keys)
    assert(view && keys);
 
    uint32_t *k;
-   uint32_t time = view->compositor->api.get_time();
+   uint32_t time = wlc_get_time(NULL);
    uint32_t serial = wl_display_next_serial(view->compositor->display);
    wl_array_for_each(k, keys)
       wl_keyboard_send_key(view->client->input[WLC_KEYBOARD], serial, time, *k, WL_KEYBOARD_KEY_STATE_RELEASED);

@@ -133,6 +133,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
    struct wlc_origin d;
    wlc_pointer_focus(pointer, serial, focused, &d);
 
+   wlc_output_schedule_repaint(pointer->compositor->output);
+
    if (!is_valid_view(focused))
       return;
 

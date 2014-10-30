@@ -13,6 +13,7 @@ struct wlc_backend_surface;
 struct wlc_compositor;
 struct wlc_surface;
 struct wlc_buffer;
+struct timespec;
 
 struct wlc_space {
    void *userdata;
@@ -49,16 +50,17 @@ struct wlc_output {
    struct wlc_size resolution;
    struct wl_list resources, spaces;
    struct wl_list link;
+   uint32_t frame_time;
    uint32_t mode;
 
-   bool pending;
-   bool scheduled;
+   bool pending, scheduled, activity;
 };
 
+void wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts);
+void wlc_output_schedule_repaint(struct wlc_output *output);
 bool wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode);
 bool wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface, struct wlc_buffer *buffer);
 void wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surface);
-void wlc_output_schedule_repaint(struct wlc_output *output, bool urgent);
 struct wlc_output* wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *surface, struct wlc_output_information *info);
 void wlc_output_free(struct wlc_output *output);
 

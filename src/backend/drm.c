@@ -46,7 +46,6 @@ struct drm_surface {
       uint32_t stride;
    } fb[NUM_FBS];
 
-   uint32_t last_page_flip;
    uint32_t stride;
    uint8_t index;
 };
@@ -217,23 +216,15 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
    (void)fd, (void)frame, (void)sec, (void)usec;
    struct drm_surface *dsurface = data;
 
-   if (dsurface->last_page_flip) {
-      unsigned int missed;
-      if ((missed = frame - dsurface->last_page_flip - 1)) {
-         wlc_log(WLC_LOG_WARN,
-               "[DRM]: Missed %u VBlank(s) (Frame: %u, DRM frame: %u) on output (%p)",
-               missed, frame - dsurface->last_page_flip, frame, dsurface->output);
-      }
-   }
-
-   dsurface->last_page_flip = frame;
-
    uint8_t next = (dsurface->index + 1) % NUM_FBS;
    release_fb(dsurface->surface, &dsurface->fb[next]);
    dsurface->index = next;
    dsurface->output->pending = false;
 
-   wlc_output_schedule_repaint(dsurface->output, true);
+   struct timespec ts;
+   ts.tv_sec = sec;
+   ts.tv_nsec = usec * 1000;
+   wlc_output_finish_frame(dsurface->output, &ts);
 }
 
 static int

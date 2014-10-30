@@ -183,8 +183,7 @@ seat_pointer_motion(struct wlc_seat *seat, const struct wlc_origin *pos)
       return;
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
-   uint32_t time = seat->compositor->api.get_time();
-   wlc_pointer_motion(seat->pointer, serial, time, pos);
+   wlc_pointer_motion(seat->pointer, serial, wlc_get_time(NULL), pos);
 }
 
 static void
@@ -197,8 +196,7 @@ seat_pointer_scroll(struct wlc_seat *seat, enum wl_pointer_axis axis, double amo
       !seat->compositor->interface.pointer.scroll(seat->compositor, seat->pointer->focus, (enum wlc_scroll_axis)axis, amount))
       return;
 
-   uint32_t time = seat->compositor->api.get_time();
-   wlc_pointer_scroll(seat->pointer, time, axis, amount);
+   wlc_pointer_scroll(seat->pointer, wlc_get_time(NULL), axis, amount);
 }
 
 static void
@@ -212,8 +210,7 @@ seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_butt
       return;
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
-   uint32_t time = seat->compositor->api.get_time();
-   wlc_pointer_button(seat->pointer, serial, time, button, state);
+   wlc_pointer_button(seat->pointer, serial, wlc_get_time(NULL), button, state);
 }
 
 static void
@@ -261,8 +258,7 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
       return;
 
    uint32_t serial = wl_display_next_serial(seat->compositor->display);
-   uint32_t time = seat->compositor->api.get_time();
-   wlc_keyboard_key(seat->keyboard, serial, time, key, state);
+   wlc_keyboard_key(seat->keyboard, serial, wlc_get_time(NULL), key, state);
 }
 
 static void

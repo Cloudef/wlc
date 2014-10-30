@@ -2,12 +2,15 @@
 #define _WLC_INTERNAL_H_
 
 #include <stdbool.h>
+#include <stdint.h>
+#include <time.h>
 
 enum wlc_fd_type {
    WLC_FD_INPUT,
    WLC_FD_LAST
 };
 
+uint32_t wlc_get_time(struct timespec *out_ts);
 bool wlc_has_init(void);
 bool wlc_is_active(void);
 bool wlc_no_egl_clients(void);

@@ -669,6 +669,15 @@ wlc_has_init(void)
    return wlc.init;
 }
 
+uint32_t
+wlc_get_time(struct timespec *out_ts)
+{
+   struct timespec ts;
+   clock_gettime(CLOCK_MONOTONIC, &ts);
+   if (out_ts) memcpy(out_ts, &ts, sizeof(ts));
+   return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
 bool
 wlc_no_egl_clients(void)
 {
