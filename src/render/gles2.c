@@ -282,7 +282,7 @@ create_context(void)
 
    // TODO: Implement different shaders for different textures
    static const char *frag_shader_cursor_text =
-      "precision mediump float;\n"
+      "precision highp float;\n"
       "uniform sampler2D texture0;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
@@ -290,7 +290,7 @@ create_context(void)
       "  palette[0] = vec4(0.0, 0.0, 0.0, 1.0);\n"
       "  palette[1] = vec4(1.0, 1.0, 1.0, 1.0);\n"
       "  palette[2] = vec4(0.0, 0.0, 0.0, 0.0);\n"
-      "  gl_FragColor = palette[int(texture2D(texture0, v_uv).r * 255.0)];\n"
+      "  gl_FragColor = palette[int(texture2D(texture0, v_uv).r * 256.0)];\n"
       "}\n";
 
    static const char *frag_shader_rgb_text =
