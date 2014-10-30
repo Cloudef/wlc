@@ -1,7 +1,5 @@
 /* This is mostly based on swc's xwayland.c which is based on weston's xwayland/launcher.c */
 
-#define _DEFAULT_SOURCE
-#define _POSIX_C_SOURCE 200809L
 #include "wlc.h"
 #include "xwayland.h"
 #include "xwm.h"

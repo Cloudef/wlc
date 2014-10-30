@@ -1,5 +1,3 @@
-#define _DEFAULT_SOURCE
-#define _POSIX_C_SOURCE 200809L
 #include "wlc.h"
 #include "wlc_internal.h"
 #include "visibility.h"
@@ -31,7 +29,6 @@
 #endif
 
 #if defined(__linux__) && defined(__GNUC__)
-#  define _GNU_SOURCE
 #  include <fenv.h>
 int feenableexcept(int excepts);
 #endif
