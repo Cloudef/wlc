@@ -156,10 +156,6 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 
    output->frame_time = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
 
-   static uint32_t st = 0;
-   printf("PAINT %u\n", output->frame_time - st);
-   st = output->frame_time;
-
    if (output->activity)
       repaint(output);
 
