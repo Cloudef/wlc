@@ -310,8 +310,23 @@ x11_event(int fd, uint32_t mask, void *data)
          break;
          case XCB_BUTTON_RELEASE: {
             xcb_button_press_event_t *ev = (xcb_button_press_event_t*)event;
-            uint32_t button = (ev->detail == 2 ? BTN_MIDDLE : (ev->detail == 3 ? BTN_RIGHT : ev->detail + BTN_LEFT - 1));
-            seat->notify.pointer_button(seat, button, WL_POINTER_BUTTON_STATE_RELEASED);
+            switch (ev->detail) {
+               case 4:
+               case 5:
+                  seat->notify.pointer_scroll(seat, WL_POINTER_AXIS_VERTICAL_SCROLL, (ev->detail == 4 ? -10 : 10));
+                  break;
+
+               case 6:
+               case 7:
+                  seat->notify.pointer_scroll(seat, WL_POINTER_AXIS_HORIZONTAL_SCROLL, (ev->detail == 6 ? -10 : 10));
+                  break;
+
+               default: {
+                     uint32_t button = (ev->detail == 2 ? BTN_MIDDLE : (ev->detail == 3 ? BTN_RIGHT : ev->detail + BTN_LEFT - 1));
+                     seat->notify.pointer_button(seat, button, WL_POINTER_BUTTON_STATE_RELEASED);
+                  }
+                  break;
+            }
          }
          break;
          case XCB_KEY_PRESS: {

@@ -14,6 +14,7 @@ enum grab_action {
 };
 
 enum wl_pointer_button_state;
+enum wl_pointer_axis;
 
 struct wl_list;
 struct wl_resource;
@@ -38,6 +39,7 @@ struct wlc_pointer {
 
 void wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, struct wlc_origin *out_pos);
 void wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button, enum wl_pointer_button_state state);
+void wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, enum wl_pointer_axis axis, double amount);
 void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, const struct wlc_origin *pos);
 void wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource);
 void wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_origin *tip);

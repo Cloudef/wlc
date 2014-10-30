@@ -113,6 +113,17 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
 }
 
 void
+wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, enum wl_pointer_axis axis, double amount)
+{
+   assert(pointer);
+
+   if (!is_valid_view(pointer->focus))
+      return;
+
+   wl_pointer_send_axis(pointer->focus->client->input[WLC_POINTER], time, axis, wl_fixed_from_double(amount));
+}
+
+void
 wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, const struct wlc_origin *pos)
 {
    assert(pointer);

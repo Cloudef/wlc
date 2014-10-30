@@ -100,6 +100,13 @@ input_event(int fd, uint32_t mask, void *data)
             }
             break;
 
+         case LIBINPUT_EVENT_POINTER_AXIS:
+            {
+               struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
+               seat->notify.pointer_scroll(seat, (enum wl_pointer_axis)libinput_event_pointer_get_axis(pev), libinput_event_pointer_get_axis_value(pev));
+            }
+            break;
+
          case LIBINPUT_EVENT_POINTER_BUTTON:
             {
                struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);

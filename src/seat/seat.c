@@ -188,6 +188,20 @@ seat_pointer_motion(struct wlc_seat *seat, const struct wlc_origin *pos)
 }
 
 static void
+seat_pointer_scroll(struct wlc_seat *seat, enum wl_pointer_axis axis, double amount)
+{
+   if (!seat->pointer)
+      return;
+
+   if (seat->compositor->interface.pointer.scroll &&
+      !seat->compositor->interface.pointer.scroll(seat->compositor, seat->pointer->focus, (enum wlc_scroll_axis)axis, amount))
+      return;
+
+   uint32_t time = seat->compositor->api.get_time();
+   wlc_pointer_scroll(seat->pointer, time, axis, amount);
+}
+
+static void
 seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_state state)
 {
    if (!seat->pointer)
@@ -328,6 +342,7 @@ wlc_seat_new(struct wlc_compositor *compositor)
       goto shell_interface_fail;
 
    seat->notify.pointer_motion = seat_pointer_motion;
+   seat->notify.pointer_scroll = seat_pointer_scroll;
    seat->notify.pointer_button = seat_pointer_button;
    seat->notify.keyboard_key = seat_keyboard_key;
    seat->notify.keyboard_focus = seat_keyboard_focus;

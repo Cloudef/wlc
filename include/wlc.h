@@ -76,6 +76,11 @@ enum wlc_button_state {
    WLC_BUTTON_STATE_PRESSED = 1
 };
 
+enum wlc_scroll_axis {
+   WLC_SCROLL_AXIS_VERTICAL,
+   WLC_SCROLL_AXIS_HORIZONTAL
+};
+
 struct wlc_interface {
    struct {
       bool (*created)(struct wlc_compositor*, struct wlc_view*, struct wlc_space*);
@@ -95,6 +100,7 @@ struct wlc_interface {
    struct {
       bool (*button)(struct wlc_compositor*, struct wlc_view*, uint32_t button, enum wlc_button_state state);
       bool (*motion)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y);
+      bool (*scroll)(struct wlc_compositor*, struct wlc_view*, enum wlc_scroll_axis axis, double amount);
    } pointer;
 
    struct {
