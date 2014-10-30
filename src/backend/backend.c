@@ -17,6 +17,7 @@ wlc_backend_surface_new(void (*destructor)(struct wlc_backend_surface*), size_t 
       goto fail;
 
    surface->api.terminate = destructor;
+   surface->internal_size = internal_size;
    return surface;
 
 fail:
@@ -28,7 +29,7 @@ void wlc_backend_surface_free(struct wlc_backend_surface *surface)
 {
    assert(surface);
 
-   if (surface->internal)
+   if (surface->internal_size > 0 && surface->internal)
       free(surface->internal);
 
    free(surface);
