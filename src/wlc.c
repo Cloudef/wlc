@@ -109,7 +109,6 @@ die(const char *format, ...)
    va_start(vargs, format);
    wlc_vlog(WLC_LOG_ERROR, format, vargs);
    va_end(vargs);
-   fflush(stderr);
    exit(EXIT_FAILURE);
 }
 
