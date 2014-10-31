@@ -584,7 +584,7 @@ surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buff
 {
    assert(context && surface);
 
-   if (!buffer) {
+   if (!buffer || !buffer->resource) {
       surface_destroy(context, surface);
       return true;
    }
