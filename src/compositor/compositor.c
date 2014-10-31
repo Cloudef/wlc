@@ -240,8 +240,8 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    wl_list_remove(&output->link);
 
    if (compositor->output == output) {
-      struct wlc_output *o;
-      compositor->output = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
+      struct wlc_output *o = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
+      wlc_compositor_focus_output(compositor, o);
    }
 
    struct wlc_space *space;
