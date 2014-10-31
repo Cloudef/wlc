@@ -157,7 +157,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
       return;
 
    if (is_valid_view(keyboard->focus)) {
-      // send_release_for_keys(keyboard->focus, &keyboard->keys);
+      send_release_for_keys(keyboard->focus, &keyboard->keys);
 
       uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
       wl_keyboard_send_leave(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
