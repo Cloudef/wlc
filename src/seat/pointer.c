@@ -62,7 +62,7 @@ degrab(struct wlc_pointer *pointer)
 }
 
 void
-wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view *view, struct wlc_origin *out_pos)
+wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_origin *out_pos)
 {
    assert(pointer);
 
@@ -81,11 +81,15 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
    if (pointer->focus == view)
       return;
 
-   if (is_valid_view(pointer->focus))
+   if (is_valid_view(pointer->focus)) {
+      uint32_t serial = wl_display_next_serial(pointer->compositor->display);
       wl_pointer_send_leave(pointer->focus->client->input[WLC_POINTER], serial, pointer->focus->surface->resource);
+   }
 
-   if (is_valid_view(view))
+   if (is_valid_view(view)) {
+      uint32_t serial = wl_display_next_serial(pointer->compositor->display);
       wl_pointer_send_enter(view->client->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(d.x), wl_fixed_from_int(d.y));
+   }
 
    if (!view)
       wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
@@ -95,7 +99,7 @@ wlc_pointer_focus(struct wlc_pointer *pointer, uint32_t serial, struct wlc_view 
 }
 
 void
-wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button, enum wl_pointer_button_state state)
+wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, enum wl_pointer_button_state state)
 {
    assert(pointer);
 
@@ -109,6 +113,7 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, 
       degrab(pointer);
    }
 
+   uint32_t serial = wl_display_next_serial(pointer->compositor->display);
    wl_pointer_send_button(pointer->focus->client->input[WLC_POINTER], serial, time, button, state);
 }
 
@@ -124,14 +129,14 @@ wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, enum wl_pointer_a
 }
 
 void
-wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t serial, uint32_t time, const struct wlc_origin *pos)
+wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_origin *pos)
 {
    assert(pointer);
    memcpy(&pointer->pos, pos, sizeof(pointer->pos));
    struct wlc_view *focused = view_under_pointer(pointer);
 
    struct wlc_origin d;
-   wlc_pointer_focus(pointer, serial, focused, &d);
+   wlc_pointer_focus(pointer, focused, &d);
 
    wlc_output_schedule_repaint(pointer->compositor->output);
 
@@ -193,7 +198,7 @@ wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_re
 
             if (pointer->focus && pointer->focus->client && pointer->focus->client->input[WLC_POINTER] == resource) {
                view->client->input[WLC_POINTER] = NULL;
-               wlc_pointer_focus(pointer, 0, NULL, NULL);
+               wlc_pointer_focus(pointer, NULL, NULL);
             } else {
                view->client->input[WLC_POINTER] = NULL;
             }
@@ -232,10 +237,8 @@ wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render)
    // Maybe later we may do something nicer, like if any view moved or
    // geometry changed then update pointer.
    struct wlc_view *focused = view_under_pointer(pointer);
-   if (pointer->focus != focused) {
-      uint32_t serial = wl_display_next_serial(pointer->compositor->display);
-      wlc_pointer_focus(pointer, serial, focused, NULL);
-   }
+   if (pointer->focus != focused)
+      wlc_pointer_focus(pointer, focused, NULL);
 
    if (pointer->surface) {
       wlc_render_surface_paint(render, pointer->surface, &(struct wlc_origin){ pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y });

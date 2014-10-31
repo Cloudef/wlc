@@ -181,8 +181,7 @@ seat_pointer_motion(struct wlc_seat *seat, const struct wlc_origin *pos)
       !seat->compositor->interface.pointer.motion(seat->compositor, seat->pointer->focus, pos->x, pos->y))
       return;
 
-   uint32_t serial = wl_display_next_serial(seat->compositor->display);
-   wlc_pointer_motion(seat->pointer, serial, wlc_get_time(NULL), pos);
+   wlc_pointer_motion(seat->pointer, wlc_get_time(NULL), pos);
 }
 
 static void
@@ -208,8 +207,7 @@ seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_butt
       !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, button, (enum wlc_button_state)state))
       return;
 
-   uint32_t serial = wl_display_next_serial(seat->compositor->display);
-   wlc_pointer_button(seat->pointer, serial, wlc_get_time(NULL), button, state);
+   wlc_pointer_button(seat->pointer, wlc_get_time(NULL), button, state);
 }
 
 static void
@@ -256,8 +254,7 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
    if (!wlc_keyboard_request_key(seat->keyboard, leds, mods, key, state))
       return;
 
-   uint32_t serial = wl_display_next_serial(seat->compositor->display);
-   wlc_keyboard_key(seat->keyboard, serial, wlc_get_time(NULL), key, state);
+   wlc_keyboard_key(seat->keyboard, wlc_get_time(NULL), key, state);
 }
 
 static void
@@ -266,8 +263,7 @@ seat_keyboard_focus(struct wlc_seat *seat, struct wlc_view *view)
    if (!seat->keyboard)
       return;
 
-   uint32_t serial = wl_display_next_serial(seat->compositor->display);
-   wlc_keyboard_focus(seat->keyboard, serial, view);
+   wlc_keyboard_focus(seat->keyboard, view);
 
    if (view && view->client)
       wlc_data_device_offer(seat->device, view->client->wl_client);
@@ -276,13 +272,11 @@ seat_keyboard_focus(struct wlc_seat *seat, struct wlc_view *view)
 static void
 seat_view_unfocus(struct wlc_seat *seat, struct wlc_view *view)
 {
-   uint32_t serial = wl_display_next_serial(seat->compositor->display);
-
    if (seat->keyboard && seat->keyboard->focus == view)
-      wlc_keyboard_focus(seat->keyboard, serial, NULL);
+      wlc_keyboard_focus(seat->keyboard, NULL);
 
    if (seat->pointer && seat->pointer->focus == view)
-      wlc_pointer_focus(seat->pointer, serial, NULL, NULL);
+      wlc_pointer_focus(seat->pointer, NULL, NULL);
 }
 
 void
