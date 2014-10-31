@@ -103,9 +103,10 @@ static void
 repaint(struct wlc_output *output)
 {
    assert(output);
+   output->activity = false;
 
    if (!wlc_is_active() || output->pending) {
-      output->activity = output->scheduled = false;
+      output->scheduled = false;
       return;
    }
 
@@ -140,7 +141,6 @@ repaint(struct wlc_output *output)
       wlc_callback_free(cb);
    }
 
-   output->activity = false;
 }
 
 static void
@@ -206,7 +206,7 @@ wlc_output_schedule_repaint(struct wlc_output *output)
 
    output->activity = true;
 
-   if (output->scheduled)
+   if (output->scheduled || output->pending)
       return;
 
    wl_event_loop_add_idle(output->compositor->event_loop, cb_repaint_idle, output);
