@@ -305,6 +305,10 @@ WLC_API void
 wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {
    assert(view);
+
+   if (view->x11_window)
+      wlc_x11_window_set_state(view->x11_window, state, toggle);
+
 #define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
    view->pending.state = BIT_TOGGLE(view->pending.state, state, toggle);
 #undef BIT_TOGGLE

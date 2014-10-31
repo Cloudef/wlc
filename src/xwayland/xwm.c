@@ -51,6 +51,8 @@ enum atom_name {
    NET_WM_NAME,
    NET_WM_STATE,
    NET_WM_STATE_FULLSCREEN,
+   NET_WM_STATE_MODAL,
+   NET_WM_STATE_ABOVE,
    NET_SUPPORTED,
    NET_SUPPORTING_WM_CHECK,
    NET_WM_WINDOW_TYPE,
@@ -357,6 +359,30 @@ set_parent(struct wlc_x11_window *win, xcb_window_t parent_id)
       wlc_view_set_parent(win->view, parent->view);
 }
 
+enum net_wm_state {
+   NET_WM_STATE_REMOVE = 0,
+   NET_WM_STATE_ADD    = 1,
+   NET_WM_STATE_TOGGLE = 2,
+};
+
+static void
+handle_state(struct wlc_x11_window *win, xcb_atom_t *atoms, size_t nmemb, enum net_wm_state state)
+{
+   assert(win && atoms);
+
+#define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
+   for (uint32_t i = 0; i < nmemb; ++i) {
+      if (atoms[i] == x11.atoms[NET_WM_STATE_FULLSCREEN]) {
+         bool toggle = !(win->view->pending.state & WLC_BIT_FULLSCREEN);
+         wlc_view_request_state(win->view, WLC_BIT_FULLSCREEN, (state == 0 ? false : (state == 1 ? true : toggle)));
+      } else if (atoms[i] == x11.atoms[NET_WM_STATE_MODAL] || atoms[i] == x11.atoms[NET_WM_STATE_ABOVE]) {
+         bool toggle = !(win->view->type & WLC_BIT_UNMANAGED);
+         win->view->type = BIT_TOGGLE(win->view->type, WLC_BIT_UNMANAGED, (state == 0 ? false : (state == 1 ? true : toggle)));
+      }
+   }
+#undef BIT_TOGGLE
+}
+
 static void
 read_properties(struct wlc_x11_window *win)
 {
@@ -441,17 +467,8 @@ read_properties(struct wlc_x11_window *win)
          break;
          case TYPE_WM_NORMAL_HINTS:
          break;
-         case TYPE_NET_WM_STATE: {
-            bool fullscreen = false;
-            xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
-            for (uint32_t i = 0; i < reply->value_len; ++i) {
-               if (atoms[i] == x11.atoms[NET_WM_STATE_FULLSCREEN]) {
-                  fullscreen = true;
-                  break;
-               }
-            }
-            wlc_view_request_state(win->view, WLC_BIT_FULLSCREEN, fullscreen);
-         }
+         case TYPE_NET_WM_STATE:
+            handle_state(win, x11.api.xcb_get_property_value(reply), reply->value_len, NET_WM_STATE_ADD);
          break;
          case TYPE_MOTIF_WM_HINTS:
          // Motif hints
@@ -615,6 +632,15 @@ wlc_x11_window_resize(struct wlc_x11_window *win, const uint32_t width, const ui
 }
 
 void
+wlc_x11_window_set_state(struct wlc_x11_window *win, enum wlc_view_state_bit state, bool toggle)
+{
+   assert(win);
+
+   if (state == WLC_BIT_FULLSCREEN)
+      x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, win->id, x11.atoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, (toggle ? 1 : 0), (toggle ? &x11.atoms[NET_WM_STATE_FULLSCREEN] : NULL));
+}
+
+void
 wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 {
    assert(win);
@@ -652,10 +678,8 @@ handle_client_message(xcb_client_message_event_t *ev)
    if (!(win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || !win->view)
       return;
 
-   if (ev->type == x11.atoms[NET_WM_STATE]) {
-      if (ev->data.data32[1] == x11.atoms[NET_WM_STATE_FULLSCREEN])
-         wlc_view_request_state(win->view, WLC_BIT_FULLSCREEN, ev->data.data32[0]);
-   }
+   if (ev->type == x11.atoms[NET_WM_STATE])
+      handle_state(win, &ev->data.data32[1], 2, ev->data.data32[0]);
 }
 
 static int
@@ -841,6 +865,8 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
       { "_NET_WM_NAME", NET_WM_NAME },
       { "_NET_WM_STATE", NET_WM_STATE },
       { "_NET_WM_STATE_FULLSCREEN", NET_WM_STATE_FULLSCREEN },
+      { "_NET_WM_STATE_MODAL", NET_WM_STATE_MODAL },
+      { "_NET_WM_STATE_ABOVE", NET_WM_STATE_ABOVE },
       { "_NET_SUPPORTED", NET_SUPPORTED },
       { "_NET_SUPPORTING_WM_CHECK", NET_SUPPORTING_WM_CHECK },
       { "_NET_WM_WINDOW_TYPE", NET_WM_WINDOW_TYPE },
