@@ -178,25 +178,19 @@ wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl
    // b) Fix wlc resource management to pools and handles, so we immediately know if resource is valid or not.
    //    This is also safer against misbehaving clients, and simpler API.
 
-   struct wlc_output *output;
-   wl_list_for_each(output, &keyboard->compositor->outputs, link) {
-      struct wlc_space *space;
-      wl_list_for_each(space, &output->spaces, link) {
-         struct wlc_view *view;
-         wl_list_for_each(view, &space->views, link) {
-            if (view->client->input[WLC_KEYBOARD] != resource)
-               continue;
+   struct wlc_client *client;
+   wl_list_for_each(client, &keyboard->compositor->clients, link) {
+      if (client->input[WLC_KEYBOARD] != resource)
+         continue;
 
-            if (keyboard->focus && keyboard->focus->client && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
-               view->client->input[WLC_KEYBOARD] = NULL;
-               wlc_keyboard_focus(keyboard, NULL);
-            } else {
-               view->client->input[WLC_KEYBOARD] = NULL;
-            }
-
-            return;
-         }
+      if (keyboard->focus && keyboard->focus->client && keyboard->focus->client->input[WLC_KEYBOARD] == resource) {
+         client->input[WLC_KEYBOARD] = NULL;
+         wlc_keyboard_focus(keyboard, NULL);
+      } else {
+         client->input[WLC_KEYBOARD] = NULL;
       }
+
+      return;
    }
 }
 

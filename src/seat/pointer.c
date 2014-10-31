@@ -187,25 +187,19 @@ wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_re
 {
    assert(pointer && resource);
 
-   struct wlc_output *output;
-   wl_list_for_each(output, &pointer->compositor->outputs, link) {
-      struct wlc_space *space;
-      wl_list_for_each(space, &output->spaces, link) {
-         struct wlc_view *view;
-         wl_list_for_each(view, &space->views, link) {
-            if (view->client->input[WLC_POINTER] != resource)
-               continue;
+   struct wlc_client *client;
+   wl_list_for_each(client, &pointer->compositor->clients, link) {
+      if (client->input[WLC_POINTER] != resource)
+         continue;
 
-            if (pointer->focus && pointer->focus->client && pointer->focus->client->input[WLC_POINTER] == resource) {
-               view->client->input[WLC_POINTER] = NULL;
-               wlc_pointer_focus(pointer, NULL, NULL);
-            } else {
-               view->client->input[WLC_POINTER] = NULL;
-            }
-
-            return;
-         }
+      if (pointer->focus && pointer->focus->client && pointer->focus->client->input[WLC_POINTER] == resource) {
+         client->input[WLC_POINTER] = NULL;
+         wlc_pointer_focus(pointer, NULL, NULL);
+      } else {
+         client->input[WLC_POINTER] = NULL;
       }
+
+      return;
    }
 }
 
