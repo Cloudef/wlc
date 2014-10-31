@@ -246,16 +246,23 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    wl_list_remove(&output->link);
 
    if (compositor->output == output) {
+      compositor->output->pending = true; // FIXME: we should allow repaint to go once with "destroying" state
+      compositor->output = NULL; // make sure we don't redraw
       struct wlc_output *o = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
       wlc_compositor_focus_output(compositor, o);
    }
 
+   // XXX: keep list of surfaces and change their output instead
    struct wlc_space *space;
    wl_list_for_each(space, &output->spaces, link) {
       struct wlc_view *view, *vn;
       wl_list_for_each_safe(view, vn, &space->views, link)
          wlc_view_set_space(view, (compositor->output ? compositor->output->space : NULL));
    }
+
+   // FIXME: hack for now until above is made
+   if (compositor->seat->pointer->surface && compositor->seat->pointer->surface->output == output)
+      wlc_surface_invalidate(compositor->seat->pointer->surface);
 
    if (compositor->interface.output.destroyed)
       compositor->interface.output.destroyed(compositor, output);
