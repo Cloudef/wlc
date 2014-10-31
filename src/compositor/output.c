@@ -183,6 +183,11 @@ void
 wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surface)
 {
    assert(output && surface);
+
+   // XXX: Code smell, another case of resource management.
+   if (output->compositor->seat->pointer->surface == surface)
+      output->compositor->seat->pointer->surface = NULL;
+
    wlc_render_surface_destroy(output->render, surface);
    surface->output = NULL;
    wlc_output_schedule_repaint(output);
