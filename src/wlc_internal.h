@@ -6,13 +6,18 @@
 #include <stdint.h>
 #include <time.h>
 
+enum wlc_debug {
+   WLC_DBG_RENDER,
+   WLC_DBG_LAST,
+};
+
 enum wlc_fd_type {
    WLC_FD_INPUT,
    WLC_FD_LAST
 };
 
 uint32_t wlc_get_time(struct timespec *out_ts);
-WLC_LOG_ATTR(2, 3) void wlc_dlog(const char *name, const char *fmt, ...);
+WLC_LOG_ATTR(2, 3) void wlc_dlog(enum wlc_debug dbg, const char *fmt, ...);
 bool wlc_has_init(void);
 bool wlc_is_active(void);
 bool wlc_no_egl_clients(void);

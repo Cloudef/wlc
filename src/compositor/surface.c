@@ -16,8 +16,6 @@
 
 #include <wayland-server.h>
 
-const char *debug = "surface";
-
 static void
 surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
@@ -134,7 +132,7 @@ wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, 
    surface->pending.offset = (struct wlc_origin){ x, y };
    surface->pending.attached = true;
 
-   wlc_dlog(debug, "-> Attach request");
+   wlc_dlog(WLC_DBG_RENDER, "-> Attach request");
 }
 
 static void
@@ -143,7 +141,7 @@ wl_cb_surface_damage(struct wl_client *wl_client, struct wl_resource *resource, 
    (void)wl_client;
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    pixman_region32_union_rect(&surface->pending.damage, &surface->pending.damage, x, y, width, height);
-   wlc_dlog(debug, "-> Damage request");
+   wlc_dlog(WLC_DBG_RENDER, "-> Damage request");
 }
 
 static void
@@ -161,7 +159,7 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
 
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    wl_list_insert(surface->pending.frame_cb_list.prev, &callback->link);
-   wlc_dlog(debug, "-> Frame request");
+   wlc_dlog(WLC_DBG_RENDER, "-> Frame request");
    return;
 
 fail:
@@ -206,7 +204,7 @@ wl_cb_surface_commit(struct wl_client *wl_client, struct wl_resource *resource)
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
 
    commit_state(surface, &surface->pending, &surface->commit);
-   wlc_dlog(debug, "-> Commit request");
+   wlc_dlog(WLC_DBG_RENDER, "-> Commit request");
 }
 
 static void

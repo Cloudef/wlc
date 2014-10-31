@@ -658,32 +658,25 @@ wlc_set_drm_control_functions(bool (*set_master)(void), bool (*drop_master)(void
 }
 
 void
-wlc_dlog(const char *name, const char *fmt, ...)
+wlc_dlog(enum wlc_debug dbg, const char *fmt, ...)
 {
-   // XXX: Temporary logic for the debug channels
-   //      fast, but not very flexible.
-   //      Also assumes static name pointers.
-   //      Hash tables are the future.
-   // support 5 debug names for now
    static struct {
       const char *name;
       bool active;
-   } names[5];
+      bool checked;
+   } channels[WLC_DBG_LAST] = {
+      { "render", false, false },
+   };
 
-   int i;
-   for (i = 0; i < 5 && names[i].name && names[i].name != name; ++i);
-
-   // all names used, or channel not active
-   if (i == 5 || (names[i].name && !names[i].active))
-      return;
-
-   if (!names[i].name) {
+   if (!channels[dbg].checked) {
+      const char *name = channels[dbg].name;
       const char *s = getenv("WLC_DEBUG");
       for (size_t len = strlen(name); s && *s && strncmp(s, name, len); s += strcspn(s, ",") + 1);
-      names[i].name = name;
-
-      if (!(names[i].active = (s && *s != 0)))
+      channels[dbg].checked = true;
+      if (!(channels[dbg].active = (s && *s != 0)))
          return;
+   } else if (!channels[dbg].active) {
+      return;
    }
 
    va_list argp;
