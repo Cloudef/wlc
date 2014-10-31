@@ -715,8 +715,13 @@ wlc_log_timestamp(FILE *out)
 WLC_API void
 wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap)
 {
-   FILE *out = (wlc.log_file ? wlc.log_file : (type == WLC_LOG_INFO ? stdout : stderr));
-   wlc_log_timestamp(out);
+   FILE *out = (wlc.log_file ? wlc.log_file : stderr);
+
+   if (out == stderr || out == stdout) {
+      fprintf(out, "wlc: ");
+   } else {
+      wlc_log_timestamp(out);
+   }
 
    switch (type) {
       case WLC_LOG_WARN:
