@@ -25,16 +25,30 @@ static void
 update_modifiers(struct wlc_keyboard *keyboard)
 {
    assert(keyboard);
-   keyboard->mods.depressed = xkb_state_serialize_mods(keyboard->state, XKB_STATE_DEPRESSED);
-   keyboard->mods.latched = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LATCHED);
-   keyboard->mods.locked = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LOCKED);
-   keyboard->mods.group = xkb_state_serialize_layout(keyboard->state, XKB_STATE_LAYOUT_EFFECTIVE);
+   uint32_t depressed = xkb_state_serialize_mods(keyboard->state, XKB_STATE_DEPRESSED);
+   uint32_t latched = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LATCHED);
+   uint32_t locked = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LOCKED);
+   uint32_t group = xkb_state_serialize_layout(keyboard->state, XKB_STATE_LAYOUT_EFFECTIVE);
 
-   if (!is_valid_view(keyboard->focus))
+   if (depressed == keyboard->mods.depressed &&
+       latched   == keyboard->mods.latched   &&
+       locked    == keyboard->mods.locked    &&
+       group     == keyboard->mods.group)
       return;
 
-   uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
-   wl_keyboard_send_modifiers(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
+   keyboard->mods.depressed = depressed;
+   keyboard->mods.latched = latched;
+   keyboard->mods.locked = locked;
+   keyboard->mods.group = group;
+
+   struct wlc_client *client;
+   wl_list_for_each(client, &keyboard->compositor->clients, link) {
+      if (!client->input[WLC_KEYBOARD])
+         continue;
+
+      uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
+      wl_keyboard_send_modifiers(client->input[WLC_KEYBOARD], serial, keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
+   }
 }
 
 static bool
