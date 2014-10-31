@@ -17,6 +17,8 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include <wayland-server.h>
+
 #if defined(__linux__)
 #  include <linux/kd.h>
 #  include <linux/major.h>
@@ -712,8 +714,21 @@ wlc_log_timestamp(FILE *out)
    fprintf(out, "[%s.%03li] ", string, tv.tv_usec / 1000);
 }
 
+static void
+wl_cb_log(const char *fmt, va_list args)
+{
+   FILE *out = (wlc.log_file ? wlc.log_file : stderr);
+
+   if (out != stderr && out != stdout)
+      wlc_log_timestamp(out);
+
+   fprintf(out, "libwayland: ");
+   vfprintf(out, fmt, args);
+   fflush(out);
+}
+
 WLC_API void
-wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap)
+wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list args)
 {
    FILE *out = (wlc.log_file ? wlc.log_file : stderr);
 
@@ -734,7 +749,7 @@ wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap)
          break;
    }
 
-   vfprintf(out, fmt, ap);
+   vfprintf(out, fmt, args);
    fprintf(out, "\n");
    fflush(out);
 }
@@ -762,6 +777,8 @@ wlc_init(const int argc, char *argv[])
 {
    if (wlc_has_init())
       return true;
+
+   wl_log_set_handler_server(wl_cb_log);
 
    unsetenv("TERM");
 
