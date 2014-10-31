@@ -40,7 +40,7 @@ enum wlc_view_state_bit {
 /** wlc_view_get_type(); */
 enum wlc_view_type_bit {
    WLC_BIT_OVERRIDE_REDIRECT = 1<<0, // override redirect x11 windows
-   WLC_BIT_UNMANAGED = 1<<1, // tooltips, dnd's x11
+   WLC_BIT_UNMANAGED = 1<<1, // tooltips, dnd's, menus x11
    WLC_BIT_SPLASH = 1<<2, // splash screens x11
    WLC_BIT_POPUP = 1<<3, // xdg-shell, wl-shell popups
 };

@@ -450,7 +450,8 @@ read_properties(struct wlc_x11_window *win)
             xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
             for (uint32_t i = 0; i < reply->value_len; ++i) {
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP]  ||
-                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DND])
+                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DND] ||
+                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_MENU])
                   win->view->type |= WLC_BIT_UNMANAGED;
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH])
                   win->view->type |= WLC_BIT_SPLASH;
