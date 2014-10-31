@@ -123,12 +123,9 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t leds, uint32_t 
 bool
 wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state)
 {
-   if (!update_keys(&keyboard->keys, key, state))
-      return false;
-
    xkb_state_update_key(keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
    update_modifiers(keyboard);
-   return true;
+   return update_keys(&keyboard->keys, key, state);
 }
 
 void
