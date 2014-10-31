@@ -1,4 +1,3 @@
-#include "wlc.h"
 #include "wlc_internal.h"
 #include "egl.h"
 #include "context.h"

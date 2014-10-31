@@ -1,4 +1,3 @@
-#include "wlc.h"
 #include "wlc_internal.h"
 #include "visibility.h"
 
@@ -656,6 +655,41 @@ wlc_set_drm_control_functions(bool (*set_master)(void), bool (*drop_master)(void
 {
    wlc.drm.set_master = set_master;
    wlc.drm.drop_master = drop_master;
+}
+
+void
+wlc_dlog(const char *name, const char *fmt, ...)
+{
+   // XXX: Temporary logic for the debug channels
+   //      fast, but not very flexible.
+   //      Also assumes static name pointers.
+   //      Hash tables are the future.
+   // support 5 debug names for now
+   static struct {
+      const char *name;
+      bool active;
+   } names[5];
+
+   int i;
+   for (i = 0; i < 5 && names[i].name && names[i].name != name; ++i);
+
+   // all names used, or channel not active
+   if (i == 5 || (names[i].name && !names[i].active))
+      return;
+
+   if (!names[i].name) {
+      const char *s = getenv("WLC_DEBUG");
+      for (size_t len = strlen(name); s && *s && strncmp(s, name, len); s += strcspn(s, ",") + 1);
+      names[i].name = name;
+
+      if (!(names[i].active = (s && *s != 0)))
+         return;
+   }
+
+   va_list argp;
+   va_start(argp, fmt);
+   wlc_vlog(WLC_LOG_INFO, fmt, argp);
+   va_end(argp);
 }
 
 bool

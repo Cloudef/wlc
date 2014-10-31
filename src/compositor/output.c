@@ -23,6 +23,8 @@
 
 #include <wayland-server.h>
 
+static const char *debug = "output";
+
 static struct wlc_space*
 wlc_space_new(struct wlc_output *output)
 {
@@ -141,7 +143,7 @@ repaint(struct wlc_output *output)
       wlc_callback_free(cb);
    }
 
-   wlc_log(WLC_LOG_INFO, "-> Repaint");
+   wlc_dlog(debug, "-> Repaint");
 }
 
 static void
@@ -158,12 +160,12 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    output->frame_time = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
 
    if (output->activity) {
-      wlc_log(WLC_LOG_INFO, "-> Partial frame with activity");
+      wlc_dlog(debug, "-> Partial frame with activity");
       repaint(output);
    }
 
    output->scheduled = false;
-   wlc_log(WLC_LOG_INFO, "-> Finished frame");
+   wlc_dlog(debug, "-> Finished frame");
 }
 
 bool
@@ -199,7 +201,7 @@ wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface
    if (!wlc_render_surface_attach(output->render, surface, buffer))
       return false;
 
-   wlc_log(WLC_LOG_INFO, "-> Attached surface (%p) to output (%p)", surface, output);
+   wlc_dlog(debug, "-> Attached surface (%p) to output (%p)", surface, output);
    wlc_output_schedule_repaint(output);
    return true;
 }

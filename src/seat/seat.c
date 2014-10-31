@@ -1,6 +1,5 @@
 #include "wlc_internal.h"
 #include "seat.h"
-#include "wlc.h"
 #include "client.h"
 #include "pointer.h"
 #include "keyboard.h"

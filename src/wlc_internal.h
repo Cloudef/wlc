@@ -1,6 +1,7 @@
 #ifndef _WLC_INTERNAL_H_
 #define _WLC_INTERNAL_H_
 
+#include "wlc.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
@@ -11,6 +12,7 @@ enum wlc_fd_type {
 };
 
 uint32_t wlc_get_time(struct timespec *out_ts);
+WLC_LOG_ATTR(2, 3) void wlc_dlog(const char *name, const char *fmt, ...);
 bool wlc_has_init(void);
 bool wlc_is_active(void);
 bool wlc_no_egl_clients(void);

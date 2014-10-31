@@ -1,4 +1,3 @@
-#include "wlc.h"
 #include "wlc_internal.h"
 #include "compositor.h"
 #include "visibility.h"
