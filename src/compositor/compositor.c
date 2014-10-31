@@ -211,10 +211,16 @@ active_output(struct wlc_compositor *compositor, struct wlc_output *output)
    if (output == compositor->output)
       return;
 
+   if (compositor->output)
+      wlc_output_schedule_repaint(compositor->output);
+
    compositor->output = output;
 
    if (compositor->interface.output.activated)
       compositor->interface.output.activated(compositor, output);
+
+   if (output)
+      wlc_output_schedule_repaint(output);
 }
 
 static bool
