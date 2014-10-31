@@ -224,7 +224,7 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
 void
 wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {
-   if (!view->created || !view->compositor->interface.view.request.state || (view->pending.state & state) == toggle)
+   if (!view->created || !view->compositor->interface.view.request.state || (bool)(view->pending.state & state) == toggle)
       return;
 
    view->compositor->interface.view.request.state(view->compositor, view, state, toggle);
