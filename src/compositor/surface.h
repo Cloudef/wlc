@@ -21,6 +21,7 @@ struct wlc_surface_state {
    pixman_region32_t input;
    pixman_region32_t damage;
    struct wlc_origin offset;
+   int32_t scale;
    bool attached;
 };
 

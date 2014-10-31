@@ -210,8 +210,15 @@ wl_cb_surface_set_buffer_transform(struct wl_client *wl_client, struct wl_resour
 static void
 wl_cb_surface_set_buffer_scale(struct wl_client *wl_client, struct wl_resource *resource, int32_t scale)
 {
-   (void)wl_client, (void)resource, (void)scale;
-   STUBL(resource);
+   (void)wl_client;
+   struct wlc_surface *surface = wl_resource_get_user_data(resource);
+
+   if (scale < 1) {
+      wl_resource_post_error(resource, WL_SURFACE_ERROR_INVALID_SCALE, "scale must be >= 1 (scale: %d)", scale);
+      return;
+   }
+
+   surface->pending.scale = 1;
 }
 
 static const struct wl_surface_interface wl_surface_implementation = {
