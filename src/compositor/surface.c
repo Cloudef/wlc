@@ -130,6 +130,7 @@ wl_cb_surface_attach(struct wl_client *wl_client, struct wl_resource *resource, 
 
    surface->pending.offset = (struct wlc_origin){ x, y };
    surface->pending.attached = true;
+   wlc_log(WLC_LOG_INFO, "-> Attach request");
 }
 
 static void
@@ -138,6 +139,7 @@ wl_cb_surface_damage(struct wl_client *wl_client, struct wl_resource *resource, 
    (void)wl_client;
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    pixman_region32_union_rect(&surface->pending.damage, &surface->pending.damage, x, y, width, height);
+   wlc_log(WLC_LOG_INFO, "-> Damage request");
 }
 
 static void
@@ -155,6 +157,7 @@ wl_cb_surface_frame(struct wl_client *wl_client, struct wl_resource *resource, u
 
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
    wl_list_insert(surface->pending.frame_cb_list.prev, &callback->link);
+   wlc_log(WLC_LOG_INFO, "-> Frame request");
    return;
 
 fail:
@@ -197,7 +200,9 @@ wl_cb_surface_commit(struct wl_client *wl_client, struct wl_resource *resource)
 {
    (void)wl_client;
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
+
    commit_state(surface, &surface->pending, &surface->commit);
+   wlc_log(WLC_LOG_INFO, "-> Commit request");
 }
 
 static void
