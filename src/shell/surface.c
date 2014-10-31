@@ -160,8 +160,10 @@ wlc_shell_surface_release(struct wlc_shell_surface *shell_surface)
 {
    assert(shell_surface);
 
-   if (shell_surface->resource)
+   if (shell_surface->resource) {
       wl_resource_destroy(shell_surface->resource);
+      shell_surface->resource = NULL;
+   }
 
    wlc_string_release(&shell_surface->title);
    wlc_string_release(&shell_surface->_class);

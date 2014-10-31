@@ -201,8 +201,10 @@ wlc_xdg_surface_release(struct wlc_xdg_surface *xdg_surface)
 {
    assert(xdg_surface);
 
-   if (xdg_surface->resource)
+   if (xdg_surface->resource) {
       wl_resource_destroy(xdg_surface->resource);
+      xdg_surface->resource = NULL;
+   }
 
    wlc_string_release(&xdg_surface->app_id);
 }

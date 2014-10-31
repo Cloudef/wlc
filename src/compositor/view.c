@@ -338,7 +338,8 @@ wlc_view_close(struct wlc_view *view)
       xdg_surface_send_close(view->xdg_surface.resource);
    } else if (view->x11_window) {
       wlc_x11_window_close(view->x11_window);
-   } else {
+   } else if (view->shell_surface.resource) {
+      wlc_shell_surface_release(&view->shell_surface);
       wlc_surface_free(view->surface);
    }
 
