@@ -732,9 +732,12 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_FOCUS_IN: {
                // Do not let clients to steal focus
                xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
-               wlc_dlog(WLC_DBG_XWM, "XCB_FOCUS_IN (%d)", ev->event);
-               if (xwm.focus && xwm.focus != ev->event)
-                  focus_window(xwm.focus);
+               wlc_dlog(WLC_DBG_XWM, "XCB_FOCUS_IN (%u) [%u]", ev->event, xwm.focus);
+               if (xwm.focus && xwm.focus != ev->event) {
+                  xcb_window_t reset_focus = xwm.focus;
+                  xwm.focus = 0;
+                  focus_window(reset_focus);
+               }
             }
             break;
 
