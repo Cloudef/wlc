@@ -214,13 +214,17 @@ wlc_output_schedule_repaint(struct wlc_output *output)
 {
    assert(output);
 
+   if (!output->activity)
+      wlc_dlog(WLC_DBG_RENDER, "-> Activity marked");
+
    output->activity = true;
 
    if (output->scheduled || output->pending)
       return;
 
-   wl_event_loop_add_idle(output->compositor->event_loop, cb_repaint_idle, output);
    output->scheduled = true;
+   wl_event_loop_add_idle(output->compositor->event_loop, cb_repaint_idle, output);
+   wlc_dlog(WLC_DBG_RENDER, "-> Repaint scheduled");
 }
 
 void
