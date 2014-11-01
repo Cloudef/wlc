@@ -178,6 +178,7 @@ void wlc_compositor_focus_view(struct wlc_compositor *compositor, struct wlc_vie
 void wlc_compositor_focus_output(struct wlc_compositor *compositor, struct wlc_output *output);
 
 void wlc_compositor_run(struct wlc_compositor *compositor);
+void wlc_compositor_terminate(struct wlc_compositor *compositor);
 void wlc_compositor_free(struct wlc_compositor *compositor);
 struct wlc_compositor* wlc_compositor_new(const struct wlc_interface *interface);
 

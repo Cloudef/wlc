@@ -311,6 +311,13 @@ wlc_compositor_run(struct wlc_compositor *compositor)
 }
 
 WLC_API void
+wlc_compositor_terminate(struct wlc_compositor *compositor)
+{
+   assert(compositor);
+   wl_display_terminate(compositor->display);
+}
+
+WLC_API void
 wlc_compositor_free(struct wlc_compositor *compositor)
 {
    assert(compositor);
