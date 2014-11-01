@@ -622,6 +622,9 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 {
    assert(win);
 
+   if (win->override_redirect)
+      return;
+
    if (active) {
       focus_window(win->id);
    } else if (win->id == xwm.focus) {

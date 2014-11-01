@@ -145,18 +145,13 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
 {
    assert(keyboard);
 
-   // Do not allow focusing of override_redirect (X11) views.
-   // This will cause some popups to immediately close. (Chromium)
-   if (view && view->x11_window && (view->type & WLC_BIT_UNMANAGED))
+   if (keyboard->focus == view)
       return;
 
    if (view && view->x11_window)
       wlc_x11_window_set_active(view->x11_window, true);
    else if (keyboard->focus && keyboard->focus->x11_window)
       wlc_x11_window_set_active(keyboard->focus->x11_window, false);
-
-   if (keyboard->focus == view)
-      return;
 
    struct wl_resource *focused = (is_valid_view(keyboard->focus) ? keyboard->focus->client->input[WLC_KEYBOARD] : NULL);
    struct wl_resource *focus = (is_valid_view(view) ? view->client->input[WLC_KEYBOARD] : NULL);
