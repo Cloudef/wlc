@@ -757,12 +757,17 @@ x11_event(int fd, uint32_t mask, void *data)
 
             case XCB_CONFIGURE_REQUEST: {
                xcb_configure_request_event_t *ev = (xcb_configure_request_event_t*)event;
-               wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_REQUEST (%u)", ev->window);
+               wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_REQUEST (%u) [%ux%u+%d,%d]", ev->window, ev->width, ev->height, ev->x, ev->y);
+               struct wlc_geometry r = { { ev->x, ev->y }, { ev->width, ev->height } };
+
                struct wlc_x11_window *win;
                if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) && win->view) {
                   set_parent(win, ev->parent);
-                  struct wlc_geometry r = { { ev->x, ev->y }, { ev->width, ev->height } };
                   wlc_view_request_geometry(win->view, &r);
+               } else {
+                  static const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+                  const uint32_t values[] = { r.origin.x, r.origin.y, r.size.w, r.size.h };
+                  XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, ev->window, mask, (uint32_t*)&values));
                }
             }
             break;
