@@ -666,7 +666,10 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_ge
    };
 
    set_program(context, settings->program);
-   GL_CALL(gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], settings->dim));
+
+   if (settings->dim > 0.0f) {
+      GL_CALL(gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], settings->dim));
+   }
 
    for (GLuint i = 0; i < nmemb; ++i) {
       if (!textures[i])
