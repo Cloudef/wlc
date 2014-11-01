@@ -773,7 +773,7 @@ x11_event(int fd, uint32_t mask, void *data)
             break;
 
             case XCB_CONFIGURE_NOTIFY: {
-               // XXX: Maybe we could ac here?
+               // XXX: Maybe we could ack here?
                xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
