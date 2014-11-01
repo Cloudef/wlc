@@ -1,4 +1,4 @@
-#include "wlc.h"
+#include "wlc_internal.h"
 #include "gles2.h"
 #include "render.h"
 
@@ -500,6 +500,7 @@ surface_destroy(struct ctx *context, struct wlc_surface *surface)
 
    surface_flush_textures(surface);
    surface_flush_images(surface->output->context, surface);
+   wlc_dlog(WLC_DBG_RENDER, "-> Destroyed surface");
 
    if (surface->output->context != context->context)
       wlc_context_bind(context->context);
@@ -644,6 +645,9 @@ surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buff
       /* unknown buffer */
       wlc_log(WLC_LOG_WARN, "Unknown buffer");
    }
+
+   if (attached)
+      wlc_dlog(WLC_DBG_RENDER, "-> Attached surface with buffer of size (%ux%u)", buffer->size.w, buffer->size.h);
 
    return attached;
 }
