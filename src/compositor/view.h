@@ -55,6 +55,7 @@ void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending
 void wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_size);
 void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible);
 struct wlc_space* wlc_view_get_mapped_space(struct wlc_view *view);
+void wlc_view_defocus(struct wlc_view *view);
 void wlc_view_free(struct wlc_view *view);
 struct wlc_view* wlc_view_new(struct wlc_compositor *compositor, struct wlc_client *client, struct wlc_surface *surface);
 

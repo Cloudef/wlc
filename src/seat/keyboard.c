@@ -150,29 +150,33 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
    if (view && view->x11_window && (view->type & WLC_BIT_UNMANAGED))
       return;
 
+   if (view && view->x11_window)
+      wlc_x11_window_set_active(view->x11_window, true);
+   else if (keyboard->focus && keyboard->focus->x11_window)
+      wlc_x11_window_set_active(keyboard->focus->x11_window, false);
+
    if (keyboard->focus == view)
       return;
 
-   if (is_valid_view(keyboard->focus)) {
-      send_release_for_keys(keyboard->focus, &keyboard->keys);
+   struct wl_resource *focused = (is_valid_view(keyboard->focus) ? keyboard->focus->client->input[WLC_KEYBOARD] : NULL);
+   struct wl_resource *focus = (is_valid_view(view) ? view->client->input[WLC_KEYBOARD] : NULL);
 
-      uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
-      wl_keyboard_send_leave(keyboard->focus->client->input[WLC_KEYBOARD], serial, keyboard->focus->surface->resource);
+   wlc_dlog(WLC_DBG_FOCUS, "-> focus event %p, %p\n", focused, focus);
 
-      if (keyboard->focus->xdg_popup.resource)
-         wlc_view_close(keyboard->focus);
+   if (focus != focused) {
+      if (focused) {
+         uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
+         wl_keyboard_send_leave(focused, serial, keyboard->focus->surface->resource);
 
-      if (keyboard->focus->x11_window)
-         wlc_x11_window_set_active(keyboard->focus->x11_window, false);
-   }
+         if (keyboard->focus->xdg_popup.resource)
+            wlc_view_close(keyboard->focus);
+      }
 
-   if (is_valid_view(view)) {
-      if (view->x11_window)
-         wlc_x11_window_set_active(view->x11_window, true);
-
-      reset_keyboard(keyboard);
-      uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
-      wl_keyboard_send_enter(view->client->input[WLC_KEYBOARD], serial, view->surface->resource, &keyboard->keys);
+      if (focus) {
+         reset_keyboard(keyboard);
+         uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
+         wl_keyboard_send_enter(focus, serial, view->surface->resource, &keyboard->keys);
+      }
    }
 
    keyboard->focus = view;

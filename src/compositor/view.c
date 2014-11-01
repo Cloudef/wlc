@@ -238,6 +238,13 @@ wlc_view_get_mapped_space(struct wlc_view *view)
 }
 
 void
+wlc_view_defocus(struct wlc_view *view)
+{
+   // XXX: needed for X11 for now, rethink.
+   view->compositor->seat->notify.view_unfocus(view->compositor->seat, view);
+}
+
+void
 wlc_view_free(struct wlc_view *view)
 {
    assert(view);

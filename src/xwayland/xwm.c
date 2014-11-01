@@ -717,8 +717,10 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_DESTROY_NOTIFY: {
                xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)event;
                struct wlc_x11_window *win;
-               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
-                  wlc_x11_window_free(win);
+               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)))
+                  wlc_view_defocus(win->view); // unfocus and wait for surface to die
+               if ((win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
+                  wlc_x11_window_free(win); // we don't have view or surface yet
             }
             break;
 
