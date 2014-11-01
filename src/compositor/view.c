@@ -469,6 +469,9 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
          return;
       }
 
+      wlc_log(WLC_LOG_INFO, "-> Created view (%p) with surface (%p) [%ux%u]",
+            view, view->surface, view->surface->size.w, view->surface->size.h);
+
       view->created = true;
    } else if (old_space && space) {
       wlc_surface_attach_to_output(view->surface, space->output, view->surface->commit.buffer);

@@ -446,8 +446,10 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
 {
    assert(win);
 
-   if (!resource)
+   if (!resource) {
+      wlc_dlog(WLC_DBG_XWM, "-> Surface resource for x11 window (%u) does not exist yet", win->id);
       return;
+   }
 
    xcb_get_geometry_reply_t *reply;
    struct wlc_geometry geometry = wlc_geometry_zero;
@@ -486,6 +488,9 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
       win->view->pending.geometry = geometry;
+
+   wlc_dlog(WLC_DBG_XWM, "-> Linked x11 window (%u) to view (%p) [%ux%u+%d,%d]",
+         win->id, win->view, geometry.size.w, geometry.size.h, geometry.origin.x, geometry.origin.y);
 
    if (!win->view->parent && xwm.focus && (win->view->type & WLC_BIT_MODAL))
       set_parent(win, xwm.focus);
