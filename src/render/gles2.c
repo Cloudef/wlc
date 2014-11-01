@@ -596,6 +596,9 @@ egl_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *
          break;
    }
 
+   if (surface->view && surface->view->x11_window)
+      surface->format = wlc_x11_window_get_surface_format(surface->view->x11_window);
+
    if (num_planes > 3) {
       wlc_log(WLC_LOG_WARN, "planes > 3 in egl surfaces not supported, nor should be possible");
       return false;
