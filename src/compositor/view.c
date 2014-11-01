@@ -273,7 +273,7 @@ wlc_view_free(struct wlc_view *view)
 struct wlc_view*
 wlc_view_new(struct wlc_compositor *compositor, struct wlc_client *client, struct wlc_surface *surface)
 {
-   assert(surface);
+   assert(surface && client && surface);
 
    struct wlc_view *view;
    if (!(view = calloc(1, sizeof(struct wlc_view))))
