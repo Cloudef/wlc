@@ -174,6 +174,22 @@ egl_error_string(const EGLint error)
     return "UNKNOWN EGL ERROR";
 }
 
+static void
+egl_call(const char *func, uint32_t line, const char *eglfunc)
+{
+   EGLint error;
+   if ((error = egl.api.eglGetError()) == EGL_SUCCESS)
+      return;
+
+   wlc_log(WLC_LOG_ERROR, "egl: function %s at line %u: %s\n%s", func, line, eglfunc, egl_error_string(error));
+}
+
+#ifndef __STRING
+#  define __STRING(x) #x
+#endif
+
+#define EGL_CALL(x) x; egl_call(__PRETTY_FUNCTION__, __LINE__, __STRING(x))
+
 static bool
 has_extension(const struct ctx *context, const char *extension)
 {
@@ -201,17 +217,20 @@ terminate(struct ctx *context)
 {
    assert(context);
 
-   egl.api.eglMakeCurrent(context->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+   EGL_CALL(egl.api.eglMakeCurrent(context->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
 
-   if (context->surface)
-      egl.api.eglDestroySurface(context->display, context->surface);
+   if (context->surface) {
+      EGL_CALL(egl.api.eglDestroySurface(context->display, context->surface));
+   }
 
-   if (context->context)
-      egl.api.eglDestroyContext(context->display, context->context);
+   if (context->context) {
+      EGL_CALL(egl.api.eglDestroyContext(context->display, context->context));
+   }
 
    if (context->display) {
-      if (context->api.eglUnbindWaylandDisplayWL && context->wl_display)
-         context->api.eglUnbindWaylandDisplayWL(context->display, context->wl_display);
+      if (context->api.eglUnbindWaylandDisplayWL && context->wl_display) {
+         EGL_CALL(context->api.eglUnbindWaylandDisplayWL(context->display, context->wl_display));
+      }
 
       // XXX: This is shared on all backends
       // egl.api.eglTerminate(context->display);
@@ -286,14 +305,14 @@ create_context(struct wlc_backend_surface *surface)
    }
 
    const char *str;
-   str = egl.api.eglQueryString(context->display, EGL_VERSION);
+   str = EGL_CALL(egl.api.eglQueryString(context->display, EGL_VERSION));
    wlc_log(WLC_LOG_INFO, "EGL version: %s", str ? str : "(null)");
-   str = egl.api.eglQueryString(context->display, EGL_VENDOR);
+   str = EGL_CALL(egl.api.eglQueryString(context->display, EGL_VENDOR));
    wlc_log(WLC_LOG_INFO, "EGL vendor: %s", str ? str : "(null)");
-   str = egl.api.eglQueryString(context->display, EGL_CLIENT_APIS);
+   str = EGL_CALL(egl.api.eglQueryString(context->display, EGL_CLIENT_APIS));
    wlc_log(WLC_LOG_INFO, "EGL client APIs: %s", str ? str : "(null)");
 
-   context->extensions = egl.api.eglQueryString(context->display, EGL_EXTENSIONS);
+   context->extensions = EGL_CALL(egl.api.eglQueryString(context->display, EGL_EXTENSIONS));
 
    if (has_extension(context, "EGL_WL_bind_wayland_display") && has_extension(context, "EGL_KHR_image_base")) {
       context->api.eglCreateImageKHR = egl.api.eglCreateImageKHR;
@@ -311,7 +330,7 @@ create_context(struct wlc_backend_surface *surface)
       // wlc_log(WLC_LOG_WARN, "EGL_EXT_swap_buffers_with_damage not supported. Performance could be affected.");
    }
 
-   egl.api.eglSwapInterval(context->display, 1);
+   EGL_CALL(egl.api.eglSwapInterval(context->display, 1));
    return context;
 
 egl_fail:
@@ -329,7 +348,8 @@ bind(struct ctx *context)
 {
    assert(context);
 
-   if (egl.api.eglMakeCurrent(context->display, context->surface, context->surface, context->context) != EGL_TRUE)
+   EGLBoolean made_current = EGL_CALL(egl.api.eglMakeCurrent(context->display, context->surface, context->surface, context->context));
+   if (made_current != EGL_TRUE)
       return false;
 
    bound = context;
@@ -344,8 +364,11 @@ bind_to_wl_display(struct ctx *context, struct wl_display *wl_display)
    if (wlc_no_egl_clients())
       return false;
 
-   if (context->api.eglBindWaylandDisplayWL && context->api.eglBindWaylandDisplayWL(context->display, wl_display))
-      context->wl_display = wl_display;
+   if (context->api.eglBindWaylandDisplayWL) {
+      EGLBoolean binded = EGL_CALL(context->api.eglBindWaylandDisplayWL(context->display, wl_display));
+      if (binded == EGL_TRUE)
+         context->wl_display = wl_display;
+   }
 
    return (context->wl_display ? true : false);
 }
@@ -363,7 +386,7 @@ swap(struct ctx *context)
    }
 
    if (!context->flip_failed)
-      ret = egl.api.eglSwapBuffers(context->display, context->surface);
+      ret = EGL_CALL(egl.api.eglSwapBuffers(context->display, context->surface));
 
    if (ret == EGL_TRUE && context->bsurface->api.page_flip)
       context->flip_failed = !context->bsurface->api.page_flip(context->bsurface);
@@ -374,7 +397,7 @@ query_buffer(struct ctx *context, struct wl_resource *buffer, EGLint attribute, 
 {
    assert(context);
    if (context->api.eglQueryWaylandBufferWL)
-      return context->api.eglQueryWaylandBufferWL(context->display, buffer, attribute, value);
+      return EGL_CALL(context->api.eglQueryWaylandBufferWL(context->display, buffer, attribute, value));
    return EGL_FALSE;
 }
 
@@ -383,7 +406,7 @@ create_image(struct ctx *context, EGLenum target, EGLClientBuffer buffer, const 
 {
    assert(context);
    if (context->api.eglCreateImageKHR)
-      return context->api.eglCreateImageKHR(context->display, context->context, target, buffer, attrib_list);
+      return EGL_CALL(context->api.eglCreateImageKHR(context->display, context->context, target, buffer, attrib_list));
    return NULL;
 }
 
@@ -392,7 +415,7 @@ destroy_image(struct ctx *context, EGLImageKHR image)
 {
    assert(context);
    if (context->api.eglDestroyImageKHR)
-      return context->api.eglDestroyImageKHR(context->display, image);
+      return EGL_CALL(context->api.eglDestroyImageKHR(context->display, image));
    return EGL_FALSE;
 }
 

@@ -81,6 +81,7 @@ static struct {
    struct {
       void *handle;
 
+      GLenum (*glGetError)(void);
       const GLubyte* (*glGetString)(GLenum);
       void (*glEnable)(GLenum);
       void (*glClear)(GLbitfield);
@@ -128,6 +129,8 @@ gles2_load(void)
 
 #define load(x) (gl.api.x = dlsym(gl.api.handle, (func = #x)))
 
+   if (!(load(glGetError)))
+      goto function_pointer_exception;
    if (!load(glGetString))
       goto function_pointer_exception;
    if (!load(glEnable))
@@ -201,6 +204,39 @@ function_pointer_exception:
    return false;
 }
 
+static const char*
+gl_error_string(const GLenum error)
+{
+    switch (error) {
+        case GL_INVALID_ENUM:
+            return "GL_INVALID_ENUM";
+        case GL_INVALID_VALUE:
+            return "GL_INVALID_VALUE";
+        case GL_INVALID_OPERATION:
+            return "GL_INVALID_OPERATION";
+        case GL_OUT_OF_MEMORY:
+            return "GL_OUT_OF_MEMORY";
+    }
+
+    return "UNKNOWN GL ERROR";
+}
+
+static
+void gl_call(const char *func, uint32_t line, const char *glfunc)
+{
+   GLenum error;
+   if ((error = gl.api.glGetError()) == GL_NO_ERROR)
+      return;
+
+   wlc_log(WLC_LOG_ERROR, "gles2: function %s at line %u: %s == %s", func, line, glfunc, gl_error_string(error));
+}
+
+#ifndef __STRING
+#  define __STRING(x) #x
+#endif
+
+#define GL_CALL(x) x; gl_call(__PRETTY_FUNCTION__, __LINE__, __STRING(x))
+
 static bool
 has_extension(const struct ctx *context, const char *extension)
 {
@@ -232,7 +268,7 @@ set_program(struct ctx *context, const enum program_type type)
       return;
 
    context->program = &context->programs[type];
-   gl.api.glUseProgram(context->program->obj);
+   GL_CALL(gl.api.glUseProgram(context->program->obj));
 }
 
 static GLuint
@@ -243,15 +279,15 @@ create_shader(const char *source, GLenum shader_type)
    GLuint shader = gl.api.glCreateShader(shader_type);
    assert(shader != 0);
 
-   gl.api.glShaderSource(shader, 1, (const char **)&source, NULL);
-   gl.api.glCompileShader(shader);
+   GL_CALL(gl.api.glShaderSource(shader, 1, (const char **)&source, NULL));
+   GL_CALL(gl.api.glCompileShader(shader));
 
    GLint status;
-   gl.api.glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+   GL_CALL(gl.api.glGetShaderiv(shader, GL_COMPILE_STATUS, &status));
    if (!status) {
       GLsizei len;
       char log[1024];
-      gl.api.glGetShaderInfoLog(shader, sizeof(log), &len, log);
+      GL_CALL(gl.api.glGetShaderInfoLog(shader, sizeof(log), &len, log));
       wlc_log(WLC_LOG_ERROR, "Compiling %s: %*s\n", (shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment"), len, log);
       abort();
    }
@@ -325,32 +361,33 @@ create_context(void)
    if (!(context = calloc(1, sizeof(struct ctx))))
       return NULL;
 
-   context->extensions = (const char*)gl.api.glGetString(GL_EXTENSIONS);
+   context->extensions = (const char*)GL_CALL(gl.api.glGetString(GL_EXTENSIONS));
 
    for (int i = 0; i < PROGRAM_LAST; ++i) {
       GLuint vert = create_shader(map[i].vert, GL_VERTEX_SHADER);
       GLuint frag = create_shader(map[i].frag, GL_FRAGMENT_SHADER);
       context->programs[i].obj = gl.api.glCreateProgram();
-      gl.api.glAttachShader(context->programs[i].obj, vert);
-      gl.api.glAttachShader(context->programs[i].obj, frag);
-      gl.api.glLinkProgram(context->programs[i].obj);
+      GL_CALL(gl.api.glAttachShader(context->programs[i].obj, vert));
+      GL_CALL(gl.api.glAttachShader(context->programs[i].obj, frag));
+      GL_CALL(gl.api.glLinkProgram(context->programs[i].obj));
 
       GLint status;
-      gl.api.glGetProgramiv(context->programs[i].obj, GL_LINK_STATUS, &status);
+      GL_CALL(gl.api.glGetProgramiv(context->programs[i].obj, GL_LINK_STATUS, &status));
       if (!status) {
          GLsizei len;
          char log[1024];
-         gl.api.glGetProgramInfoLog(context->programs[i].obj, sizeof(log), &len, log);
+         GL_CALL(gl.api.glGetProgramInfoLog(context->programs[i].obj, sizeof(log), &len, log));
          wlc_log(WLC_LOG_ERROR, "Linking:\n%*s\n", len, log);
          abort();
       }
 
       set_program(context, i);
-      gl.api.glBindAttribLocation(context->programs[i].obj, 0, "pos");
-      gl.api.glBindAttribLocation(context->programs[i].obj, 1, "uv");
+      GL_CALL(gl.api.glBindAttribLocation(context->programs[i].obj, 0, "pos"));
+      GL_CALL(gl.api.glBindAttribLocation(context->programs[i].obj, 1, "uv"));
 
-      for (int u = 0; u < UNIFORM_LAST; ++u)
-         context->programs[i].uniforms[u] = gl.api.glGetUniformLocation(context->programs[i].obj, uniform_names[u]);
+      for (int u = 0; u < UNIFORM_LAST; ++u) {
+         context->programs[i].uniforms[u] = GL_CALL(gl.api.glGetUniformLocation(context->programs[i].obj, uniform_names[u]));
+      }
    }
 
    if (has_extension(context, "GL_OES_EGL_image_external"))
@@ -366,22 +403,22 @@ create_context(void)
       { GL_LUMINANCE, 14, 14, GL_UNSIGNED_BYTE, cursor_palette }, // TEXTURE_CURSOR
    };
 
-   gl.api.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-   gl.api.glGenTextures(TEXTURE_LAST, context->textures);
+   GL_CALL(gl.api.glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
+   GL_CALL(gl.api.glGenTextures(TEXTURE_LAST, context->textures));
 
    for (uint32_t i = 0; i < TEXTURE_LAST; ++i) {
-      gl.api.glBindTexture(GL_TEXTURE_2D, context->textures[i]);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      gl.api.glTexImage2D(GL_TEXTURE_2D, 0, images[i].format, images[i].w, images[i].h, 0, images[i].format, images[i].type, images[i].data);
+      GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, context->textures[i]));
+      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+      GL_CALL(gl.api.glTexImage2D(GL_TEXTURE_2D, 0, images[i].format, images[i].w, images[i].h, 0, images[i].format, images[i].type, images[i].data));
    }
 
-   gl.api.glEnableVertexAttribArray(0);
-   gl.api.glEnableVertexAttribArray(1);
+   GL_CALL(gl.api.glEnableVertexAttribArray(0));
+   GL_CALL(gl.api.glEnableVertexAttribArray(1));
 
-   gl.api.glEnable(GL_BLEND);
-   gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-   gl.api.glClearColor(0.2, 0.2, 0.2, 1);
+   GL_CALL(gl.api.glEnable(GL_BLEND));
+   GL_CALL(gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+   GL_CALL(gl.api.glClearColor(0.2, 0.2, 0.2, 1));
    return context;
 }
 
@@ -396,11 +433,11 @@ bind(struct ctx *context, struct wlc_output *output)
    if (!wlc_size_equals(&context->resolution, &output->resolution)) {
       for (int i = 0; i < PROGRAM_LAST; ++i) {
          set_program(context, i);
-         gl.api.glUniform1f(context->program->uniforms[UNIFORM_WIDTH], output->resolution.w);
-         gl.api.glUniform1f(context->program->uniforms[UNIFORM_HEIGHT], output->resolution.h);
+         GL_CALL(gl.api.glUniform1f(context->program->uniforms[UNIFORM_WIDTH], output->resolution.w));
+         GL_CALL(gl.api.glUniform1f(context->program->uniforms[UNIFORM_HEIGHT], output->resolution.h));
       }
 
-      gl.api.glViewport(0, 0, output->resolution.w, output->resolution.h);
+      GL_CALL(gl.api.glViewport(0, 0, output->resolution.w, output->resolution.h));
       context->resolution = output->resolution;
    }
 
@@ -416,10 +453,10 @@ surface_gen_textures(struct wlc_surface *surface, const int num_textures)
       if (surface->textures[i])
          continue;
 
-      gl.api.glGenTextures(1, &surface->textures[i]);
-      gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[i]);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      GL_CALL(gl.api.glGenTextures(1, &surface->textures[i]));
+      GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[i]));
+      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
    }
 }
 
@@ -429,8 +466,9 @@ surface_flush_textures(struct wlc_surface *surface)
    assert(surface);
 
    for (int i = 0; i < 3; ++i) {
-      if (surface->textures[i])
-         gl.api.glDeleteTextures(1, &surface->textures[i]);
+      if (surface->textures[i]) {
+         GL_CALL(gl.api.glDeleteTextures(1, &surface->textures[i]));
+      }
    }
 
    memset(surface->textures, 0, sizeof(surface->textures));
@@ -509,13 +547,13 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
       surface->format = wlc_x11_window_get_surface_format(surface->view->x11_window);
 
    surface_gen_textures(surface, 1);
-   gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[0]);
-   gl.api.glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, pitch);
-   gl.api.glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
-   gl.api.glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
+   GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[0]));
+   GL_CALL(gl.api.glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, pitch));
+   GL_CALL(gl.api.glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0));
+   GL_CALL(gl.api.glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0));
    wl_shm_buffer_begin_access(buffer->shm_buffer);
    void *data = wl_shm_buffer_get_data(buffer->shm_buffer);
-   gl.api.glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitch, buffer->size.h, 0, gl_format, gl_pixel_type, data);
+   GL_CALL(gl.api.glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitch, buffer->size.h, 0, gl_format, gl_pixel_type, data));
    wl_shm_buffer_end_access(buffer->shm_buffer);
    return true;
 }
@@ -571,9 +609,9 @@ egl_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *
       if (!(surface->images[i] = wlc_context_create_image(context->context, EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
          return false;
 
-      gl.api.glActiveTexture(GL_TEXTURE0 + i);
-      gl.api.glBindTexture(target, surface->textures[i]);
-      context->api.glEGLImageTargetTexture2DOES(target, surface->images[i]);
+      GL_CALL(gl.api.glActiveTexture(GL_TEXTURE0 + i));
+      GL_CALL(gl.api.glBindTexture(target, surface->textures[i]));
+      GL_CALL(context->api.glEGLImageTargetTexture2DOES(target, surface->images[i]));
    }
 
    return true;
@@ -625,27 +663,27 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_ge
    };
 
    set_program(context, settings->program);
-   gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], settings->dim);
+   GL_CALL(gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], settings->dim));
 
    for (GLuint i = 0; i < nmemb; ++i) {
       if (!textures[i])
          break;
 
-      gl.api.glActiveTexture(GL_TEXTURE0 + i);
-      gl.api.glBindTexture(GL_TEXTURE_2D, textures[i]);
+      GL_CALL(gl.api.glActiveTexture(GL_TEXTURE0 + i));
+      GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, textures[i]));
    }
 
    if (settings->filter) {
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
    } else {
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
    }
 
-   gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices);
-   gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords);
-   gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+   GL_CALL(gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices));
+   GL_CALL(gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords));
+   GL_CALL(gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4));
 }
 
 static void
@@ -718,7 +756,7 @@ static void
 clear(struct ctx *context)
 {
    assert(context);
-   gl.api.glClear(GL_COLOR_BUFFER_BIT);
+   GL_CALL(gl.api.glClear(GL_COLOR_BUFFER_BIT));
 }
 
 static void
