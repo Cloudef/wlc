@@ -206,22 +206,13 @@ function_pointer_exception:
    return false;
 }
 
-static void
-cb_finish_idle(void *data)
-{
-   struct wlc_output *output = data;
-   output->pending = false;
-   struct timespec ts;
-   wlc_get_time(&ts);
-   wlc_output_finish_frame(output, &ts);
-}
-
 static bool
 page_flip(struct wlc_backend_surface *surface)
 {
    struct wlc_output *output = surface->internal;
-   output->pending = true;
-   wl_event_loop_add_idle(output->compositor->event_loop, cb_finish_idle, output);
+   struct timespec ts;
+   wlc_get_time(&ts);
+   wlc_output_finish_frame(output, &ts);
    return true;
 }
 
