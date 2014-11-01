@@ -1,4 +1,4 @@
-#include "wlc.h"
+#include "wlc_internal.h"
 #include "xwm.h"
 
 #include "compositor/compositor.h"
@@ -487,6 +487,8 @@ focus_window(xcb_window_t window)
 {
    if (xwm.focus == window)
       return;
+
+   wlc_dlog(WLC_DBG_FOCUS, "-> xwm focus %u", window);
 
    if (window == 0) {
       XCB_CALL(x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_CURRENT_TIME));
