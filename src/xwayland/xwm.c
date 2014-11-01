@@ -447,6 +447,21 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    if (!resource)
       return;
 
+   xcb_get_geometry_reply_t *reply;
+   struct wlc_geometry geometry = wlc_geometry_zero;
+   if ((reply = x11.api.xcb_get_geometry_reply(x11.connection, x11.api.xcb_get_geometry(x11.connection, win->id), NULL))) {
+      geometry.origin = (struct wlc_origin){ reply->x, reply->y };
+      geometry.size = (struct wlc_size){ reply->width, reply->height };
+      win->has_alpha = (reply->depth == 32);
+      free(reply);
+   }
+
+   // This is not real interactable x11 window most likely, lets just not handle it.
+   if (win->override_redirect && geometry.size.w <= 1 && geometry.size.h <= 1) {
+      wlc_x11_window_free(win);
+      return;
+   }
+
    struct wlc_client *client;
    if (!(client = wlc_client_for_client_with_wl_client_in_list(xwm.client, &xwm.compositor->clients))) {
       wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find wlc_client for wl_client");
@@ -467,13 +482,8 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
 
    read_properties(win);
 
-   xcb_get_geometry_reply_t *reply;
-   if ((reply = x11.api.xcb_get_geometry_reply(x11.connection, x11.api.xcb_get_geometry(x11.connection, win->id), NULL))) {
-      win->view->pending.geometry.origin = (struct wlc_origin){ reply->x, reply->y };
-      win->view->pending.geometry.size = (struct wlc_size){ reply->width, reply->height };
-      win->has_alpha = (reply->depth == 32);
-      free(reply);
-   }
+   if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
+      win->view->pending.geometry = geometry;
 
    if (surface->output) {
       // Make sure the view is mapped to space.
