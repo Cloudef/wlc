@@ -161,7 +161,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
    struct wl_resource *focused = (is_valid_view(keyboard->focus) ? keyboard->focus->client->input[WLC_KEYBOARD] : NULL);
    struct wl_resource *focus = (is_valid_view(view) ? view->client->input[WLC_KEYBOARD] : NULL);
 
-   wlc_dlog(WLC_DBG_FOCUS, "-> focus event %p, %p\n", focused, focus);
+   wlc_dlog(WLC_DBG_FOCUS, "-> focus event %p, %p", focused, focus);
 
    if (focus != focused) {
       if (focused) {
