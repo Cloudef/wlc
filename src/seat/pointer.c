@@ -1,3 +1,4 @@
+#include "wlc_internal.h"
 #include "pointer.h"
 #include "macros.h"
 #include "client.h"
@@ -81,14 +82,19 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
    if (pointer->focus == view)
       return;
 
-   if (is_valid_view(pointer->focus)) {
+   struct wl_resource *focused = (is_valid_view(pointer->focus) ? pointer->focus->client->input[WLC_POINTER] : NULL);
+   struct wl_resource *focus = (is_valid_view(view) ? view->client->input[WLC_POINTER] : NULL);
+
+   wlc_dlog(WLC_DBG_FOCUS, "-> pointer focus event %p, %p", focused, focus);
+
+   if (focused) {
       uint32_t serial = wl_display_next_serial(pointer->compositor->display);
-      wl_pointer_send_leave(pointer->focus->client->input[WLC_POINTER], serial, pointer->focus->surface->resource);
+      wl_pointer_send_leave(focused, serial, pointer->focus->surface->resource);
    }
 
-   if (is_valid_view(view)) {
+   if (focus) {
       uint32_t serial = wl_display_next_serial(pointer->compositor->display);
-      wl_pointer_send_enter(view->client->input[WLC_POINTER], serial, view->surface->resource, wl_fixed_from_int(d.x), wl_fixed_from_int(d.y));
+      wl_pointer_send_enter(focus, serial, view->surface->resource, wl_fixed_from_int(d.x), wl_fixed_from_int(d.y));
    }
 
    if (!view)
