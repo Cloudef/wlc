@@ -347,7 +347,7 @@ wlc_view_close(struct wlc_view *view)
       wlc_surface_free(view->surface);
    }
 
-   if (!view->x11_window)
+   if (view->client && !view->x11_window)
       wlc_client_free(view->client);
 }
 
