@@ -9,6 +9,7 @@
 enum wlc_debug {
    WLC_DBG_RENDER,
    WLC_DBG_FOCUS,
+   WLC_DBG_XWM,
    WLC_DBG_LAST,
 };
 

@@ -667,6 +667,7 @@ wlc_dlog(enum wlc_debug dbg, const char *fmt, ...)
    } channels[WLC_DBG_LAST] = {
       { "render", false, false },
       { "focus", false, false },
+      { "xwm", false, false },
    };
 
    if (!channels[dbg].checked) {

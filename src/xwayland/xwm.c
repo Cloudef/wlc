@@ -671,7 +671,8 @@ x11_event(int fd, uint32_t mask, void *data)
       bool xfixes_event = false;
       switch (event->response_type - x11.xfixes->first_event) {
          case XCB_XFIXES_SELECTION_NOTIFY:
-         xfixes_event = true;
+            wlc_dlog(WLC_DBG_XWM, "XCB_XFIXES_SELECTION_NOTIFY");
+            xfixes_event = true;
          break;
          default:break;
       }
@@ -684,12 +685,14 @@ x11_event(int fd, uint32_t mask, void *data)
 
             case XCB_CREATE_NOTIFY: {
                xcb_create_notify_event_t *ev = (xcb_create_notify_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_CREATE_NOTIFY (%u : %d)", ev->window, ev->override_redirect);
                wlc_x11_window_new(ev->window, ev->override_redirect);
             }
             break;
 
             case XCB_MAP_NOTIFY: {
                xcb_map_notify_event_t *ev = (xcb_map_notify_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_MAP_NOTIFY (%u)", ev->window);
                if (!wlc_x11_window_for_id(&xwm.windows, ev->window) && !wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window))
                   wlc_x11_window_new(ev->window, ev->override_redirect);
             }
@@ -697,6 +700,7 @@ x11_event(int fd, uint32_t mask, void *data)
 
             case XCB_UNMAP_NOTIFY: {
                xcb_unmap_notify_event_t *ev = (xcb_unmap_notify_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_UNMAP_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
                if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
                   wlc_x11_window_free(win);
@@ -705,6 +709,7 @@ x11_event(int fd, uint32_t mask, void *data)
 
             case XCB_DESTROY_NOTIFY: {
                xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_DESTROY_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
                if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
                   wlc_x11_window_free(win);
@@ -713,18 +718,21 @@ x11_event(int fd, uint32_t mask, void *data)
 
             case XCB_MAP_REQUEST: {
                xcb_map_request_event_t *ev = (xcb_map_request_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_MAP_REQUEST (%u)", ev->window);
                XCB_CALL(x11.api.xcb_change_window_attributes_checked(x11.connection, ev->window, XCB_CW_EVENT_MASK, &(uint32_t){XCB_EVENT_MASK_FOCUS_CHANGE | XCB_EVENT_MASK_PROPERTY_CHANGE}));
                XCB_CALL(x11.api.xcb_map_window_checked(x11.connection, ev->window));
             }
             break;
 
             case XCB_CLIENT_MESSAGE:
+               wlc_dlog(WLC_DBG_XWM, "XCB_CLIENT_MESSAGE");
                handle_client_message((xcb_client_message_event_t*)event);
             break;
 
             case XCB_FOCUS_IN: {
                // Do not let clients to steal focus
                xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_FOCUS_IN (%d)", ev->event);
                if (xwm.focus && xwm.focus != ev->event)
                   focus_window(xwm.focus);
             }
@@ -732,6 +740,7 @@ x11_event(int fd, uint32_t mask, void *data)
 
             case XCB_PROPERTY_NOTIFY: {
                xcb_property_notify_event_t *ev = (xcb_property_notify_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_PROPERTY_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
                if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)))
                   read_properties(win);
@@ -740,6 +749,7 @@ x11_event(int fd, uint32_t mask, void *data)
 
             case XCB_CONFIGURE_REQUEST: {
                xcb_configure_request_event_t *ev = (xcb_configure_request_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_REQUEST (%u)", ev->window);
                struct wlc_x11_window *win;
                if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) && win->view) {
                   set_parent(win, ev->parent);
@@ -752,6 +762,7 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_CONFIGURE_NOTIFY: {
                // XXX: Maybe we could ac here?
                xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
+               wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
                if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) && win->view) {
                   // win->view->ack = ACK_NEXT_COMMIT;
@@ -769,12 +780,16 @@ x11_event(int fd, uint32_t mask, void *data)
 
             // TODO: Handle?
             case XCB_SELECTION_NOTIFY:
+               wlc_dlog(WLC_DBG_XWM, "XCB_SELECTION_NOTIFY");
             break;
             case XCB_SELECTION_REQUEST:
+               wlc_dlog(WLC_DBG_XWM, "XCB_SELECTION_REQUEST");
             break;
             case XCB_FOCUS_OUT:
+               wlc_dlog(WLC_DBG_XWM, "XCB_FOCUS_OUT");
             break;
             case XCB_MAPPING_NOTIFY:
+               wlc_dlog(WLC_DBG_XWM, "XCB_MAPPING_NOTIFY");
             break;
 
             default:
