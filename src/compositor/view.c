@@ -351,11 +351,8 @@ wlc_view_close(struct wlc_view *view)
       wlc_x11_window_close(view->x11_window);
    } else if (view->shell_surface.resource) {
       wlc_shell_surface_release(&view->shell_surface);
-      wlc_surface_free(view->surface);
-   }
-
-   if (view->client && !view->parent && !view->x11_window)
       wlc_client_free(view->client);
+   }
 }
 
 WLC_API struct wl_list*
