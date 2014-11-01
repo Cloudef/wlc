@@ -236,9 +236,6 @@ terminate(struct ctx *context)
       // egl.api.eglTerminate(context->display);
    }
 
-   if (context->bsurface && context->bsurface->api.terminate)
-      context->bsurface->api.terminate(context->bsurface);
-
    free(context);
 }
 

@@ -53,7 +53,7 @@ struct wlc_output {
    uint32_t frame_time;
    uint32_t mode;
 
-   bool pending, scheduled, activity;
+   bool pending, scheduled, activity, terminating;
 };
 
 void wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts);
@@ -61,7 +61,9 @@ void wlc_output_schedule_repaint(struct wlc_output *output);
 bool wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode);
 bool wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface, struct wlc_buffer *buffer);
 void wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surface);
+bool wlc_output_set_surface(struct wlc_output *output, struct wlc_backend_surface *surface);
 struct wlc_output* wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *surface, struct wlc_output_information *info);
+void wlc_output_terminate(struct wlc_output *output);
 void wlc_output_free(struct wlc_output *output);
 
 #endif /* _WLC_OUTPUT_H_ */

@@ -29,6 +29,9 @@ void wlc_backend_surface_free(struct wlc_backend_surface *surface)
 {
    assert(surface);
 
+   if (surface->api.terminate)
+      surface->api.terminate(surface->internal);
+
    if (surface->internal_size > 0 && surface->internal)
       free(surface->internal);
 

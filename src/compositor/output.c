@@ -12,6 +12,7 @@
 #include "seat/seat.h"
 #include "seat/pointer.h"
 
+#include "backend/backend.h"
 #include "context/context.h"
 #include "render/render.h"
 
@@ -99,14 +100,22 @@ fail:
    wl_client_post_no_memory(client);
 }
 
+static bool
+should_render(struct wlc_output *output)
+{
+   return (wlc_is_active() && !output->pending && output->context && output->render);
+}
+
 static void
 repaint(struct wlc_output *output)
 {
    assert(output);
    output->activity = false;
 
-   if (!wlc_is_active() || output->pending) {
-      output->scheduled = false;
+   if (!should_render(output)) {
+      struct timespec ts;
+      wlc_get_time(&ts);
+      wlc_output_finish_frame(output, &ts);
       return;
    }
 
@@ -157,13 +166,19 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 
    output->frame_time = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
 
-   if (output->activity) {
+   if (output->activity && !output->terminating) {
       wlc_dlog(WLC_DBG_RENDER, "-> Partial frame with activity");
       repaint(output);
+      return;
    }
 
    output->scheduled = false;
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
+
+   if (output->terminating) {
+      output->compositor->api.remove_output(output->compositor, output);
+      output->terminating = false;
+   }
 }
 
 bool
@@ -219,12 +234,58 @@ wlc_output_schedule_repaint(struct wlc_output *output)
 
    output->activity = true;
 
-   if (output->scheduled || output->pending)
+   if (output->scheduled || !should_render(output))
       return;
 
    output->scheduled = true;
    wl_event_loop_add_idle(output->compositor->event_loop, cb_repaint_idle, output);
    wlc_dlog(WLC_DBG_RENDER, "-> Repaint scheduled");
+}
+
+bool
+wlc_output_set_surface(struct wlc_output *output, struct wlc_backend_surface *surface)
+{
+   if (output->surface == surface)
+      return true;
+
+   if (output->surface) {
+      if (output->render) {
+         wlc_render_free(output->render);
+         output->render = NULL;
+      }
+
+      if (output->context) {
+         wlc_context_free(output->context);
+         output->context = NULL;
+      }
+
+      if (output->surface) {
+         wlc_backend_surface_free(output->surface);
+         output->surface = NULL;
+      }
+   }
+
+   if ((output->surface = surface)) {
+      if (!(output->context = wlc_context_new(surface)))
+         goto fail;
+
+      if (!(output->render = wlc_render_new(output->context)))
+         goto fail;
+   }
+
+   return true;
+
+fail:
+   wlc_output_set_surface(output, NULL);
+   return false;
+}
+
+void
+wlc_output_terminate(struct wlc_output *output)
+{
+   assert(output);
+   output->terminating = true;
+   wlc_output_schedule_repaint(output);
 }
 
 void
@@ -240,18 +301,14 @@ wlc_output_free(struct wlc_output *output)
    wl_list_for_each_safe(s, sn, &output->spaces, link)
       wlc_space_free(s);
 
+   wlc_output_set_surface(output, NULL);
+
    wlc_string_release(&output->information.make);
    wlc_string_release(&output->information.model);
    wl_array_release(&output->information.modes);
 
    if (output->global)
       wl_global_destroy(output->global);
-
-   if (output->render)
-      wlc_render_free(output->render);
-
-   if (output->context)
-      wlc_context_free(output->context);
 
    free(output);
 }
@@ -270,16 +327,12 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *su
    wl_list_init(&output->resources);
    wl_list_init(&output->spaces);
 
-   output->surface = surface;
    output->compositor = compositor;
 
    if (!(output->space = wlc_space_new(output)))
       goto fail;
 
-   if (!(output->context = wlc_context_new(surface)))
-      goto fail;
-
-   if (!(output->render = wlc_render_new(output->context)))
+   if (!wlc_output_set_surface(output, surface))
       goto fail;
 
    wlc_context_bind_to_wl_display(output->context, compositor->display);

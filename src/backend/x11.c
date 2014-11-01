@@ -219,10 +219,11 @@ page_flip(struct wlc_backend_surface *surface)
 static void
 surface_free(struct wlc_backend_surface *surface)
 {
-   if (surface->window != x11.screen->root)
-      x11.api.xcb_destroy_window(x11.connection, surface->window);
+   if (surface->window == x11.screen->root)
+      return;
 
-   wlc_backend_surface_free(surface);
+   x11.api.xcb_destroy_window(x11.connection, surface->window);
+   x11.api.xcb_flush(x11.connection);
 }
 
 static bool
@@ -249,17 +250,11 @@ add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_ou
    return true;
 
 fail:
+   if (surface)
+      wlc_backend_surface_free(surface);
    if (output)
       wlc_output_free(output);
    return false;
-}
-
-static int
-remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
-{
-   compositor->api.remove_output(compositor, output);
-   wlc_output_free(output);
-   return wl_list_length(&compositor->outputs);
 }
 
 static struct wlc_output*
@@ -295,8 +290,8 @@ x11_event(int fd, uint32_t mask, void *data)
             xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
             if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
                struct wlc_output *output;
-               if (!(output = output_for_window(ev->window, &seat->compositor->outputs)) || remove_output(seat->compositor, output) <= 0)
-                  exit(0);
+               if ((output = output_for_window(ev->window, &seat->compositor->outputs)))
+                  wlc_output_terminate(output);
             }
          }
          break;
@@ -373,12 +368,6 @@ terminate(void)
 {
    if (x11.cursor)
       x11.api.xcb_free_cursor(x11.connection, x11.cursor);
-
-   if (x11.compositor) {
-      struct wlc_output *output, *on;
-      wl_list_for_each_safe(output, on, &x11.compositor->outputs, link)
-         remove_output(x11.compositor, output);
-   }
 
    if (x11.display)
       x11.api.XCloseDisplay(x11.display);

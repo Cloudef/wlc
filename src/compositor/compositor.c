@@ -246,7 +246,6 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    wl_list_remove(&output->link);
 
    if (compositor->output == output) {
-      compositor->output->pending = true; // FIXME: we should allow repaint to go once with "destroying" state
       compositor->output = NULL; // make sure we don't redraw
       struct wlc_output *o = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
       wlc_compositor_focus_output(compositor, o);
@@ -266,6 +265,14 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
 
    if (compositor->interface.output.destroyed)
       compositor->interface.output.destroyed(compositor, output);
+
+   // Remove surface from output
+   // Destroys rendering context, etc...
+   wlc_output_set_surface(output, NULL);
+
+   // Quit
+   if (compositor->terminating && wl_list_empty(&compositor->outputs))
+      wl_display_terminate(compositor->display);
 }
 
 WLC_API void
@@ -314,7 +321,16 @@ WLC_API void
 wlc_compositor_terminate(struct wlc_compositor *compositor)
 {
    assert(compositor);
-   wl_display_terminate(compositor->display);
+
+   compositor->terminating = true;
+
+   if (wl_list_empty(&compositor->outputs)) {
+      wl_display_terminate(compositor->display);
+   } else {
+      struct wlc_output *o;
+      wl_list_for_each(o, &compositor->outputs, link)
+         wlc_output_terminate(o);
+   }
 }
 
 WLC_API void

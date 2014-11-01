@@ -25,6 +25,9 @@ is_valid_view(const struct wlc_view *view)
 static struct wlc_view*
 view_under_pointer(struct wlc_pointer *pointer)
 {
+   if (!pointer->compositor->output)
+      return NULL;
+
    if (pointer->focus && pointer->grabbing)
       return pointer->focus;
 
@@ -144,7 +147,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
    struct wlc_origin d;
    wlc_pointer_focus(pointer, focused, &d);
 
-   wlc_output_schedule_repaint(pointer->compositor->output);
+   if (pointer->compositor->output)
+      wlc_output_schedule_repaint(pointer->compositor->output);
 
    if (!is_valid_view(focused))
       return;

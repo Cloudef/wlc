@@ -294,6 +294,9 @@ handle_request(const int sock, int fd, const struct msg_request *request)
 static void
 cleanup(void)
 {
+   if (wlc.drm.drop_master)
+      wlc.drm.drop_master();
+
    if (wlc.tty >= 0) {
       wlc_log(WLC_LOG_INFO, "Restoring tty %d", wlc.tty);
       struct vt_mode mode = { .mode = VT_AUTO };
@@ -497,7 +500,7 @@ sigusr_handler(int signal)
       case SIGUSR1:
          wlc_log(WLC_LOG_INFO, "SIGUSR1");
 
-         if (!wlc.drm.drop_master()) {
+         if (wlc.drm.drop_master && !wlc.drm.drop_master()) {
             wlc_log(WLC_LOG_WARN, "Failed to drop DRM master");
             return;
          }
@@ -513,7 +516,7 @@ sigusr_handler(int signal)
       case SIGUSR2:
          wlc_log(WLC_LOG_INFO, "SIGUSR2");
 
-         if (!wlc.drm.set_master()) {
+         if (wlc.drm.set_master && !wlc.drm.set_master()) {
             wlc_log(WLC_LOG_WARN, "Failed to set DRM master");
             return;
          }

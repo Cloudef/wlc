@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/select.h>
 #include <xf86drm.h>
@@ -22,6 +23,8 @@
 #include <wayland-util.h>
 
 // FIXME: contains global state
+//        dropMaster && setMaster needs root or logind
+//        make another controlled fork in wlc.c handle those if no logind
 
 #define NUM_FBS 2
 
@@ -280,9 +283,7 @@ page_flip(struct wlc_backend_surface *bsurface)
    struct drm_surface *dsurface = bsurface->internal;
    assert(!dsurface->output->pending);
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
-
-   if (fb->bo)
-      release_fb(dsurface->surface, fb);
+   release_fb(dsurface->surface, fb);
 
    if (!create_fb(dsurface->surface, fb))
       return false;
@@ -313,18 +314,21 @@ fail:
 static void
 surface_free(struct wlc_backend_surface *bsurface)
 {
-   struct drm_surface *surface = bsurface->internal;
+   struct drm_surface *dsurface = bsurface->internal;
 
-   if (surface->surface)
-      gbm.api.gbm_surface_destroy(surface->surface);
+#if 0 // XXX: crash?
+   struct drm_fb *fb = &dsurface->fb[dsurface->index];
+   release_fb(dsurface->surface, fb);
 
-   if (surface->encoder)
-      drm.api.drmModeFreeEncoder(surface->encoder);
+   if (dsurface->surface)
+      gbm.api.gbm_surface_destroy(dsurface->surface);
+#endif
 
-   if (surface->connector)
-      drm.api.drmModeFreeConnector(surface->connector);
+   if (dsurface->encoder)
+      drm.api.drmModeFreeEncoder(dsurface->encoder);
 
-   wlc_backend_surface_free(bsurface);
+   if (dsurface->connector)
+      drm.api.drmModeFreeConnector(dsurface->connector);
 }
 
 static bool
@@ -332,7 +336,7 @@ add_output(struct wlc_compositor *compositor, struct gbm_device *device, struct 
 {
    struct wlc_backend_surface *bsurface = NULL;
    if (!(bsurface = wlc_backend_surface_new(surface_free, sizeof(struct drm_surface))))
-      goto fail;
+      return false;
 
    struct drm_surface *dsurface = bsurface->internal;
    dsurface->connector = info->connector;
@@ -358,14 +362,6 @@ fail:
    if (bsurface && dsurface->output)
       wlc_output_free(dsurface->output);
    return false;
-}
-
-static int
-remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
-{
-   compositor->api.remove_output(compositor, output);
-   wlc_output_free(output);
-   return wl_list_length(&compositor->outputs);
 }
 
 static drmModeEncoder*
@@ -497,6 +493,9 @@ terminate(void)
    if (gbm.api.handle)
       dlclose(gbm.api.handle);
 
+   drop_master();
+   close(drm.fd);
+
    wlc_set_drm_control_functions(NULL, NULL);
 
    memset(&drm, 0, sizeof(drm));
@@ -546,6 +545,8 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
       goto fail;
 
    wlc_set_drm_control_functions(set_master, drop_master);
+   set_master();
+
    out_backend->api.terminate = terminate;
    return true;
 
