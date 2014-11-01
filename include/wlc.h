@@ -42,7 +42,8 @@ enum wlc_view_type_bit {
    WLC_BIT_OVERRIDE_REDIRECT = 1<<0, // override redirect x11 windows
    WLC_BIT_UNMANAGED = 1<<1, // tooltips, dnd's, menus x11
    WLC_BIT_SPLASH = 1<<2, // splash screens x11
-   WLC_BIT_POPUP = 1<<3, // xdg-shell, wl-shell popups
+   WLC_BIT_MODAL = 1<<3, // modal windows x11
+   WLC_BIT_POPUP = 1<<4, // xdg-shell, wl-shell popups
 };
 
 /** mods in interface.keyboard.key function */

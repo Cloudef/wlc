@@ -298,7 +298,7 @@ set_parent(struct wlc_x11_window *win, xcb_window_t parent_id)
 {
    assert(win && win->view);
 
-   if (!parent_id) {
+   if (!parent_id || win->id == parent_id) {
       wlc_view_set_parent(win->view, NULL);
       return;
    }
@@ -325,8 +325,8 @@ handle_state(struct wlc_x11_window *win, xcb_atom_t *atoms, size_t nmemb, enum n
          bool toggle = !(win->view->pending.state & WLC_BIT_FULLSCREEN);
          wlc_view_request_state(win->view, WLC_BIT_FULLSCREEN, (state == 0 ? false : (state == 1 ? true : toggle)));
       } else if (atoms[i] == x11.atoms[NET_WM_STATE_MODAL] || atoms[i] == x11.atoms[NET_WM_STATE_ABOVE]) {
-         bool toggle = !(win->view->type & WLC_BIT_UNMANAGED);
-         win->view->type = BIT_TOGGLE(win->view->type, WLC_BIT_UNMANAGED, (state == 0 ? false : (state == 1 ? true : toggle)));
+         bool toggle = !(win->view->type & WLC_BIT_MODAL);
+         win->view->type = BIT_TOGGLE(win->view->type, WLC_BIT_MODAL, (state == 0 ? false : (state == 1 ? true : toggle)));
       }
    }
 #undef BIT_TOGGLE
@@ -395,7 +395,7 @@ read_properties(struct wlc_x11_window *win)
          break;
          case XCB_ATOM_ATOM: {
             // Window type
-            win->view->type &= ~WLC_BIT_UNMANAGED | ~WLC_BIT_SPLASH;
+            win->view->type &= ~WLC_BIT_UNMANAGED | ~WLC_BIT_SPLASH | ~WLC_BIT_MODAL;
             xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
             for (uint32_t i = 0; i < reply->value_len; ++i) {
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP]  ||
@@ -405,6 +405,8 @@ read_properties(struct wlc_x11_window *win)
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU]) {
                   win->view->type |= WLC_BIT_UNMANAGED;
                }
+               if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DIALOG])
+                  win->view->type |= WLC_BIT_MODAL;
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH])
                   win->view->type |= WLC_BIT_SPLASH;
             }
@@ -484,6 +486,9 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
       win->view->pending.geometry = geometry;
+
+   if (!win->view->parent && xwm.focus && (win->view->type & WLC_BIT_MODAL))
+      set_parent(win, xwm.focus);
 
    if (surface->output) {
       // Make sure the view is mapped to space.
