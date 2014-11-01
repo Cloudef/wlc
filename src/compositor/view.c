@@ -68,7 +68,8 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       if (view->xdg_surface.resource) {
          uint32_t serial = wl_display_next_serial(view->compositor->display);
          xdg_surface_send_configure(view->xdg_surface.resource, pending->geometry.size.w, pending->geometry.size.h, &view->wl_state, serial);
-         view->ack = ACK_PENDING;
+         // XXX: Some clients such simple-damage from weston does not trigger the ack, force next commit
+         view->ack = ACK_NEXT_COMMIT;
       } else if (view->shell_surface.resource) {
          wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, pending->geometry.size.w, pending->geometry.size.h);
          view->ack = ACK_NEXT_COMMIT;
@@ -76,15 +77,13 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    }
 
    if (view->x11_window) {
-      // XXX: Maybe we can ack x11 windows with CONFIGURE_NOTIFY too.
-
       if (!wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin)) {
          wlc_x11_window_position(view->x11_window, pending->geometry.origin.x, pending->geometry.origin.y);
-         // view->ack = ACK_NEXT_COMMIT;
+         view->ack = ACK_NEXT_COMMIT;
       }
       if (size_changed) {
          wlc_x11_window_resize(view->x11_window, pending->geometry.size.w, pending->geometry.size.h);
-         // view->ack = ACK_NEXT_COMMIT;
+         view->ack = ACK_NEXT_COMMIT;
       }
    }
 

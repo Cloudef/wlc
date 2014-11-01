@@ -773,13 +773,10 @@ x11_event(int fd, uint32_t mask, void *data)
             break;
 
             case XCB_CONFIGURE_NOTIFY: {
-               // XXX: Maybe we could ack here?
                xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
                if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) && win->view) {
-                  // win->view->ack = ACK_NEXT_COMMIT;
-
                   if (win->override_redirect != ev->override_redirect) {
                      if (ev->override_redirect)
                         win->view->type |= WLC_BIT_OVERRIDE_REDIRECT;
