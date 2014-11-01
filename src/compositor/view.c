@@ -133,7 +133,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
          view->ack = ACK_NEXT_COMMIT;
       } else if (view->x11_window) {
          wlc_x11_window_resize(view->x11_window, view->pending.geometry.size.w, view->pending.geometry.size.h);
-         // view->ack = ACK_NEXT_COMMIT;
+         view->ack = ACK_NEXT_COMMIT;
       }
    } else {
       memcpy(&view->commit, &view->pending, sizeof(view->commit));
