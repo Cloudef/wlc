@@ -204,6 +204,10 @@ wl_cb_surface_commit(struct wl_client *wl_client, struct wl_resource *resource)
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
 
    commit_state(surface, &surface->pending, &surface->commit);
+
+   if (surface->output)
+      wlc_output_schedule_repaint(surface->output);
+
    wlc_dlog(WLC_DBG_RENDER, "-> Commit request");
 }
 
