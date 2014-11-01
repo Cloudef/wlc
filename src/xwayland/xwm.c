@@ -687,6 +687,14 @@ x11_event(int fd, uint32_t mask, void *data)
             }
             break;
 
+            case XCB_UNMAP_NOTIFY: {
+               xcb_unmap_notify_event_t *ev = (xcb_unmap_notify_event_t*)event;
+               struct wlc_x11_window *win;
+               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
+                  wlc_x11_window_free(win);
+            }
+            break;
+
             case XCB_DESTROY_NOTIFY: {
                xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)event;
                struct wlc_x11_window *win;
@@ -730,7 +738,6 @@ x11_event(int fd, uint32_t mask, void *data)
                   struct wlc_geometry r = { { ev->x, ev->y }, { ev->width, ev->height } };
                   wlc_view_request_geometry(win->view, &r);
                }
-
             }
             break;
 
@@ -760,8 +767,6 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_FOCUS_OUT:
             break;
             case XCB_MAPPING_NOTIFY:
-            break;
-            case XCB_UNMAP_NOTIFY:
             break;
 
             default:
