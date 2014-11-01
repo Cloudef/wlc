@@ -566,7 +566,7 @@ backtrace(int signal)
 
       /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
       char buf[255];
-      const int fd = fileno((wlc.log_file ? wlc.log_file : stderr));
+      const int fd = fileno(wlc_get_log_file());
       snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}' 1>&%d", getppid(), fd);
       execl("/bin/sh", "/bin/sh", "-c", buf, NULL);
       wlc_log(WLC_LOG_ERROR, "Failed to launch gdb for backtrace");
@@ -745,7 +745,7 @@ wlc_log_timestamp(FILE *out)
 static void
 wl_cb_log(const char *fmt, va_list args)
 {
-   FILE *out = (wlc.log_file ? wlc.log_file : stderr);
+   FILE *out = wlc_get_log_file();
 
    if (out != stderr && out != stdout)
       wlc_log_timestamp(out);
@@ -758,7 +758,7 @@ wl_cb_log(const char *fmt, va_list args)
 WLC_API void
 wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list args)
 {
-   FILE *out = (wlc.log_file ? wlc.log_file : stderr);
+   FILE *out = wlc_get_log_file();
 
    if (out == stderr || out == stdout) {
       fprintf(out, "wlc: ");
@@ -789,6 +789,12 @@ wlc_log(const enum wlc_log_type type, const char *fmt, ...)
    va_start(argp, fmt);
    wlc_vlog(type, fmt, argp);
    va_end(argp);
+}
+
+WLC_API FILE*
+wlc_get_log_file(void)
+{
+   return (wlc.log_file ? wlc.log_file : stderr);
 }
 
 WLC_API void

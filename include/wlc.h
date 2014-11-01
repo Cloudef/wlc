@@ -118,6 +118,7 @@ struct wlc_interface {
 };
 
 bool wlc_init(const int argc, char *argv[]);
+FILE* wlc_get_log_file(void);
 void wlc_set_log_file(FILE *out);
 WLC_LOG_ATTR(2, 3) void wlc_log(const enum wlc_log_type type, const char *fmt, ...);
 void wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap);

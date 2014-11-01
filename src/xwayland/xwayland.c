@@ -243,6 +243,13 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
 
       setenv("XDG_RUNTIME_DIR", xdg_runtime, true);
       setenv("WAYLAND_SOCKET", strings[0], true);
+
+      if (wlc_get_log_file() != stdout)
+         dup2(fileno(wlc_get_log_file()), STDOUT_FILENO);
+
+      if (wlc_get_log_file() != stderr)
+         dup2(fileno(wlc_get_log_file()), STDERR_FILENO);
+
       execlp("Xwayland", "Xwayland",
             xserver.display_name,
             "-rootless",
