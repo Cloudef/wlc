@@ -428,6 +428,8 @@ wlc_compositor_new(const struct wlc_interface *interface)
    if (!(wlc_xwayland_init(compositor)))
       exit(EXIT_FAILURE);
 
+   const char *bg = getenv("WLC_BG");
+   compositor->options.enable_bg = (bg && !strcmp(bg, "0") ? false : true);
    return compositor;
 
 out_of_memory:

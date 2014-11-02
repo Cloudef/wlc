@@ -140,8 +140,11 @@ repaint(struct wlc_output *output)
 
    wlc_render_time(output->render, (float)(output->frame_time / 10000.0f) * 10.0f);
 
-   if (output->background_visible)
+   if (output->background_visible) {
       wlc_render_background(output->render);
+   } else if (!output->compositor->options.enable_bg) {
+      wlc_render_clear(output->render);
+   }
 
    struct wl_list callbacks;
    wl_list_init(&callbacks);
@@ -204,7 +207,7 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    output->scheduled = false;
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
 
-   output->background_visible = is_visible(output);
+   output->background_visible = (output->compositor->options.enable_bg ? is_visible(output) : false);
    if (output->background_visible && output->idle_timer)
       wl_event_source_timer_update(output->idle_timer, 16);
 

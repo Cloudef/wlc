@@ -37,6 +37,11 @@ struct wlc_compositor {
       void (*active_output)(struct wlc_compositor *compositor, struct wlc_output *output);
    } api;
 
+   struct {
+      // XXX: temporary
+      bool enable_bg;
+   } options;
+
    bool terminating;
 };
 
