@@ -216,23 +216,13 @@ page_flip(struct wlc_backend_surface *surface)
    return true;
 }
 
-static void
-surface_free(struct wlc_backend_surface *surface)
-{
-   if (surface->window == x11.screen->root)
-      return;
-
-   x11.api.xcb_destroy_window(x11.connection, surface->window);
-   x11.api.xcb_flush(x11.connection);
-}
-
 static bool
 add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_output_information *info)
 {
    struct wlc_output *output = NULL;
    struct wlc_backend_surface *surface = NULL;
 
-   if (!(surface = wlc_backend_surface_new(surface_free, 0)))
+   if (!(surface = wlc_backend_surface_new(NULL, 0)))
       goto fail;
 
    surface->window = window;
@@ -290,8 +280,16 @@ x11_event(int fd, uint32_t mask, void *data)
             xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
             if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
                struct wlc_output *output;
-               if ((output = output_for_window(ev->window, &seat->compositor->outputs)))
-                  wlc_output_terminate(output);
+               if ((output = output_for_window(ev->window, &seat->compositor->outputs))) {
+                  if (wl_list_length(&seat->compositor->outputs) <= 1) {
+                     wlc_compositor_terminate(seat->compositor);
+                     x11.api.XCloseDisplay(x11.display);
+                     x11.display = NULL;
+                  } else {
+                     wlc_output_terminate(output);
+                     x11.api.xcb_destroy_window(x11.connection, ev->window);
+                  }
+               }
             }
          }
          break;
