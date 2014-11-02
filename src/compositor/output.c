@@ -138,7 +138,9 @@ repaint(struct wlc_output *output)
    if (!wlc_render_bind(output->render, output))
       return;
 
-   if (is_visible(output))
+   wlc_render_time(output->render, (float)(output->frame_time / 10000.0f) * 10.0f);
+
+   if (output->background_visible)
       wlc_render_background(output->render);
 
    struct wl_list callbacks;
@@ -179,7 +181,10 @@ cb_repaint_idle(void *data)
 static int
 cb_idle_timer(void *data)
 {
-   wlc_output_schedule_repaint(data);
+   struct wlc_output *output = data;
+   output->activity = true;
+   if (!output->scheduled)
+      repaint(output);
    return 1;
 }
 
@@ -199,7 +204,8 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    output->scheduled = false;
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
 
-   if (is_visible(output) && output->idle_timer)
+   output->background_visible = is_visible(output);
+   if (output->background_visible && output->idle_timer)
       wl_event_source_timer_update(output->idle_timer, 16);
 
    if (output->terminating) {

@@ -62,6 +62,7 @@ struct ctx {
    } programs[PROGRAM_LAST];
 
    struct wlc_size resolution;
+   float time;
 
    GLuint textures[TEXTURE_LAST];
 
@@ -796,6 +797,13 @@ read_pixels(struct ctx *context, struct wlc_geometry *geometry, void *out_data)
 }
 
 static void
+frame_time(struct ctx *context, float time)
+{
+   assert(context);
+   context->time = time;
+}
+
+static void
 swap(struct ctx *context)
 {
    assert(context);
@@ -809,7 +817,7 @@ background(struct ctx *context)
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
    settings.program = PROGRAM_BG;
-   settings.time = (wlc_get_time(NULL) / 1000000000.0f) * 1000000.0f;
+   settings.time = context->time;
    struct wlc_geometry g = { { 0, 0 }, context->resolution };
    texture_paint(context, NULL, 0, &g, &settings);
 }
@@ -869,6 +877,7 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
    api->read_pixels = read_pixels;
    api->background = background;
    api->clear = clear;
+   api->time = frame_time;
    api->swap = swap;
 
    wlc_log(WLC_LOG_INFO, "GLES2 renderer initialized");

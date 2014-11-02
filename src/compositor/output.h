@@ -55,6 +55,7 @@ struct wlc_output {
    uint32_t mode;
 
    bool pending, scheduled, activity, terminating;
+   bool background_visible;
 };
 
 void wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts);
