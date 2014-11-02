@@ -68,11 +68,12 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       if (view->xdg_surface.resource) {
          uint32_t serial = wl_display_next_serial(view->compositor->display);
          xdg_surface_send_configure(view->xdg_surface.resource, pending->geometry.size.w, pending->geometry.size.h, &view->wl_state, serial);
-         // XXX: Some clients such simple-damage from weston does not trigger the ack, force next commit
-         view->ack = ACK_NEXT_COMMIT;
+         // XXX: Some clients such simple-damage from weston does not trigger the ack, force next commit.
+         //      Otherwise we could go pending state here and wait for surface reply.
+         view->ack = (size_changed ? ACK_NEXT_COMMIT : ACK_NONE);
       } else if (view->shell_surface.resource) {
          wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, pending->geometry.size.w, pending->geometry.size.h);
-         view->ack = ACK_NEXT_COMMIT;
+         view->ack = (size_changed ? ACK_NEXT_COMMIT : ACK_NONE);
       }
    }
 
@@ -127,7 +128,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
       if (view->xdg_surface.resource) {
          uint32_t serial = wl_display_next_serial(view->compositor->display);
          xdg_surface_send_configure(view->xdg_surface.resource, view->pending.geometry.size.w, view->pending.geometry.size.h, &view->wl_state, serial);
-         view->ack = ACK_PENDING;
+         view->ack = ACK_NEXT_COMMIT;
       } else if (view->shell_surface.resource) {
          wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, view->pending.geometry.size.w, view->pending.geometry.size.h);
          view->ack = ACK_NEXT_COMMIT;
