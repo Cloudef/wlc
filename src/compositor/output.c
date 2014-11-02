@@ -122,7 +122,7 @@ is_visible(struct wlc_output *output)
    return !wlc_geometry_contains(&g, &root);
 }
 
-static void
+static bool
 repaint(struct wlc_output *output)
 {
    assert(output);
@@ -132,11 +132,11 @@ repaint(struct wlc_output *output)
       struct timespec ts;
       wlc_get_time(&ts);
       wlc_output_finish_frame(output, &ts);
-      return;
+      return true;
    }
 
    if (!wlc_render_bind(output->render, output))
-      return;
+      return false;
 
    wlc_render_time(output->render, (float)(output->frame_time / 10000.0f) * 10.0f);
 
@@ -173,6 +173,7 @@ repaint(struct wlc_output *output)
    }
 
    wlc_dlog(WLC_DBG_RENDER, "-> Repaint");
+   return true;
 }
 
 static void
@@ -394,7 +395,7 @@ wlc_output_get_pixels(struct wlc_output *output, void *out_rgba)
 {
    assert(output && out_rgba);
 
-   if (!wlc_render_bind(output->render, output))
+   if (!repaint(output))
       return false;
 
    struct wlc_geometry g = { { 0, 0 }, output->resolution };
