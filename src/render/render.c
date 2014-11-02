@@ -17,7 +17,8 @@ wlc_render_bind(struct wlc_render *render, struct wlc_output *output)
    return render->api.bind(render->render, output);
 }
 
-void wlc_render_surface_destroy(struct wlc_render *render, struct wlc_surface *surface)
+void
+wlc_render_surface_destroy(struct wlc_render *render, struct wlc_surface *surface)
 {
    assert(render && surface);
    render->api.surface_destroy(render->render, surface);
@@ -30,31 +31,43 @@ wlc_render_surface_attach(struct wlc_render *render, struct wlc_surface *surface
    return render->api.surface_attach(render->render, surface, buffer);
 }
 
-void wlc_render_view_paint(struct wlc_render *render, struct wlc_view *view)
+void
+wlc_render_view_paint(struct wlc_render *render, struct wlc_view *view)
 {
    assert(render && view);
    render->api.view_paint(render->render, view);
 }
 
-void wlc_render_surface_paint(struct wlc_render *render, struct wlc_surface *surface, struct wlc_origin *pos)
+void
+wlc_render_surface_paint(struct wlc_render *render, struct wlc_surface *surface, struct wlc_origin *pos)
 {
    assert(render);
    render->api.surface_paint(render->render, surface, pos);
 }
 
-void wlc_render_pointer_paint(struct wlc_render *render, struct wlc_origin *pos)
+void
+wlc_render_pointer_paint(struct wlc_render *render, struct wlc_origin *pos)
 {
    assert(render);
    render->api.pointer_paint(render->render, pos);
 }
 
-void wlc_render_clear(struct wlc_render *render)
+void
+wlc_render_read_pixels(struct wlc_render *render, struct wlc_geometry *geometry, void *out_data)
+{
+   assert(render);
+   render->api.read_pixels(render->render, geometry, out_data);
+}
+
+void
+wlc_render_clear(struct wlc_render *render)
 {
    assert(render);
    render->api.clear(render->render);
 }
 
-void wlc_render_swap(struct wlc_render *render)
+void
+wlc_render_swap(struct wlc_render *render)
 {
    assert(render);
    render->api.swap(render->render);
