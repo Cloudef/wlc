@@ -355,7 +355,7 @@ create_context(void)
       "     float t = (time + float(i) * 5.0) * 0.5;\n"
       "     color += vec3(0.15, 0.18, 0.15) * float(i + 1) * (1.0 / distance(vec2(sin(t * 0.5) / 2.0 + 1.0, cos(t * 0.7) / 2.0), pos) * 0.09);\n"
       "  }\n"
-      "  gl_FragColor = vec4(color, 0.8);\n"
+      "  gl_FragColor = vec4(color, 1.0);\n"
       "}\n";
 
    static const char *frag_shader_rgb_text =
