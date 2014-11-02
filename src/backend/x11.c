@@ -86,7 +86,7 @@ static struct {
    struct wlc_udev *udev;
 #endif
    struct wl_event_source *event_source;
-} seat;
+} xseat;
 
 static bool
 x11_load(void)
@@ -372,8 +372,8 @@ terminate(void)
    if (x11.display)
       x11.api.XCloseDisplay(x11.display);
 
-   if (seat.event_source)
-      wl_event_source_remove(seat.event_source);
+   if (xseat.event_source)
+      wl_event_source_remove(xseat.event_source);
 
    if (x11.api.x11_handle)
       dlclose(x11.api.x11_handle);
@@ -499,14 +499,14 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    }
 
 #if X11_USE_UDEV_LIBINPUT
-   if (!(seat.udev = wlc_udev_new(compositor)))
+   if (!(xseat.udev = wlc_udev_new(compositor)))
       goto fail;
 #endif
 
-   if (!(seat.event_source = wl_event_loop_add_fd(compositor->event_loop, x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, compositor->seat)))
+   if (!(xseat.event_source = wl_event_loop_add_fd(compositor->event_loop, x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, compositor->seat)))
       goto event_source_fail;
 
-   wl_event_source_check(seat.event_source);
+   wl_event_source_check(xseat.event_source);
 
    x11.compositor = compositor;
    out_backend->api.terminate = terminate;
