@@ -60,6 +60,13 @@ wlc_render_read_pixels(struct wlc_render *render, struct wlc_geometry *geometry,
 }
 
 void
+wlc_render_background(struct wlc_render *render)
+{
+   assert(render);
+   render->api.background(render->render);
+}
+
+void
 wlc_render_clear(struct wlc_render *render)
 {
    assert(render);

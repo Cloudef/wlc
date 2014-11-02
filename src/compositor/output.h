@@ -46,6 +46,7 @@ struct wlc_output {
    struct wlc_render *render;
    struct wlc_space *space;
    struct wl_global *global;
+   struct wl_event_source *idle_timer;
    struct wlc_output_information information;
    struct wlc_size resolution;
    struct wl_list resources, spaces;

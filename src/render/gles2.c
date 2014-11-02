@@ -27,12 +27,13 @@ enum program_type {
    PROGRAM_RGB,
    PROGRAM_RGBA,
    PROGRAM_CURSOR,
+   PROGRAM_BG,
    PROGRAM_LAST,
 };
 
 enum {
-   UNIFORM_WIDTH,
-   UNIFORM_HEIGHT,
+   UNIFORM_RESOLUTION,
+   UNIFORM_TIME,
    UNIFORM_DIM,
    UNIFORM_LAST,
 };
@@ -44,9 +45,9 @@ enum {
 };
 
 static const char *uniform_names[UNIFORM_LAST] = {
-   "width",
-   "height",
-   "dim"
+   "resolution",
+   "time",
+   "dim",
 };
 
 struct ctx {
@@ -73,6 +74,7 @@ struct ctx {
 struct paint {
    struct wlc_geometry visible;
    float dim;
+   float time;
    enum program_type program;
    bool filter;
 };
@@ -101,7 +103,8 @@ static struct {
       void (*glGetProgramInfoLog)(GLuint, GLsizei, GLsizei*, GLchar*);
       void (*glBindAttribLocation)(GLuint, GLuint, const GLchar*);
       GLint (*glGetUniformLocation)(GLuint, const GLchar *name);
-      void (*glUniform1f)(GLint, GLfloat);
+      void (*glUniform1fv)(GLint, GLsizei count, GLfloat*);
+      void (*glUniform2fv)(GLint, GLsizei count, GLfloat*);
       void (*glEnableVertexAttribArray)(GLuint);
       void (*glVertexAttribPointer)(GLuint, GLint, GLenum, GLboolean, GLsizei, const GLvoid*);
       void (*glDrawArrays)(GLenum, GLint, GLsizei);
@@ -172,7 +175,9 @@ gles2_load(void)
       goto function_pointer_exception;
    if (!(load(glGetUniformLocation)))
       goto function_pointer_exception;
-   if (!(load(glUniform1f)))
+   if (!(load(glUniform1fv)))
+      goto function_pointer_exception;
+   if (!(load(glUniform2fv)))
       goto function_pointer_exception;
    if (!(load(glVertexAttribPointer)))
       goto function_pointer_exception;
@@ -303,13 +308,12 @@ create_context(void)
 {
    static const char *vert_shader_text =
       "precision mediump float;\n"
-      "uniform float width;\n"
-      "uniform float height;\n"
+      "uniform vec2 resolution;\n"
       "mat4 ortho = mat4("
-      "  2.0/width,  0,       0, 0,"
-      "     0,   -2.0/height, 0, 0,"
-      "     0,       0,      -1, 0,"
-      "    -1,       1,       0, 1"
+      "  2.0/resolution.x,         0,          0, 0,"
+      "          0,        -2.0/resolution.y,  0, 0,"
+      "          0,                0,         -1, 0,"
+      "         -1,                1,          0, 1"
       ");\n"
       "attribute vec4 pos;\n"
       "attribute vec2 uv;\n"
@@ -330,6 +334,28 @@ create_context(void)
       "  palette[1] = vec4(1.0, 1.0, 1.0, 1.0);\n"
       "  palette[2] = vec4(0.0, 0.0, 0.0, 0.0);\n"
       "  gl_FragColor = palette[int(texture2D(texture0, v_uv).r * 256.0)];\n"
+      "}\n";
+
+   static const char *frag_shader_bg_text =
+      "precision mediump float;\n"
+      "uniform float time;\n"
+      "uniform vec2 resolution;\n"
+      "varying vec2 v_uv;\n"
+      "float impulse(float x, float k) {\n"
+      "  float h = k * x;\n"
+      "  return h * exp(1.0 - h);\n"
+      "}\n"
+      "void main() {\n"
+      "  vec2 res = resolution;\n"
+      "  vec2 pos = (v_uv * 2.0 - 1.0) * res.x / res.y;\n"
+      "  vec3 color = vec3(0.0);\n"
+      "  float f = impulse(0.01, cos(time * 0.5)) + 0.25;\n"
+      "  color += vec3(0.15, 0.3, 0.35) * (1.0 / distance(vec2(1.0, 0.0), pos) * f);\n"
+      "  for (int i = 0; i < 3; ++i) {\n"
+      "     float t = (time + float(i) * 5.0) * 0.5;\n"
+      "     color += vec3(0.15, 0.18, 0.15) * float(i + 1) * (1.0 / distance(vec2(sin(t * 0.5) / 2.0 + 1.0, cos(t * 0.7) / 2.0), pos) * 0.09);\n"
+      "  }\n"
+      "  gl_FragColor = vec4(color, 0.8);\n"
       "}\n";
 
    static const char *frag_shader_rgb_text =
@@ -358,6 +384,7 @@ create_context(void)
       { vert_shader_text, frag_shader_rgb_text }, // PROGRAM_RGB
       { vert_shader_text, frag_shader_rgba_text }, // PROGRAM_RGBA
       { vert_shader_text, frag_shader_cursor_text }, // PROGRAM_CURSOR
+      { vert_shader_text, frag_shader_bg_text }, // PROGRAM_BG
    };
 
    struct ctx *context;
@@ -436,8 +463,7 @@ bind(struct ctx *context, struct wlc_output *output)
    if (!wlc_size_equals(&context->resolution, &output->resolution)) {
       for (int i = 0; i < PROGRAM_LAST; ++i) {
          set_program(context, i);
-         GL_CALL(gl.api.glUniform1f(context->program->uniforms[UNIFORM_WIDTH], output->resolution.w));
-         GL_CALL(gl.api.glUniform1f(context->program->uniforms[UNIFORM_HEIGHT], output->resolution.h));
+         GL_CALL(gl.api.glUniform2fv(context->program->uniforms[UNIFORM_RESOLUTION], 1, (GLfloat[]){ output->resolution.w, output->resolution.h }));
       }
 
       GL_CALL(gl.api.glViewport(0, 0, output->resolution.w, output->resolution.h));
@@ -675,7 +701,11 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_ge
    set_program(context, settings->program);
 
    if (settings->dim > 0.0f) {
-      GL_CALL(gl.api.glUniform1f(context->program->uniforms[UNIFORM_DIM], settings->dim));
+      GL_CALL(gl.api.glUniform1fv(context->program->uniforms[UNIFORM_DIM], 1, &settings->dim));
+   }
+
+   if (settings->time > 0.0f) {
+      GL_CALL(gl.api.glUniform1fv(context->program->uniforms[UNIFORM_TIME], 1, &settings->time));
    }
 
    for (GLuint i = 0; i < nmemb; ++i) {
@@ -684,14 +714,14 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_ge
 
       GL_CALL(gl.api.glActiveTexture(GL_TEXTURE0 + i));
       GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, textures[i]));
-   }
 
-   if (settings->filter) {
-      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-   } else {
-      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
-      GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+      if (settings->filter) {
+         GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+         GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+      } else {
+         GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+         GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+      }
    }
 
    GL_CALL(gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices));
@@ -773,6 +803,18 @@ swap(struct ctx *context)
 }
 
 static void
+background(struct ctx *context)
+{
+   assert(context);
+   struct paint settings;
+   memset(&settings, 0, sizeof(settings));
+   settings.program = PROGRAM_BG;
+   settings.time = (wlc_get_time(NULL) / 1000000000.0f) * 1000000.0f;
+   struct wlc_geometry g = { { 0, 0 }, context->resolution };
+   texture_paint(context, NULL, 0, &g, &settings);
+}
+
+static void
 clear(struct ctx *context)
 {
    assert(context);
@@ -825,6 +867,7 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
    api->surface_paint = surface_paint;
    api->pointer_paint = pointer_paint;
    api->read_pixels = read_pixels;
+   api->background = background;
    api->clear = clear;
    api->swap = swap;
 

@@ -23,6 +23,7 @@ struct wlc_render_api {
    void (*surface_paint)(struct ctx *render, struct wlc_surface *surface, struct wlc_origin *pos);
    void (*pointer_paint)(struct ctx *render, struct wlc_origin *pos);
    void (*read_pixels)(struct ctx *render, struct wlc_geometry *geometry, void *out_data);
+   void (*background)(struct ctx *render);
    void (*clear)(struct ctx *render);
    void (*swap)(struct ctx *render);
 };
@@ -34,6 +35,7 @@ void wlc_render_view_paint(struct wlc_render *render, struct wlc_view *view);
 void wlc_render_surface_paint(struct wlc_render *render, struct wlc_surface *surface, struct wlc_origin *pos);
 void wlc_render_pointer_paint(struct wlc_render *render, struct wlc_origin *pos);
 void wlc_render_read_pixels(struct wlc_render *render, struct wlc_geometry *geometry, void *out_data);
+void wlc_render_background(struct wlc_render *render);
 void wlc_render_clear(struct wlc_render *render);
 void wlc_render_swap(struct wlc_render *render);
 

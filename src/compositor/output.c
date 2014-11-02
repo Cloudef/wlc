@@ -106,6 +106,22 @@ should_render(struct wlc_output *output)
    return (wlc_is_active() && !output->pending && output->context && output->render);
 }
 
+static bool
+is_visible(struct wlc_output *output)
+{
+   struct wlc_view *view;
+   struct wlc_geometry g = { { INT_MAX, INT_MAX }, { 0, 0 } }, root = { { 0, 0 }, output->resolution };
+   wl_list_for_each(view, &output->space->views, link) {
+      struct wlc_size size = {
+         view->pending.geometry.origin.x + view->pending.geometry.size.w,
+         view->pending.geometry.origin.y + view->pending.geometry.size.h
+      };
+      wlc_origin_min(&g.origin, &view->pending.geometry.origin, &g.origin);
+      wlc_size_max(&g.size, &size, &g.size);
+   }
+   return !wlc_geometry_contains(&g, &root);
+}
+
 static void
 repaint(struct wlc_output *output)
 {
@@ -122,7 +138,8 @@ repaint(struct wlc_output *output)
    if (!wlc_render_bind(output->render, output))
       return;
 
-   wlc_render_clear(output->render);
+   if (is_visible(output))
+      wlc_render_background(output->render);
 
    struct wl_list callbacks;
    wl_list_init(&callbacks);
@@ -159,6 +176,13 @@ cb_repaint_idle(void *data)
    repaint(data);
 }
 
+static int
+cb_idle_timer(void *data)
+{
+   wlc_output_schedule_repaint(data);
+   return 1;
+}
+
 void
 wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 {
@@ -174,6 +198,9 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 
    output->scheduled = false;
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
+
+   if (is_visible(output) && output->idle_timer)
+      wl_event_source_timer_update(output->idle_timer, 16);
 
    if (output->terminating) {
       output->compositor->api.remove_output(output->compositor, output);
@@ -293,6 +320,9 @@ wlc_output_free(struct wlc_output *output)
 {
    assert(output);
 
+   if (output->idle_timer)
+      wl_event_source_remove(output->idle_timer);
+
    struct wl_resource *r, *rn;
    wl_resource_for_each_safe(r, rn, &output->resources)
       wl_resource_destroy(r);
@@ -318,6 +348,9 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *su
 {
    struct wlc_output *output;
    if (!(output = calloc(1, sizeof(struct wlc_output))))
+      goto fail;
+
+   if (!(output->idle_timer = wl_event_loop_add_timer(compositor->event_loop, cb_idle_timer, output)))
       goto fail;
 
    if (!(output->global = wl_global_create(compositor->display, &wl_output_interface, 2, output, &wl_output_bind)))
