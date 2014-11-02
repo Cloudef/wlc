@@ -112,6 +112,7 @@ static struct {
       void (*glTexParameteri)(GLenum, GLenum, GLenum);
       void (*glPixelStorei)(GLenum, GLint);
       void (*glTexImage2D)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const GLvoid*);
+      void (*glReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLvoid*);
 
       PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES;
    } api;
@@ -190,6 +191,8 @@ gles2_load(void)
    if (!(load(glPixelStorei)))
       goto function_pointer_exception;
    if (!(load(glTexImage2D)))
+      goto function_pointer_exception;
+   if (!(load(glReadPixels)))
       goto function_pointer_exception;
 
    // Needed for EGL hw surfaces
@@ -756,6 +759,13 @@ pointer_paint(struct ctx *context, struct wlc_origin *pos)
 }
 
 static void
+read_pixels(struct ctx *context, struct wlc_geometry *geometry, void *out_data)
+{
+   assert(context && geometry && out_data);
+   GL_CALL(gl.api.glReadPixels(geometry->origin.x, geometry->origin.y, geometry->size.w, geometry->size.h, GL_RGBA, GL_UNSIGNED_BYTE, out_data));
+}
+
+static void
 swap(struct ctx *context)
 {
    assert(context);
@@ -814,6 +824,7 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
    api->view_paint = view_paint;
    api->surface_paint = surface_paint;
    api->pointer_paint = pointer_paint;
+   api->read_pixels = read_pixels;
    api->clear = clear;
    api->swap = swap;
 

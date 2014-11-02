@@ -347,6 +347,19 @@ fail:
    return NULL;
 }
 
+WLC_API bool
+wlc_output_get_pixels(struct wlc_output *output, void *out_rgba)
+{
+   assert(output && out_rgba);
+
+   if (!wlc_render_bind(output->render, output))
+      return false;
+
+   struct wlc_geometry g = { { 0, 0 }, output->resolution };
+   wlc_render_read_pixels(output->render, &g, out_rgba);
+   return true;
+}
+
 WLC_API void
 wlc_output_set_resolution(struct wlc_output *output, uint32_t width, uint32_t height)
 {
