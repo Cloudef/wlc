@@ -150,9 +150,10 @@ repaint(struct wlc_output *output)
    output->activity = false;
 
    if (!should_render(output) || !wlc_render_bind(output->render, output)) {
+      wlc_dlog(WLC_DBG_RENDER, "-> Skipped repaint");
       struct timespec ts;
       wlc_get_time(&ts);
-      wlc_output_finish_frame(output, &ts);
+      wlc_output_finish_frame(output, &ts, false);
       return false;
    }
 
@@ -188,6 +189,7 @@ repaint(struct wlc_output *output)
       wlc_pointer_paint(output->compositor->seat->pointer, output->render);
 
    wlc_render_swap(output->render);
+   output->pending = true;
 
    struct wlc_callback *cb, *cbn;
    wl_list_for_each_safe(cb, cbn, &callbacks, link) {
@@ -199,12 +201,6 @@ repaint(struct wlc_output *output)
    return true;
 }
 
-static void
-cb_repaint_idle(void *data)
-{
-   repaint(data);
-}
-
 static int
 cb_idle_timer(void *data)
 {
@@ -213,9 +209,9 @@ cb_idle_timer(void *data)
 }
 
 void
-wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
+wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts, bool vblank)
 {
-   // TODO: handle presentation feedback here
+   output->pending = false;
 
    uint32_t last = output->frame_time;
    output->frame_time = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
@@ -223,25 +219,32 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    uint32_t ms = output->frame_time - last;
    output->render_time += ms / 1000.0f;
 
+   // TODO: handle presentation feedback here
+
    if (output->compositor->options.enable_bg && output->background_visible && !is_visible(output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Background not visible");
       output->background_visible = false;
    }
 
-   if (output->activity && !output->terminating) {
-      wlc_dlog(WLC_DBG_RENDER, "-> Partial frame with activity");
+   if (ms > 80 && output->activity && !output->terminating) {
+      wlc_dlog(WLC_DBG_RENDER, "-> Repainting immediately, due to high frame time");
       repaint(output);
       return;
    }
 
-   output->scheduled = false;
-   wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
+   if ((output->background_visible || output->activity) && !output->terminating) {
+      // If vblank synchronized (kms) time to firendly values.
+      // XXX: Why are these not real frame times with drm (it's smoother in x11)?
+      const float tms = (vblank ? (output->activity ? 2 : 18) : (output->activity ? 16 : 42));
 
-   if (output->background_visible && output->idle_timer) {
-      const float tms = 42; /* target ms (24 fps) */
-      wl_event_source_timer_update(output->idle_timer, fmin(tms * (ms / tms), tms));
-      output->activity = true;
+      // Smooth frame rate changes.
+      wl_event_source_timer_update(output->idle_timer, fmin(fmax(tms * (ms / tms), 1), tms));
+      output->scheduled = true;
+   } else {
+      output->scheduled = false;
    }
+
+   wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
 
    if (output->terminating) {
       output->compositor->api.remove_output(output->compositor, output);
@@ -302,11 +305,11 @@ wlc_output_schedule_repaint(struct wlc_output *output)
 
    output->activity = true;
 
-   if (output->scheduled || !should_render(output))
+   if (output->scheduled)
       return;
 
    output->scheduled = true;
-   wl_event_loop_add_idle(output->compositor->event_loop, cb_repaint_idle, output);
+   wl_event_source_timer_update(output->idle_timer, 1);
    wlc_dlog(WLC_DBG_RENDER, "-> Repaint scheduled");
 }
 

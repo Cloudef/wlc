@@ -215,18 +215,17 @@ release_fb(struct gbm_surface *surface, struct drm_fb *fb)
 static void
 page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
 {
-   (void)fd, (void)frame, (void)sec, (void)usec;
+   (void)fd, (void)frame;
    struct drm_surface *dsurface = data;
 
    uint8_t next = (dsurface->index + 1) % NUM_FBS;
    release_fb(dsurface->surface, &dsurface->fb[next]);
    dsurface->index = next;
-   dsurface->output->pending = false;
 
    struct timespec ts;
    ts.tv_sec = sec;
    ts.tv_nsec = usec * 1000;
-   wlc_output_finish_frame(dsurface->output, &ts);
+   wlc_output_finish_frame(dsurface->output, &ts, true);
 }
 
 static int
@@ -298,7 +297,6 @@ page_flip(struct wlc_backend_surface *bsurface)
    if (drm.api.drmModePageFlip(drm.fd, dsurface->encoder->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, dsurface))
       goto failed_to_page_flip;
 
-   dsurface->output->pending = true;
    return true;
 
 set_crtc_fail:
