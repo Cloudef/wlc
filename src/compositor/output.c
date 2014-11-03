@@ -147,7 +147,6 @@ static bool
 repaint(struct wlc_output *output)
 {
    assert(output);
-   output->activity = false;
 
    if (!should_render(output) || !wlc_render_bind(output->render, output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Skipped repaint");
@@ -188,8 +187,8 @@ repaint(struct wlc_output *output)
    if (output->compositor->output == output) // XXX: Make this option instead, and give each output current cursor coords
       wlc_pointer_paint(output->compositor->seat->pointer, output->render);
 
-   wlc_render_swap(output->render);
    output->pending = true;
+   wlc_render_swap(output->render);
 
    struct wlc_callback *cb, *cbn;
    wl_list_for_each_safe(cb, cbn, &callbacks, link) {
@@ -240,6 +239,7 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts, bo
       // Smooth frame rate changes.
       wl_event_source_timer_update(output->idle_timer, fmin(fmax(tms * (ms / tms), 1), tms));
       output->scheduled = true;
+      output->activity = false;
    } else {
       output->scheduled = false;
    }

@@ -280,7 +280,6 @@ static bool
 page_flip(struct wlc_backend_surface *bsurface)
 {
    struct drm_surface *dsurface = bsurface->internal;
-   assert(!dsurface->output->pending);
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
    release_fb(dsurface->surface, fb);
 
