@@ -315,14 +315,11 @@ static void
 surface_free(struct wlc_backend_surface *bsurface)
 {
    struct drm_surface *dsurface = bsurface->internal;
-
-#if 0 // XXX: crash?
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
    release_fb(dsurface->surface, fb);
 
    if (dsurface->surface)
       gbm.api.gbm_surface_destroy(dsurface->surface);
-#endif
 
    if (dsurface->encoder)
       drm.api.drmModeFreeEncoder(dsurface->encoder);
