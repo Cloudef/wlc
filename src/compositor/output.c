@@ -107,20 +107,37 @@ should_render(struct wlc_output *output)
 }
 
 static bool
-is_visible(struct wlc_output *output)
+is_transparent_top_of_background(struct wlc_output *output, struct wlc_view *view)
 {
-   struct wlc_view *view;
-   struct wlc_geometry g = { { INT_MAX, INT_MAX }, { 0, 0 } }, root = { { 0, 0 }, output->resolution };
-   wl_list_for_each(view, &output->space->views, link) {
-      if (!view->surface->opaque)
+   struct wlc_view *v;
+   wl_list_for_each(v, &output->space->views, link) {
+      if (!v->surface->opaque)
          continue;
 
+      if (wlc_geometry_contains(&v->commit.geometry, &view->commit.geometry))
+         return false;
+   }
+   return true;
+}
+
+static bool
+is_visible(struct wlc_output *output)
+{
+   struct wlc_view *v;
+   struct wlc_geometry g = { { INT_MAX, INT_MAX }, { 0, 0 } }, root = { { 0, 0 }, output->resolution };
+   wl_list_for_each(v, &output->space->views, link) {
+      if (!v->surface->opaque) {
+         if (is_transparent_top_of_background(output, v))
+            return true;
+         continue;
+      }
+
       struct wlc_size size = {
-         view->commit.geometry.origin.x + view->commit.geometry.size.w,
-         view->commit.geometry.origin.y + view->commit.geometry.size.h
+         v->commit.geometry.origin.x + v->commit.geometry.size.w,
+         v->commit.geometry.origin.y + v->commit.geometry.size.h
       };
 
-      wlc_origin_min(&g.origin, &view->commit.geometry.origin, &g.origin);
+      wlc_origin_min(&g.origin, &v->commit.geometry.origin, &g.origin);
       wlc_size_max(&g.size, &size, &g.size);
    }
    return !wlc_geometry_contains(&g, &root);
