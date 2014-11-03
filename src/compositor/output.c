@@ -112,11 +112,15 @@ is_visible(struct wlc_output *output)
    struct wlc_view *view;
    struct wlc_geometry g = { { INT_MAX, INT_MAX }, { 0, 0 } }, root = { { 0, 0 }, output->resolution };
    wl_list_for_each(view, &output->space->views, link) {
+      if (!view->surface->opaque)
+         continue;
+
       struct wlc_size size = {
-         view->pending.geometry.origin.x + view->pending.geometry.size.w,
-         view->pending.geometry.origin.y + view->pending.geometry.size.h
+         view->commit.geometry.origin.x + view->commit.geometry.size.w,
+         view->commit.geometry.origin.y + view->commit.geometry.size.h
       };
-      wlc_origin_min(&g.origin, &view->pending.geometry.origin, &g.origin);
+
+      wlc_origin_min(&g.origin, &view->commit.geometry.origin, &g.origin);
       wlc_size_max(&g.size, &size, &g.size);
    }
    return !wlc_geometry_contains(&g, &root);

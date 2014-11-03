@@ -104,6 +104,9 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
       wlc_view_request_geometry(view, &r);
    }
 
+   if (view->x11_window)
+      view->surface->pending.opaque.extents = (pixman_box32_t){ 0, 0, view->surface->size.w, view->surface->size.h };
+
    if (view->ack != ACK_NEXT_COMMIT)
       return;
 

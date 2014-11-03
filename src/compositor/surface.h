@@ -53,6 +53,8 @@ struct wlc_surface {
       SURFACE_RGB,
       SURFACE_RGBA,
    } format;
+
+   bool opaque;
 };
 
 void wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *output, struct wlc_buffer *buffer);

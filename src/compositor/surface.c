@@ -83,6 +83,9 @@ commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, str
    if (!pixman_region32_equal(&opaque, &out->opaque))
       pixman_region32_copy(&out->opaque, &opaque);
 
+   surface->opaque = (opaque.extents.x1 == 0 && opaque.extents.y1 == 0 &&
+                      opaque.extents.x2 == (int32_t)surface->size.w && opaque.extents.y2 == (int32_t)surface->size.h);
+
    pixman_region32_fini(&opaque);
 
    pixman_region32_intersect_rect(&out->input, &pending->input, 0, 0, surface->size.w, surface->size.h);
