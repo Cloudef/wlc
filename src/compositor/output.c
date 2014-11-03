@@ -132,15 +132,12 @@ repaint(struct wlc_output *output)
    assert(output);
    output->activity = false;
 
-   if (!should_render(output)) {
+   if (!should_render(output) || !wlc_render_bind(output->render, output)) {
       struct timespec ts;
       wlc_get_time(&ts);
       wlc_output_finish_frame(output, &ts);
-      return true;
-   }
-
-   if (!wlc_render_bind(output->render, output))
       return false;
+   }
 
    wlc_render_time(output->render, (float)(output->frame_time / 10000.0f) * 10.0f);
 
