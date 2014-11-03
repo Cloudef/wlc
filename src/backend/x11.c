@@ -216,13 +216,19 @@ page_flip(struct wlc_backend_surface *surface)
    return true;
 }
 
+static void
+surface_free(struct wlc_backend_surface *surface)
+{
+   x11.api.xcb_destroy_window(x11.connection, surface->window);
+}
+
 static bool
 add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_output_information *info)
 {
    struct wlc_output *output = NULL;
    struct wlc_backend_surface *surface = NULL;
 
-   if (!(surface = wlc_backend_surface_new(NULL, 0)))
+   if (!(surface = wlc_backend_surface_new(surface_free, 0)))
       goto fail;
 
    surface->window = window;
@@ -283,12 +289,10 @@ x11_event(int fd, uint32_t mask, void *data)
                if ((output = output_for_window(ev->window, &seat->compositor->outputs))) {
                   if (wl_list_length(&seat->compositor->outputs) <= 1) {
                      wlc_compositor_terminate(seat->compositor);
-                     x11.api.XCloseDisplay(x11.display);
-                     x11.display = NULL;
                   } else {
                      wlc_output_terminate(output);
-                     x11.api.xcb_destroy_window(x11.connection, ev->window);
                   }
+                  return 1;
                }
             }
          }
