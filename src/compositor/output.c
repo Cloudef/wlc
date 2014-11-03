@@ -219,9 +219,8 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    output->scheduled = false;
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
 
-   output->background_visible = (output->compositor->options.enable_bg ? is_visible(output) : false);
    if (output->background_visible && output->idle_timer)
-      wl_event_source_timer_update(output->idle_timer, 16);
+      wl_event_source_timer_update(output->idle_timer, 41 /* 24 fps */);
 
    if (output->terminating) {
       output->compositor->api.remove_output(output->compositor, output);
