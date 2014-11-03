@@ -51,6 +51,8 @@ struct wlc_output {
    struct wlc_size resolution;
    struct wl_list resources, spaces;
    struct wl_list link;
+
+   float render_time;
    uint32_t frame_time;
    uint32_t mode;
 

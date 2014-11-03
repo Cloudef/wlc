@@ -139,7 +139,7 @@ repaint(struct wlc_output *output)
       return false;
    }
 
-   wlc_render_time(output->render, (float)(output->frame_time / 10000.0f) * 10.0f);
+   wlc_render_time(output->render, output->render_time);
 
    if (output->compositor->options.enable_bg && !output->background_visible && is_visible(output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Background visible");
@@ -191,10 +191,7 @@ cb_repaint_idle(void *data)
 static int
 cb_idle_timer(void *data)
 {
-   struct wlc_output *output = data;
-   output->activity = true;
-   if (!output->scheduled)
-      repaint(output);
+   repaint(data);
    return 1;
 }
 
@@ -203,7 +200,11 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 {
    // TODO: handle presentation feedback here
 
+   uint32_t last = output->frame_time;
    output->frame_time = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
+
+   uint32_t ms = output->frame_time - last;
+   output->render_time += ms / 1000.0f;
 
    if (output->compositor->options.enable_bg && output->background_visible && !is_visible(output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Background not visible");
@@ -219,8 +220,11 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    output->scheduled = false;
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
 
-   if (output->background_visible && output->idle_timer)
-      wl_event_source_timer_update(output->idle_timer, 41 /* 24 fps */);
+   if (output->background_visible && output->idle_timer) {
+      const float tms = 42; /* target ms (24 fps) */
+      wl_event_source_timer_update(output->idle_timer, fmin(tms * (ms / tms), tms));
+      output->activity = true;
+   }
 
    if (output->terminating) {
       output->compositor->api.remove_output(output->compositor, output);
