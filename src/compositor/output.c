@@ -141,6 +141,11 @@ repaint(struct wlc_output *output)
 
    wlc_render_time(output->render, (float)(output->frame_time / 10000.0f) * 10.0f);
 
+   if (output->compositor->options.enable_bg && !output->background_visible && is_visible(output)) {
+      wlc_dlog(WLC_DBG_RENDER, "-> Background visible");
+      output->background_visible = true;
+   }
+
    if (output->background_visible) {
       wlc_render_background(output->render);
    } else if (!output->compositor->options.enable_bg) {
@@ -199,6 +204,11 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    // TODO: handle presentation feedback here
 
    output->frame_time = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
+
+   if (output->compositor->options.enable_bg && output->background_visible && !is_visible(output)) {
+      wlc_dlog(WLC_DBG_RENDER, "-> Background not visible");
+      output->background_visible = false;
+   }
 
    if (output->activity && !output->terminating) {
       wlc_dlog(WLC_DBG_RENDER, "-> Partial frame with activity");
