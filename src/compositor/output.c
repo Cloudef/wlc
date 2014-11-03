@@ -276,6 +276,7 @@ wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surfac
 
    wlc_render_surface_destroy(output->render, surface);
    surface->output = NULL;
+
    wlc_output_schedule_repaint(output);
 }
 
