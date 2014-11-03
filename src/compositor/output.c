@@ -150,9 +150,6 @@ repaint(struct wlc_output *output)
 
    if (!should_render(output) || !wlc_render_bind(output->render, output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Skipped repaint");
-      struct timespec ts;
-      wlc_get_time(&ts);
-      wlc_output_finish_frame(output, &ts, false);
       return false;
    }
 
@@ -430,7 +427,10 @@ wlc_output_get_pixels(struct wlc_output *output, void *out_rgba)
 {
    assert(output && out_rgba);
 
-   if (!repaint(output))
+   if (!should_render(output))
+      return false;
+
+   if (!output->scheduled && !repaint(output))
       return false;
 
    struct wlc_geometry g = { { 0, 0 }, output->resolution };
