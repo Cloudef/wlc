@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#include <xkbcommon/xkbcommon-keysyms.h>
+
 #if __GNUC__
 #  define WLC_LOG_ATTR(x, y) __attribute__((format(printf, x, y)))
 #else
@@ -95,7 +97,7 @@ struct wlc_interface {
    } view;
 
    struct {
-      bool (*key)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, uint32_t key, enum wlc_key_state state);
+      bool (*key)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, uint32_t key, uint32_t sym, enum wlc_key_state state);
    } keyboard;
 
    struct {

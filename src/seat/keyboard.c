@@ -110,7 +110,7 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t leds, uint32_t 
    if (!keyboard->compositor->interface.keyboard.key)
       return true;
 
-   bool handle = keyboard->compositor->interface.keyboard.key(keyboard->compositor, keyboard->focus, leds, mods, key, (enum wlc_key_state)state);
+   bool handle = keyboard->compositor->interface.keyboard.key(keyboard->compositor, keyboard->focus, leds, mods, key, xkb_state_key_get_one_sym(keyboard->state, key + 8), (enum wlc_key_state)state);
 
    if (!handle) {
       reset_keyboard(keyboard);
