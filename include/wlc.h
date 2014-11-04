@@ -99,9 +99,9 @@ struct wlc_interface {
    } keyboard;
 
    struct {
-      bool (*button)(struct wlc_compositor*, struct wlc_view*, uint32_t button, enum wlc_button_state state);
+      bool (*button)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, uint32_t button, enum wlc_button_state state);
+      bool (*scroll)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, enum wlc_scroll_axis axis, double amount);
       bool (*motion)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y);
-      bool (*scroll)(struct wlc_compositor*, struct wlc_view*, enum wlc_scroll_axis axis, double amount);
    } pointer;
 
    struct {

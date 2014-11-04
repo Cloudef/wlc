@@ -191,7 +191,7 @@ seat_pointer_scroll(struct wlc_seat *seat, enum wl_pointer_axis axis, double amo
       return;
 
    if (seat->compositor->interface.pointer.scroll &&
-      !seat->compositor->interface.pointer.scroll(seat->compositor, seat->pointer->focus, (enum wlc_scroll_axis)axis, amount))
+      !seat->compositor->interface.pointer.scroll(seat->compositor, seat->pointer->focus, seat->leds, seat->mods, (enum wlc_scroll_axis)axis, amount))
       return;
 
    wlc_pointer_scroll(seat->pointer, wlc_get_time(NULL), axis, amount);
@@ -204,7 +204,7 @@ seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_butt
       return;
 
    if (seat->compositor->interface.pointer.button &&
-      !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, button, (enum wlc_button_state)state))
+      !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, seat->leds, seat->mods, button, (enum wlc_button_state)state))
       return;
 
    wlc_pointer_button(seat->pointer, wlc_get_time(NULL), button, state);
@@ -244,6 +244,9 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
       if (xkb_state_led_index_is_active(seat->keyboard->state, seat->keymap->leds[i]))
          leds |= led_bits[i];
    }
+
+   seat->leds = leds;
+   seat->mods = mods;
 
    if ((mods & WLC_BIT_MOD_CTRL) && (mods & WLC_BIT_MOD_ALT) && key >= 59 && key <= 88) {
       if (state == WL_KEYBOARD_KEY_STATE_PRESSED)

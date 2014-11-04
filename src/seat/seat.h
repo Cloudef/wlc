@@ -20,6 +20,9 @@ struct wlc_seat {
    struct wlc_compositor *compositor;
    struct wlc_data_device *device;
 
+   // for interface calls
+   uint32_t mods, leds;
+
    struct {
       // FIXME: use listener instead, these are global events
       void (*pointer_motion)(struct wlc_seat *seat, const struct wlc_origin *pos);
