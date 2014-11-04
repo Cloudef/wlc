@@ -124,7 +124,7 @@ void wlc_set_log_file(FILE *out);
 WLC_LOG_ATTR(2, 3) void wlc_log(const enum wlc_log_type type, const char *fmt, ...);
 void wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap);
 
-bool wlc_output_get_pixels(struct wlc_output *output, void *out_rgba);
+void wlc_output_get_pixels(struct wlc_output *output, void (*async)(uint32_t w, uint32_t h, uint8_t *rgba));
 void wlc_output_set_resolution(struct wlc_output *output, uint32_t width, uint32_t height);
 void wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height);
 struct wlc_space* wlc_output_get_active_space(struct wlc_output *output);

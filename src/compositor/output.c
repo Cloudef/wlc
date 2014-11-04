@@ -184,6 +184,17 @@ repaint(struct wlc_output *output)
    if (output->compositor->output == output) // XXX: Make this option instead, and give each output current cursor coords
       wlc_pointer_paint(output->compositor->seat->pointer, output->render);
 
+   {
+      void *rgba;
+      struct wlc_geometry g = { { 0, 0 }, output->resolution };
+      if (output->task.pixels && (rgba = calloc(1, g.size.w * g.size.h * 4))) {
+         wlc_render_read_pixels(output->render, &g, rgba);
+         output->task.pixels(g.size.w, g.size.h, rgba);
+         output->task.pixels = NULL;
+         free(rgba);
+      }
+   }
+
    output->pending = true;
    wlc_render_swap(output->render);
 
@@ -422,20 +433,16 @@ fail:
    return NULL;
 }
 
-WLC_API bool
-wlc_output_get_pixels(struct wlc_output *output, void *out_rgba)
+WLC_API void
+wlc_output_get_pixels(struct wlc_output *output, void (*async)(uint32_t w, uint32_t h, uint8_t *rgba))
 {
-   assert(output && out_rgba);
+   assert(output && async);
 
-   if (!should_render(output))
-      return false;
+   if (output->task.pixels)
+      return;
 
-   if (!output->scheduled && !repaint(output))
-      return false;
-
-   struct wlc_geometry g = { { 0, 0 }, output->resolution };
-   wlc_render_read_pixels(output->render, &g, out_rgba);
-   return true;
+   output->task.pixels = async;
+   wlc_output_schedule_repaint(output);
 }
 
 WLC_API void

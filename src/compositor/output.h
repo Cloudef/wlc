@@ -52,6 +52,10 @@ struct wlc_output {
    struct wl_list resources, spaces;
    struct wl_list link;
 
+   struct {
+      void (*pixels)(uint32_t w, uint32_t h, uint8_t *rgba);
+   } task;
+
    float render_time;
    uint32_t frame_time;
    uint32_t mode;
