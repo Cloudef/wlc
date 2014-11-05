@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "session/fd.h"
 #include "udev.h"
 
 #include "compositor/compositor.h"

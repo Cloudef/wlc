@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "gles2.h"
 #include "render.h"
 

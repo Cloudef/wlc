@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "macros.h"
 #include "output.h"
 #include "visibility.h"
@@ -103,7 +103,7 @@ fail:
 static bool
 should_render(struct wlc_output *output)
 {
-   return (wlc_is_active() && !output->pending && output->context && output->render);
+   return (wlc_get_active() && !output->pending && output->context && output->render);
 }
 
 static bool

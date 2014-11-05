@@ -20,6 +20,8 @@ SET(SRC
    seat/keymap.c
    seat/pointer.c
    seat/seat.c
+   session/fd.c
+   session/tty.c
    shell/shell.c
    shell/surface.c
    shell/xdg-popup.c

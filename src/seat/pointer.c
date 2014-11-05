@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "pointer.h"
 #include "macros.h"
 #include "client.h"

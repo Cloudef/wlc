@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "egl.h"
 #include "context.h"
 
@@ -358,7 +358,8 @@ bind_to_wl_display(struct ctx *context, struct wl_display *wl_display)
 {
    assert(context);
 
-   if (wlc_no_egl_clients())
+   const char *env;
+   if ((env = getenv("WLC_SHM")) && !strcmp(env, "1"))
       return false;
 
    if (context->api.eglBindWaylandDisplayWL) {

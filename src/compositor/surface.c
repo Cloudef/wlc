@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "surface.h"
 #include "compositor.h"
 #include "output.h"

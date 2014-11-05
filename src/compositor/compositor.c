@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "compositor.h"
 #include "visibility.h"
 #include "callback.h"

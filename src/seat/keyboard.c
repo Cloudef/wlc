@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "keyboard.h"
 #include "keymap.h"
 #include "client.h"

@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "x11.h"
 #include "backend.h"
 
@@ -469,7 +469,12 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
          x11.cursor,
       };
 
-      for (int i = 0; i < wlc_fake_outputs(); ++i) {
+      const char *env;
+      uint32_t outputs = 1;
+      if ((env = getenv("WLC_OUTPUTS")))
+         outputs = MAX(strtol(env, NULL, 10), 1);
+
+      for (uint32_t i = 0; i < outputs; ++i) {
          xcb_window_t window;
          if (!(window = x11.api.xcb_generate_id(x11.connection)))
             goto window_fail;
@@ -488,7 +493,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
          if (!add_output(compositor, window, &info))
             goto output_fail;
 
-         if (i < wlc_fake_outputs()) {
+         if (i < outputs) {
             struct wl_array cpy;
             wl_array_init(&cpy);
             wl_array_copy(&cpy, &info.modes);

@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "drm.h"
 #include "backend.h"
 
@@ -490,8 +490,6 @@ terminate(void)
    drop_master();
    close(drm.fd);
 
-   wlc_set_drm_control_functions(NULL, NULL);
-
    memset(&drm, 0, sizeof(drm));
    memset(&gbm, 0, sizeof(gbm));
 }
@@ -538,7 +536,6 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!(seat.udev = wlc_udev_new(compositor)))
       goto fail;
 
-   wlc_set_drm_control_functions(set_master, drop_master);
    set_master();
 
    out_backend->api.terminate = terminate;

@@ -1,4 +1,4 @@
-#include "wlc_internal.h"
+#include "internal.h"
 #include "xwm.h"
 
 #include "compositor/compositor.h"
