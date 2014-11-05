@@ -56,7 +56,7 @@ struct wlc_output {
       void (*pixels)(uint32_t w, uint32_t h, uint8_t *rgba);
    } task;
 
-   float render_time;
+   float ims;
    uint32_t frame_time;
    uint32_t mode;
 
@@ -64,7 +64,7 @@ struct wlc_output {
    bool background_visible;
 };
 
-void wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts, bool vblank);
+void wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts);
 void wlc_output_schedule_repaint(struct wlc_output *output);
 bool wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode);
 bool wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface, struct wlc_buffer *buffer);

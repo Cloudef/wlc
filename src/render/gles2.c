@@ -59,10 +59,12 @@ struct ctx {
    struct ctx_program {
       GLuint obj;
       GLuint uniforms[UNIFORM_LAST];
+      GLuint frames;
    } programs[PROGRAM_LAST];
 
    struct wlc_size resolution;
-   float time;
+
+   GLuint time;
 
    GLuint textures[TEXTURE_LAST];
 
@@ -75,7 +77,6 @@ struct ctx {
 struct paint {
    struct wlc_geometry visible;
    float dim;
-   float time;
    enum program_type program;
    bool filter;
 };
@@ -342,19 +343,20 @@ create_context(void)
       "uniform float time;\n"
       "uniform vec2 resolution;\n"
       "varying vec2 v_uv;\n"
+      "#define M_PI 3.1415926535897932384626433832795\n"
       "float impulse(float x, float k) {\n"
       "  float h = k * x;\n"
       "  return h * exp(1.0 - h);\n"
       "}\n"
       "void main() {\n"
-      "  vec2 res = resolution;\n"
-      "  vec2 pos = (v_uv * 2.0 - 1.0) * res.x / res.y;\n"
       "  vec3 color = vec3(0.0);\n"
-      "  float f = impulse(0.01, cos(time * 0.5)) + 0.25;\n"
+      "  vec2 pos = (v_uv * 2.0 - 1.0) * resolution.x / resolution.y;\n"
+      "  float frame = time * M_PI * 10.0;\n"
+      "  float f = impulse(0.01, sin(frame) + 1.0) + 0.25;\n"
       "  color += vec3(0.15, 0.3, 0.35) * (1.0 / distance(vec2(1.0, 0.0), pos) * f);\n"
       "  for (int i = 0; i < 3; ++i) {\n"
-      "     float t = (time + float(i) * 5.0) * 0.5;\n"
-      "     color += vec3(0.15, 0.18, 0.15) * float(i + 1) * (1.0 / distance(vec2(sin(t * 0.5) / 2.0 + 1.0, cos(t * 0.7) / 2.0), pos) * 0.09);\n"
+      "     float t = frame + (float(i) * 1.8);\n"
+      "     color += vec3(0.15, 0.18, 0.15) * float(i + 1) * (1.0 / distance(vec2(sin(t * 0.8) * 0.5 + 1.0, cos(t) * 0.5), pos) * 0.09);\n"
       "  }\n"
       "  gl_FragColor = vec4(color, 1.0);\n"
       "}\n";
@@ -450,6 +452,8 @@ create_context(void)
    GL_CALL(gl.api.glEnable(GL_BLEND));
    GL_CALL(gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
    GL_CALL(gl.api.glClearColor(0.2, 0.2, 0.2, 1));
+
+   context->programs[PROGRAM_BG].frames = 4096 * 2;
    return context;
 }
 
@@ -705,8 +709,10 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_ge
       GL_CALL(gl.api.glUniform1fv(context->program->uniforms[UNIFORM_DIM], 1, &settings->dim));
    }
 
-   if (settings->time > 0.0f) {
-      GL_CALL(gl.api.glUniform1fv(context->program->uniforms[UNIFORM_TIME], 1, &settings->time));
+   if (context->program->frames > 0) {
+      const GLfloat frame = ((context->time / 16) % context->program->frames);
+      GLfloat time = frame / context->program->frames;
+      GL_CALL(gl.api.glUniform1fv(context->program->uniforms[UNIFORM_TIME], 1, &time));
    }
 
    for (GLuint i = 0; i < nmemb; ++i) {
@@ -797,7 +803,7 @@ read_pixels(struct ctx *context, struct wlc_geometry *geometry, void *out_data)
 }
 
 static void
-frame_time(struct ctx *context, float time)
+frame_time(struct ctx *context, GLuint time)
 {
    assert(context);
    context->time = time;
@@ -817,7 +823,6 @@ background(struct ctx *context)
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
    settings.program = PROGRAM_BG;
-   settings.time = context->time;
    struct wlc_geometry g = { { 0, 0 }, context->resolution };
    texture_paint(context, NULL, 0, &g, &settings);
 }

@@ -212,7 +212,7 @@ page_flip(struct wlc_backend_surface *surface)
    struct wlc_output *output = surface->internal;
    struct timespec ts;
    wlc_get_time(&ts);
-   wlc_output_finish_frame(output, &ts, false);
+   wlc_output_finish_frame(output, &ts);
    return true;
 }
 

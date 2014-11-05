@@ -153,7 +153,7 @@ repaint(struct wlc_output *output)
       return false;
    }
 
-   wlc_render_time(output->render, output->render_time);
+   wlc_render_time(output->render, output->frame_time);
 
    if (output->compositor->options.enable_bg && !output->background_visible && is_visible(output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Background visible");
@@ -216,15 +216,15 @@ cb_idle_timer(void *data)
 }
 
 void
-wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts, bool vblank)
+wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 {
    output->pending = false;
 
-   uint32_t last = output->frame_time;
+   // XXX: uint32_t holds mostly for 50 days before overflowing
+   //      is this tied to wayland somewhere, or should we increase precision?
+   const uint32_t last = output->frame_time;
    output->frame_time = ts->tv_sec * 1000 + ts->tv_nsec / 1000000;
-
-   uint32_t ms = output->frame_time - last;
-   output->render_time += ms / 1000.0f;
+   const uint32_t ms = output->frame_time - last;
 
    // TODO: handle presentation feedback here
 
@@ -233,19 +233,10 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts, bo
       output->background_visible = false;
    }
 
-   if (ms > 80 && output->activity && !output->terminating) {
-      wlc_dlog(WLC_DBG_RENDER, "-> Repainting immediately, due to high frame time");
-      repaint(output);
-      return;
-   }
-
    if ((output->background_visible || output->activity) && !output->terminating) {
-      // If vblank synchronized (kms) time to firendly values.
-      // XXX: Why are these not real frame times with drm (it's smoother in x11)?
-      const float tms = (vblank ? (output->activity ? 2 : 18) : (output->activity ? 16 : 42));
-
-      // Smooth frame rate changes.
-      wl_event_source_timer_update(output->idle_timer, fmin(fmax(tms * (ms / tms), 1), tms));
+      output->ims = fmin(fmax(output->ims * (output->activity ? 0.9 : 1.1), 1), 41);
+      wlc_dlog(WLC_DBG_RENDER, "-> Interpolated idle time %f (%u : %d)", output->ims, ms, output->activity);
+      wl_event_source_timer_update(output->idle_timer, output->ims);
       output->scheduled = true;
       output->activity = false;
    } else {
@@ -413,6 +404,7 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *su
    wl_list_init(&output->resources);
    wl_list_init(&output->spaces);
 
+   output->ims = 41;
    output->compositor = compositor;
 
    if (!(output->space = wlc_space_new(output)))

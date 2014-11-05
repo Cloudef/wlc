@@ -225,7 +225,7 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
    struct timespec ts;
    ts.tv_sec = sec;
    ts.tv_nsec = usec * 1000;
-   wlc_output_finish_frame(dsurface->output, &ts, true);
+   wlc_output_finish_frame(dsurface->output, &ts);
 }
 
 static int

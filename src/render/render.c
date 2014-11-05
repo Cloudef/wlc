@@ -74,7 +74,7 @@ wlc_render_clear(struct wlc_render *render)
 }
 
 void
-wlc_render_time(struct wlc_render *render, float time)
+wlc_render_time(struct wlc_render *render, uint32_t time)
 {
    assert(render);
    render->api.time(render->render, time);
