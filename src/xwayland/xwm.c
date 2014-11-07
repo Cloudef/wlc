@@ -89,6 +89,8 @@ static struct {
 
    struct {
       void *xcb_handle;
+      void *xcb_composite_handle;
+      void *xcb_xfixes_handle;
 
       xcb_connection_t* (*xcb_connect_to_fd)(int, xcb_auth_info_t*);
       void (*xcb_disconnect)(xcb_connection_t*);
@@ -216,12 +218,12 @@ xcb_composite_load(void)
 {
    const char *lib = "libxcb-composite.so", *func = NULL;
 
-   if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
+   if (!(x11.api.xcb_composite_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
-#define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
+#define load(x) (x11.api.x = dlsym(x11.api.xcb_composite_handle, (func = #x)))
 
    if (!load(xcb_composite_redirect_subwindows_checked))
       goto function_pointer_exception;
@@ -242,12 +244,12 @@ xcb_xfixes_load(void)
 {
    const char *lib = "libxcb-xfixes.so", *func = NULL;
 
-   if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
+   if (!(x11.api.xcb_xfixes_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
 
-#define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
+#define load(x) (x11.api.x = dlsym(x11.api.xcb_xfixes_handle, (func = #x)))
 
    if (!load(xcb_xfixes_query_version))
       goto function_pointer_exception;
@@ -849,6 +851,28 @@ surface_notify(struct wl_listener *listener, void *data)
    }
 }
 
+// XXX: call this after all xwm are dead
+static void
+x11_terminate(void)
+{
+   if (x11.window)
+      XCB_CALL(x11.api.xcb_destroy_window_checked(x11.connection, x11.window));
+
+   if (x11.connection)
+      x11.api.xcb_disconnect(x11.connection);
+
+   if (x11.api.xcb_handle)
+      dlclose(x11.api.xcb_handle);
+
+   if (x11.api.xcb_composite_handle)
+      dlclose(x11.api.xcb_composite_handle);
+
+   if (x11.api.xcb_xfixes_handle)
+      dlclose(x11.api.xcb_xfixes_handle);
+
+   memset(&x11, 0, sizeof(x11));
+}
+
 static bool
 x11_init(void)
 {
@@ -1017,22 +1041,8 @@ atom_get_fail:
    wlc_log(WLC_LOG_WARN, "Failed to get atom");
    goto fail;
 fail:
+   x11_terminate();
    return false;
-}
-
-static void
-x11_terminate(void)
-{
-   if (x11.window)
-      XCB_CALL(x11.api.xcb_destroy_window_checked(x11.connection, x11.window));
-
-   if (x11.connection)
-      x11.api.xcb_disconnect(x11.connection);
-
-   if (x11.api.xcb_handle)
-      dlclose(x11.api.xcb_handle);
-
-   memset(&x11, 0, sizeof(x11));
 }
 
 struct wlc_xwm*
@@ -1069,8 +1079,16 @@ fail:
 void
 wlc_xwm_free(struct wlc_xwm *xwm)
 {
+   struct wlc_x11_window *win, *wn;
+   wl_list_for_each_safe(win, wn, &xwm->unpaired_windows, link)
+      wlc_x11_window_free(win);
+   wl_list_for_each_safe(win, wn, &xwm->windows, link)
+      wlc_x11_window_free(win);
+
    wl_list_remove(&xwm->listener.surface.link);
 
    if (xwm->event_source)
       wl_event_source_remove(xwm->event_source);
+
+   free(xwm);
 }
