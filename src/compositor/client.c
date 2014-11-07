@@ -28,11 +28,11 @@ wlc_client_free(struct wlc_client *client)
       return;
    }
 
-   /* should wayland call destructor these automatically (?)
-    * seems to crash without these.. investigate later. */
    for (int i = 0; i < WLC_INPUT_TYPE_LAST; ++i) {
-      if (client->input[i])
-         wl_resource_destroy(client->input[i]);
+      if (!client->input[i])
+         continue;
+
+      wl_resource_destroy(client->input[i]);
    }
 
    wl_list_remove(&client->link);

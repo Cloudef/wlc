@@ -220,8 +220,13 @@ wlc_keyboard_free(struct wlc_keyboard *keyboard)
 
    if (keyboard->compositor) {
       struct wlc_client *client;
-      wl_list_for_each(client, &keyboard->compositor->clients, link)
+      wl_list_for_each(client, &keyboard->compositor->clients, link) {
+         if (!client->input[WLC_KEYBOARD])
+            continue;
+
+         wl_resource_destroy(client->input[WLC_KEYBOARD]);
          client->input[WLC_KEYBOARD] = NULL;
+      }
    }
 
    if (keyboard->state)

@@ -260,9 +260,16 @@ wlc_pointer_free(struct wlc_pointer *pointer)
 {
    assert(pointer);
 
-   struct wlc_client *client;
-   wl_list_for_each(client, &pointer->compositor->clients, link)
-      client->input[WLC_POINTER] = NULL;
+   if (pointer->compositor) {
+      struct wlc_client *client;
+      wl_list_for_each(client, &pointer->compositor->clients, link) {
+         if (!client->input[WLC_POINTER])
+            continue;
+
+         wl_resource_destroy(client->input[WLC_POINTER]);
+         client->input[WLC_POINTER] = NULL;
+      }
+   }
 
    free(pointer);
 }
