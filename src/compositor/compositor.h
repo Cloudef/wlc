@@ -42,6 +42,8 @@ struct wlc_compositor {
       // XXX: temporary
       bool enable_bg;
    } options;
+
+   bool terminating;
 };
 
 #endif /* _WLC_COMPOSITOR_H_ */

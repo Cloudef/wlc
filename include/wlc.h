@@ -198,8 +198,6 @@ struct wlc_space* wlc_compositor_get_focused_space(struct wlc_compositor *compos
 
 void wlc_compositor_focus_view(struct wlc_compositor *compositor, struct wlc_view *view);
 void wlc_compositor_focus_output(struct wlc_compositor *compositor, struct wlc_output *output);
-
-void wlc_compositor_free(struct wlc_compositor *compositor);
 struct wlc_compositor* wlc_compositor_new(void *userdata);
 
 /**

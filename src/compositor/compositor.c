@@ -233,35 +233,6 @@ activated(struct wl_listener *listener, void *data)
 }
 
 static void
-terminated(struct wl_listener *listener, void *data)
-{
-   (void)data;
-   struct wlc_compositor *compositor;
-
-   if (!(compositor = wl_container_of(listener, compositor, listener.terminated)))
-      return;
-
-   wlc_compositor_free(compositor);
-}
-
-static void
-xwayland(struct wl_listener *listener, void *data)
-{
-   bool activated = *(bool*)data;
-   struct wlc_compositor *compositor;
-
-   if (!(compositor = wl_container_of(listener, compositor, listener.xwayland)))
-      return;
-
-   if (activated) {
-      compositor->xwm = wlc_xwm_new(compositor);
-   } else if (compositor->xwm) {
-      wlc_xwm_free(compositor->xwm);
-      compositor->xwm = NULL;
-   }
-}
-
-static void
 compositor_cleanup(struct wlc_compositor *compositor)
 {
    assert(compositor);
@@ -296,6 +267,43 @@ compositor_cleanup(struct wlc_compositor *compositor)
       wl_global_destroy(compositor->global);
 
    free(compositor);
+}
+
+static void
+terminated(struct wl_listener *listener, void *data)
+{
+   (void)data;
+   struct wlc_compositor *compositor;
+
+   if (!(compositor = wl_container_of(listener, compositor, listener.terminated)))
+      return;
+
+   compositor->terminating = true;
+
+   if (wl_list_empty(&compositor->outputs)) {
+      compositor_cleanup(compositor);
+   } else {
+      struct wlc_output *o;
+      wl_list_for_each(o, &compositor->outputs, link)
+         wlc_output_terminate(o);
+   }
+}
+
+static void
+xwayland(struct wl_listener *listener, void *data)
+{
+   bool activated = *(bool*)data;
+   struct wlc_compositor *compositor;
+
+   if (!(compositor = wl_container_of(listener, compositor, listener.xwayland)))
+      return;
+
+   if (activated) {
+      compositor->xwm = wlc_xwm_new(compositor);
+   } else if (compositor->xwm) {
+      wlc_xwm_free(compositor->xwm);
+      compositor->xwm = NULL;
+   }
 }
 
 static void
@@ -334,6 +342,7 @@ output_event(struct wl_listener *listener, void *data)
             active_output(compositor, ev->output);
 
          wlc_output_schedule_repaint(ev->output);
+         wlc_log(WLC_LOG_INFO, "Added output (%p)", ev->output);
       break;
 
       case WLC_OUTPUT_EVENT_ACTIVE:
@@ -342,6 +351,7 @@ output_event(struct wl_listener *listener, void *data)
 
       case WLC_OUTPUT_EVENT_REMOVE:
          assert(ev->output);
+         // XXX: we may want to keep output alive, but remove from list and free for now
          wl_list_remove(&ev->output->link);
 
          if (compositor->output == ev->output) {
@@ -364,9 +374,19 @@ output_event(struct wl_listener *listener, void *data)
 
          WLC_INTERFACE_EMIT(output.destroyed, compositor, ev->output);
 
+         // XXX: see the XXX above
+#if 0
          // Remove surface from output
          // Destroys rendering context, etc...
          wlc_output_set_surface(ev->output, NULL);
+#endif
+
+         wlc_output_free(ev->output);
+
+         if (compositor->terminating && wl_list_empty(&compositor->outputs))
+            compositor_cleanup(compositor);
+
+         wlc_log(WLC_LOG_INFO, "Removed output (%p)", ev->output);
       break;
    }
 }
@@ -404,20 +424,6 @@ wlc_compositor_get_focused_space(struct wlc_compositor *compositor)
 {
    assert(compositor);
    return (compositor->output ? compositor->output->space : NULL);
-}
-
-WLC_API void
-wlc_compositor_free(struct wlc_compositor *compositor)
-{
-   assert(compositor);
-
-   if (wl_list_empty(&compositor->outputs)) {
-      compositor_cleanup(compositor);
-   } else {
-      struct wlc_output *o;
-      wl_list_for_each(o, &compositor->outputs, link)
-         wlc_output_terminate(o);
-   }
 }
 
 WLC_API struct wlc_compositor*
