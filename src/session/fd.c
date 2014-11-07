@@ -245,6 +245,14 @@ communicate(const int sock, const pid_t parent)
          handle_request(sock, fd, &request);
    } while (kill(parent, 0) == 0);
 
+   // Close all open fds
+   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+      if (wlc.fds[i].fd < 0)
+         continue;
+
+      close(wlc.fds[i].fd);
+   }
+
    wlc_log(WLC_LOG_INFO, "Parent exit (%u)", parent);
    wlc_cleanup();
 }
