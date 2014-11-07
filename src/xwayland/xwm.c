@@ -656,8 +656,8 @@ handle_client_message(struct wlc_xwm *xwm, xcb_client_message_event_t *ev)
       if (!(win = wlc_x11_window_for_id(&xwm->unpaired_windows, ev->window)))
          return;
 
-      link_surface(xwm, win, wl_client_get_object(wlc_xwayland_get_client(), ev->data.data32[0]));
       win->surface_id = ev->data.data32[0];
+      link_surface(xwm, win, wl_client_get_object(wlc_xwayland_get_client(), ev->data.data32[0]));
       return;
    }
 
