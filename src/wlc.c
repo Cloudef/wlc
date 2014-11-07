@@ -413,7 +413,8 @@ wlc_init(const struct wlc_interface *interface, const int argc, char *argv[])
    if (!(socket_name = wl_display_add_socket_auto(wlc.display)))
       die("Failed to add socket to wayland display");
 
-   setenv("WAYLAND_DISPLAY", socket_name, true);
+   if (socket_name) // shut up static analyze
+      setenv("WAYLAND_DISPLAY", socket_name, true);
 
    if (wl_display_init_shm(wlc.display) != 0)
       die("Failed to init shm");
