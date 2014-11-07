@@ -5,6 +5,7 @@
 
 enum wlc_fd_type {
    WLC_FD_INPUT,
+   WLC_FD_DRM,
    WLC_FD_LAST
 };
 

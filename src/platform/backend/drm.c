@@ -5,6 +5,8 @@
 #include "compositor/compositor.h"
 #include "compositor/output.h"
 
+#include "session/fd.h"
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,8 +79,6 @@ static struct {
    struct {
       void *handle;
 
-      int (*drmSetMaster)(int);
-      int (*drmDropMaster)(int);
       int (*drmIoctl)(int fd, unsigned long request, void *arg);
       int (*drmModeAddFB)(int, uint32_t, uint32_t, uint8_t, uint8_t, uint32_t, uint32_t, uint32_t*);
       int (*drmModeRmFB)(int, uint32_t);
@@ -151,10 +151,6 @@ drm_load(void)
 
 #define load(x) (drm.api.x = dlsym(drm.api.handle, (func = #x)))
 
-   if (!load(drmSetMaster))
-      goto function_pointer_exception;
-   if (!load(drmDropMaster))
-      goto function_pointer_exception;
    if (!load(drmIoctl))
       goto function_pointer_exception;
    if (!load(drmModeAddFB))
@@ -477,8 +473,7 @@ terminate(void)
    if (gbm.api.handle)
       dlclose(gbm.api.handle);
 
-   drop_master();
-   close(drm.fd);
+   wlc_fd_close(drm.fd);
 
    memset(&drm, 0, sizeof(drm));
    memset(&gbm, 0, sizeof(gbm));
@@ -492,7 +487,7 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!gbm_load() || !drm_load())
       goto fail;
 
-   if ((drm.fd = open("/dev/dri/card0", O_RDWR)) < 0)
+   if ((drm.fd = wlc_fd_open("/dev/dri/card0", O_RDWR, WLC_FD_DRM)) < 0)
       goto card_open_fail;
 
    /* GBM will load a dri driver, but even though they need symbols from
@@ -524,8 +519,6 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
    if (!(drm.event_source = wl_event_loop_add_fd(wlc_event_loop(), drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
       goto fail;
-
-   set_master();
 
    out_backend->api.terminate = terminate;
    return true;
