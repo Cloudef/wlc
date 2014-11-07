@@ -2,7 +2,6 @@
 #define _WLC_OUTPUT_H_
 
 #include <stdint.h>
-#include <wayland-server.h>
 #include <wayland-util.h>
 
 #include "types/string.h"

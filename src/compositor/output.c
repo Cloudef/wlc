@@ -275,6 +275,9 @@ wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surfac
    if (output->compositor->seat->pointer->surface == surface)
       output->compositor->seat->pointer->surface = NULL;
 
+   if (!output->render)
+      return;
+
    wlc_render_surface_destroy(output->render, surface);
    surface->output = NULL;
 
@@ -285,6 +288,9 @@ bool
 wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
    assert(output && surface);
+
+   if (!output->render)
+      return false;
 
    if (surface->output && surface->output != output)
       wlc_output_surface_destroy(surface->output, surface);
