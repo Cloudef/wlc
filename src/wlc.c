@@ -3,6 +3,9 @@
 
 #include "session/tty.h"
 #include "session/fd.h"
+#include "session/udev.h"
+
+#include "xwayland/xwayland.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -10,8 +13,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/time.h>
-
-#include <wayland-server.h>
 
 #if defined(__linux__)
 #  include <linux/version.h>
@@ -32,6 +33,10 @@ int feenableexcept(int excepts);
 #endif
 
 static struct {
+   struct wlc_interface interface;
+   struct wlc_system_signals signals;
+   struct wl_display *display;
+   struct wl_event_source *terminate_timer;
    FILE *log_file;
    int cached_tm_mday;
    bool active;
@@ -199,7 +204,12 @@ wlc_get_time(struct timespec *out_ts)
 void
 wlc_set_active(bool active)
 {
+   if (active == wlc.active)
+      return;
+
    wlc.active = active;
+   wl_signal_emit(&wlc.signals.activated, &wlc.active);
+   wlc_log(WLC_LOG_INFO, (wlc.active ? "become active" : "deactive"));
 }
 
 bool
@@ -208,16 +218,60 @@ wlc_get_active(void)
    return wlc.active;
 }
 
-bool
-wlc_has_init(void)
+const struct wlc_interface*
+wlc_interface(void)
 {
-   return wlc.init;
+   return &wlc.interface;
+}
+
+struct wlc_system_signals*
+wlc_system_signals(void)
+{
+   return &wlc.signals;
+}
+
+struct wl_event_loop*
+wlc_event_loop(void)
+{
+   return wl_display_get_event_loop(wlc.display);
+}
+
+struct wl_display*
+wlc_display(void)
+{
+   return wlc.display;
 }
 
 void
-wlc_terminate(void)
+wlc_cleanup(void)
 {
+   if (wlc.terminate_timer)
+      wl_event_source_remove(wlc.terminate_timer);
+
+   if (wlc.display) {
+      // fd process never allocates display
+      wlc_xwayland_terminate();
+      wlc_input_terminate();
+      wlc_udev_terminate();
+      wlc_fd_terminate();
+   }
+
+   // however if main process crashed, fd process does
+   // know enough about tty to reset it.
    wlc_tty_terminate();
+
+   if (wlc.display)
+      wl_display_terminate(wlc.display);
+
+   wlc.display = NULL;
+}
+
+static int
+cb_terminate_timer(void *data)
+{
+   (void)data;
+   wlc_cleanup();
+   return 0;
 }
 
 WLC_API void
@@ -271,11 +325,31 @@ wlc_set_log_file(FILE *out)
    wlc.log_file = out;
 }
 
-WLC_API bool
-wlc_init(const int argc, char *argv[])
+WLC_API void
+wlc_run(void)
 {
-   if (wlc_has_init())
+   wl_display_run(wlc.display);
+}
+
+WLC_API void
+wlc_terminate(void)
+{
+   if (wlc.terminate_timer)
+      return;
+
+   wlc.terminate_timer = wl_event_loop_add_timer(wlc_event_loop(), cb_terminate_timer, NULL);
+   wl_signal_emit(&wlc.signals.terminated, NULL);
+   wl_event_source_timer_update(wlc.terminate_timer, 100);
+   wlc_log(WLC_LOG_INFO, "Terminating...");
+}
+
+WLC_API bool
+wlc_init(const struct wlc_interface *interface, const int argc, char *argv[])
+{
+   if (wlc.display)
       return true;
+
+   memset(&wlc, 0, sizeof(wlc));
 
    wl_log_set_handler_server(wl_cb_log);
 
@@ -318,8 +392,48 @@ wlc_init(const int argc, char *argv[])
    if (!display)
       wlc_tty_init();
 
+   // -- we open tty before dropping permissions
+   //    so the fd process can also handle cleanup in case of crash
+
    wlc_fd_init(argc, argv);
 
-   wlc.active = true;
+   // -- permissions are now dropped
+
+   wl_signal_init(&wlc.signals.terminated);
+   wl_signal_init(&wlc.signals.activated);
+   wl_signal_init(&wlc.signals.surface);
+   wl_signal_init(&wlc.signals.input);
+   wl_signal_init(&wlc.signals.output);
+   wl_signal_init(&wlc.signals.xwayland);
+
+   if (!(wlc.display = wl_display_create()))
+      die("Failed to create wayland display");
+
+   const char *socket_name;
+   if (!(socket_name = wl_display_add_socket_auto(wlc.display)))
+      die("Failed to add socket to wayland display");
+
+   setenv("WAYLAND_DISPLAY", socket_name, true);
+
+   if (wl_display_init_shm(wlc.display) != 0)
+      die("Failed to init shm");
+
+   if (!wlc_udev_init())
+      return false;
+
+   const char *libinput = getenv("WLC_LIBINPUT");
+   if (!display || (libinput && !strcmp(libinput, "1"))) {
+      if (!wlc_input_init())
+         return false;
+   }
+
+   const char *xwayland = getenv("WLC_XWAYLAND");
+   if (!xwayland || strcmp(xwayland, "0")) {
+      if (!(wlc_xwayland_init()))
+         return false;
+   }
+
+   memcpy(&wlc.interface, interface, sizeof(wlc.interface));
+   wlc_set_active(true);
    return (wlc.init = true);
 }

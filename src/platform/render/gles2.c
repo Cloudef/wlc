@@ -2,13 +2,15 @@
 #include "gles2.h"
 #include "render.h"
 
-#include "context/egl.h"
-#include "context/context.h"
+#include "platform/context/egl.h"
+#include "platform/context/context.h"
+
 #include "compositor/view.h"
 #include "compositor/surface.h"
 #include "compositor/buffer.h"
 #include "compositor/output.h"
-#include "shell/xdg-surface.h"
+
+#include "compositor/shell/xdg-surface.h"
 #include "xwayland/xwm.h"
 
 #include <stdlib.h>

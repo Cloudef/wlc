@@ -1,36 +1,36 @@
 SET(SRC
-   backend/backend.c
-   backend/drm.c
-   backend/udev/udev.c
-   backend/x11.c
    compositor/buffer.c
    compositor/callback.c
+   compositor/client.c
    compositor/compositor.c
+   compositor/data.c
    compositor/output.c
    compositor/region.c
+   compositor/seat/keyboard.c
+   compositor/seat/keymap.c
+   compositor/seat/pointer.c
+   compositor/seat/seat.c
+   compositor/shell/shell.c
+   compositor/shell/surface.c
+   compositor/shell/xdg-popup.c
+   compositor/shell/xdg-shell.c
+   compositor/shell/xdg-surface.c
    compositor/surface.c
    compositor/view.c
-   context/context.c
-   context/egl.c
-   data-device/manager.c
-   render/gles2.c
-   render/render.c
-   seat/client.c
-   seat/keyboard.c
-   seat/keymap.c
-   seat/pointer.c
-   seat/seat.c
+   platform/backend/backend.c
+   platform/backend/drm.c
+   platform/backend/x11.c
+   platform/context/context.c
+   platform/context/egl.c
+   platform/render/gles2.c
+   platform/render/render.c
    session/fd.c
    session/tty.c
-   shell/shell.c
-   shell/surface.c
-   shell/xdg-popup.c
-   shell/xdg-shell.c
-   shell/xdg-surface.c
-   types/string.c
-   wlc.c
+   session/udev.c
    xwayland/xwayland.c
    xwayland/xwm.c
+   types/string.c
+   wlc.c
    )
 
 IF (UNIX)

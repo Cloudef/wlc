@@ -55,6 +55,7 @@ struct wlc_surface {
    } format;
 
    bool opaque;
+   bool synchronized;
 };
 
 void wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *output, struct wlc_buffer *buffer);

@@ -12,9 +12,9 @@
 #include "seat/seat.h"
 #include "seat/pointer.h"
 
-#include "backend/backend.h"
-#include "context/context.h"
-#include "render/render.h"
+#include "platform/backend/backend.h"
+#include "platform/context/context.h"
+#include "platform/render/render.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -150,6 +150,7 @@ repaint(struct wlc_output *output)
 
    if (!should_render(output) || !wlc_render_bind(output->render, output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Skipped repaint");
+      output->activity = output->scheduled = false;
       return false;
    }
 
@@ -189,7 +190,7 @@ repaint(struct wlc_output *output)
       struct wlc_geometry g = { { 0, 0 }, output->resolution };
       if (output->task.pixels && (rgba = calloc(1, g.size.w * g.size.h * 4))) {
          wlc_render_read_pixels(output->render, &g, rgba);
-         output->task.pixels(g.size.w, g.size.h, rgba);
+         output->task.pixels(&g.size, rgba);
          output->task.pixels = NULL;
          free(rgba);
       }
@@ -246,7 +247,8 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
 
    if (output->terminating) {
-      output->compositor->api.remove_output(output->compositor, output);
+      struct wlc_output_event ev = { output, WLC_OUTPUT_EVENT_REMOVE };
+      wl_signal_emit(&wlc_system_signals()->output, &ev);
       output->terminating = false;
    }
 }
@@ -394,10 +396,10 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *su
    if (!(output = calloc(1, sizeof(struct wlc_output))))
       goto fail;
 
-   if (!(output->idle_timer = wl_event_loop_add_timer(compositor->event_loop, cb_idle_timer, output)))
+   if (!(output->idle_timer = wl_event_loop_add_timer(wlc_event_loop(), cb_idle_timer, output)))
       goto fail;
 
-   if (!(output->global = wl_global_create(compositor->display, &wl_output_interface, 2, output, &wl_output_bind)))
+   if (!(output->global = wl_global_create(wlc_display(), &wl_output_interface, 2, output, &wl_output_bind)))
       goto fail;
 
    memcpy(&output->information, info, sizeof(output->information));
@@ -413,10 +415,10 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *su
    if (!wlc_output_set_surface(output, surface))
       goto fail;
 
-   wlc_context_bind_to_wl_display(output->context, compositor->display);
+   wlc_context_bind_to_wl_display(output->context, wlc_display());
 
    struct wlc_output_mode *mode = output->information.modes.data + (output->mode * sizeof(struct wlc_output_mode));
-   wlc_output_set_resolution(output, mode->width, mode->height);
+   wlc_output_set_resolution(output, &(struct wlc_size){ mode->width, mode->height });
    return output;
 
 fail:
@@ -426,7 +428,7 @@ fail:
 }
 
 WLC_API void
-wlc_output_get_pixels(struct wlc_output *output, void (*async)(uint32_t w, uint32_t h, uint8_t *rgba))
+wlc_output_get_pixels(struct wlc_output *output, void (*async)(const struct wlc_size *size, uint8_t *rgba))
 {
    assert(output && async);
 
@@ -438,30 +440,23 @@ wlc_output_get_pixels(struct wlc_output *output, void (*async)(uint32_t w, uint3
 }
 
 WLC_API void
-wlc_output_set_resolution(struct wlc_output *output, uint32_t width, uint32_t height)
+wlc_output_set_resolution(struct wlc_output *output, const struct wlc_size *resolution)
 {
-   const struct wlc_size resolution = { width, height };
-   if (wlc_size_equals(&resolution, &output->resolution))
+   if (wlc_size_equals(resolution, &output->resolution))
       return;
 
-   output->resolution = resolution;
+   output->resolution = *resolution;
 
-   if (output->compositor->interface.output.resolution)
-      output->compositor->interface.output.resolution(output->compositor, output, width, height);
+   WLC_INTERFACE_EMIT(output.resolution, output->compositor, output, resolution);
 
    wlc_output_schedule_repaint(output);
 }
 
-WLC_API void
-wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height)
+WLC_API const struct wlc_size*
+wlc_output_get_resolution(struct wlc_output *output)
 {
    assert(output);
-
-   if (out_width)
-      *out_width = output->resolution.w;
-
-   if (out_height)
-      *out_height = output->resolution.h;
+   return &output->resolution;
 }
 
 WLC_API struct wlc_space*
@@ -512,10 +507,12 @@ wlc_output_focus_space(struct wlc_output *output, struct wlc_space *space)
 {
    assert(output);
 
+   if (output->space == space)
+      return;
+
    output->space = space;
 
-   if (output->compositor->interface.space.activated)
-      output->compositor->interface.space.activated(output->compositor, space);
+   WLC_INTERFACE_EMIT(space.activated, output->compositor, space);
 
    wlc_output_schedule_repaint(output);
 }

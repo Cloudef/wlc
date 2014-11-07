@@ -23,6 +23,19 @@ struct wlc_output;
 struct wlc_space;
 struct wl_list;
 
+struct wlc_origin {
+   int32_t x, y;
+};
+
+struct wlc_size {
+   uint32_t w, h;
+};
+
+struct wlc_geometry {
+   struct wlc_origin origin;
+   struct wlc_size size;
+};
+
 /** wlc_log, wlc_vlog() */
 enum wlc_log_type {
    WLC_LOG_INFO,
@@ -79,9 +92,15 @@ enum wlc_button_state {
    WLC_BUTTON_STATE_PRESSED = 1
 };
 
+/** axis in interface.pointer.scroll function */
 enum wlc_scroll_axis {
    WLC_SCROLL_AXIS_VERTICAL,
    WLC_SCROLL_AXIS_HORIZONTAL
+};
+
+/** state of keyboard modifiers in various functions */
+struct wlc_modifiers {
+   uint32_t leds, mods;
 };
 
 struct wlc_interface {
@@ -91,26 +110,26 @@ struct wlc_interface {
       void (*switch_space)(struct wlc_compositor*, struct wlc_view*, struct wlc_space *from, struct wlc_space *to);
 
       struct {
-         void (*geometry)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y, uint32_t width, uint32_t height);
+         void (*geometry)(struct wlc_compositor*, struct wlc_view*, const struct wlc_geometry *geometry);
          void (*state)(struct wlc_compositor*, struct wlc_view*, enum wlc_view_state_bit state, bool toggle);
       } request;
    } view;
 
    struct {
-      bool (*key)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, uint32_t key, uint32_t sym, enum wlc_key_state state);
+      bool (*key)(struct wlc_compositor*, struct wlc_view*, uint32_t time, const struct wlc_modifiers*, uint32_t key, uint32_t sym, enum wlc_key_state state);
    } keyboard;
 
    struct {
-      bool (*button)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, uint32_t button, enum wlc_button_state state);
-      bool (*scroll)(struct wlc_compositor*, struct wlc_view*, uint32_t leds, uint32_t mods, enum wlc_scroll_axis axis, double amount);
-      bool (*motion)(struct wlc_compositor*, struct wlc_view*, int32_t x, int32_t y);
+      bool (*button)(struct wlc_compositor*, struct wlc_view*, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state state);
+      bool (*scroll)(struct wlc_compositor*, struct wlc_view*, uint32_t time, const struct wlc_modifiers*, enum wlc_scroll_axis axis, double amount);
+      bool (*motion)(struct wlc_compositor*, struct wlc_view*, uint32_t time, const struct wlc_origin*);
    } pointer;
 
    struct {
       bool (*created)(struct wlc_compositor*, struct wlc_output*);
       void (*destroyed)(struct wlc_compositor*, struct wlc_output*);
       void (*activated)(struct wlc_compositor*, struct wlc_output*);
-      void (*resolution)(struct wlc_compositor*, struct wlc_output*, uint32_t width, uint32_t height);
+      void (*resolution)(struct wlc_compositor*, struct wlc_output*, const struct wlc_size*);
    } output;
 
    struct {
@@ -120,15 +139,17 @@ struct wlc_interface {
    } space;
 };
 
-bool wlc_init(const int argc, char *argv[]);
+bool wlc_init(const struct wlc_interface *interface, const int argc, char *argv[]);
+void wlc_terminate(void);
+void wlc_run(void);
 FILE* wlc_get_log_file(void);
 void wlc_set_log_file(FILE *out);
 WLC_LOG_ATTR(2, 3) void wlc_log(const enum wlc_log_type type, const char *fmt, ...);
 void wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list ap);
 
-void wlc_output_get_pixels(struct wlc_output *output, void (*async)(uint32_t w, uint32_t h, uint8_t *rgba));
-void wlc_output_set_resolution(struct wlc_output *output, uint32_t width, uint32_t height);
-void wlc_output_get_resolution(struct wlc_output *output, uint32_t *out_width, uint32_t *out_height);
+void wlc_output_get_pixels(struct wlc_output *output, void (*async)(const struct wlc_size *size, uint8_t *rgba));
+void wlc_output_set_resolution(struct wlc_output *output, const struct wlc_size *resolution);
+const struct wlc_size* wlc_output_get_resolution(struct wlc_output *output);
 struct wlc_space* wlc_output_get_active_space(struct wlc_output *output);
 struct wl_list* wlc_output_get_spaces(struct wlc_output *output);
 struct wl_list* wlc_output_get_link(struct wlc_output *output);
@@ -155,10 +176,8 @@ struct wlc_space* wlc_view_get_space(struct wlc_view *view);
 uint32_t wlc_view_get_type(struct wlc_view *view);
 uint32_t wlc_view_get_state(struct wlc_view *view);
 void wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
-uint32_t wlc_view_get_width(struct wlc_view *view);
-uint32_t wlc_view_get_height(struct wlc_view *view);
-void wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height);
-void wlc_view_position(struct wlc_view *view, int32_t x, int32_t y);
+const struct wlc_geometry* wlc_view_get_geometry(struct wlc_view *view);
+void wlc_view_set_geometry(struct wlc_view *view, const struct wlc_geometry *geometry);
 void wlc_view_close(struct wlc_view *view);
 void wlc_view_send_below(struct wlc_view *view, struct wlc_view *below);
 void wlc_view_send_to_back(struct wlc_view *view);
@@ -180,10 +199,8 @@ struct wlc_space* wlc_compositor_get_focused_space(struct wlc_compositor *compos
 void wlc_compositor_focus_view(struct wlc_compositor *compositor, struct wlc_view *view);
 void wlc_compositor_focus_output(struct wlc_compositor *compositor, struct wlc_output *output);
 
-void wlc_compositor_run(struct wlc_compositor *compositor);
-void wlc_compositor_terminate(struct wlc_compositor *compositor);
 void wlc_compositor_free(struct wlc_compositor *compositor);
-struct wlc_compositor* wlc_compositor_new(const struct wlc_interface *interface);
+struct wlc_compositor* wlc_compositor_new(void *userdata);
 
 /**
  * Macros for wl_list containers containing wlc structs.

@@ -2,8 +2,6 @@
 #include "drm.h"
 #include "backend.h"
 
-#include "udev/udev.h"
-
 #include "compositor/compositor.h"
 #include "compositor/output.h"
 
@@ -22,7 +20,7 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 
-// FIXME: contains global state
+// FIXME: contains global state (event_source && fd)
 //        dropMaster && setMaster needs root or logind
 //        make another controlled fork in wlc.c handle those if no logind
 
@@ -96,10 +94,6 @@ static struct {
       void (*drmModeFreeEncoder)(drmModeEncoderPtr);
    } api;
 } drm;
-
-static struct {
-   struct wlc_udev *udev;
-} seat;
 
 static bool
 gbm_load(void)
@@ -345,9 +339,8 @@ add_output(struct wlc_compositor *compositor, struct gbm_device *device, struct 
    if (!(dsurface->output = wlc_output_new(compositor, bsurface, &info->info)))
       goto fail;
 
-   if (!compositor->api.add_output(compositor, dsurface->output))
-      goto fail;
-
+   struct wlc_output_event ev = { dsurface->output, WLC_OUTPUT_EVENT_ADD };
+   wl_signal_emit(&wlc_system_signals()->output, &ev);
    return true;
 
 fail:
@@ -530,10 +523,7 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
    wl_array_release(&infos);
 
-   if (!(drm.event_source = wl_event_loop_add_fd(compositor->event_loop, drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
-      goto fail;
-
-   if (!(seat.udev = wlc_udev_new(compositor)))
+   if (!(drm.event_source = wl_event_loop_add_fd(wlc_event_loop(), drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
       goto fail;
 
    set_master();

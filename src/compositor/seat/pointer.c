@@ -1,14 +1,14 @@
 #include "internal.h"
 #include "pointer.h"
 #include "macros.h"
-#include "client.h"
 
 #include "compositor/view.h"
+#include "compositor/client.h"
 #include "compositor/output.h"
 #include "compositor/surface.h"
 #include "compositor/compositor.h"
 
-#include "render/render.h"
+#include "platform/render/render.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -91,12 +91,12 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
    wlc_dlog(WLC_DBG_FOCUS, "-> pointer focus event %p, %p", focused, focus);
 
    if (focused) {
-      uint32_t serial = wl_display_next_serial(pointer->compositor->display);
+      uint32_t serial = wl_display_next_serial(wlc_display());
       wl_pointer_send_leave(focused, serial, pointer->focus->surface->resource);
    }
 
    if (focus) {
-      uint32_t serial = wl_display_next_serial(pointer->compositor->display);
+      uint32_t serial = wl_display_next_serial(wlc_display());
       wl_pointer_send_enter(focus, serial, view->surface->resource, wl_fixed_from_int(d.x), wl_fixed_from_int(d.y));
    }
 
@@ -122,7 +122,7 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, 
       degrab(pointer);
    }
 
-   uint32_t serial = wl_display_next_serial(pointer->compositor->display);
+   uint32_t serial = wl_display_next_serial(wlc_display());
    wl_pointer_send_button(pointer->focus->client->input[WLC_POINTER], serial, time, button, state);
 }
 
@@ -162,11 +162,13 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
 
       if (pointer->action == WLC_GRAB_ACTION_MOVE) {
          wlc_view_set_state(focused, WLC_BIT_MOVING, true);
+         g.origin.x += dx;
+         g.origin.y += dy;
 
-         if (focused->compositor->interface.view.request.geometry) {
-            focused->compositor->interface.view.request.geometry(focused->compositor, focused, g.origin.x + dx, g.origin.y + dy, g.size.w, g.size.h);
+         if (wlc_interface()->view.request.geometry) {
+            WLC_INTERFACE_EMIT(view.request.geometry, focused->compositor, focused, &g);
          } else {
-            wlc_view_position(focused, g.origin.x + dx, g.origin.y + dy);
+            wlc_view_set_geometry(focused, &g);
          }
       } else if (pointer->action == WLC_GRAB_ACTION_RESIZE) {
          const struct wlc_size min = { 80, 40 };
@@ -185,7 +187,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
 
          wlc_view_set_state(focused, WLC_BIT_RESIZING, true);
          focused->resizing = pointer->action_edges;
-         wlc_view_resize(focused, g.size.w, g.size.h);
+         wlc_view_set_geometry(focused, &g);
       }
 
       pointer->grab = pointer->pos;

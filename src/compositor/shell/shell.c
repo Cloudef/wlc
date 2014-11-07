@@ -1,4 +1,4 @@
-#include "wlc.h"
+#include "internal.h"
 #include "macros.h"
 #include "shell.h"
 #include "surface.h"
@@ -6,9 +6,8 @@
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
 #include "compositor/output.h"
+#include "compositor/client.h"
 #include "compositor/view.h"
-
-#include "seat/client.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -78,7 +77,7 @@ wlc_shell_new(struct wlc_compositor *compositor)
    if (!(shell = calloc(1, sizeof(struct wlc_shell))))
       goto out_of_memory;
 
-   if (!(shell->global = wl_global_create(compositor->display, &wl_shell_interface, 1, shell, wl_shell_bind)))
+   if (!(shell->global = wl_global_create(wlc_display(), &wl_shell_interface, 1, shell, wl_shell_bind)))
       goto shell_interface_fail;
 
    shell->compositor = compositor;

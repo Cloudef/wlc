@@ -4,7 +4,8 @@
 
 #include "compositor/compositor.h"
 #include "compositor/output.h"
-#include "backend/backend.h"
+
+#include "platform/backend/backend.h"
 
 #include <stdlib.h>
 #include <string.h>

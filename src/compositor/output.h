@@ -53,7 +53,7 @@ struct wlc_output {
    struct wl_list link;
 
    struct {
-      void (*pixels)(uint32_t w, uint32_t h, uint8_t *rgba);
+      void (*pixels)(const struct wlc_size *size, uint8_t *rgba);
    } task;
 
    float ims;

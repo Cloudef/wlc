@@ -8,7 +8,7 @@
 #include "callback.h"
 #include "macros.h"
 
-#include "render/render.h"
+#include "platform/render/render.h"
 
 #include <stdlib.h>
 #include <stdio.h>

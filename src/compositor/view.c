@@ -1,8 +1,10 @@
+#include "internal.h"
 #include "view.h"
 #include "macros.h"
 #include "visibility.h"
 #include "compositor.h"
 #include "output.h"
+#include "client.h"
 #include "surface.h"
 
 #include "shell/surface.h"
@@ -10,7 +12,6 @@
 
 #include "seat/seat.h"
 #include "seat/pointer.h"
-#include "seat/client.h"
 
 #include "xwayland/xwm.h"
 
@@ -66,7 +67,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
 
    if (pending->state != out->state || size_changed) {
       if (view->xdg_surface.resource) {
-         uint32_t serial = wl_display_next_serial(view->compositor->display);
+         uint32_t serial = wl_display_next_serial(wlc_display());
          xdg_surface_send_configure(view->xdg_surface.resource, pending->geometry.size.w, pending->geometry.size.h, &view->wl_state, serial);
          // XXX: Some clients such simple-damage from weston does not trigger the ack, force next commit.
          //      Otherwise we could go pending state here and wait for surface reply.
@@ -129,7 +130,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
 
    if (reconfigure) {
       if (view->xdg_surface.resource) {
-         uint32_t serial = wl_display_next_serial(view->compositor->display);
+         uint32_t serial = wl_display_next_serial(wlc_display());
          xdg_surface_send_configure(view->xdg_surface.resource, view->pending.geometry.size.w, view->pending.geometry.size.h, &view->wl_state, serial);
          view->ack = ACK_NEXT_COMMIT;
       } else if (view->shell_surface.resource) {
@@ -210,8 +211,8 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
 {
    bool granted = true;
 
-   if (view->compositor->interface.view.request.geometry) {
-      view->compositor->interface.view.request.geometry(view->compositor, view, r->origin.x, r->origin.y, r->size.w, r->size.h);
+   if (wlc_interface()->view.request.geometry) {
+      WLC_INTERFACE_EMIT(view.request.geometry, view->compositor, view, r);
 
       // User did not follow the request.
       if (!wlc_geometry_equals(r, &view->pending.geometry))
@@ -226,10 +227,10 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
 void
 wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {
-   if (!view->created || !view->compositor->interface.view.request.state || (bool)(view->pending.state & state) == toggle)
+   if (!view->created || (bool)(view->pending.state & state) == toggle)
       return;
 
-   view->compositor->interface.view.request.state(view->compositor, view, state, toggle);
+   WLC_INTERFACE_EMIT(view.request.state, view->compositor, view, state, toggle);
 }
 
 struct wlc_space*
@@ -251,9 +252,10 @@ wlc_view_free(struct wlc_view *view)
 {
    assert(view);
 
-   if (view->created && view->compositor->interface.view.destroyed)
-      view->compositor->interface.view.destroyed(view->compositor, view);
+   if (view->created)
+      WLC_INTERFACE_EMIT(view.destroyed, view->compositor, view);
 
+   // XXX: ugly
    view->compositor->seat->notify.view_unfocus(view->compositor->seat, view);
 
    wlc_view_set_parent(view, NULL);
@@ -324,19 +326,18 @@ wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool to
    update(view);
 }
 
-WLC_API void
-wlc_view_resize(struct wlc_view *view, uint32_t width, uint32_t height)
+WLC_API const struct wlc_geometry*
+wlc_view_get_geometry(struct wlc_view *view)
 {
    assert(view);
-   view->pending.geometry.size = (struct wlc_size){ width, height };
-   update(view);
+   return &view->pending.geometry;
 }
 
 WLC_API void
-wlc_view_position(struct wlc_view *view, int32_t x, int32_t y)
+wlc_view_set_geometry(struct wlc_view *view, const struct wlc_geometry *geometry)
 {
-   assert(view);
-   view->pending.geometry.origin = (struct wlc_origin){ x, y };
+   assert(view && geometry);
+   view->pending.geometry = *geometry;
    update(view);
 }
 
@@ -346,7 +347,7 @@ wlc_view_close(struct wlc_view *view)
    assert(view);
 
    if (view->xdg_popup.resource) {
-      xdg_popup_send_popup_done(view->xdg_popup.resource, wl_display_next_serial(view->compositor->display));
+      xdg_popup_send_popup_done(view->xdg_popup.resource, wl_display_next_serial(wlc_display()));
    } else if (view->xdg_surface.resource) {
       xdg_surface_send_close(view->xdg_surface.resource);
    } else if (view->x11_window) {
@@ -465,8 +466,7 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
       if (!wlc_size_equals(&view->pending.geometry.size, &wlc_size_zero))
          view->pending.geometry.size = view->surface->size;
 
-      if (view->compositor->interface.view.created &&
-         !view->compositor->interface.view.created(view->compositor, view, space)) {
+      if (WLC_INTERFACE_EMIT_EXCEPT(view.created, false, view->compositor, view, space)) {
          wlc_view_free(view);
          return;
       }
@@ -477,9 +477,7 @@ wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
       view->created = true;
    } else if (old_space && space) {
       wlc_surface_attach_to_output(view->surface, space->output, view->surface->commit.buffer);
-
-      if (view->compositor->interface.view.switch_space)
-         view->compositor->interface.view.switch_space(view->compositor, view, old_space, space);
+      WLC_INTERFACE_EMIT(view.switch_space, view->compositor, view, old_space, space);
    }
 
    update(view);
@@ -553,18 +551,4 @@ wlc_view_get_parent(struct wlc_view *view)
 {
    assert(view);
    return view->parent;
-}
-
-WLC_API uint32_t
-wlc_view_get_width(struct wlc_view *view)
-{
-   assert(view);
-   return view->pending.geometry.size.w;
-}
-
-WLC_API uint32_t
-wlc_view_get_height(struct wlc_view *view)
-{
-   assert(view);
-   return view->pending.geometry.size.h;
 }

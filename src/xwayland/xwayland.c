@@ -1,6 +1,6 @@
 /* This is mostly based on swc's xwayland.c which is based on weston's xwayland/launcher.c */
 
-#include "wlc.h"
+#include "internal.h"
 #include "xwayland.h"
 #include "xwm.h"
 
@@ -27,9 +27,8 @@ static struct {
    struct sigaction old_sigusr1;
    char display_name[16];
    struct wl_client *client;
-   struct wl_event_source *event_source;
    int display;
-   int wm_fd;
+   int wl[2], wm[2], socks[2];
    pid_t pid;
 } xserver;
 
@@ -138,7 +137,6 @@ retry:
    }
 
    snprintf(xserver.display_name, sizeof(xserver.display_name), ":%d", (xserver.display = dpy));
-   setenv("DISPLAY", xserver.display_name, true);
    return true;
 
 no_open_display:
@@ -163,53 +161,67 @@ close_display(void)
    unsetenv("DISPLAY");
 }
 
-static int
-sigusr1_event(int signal_number, void *data)
+static void
+sigusr_handler(int signal_number)
 {
    assert(signal_number == SIGUSR1);
+   wlc_log(WLC_LOG_INFO, "Xwayland started");
    sigaction(signal_number, &xserver.old_sigusr1, NULL);
+   setenv("DISPLAY", xserver.display_name, true);
+   wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){true});
+}
 
-   struct wlc_compositor *compositor = data;
+struct wl_client*
+wlc_xwayland_get_client(void)
+{
+   return xserver.client;
+}
 
-   if (!wlc_xwm_init(compositor, xserver.client, xserver.wm_fd))
-      wlc_log(WLC_LOG_WARN, "Failed to start Xwayland WM");
+int
+wlc_xwayland_get_fd(void)
+{
+   return xserver.wm[0];
+}
 
-   if (xserver.event_source) {
-      wl_event_source_remove(xserver.event_source);
-      xserver.event_source = NULL;
+void
+wlc_xwayland_terminate(void)
+{
+   wlc_log(WLC_LOG_INFO, "Closing Xwayland");
+
+   if (xserver.pid > 0)
+      kill(xserver.pid, SIGTERM);
+
+   if (xserver.client) {
+      wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){false});
+      wl_client_destroy(xserver.client);
    }
 
-   return 1;
+   close(xserver.socks[0]);
+   close(xserver.socks[1]);
+   close(xserver.wl[0]);
+   close(xserver.wm[0]);
+
+   close_display();
+
+   memset(&xserver, 0, sizeof(xserver));
 }
 
 bool
-wlc_xwayland_init(struct wlc_compositor *compositor)
+wlc_xwayland_init(void)
 {
-   int wl[2], wm[2], socks[2];
-
-   if (!open_display(socks))
+   if (!open_display(xserver.socks))
       goto display_open_fail;
 
-   sigaction(SIGUSR1, NULL,  &xserver.old_sigusr1);
-
-   if (!(xserver.event_source = wl_event_loop_add_signal(compositor->event_loop, SIGUSR1, &sigusr1_event, compositor)))
-      goto event_source_fail;
-
    /* Open a socket for the Wayland connection from Xwayland. */
-   if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, wl) != 0)
+   if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, xserver.wl) != 0)
       goto socketpair_fail;
 
    /* Open a socket for the X connection to Xwayland. */
-   if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, wm) != 0)
+   if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, xserver.wm) != 0)
       goto socketpair_fail;
 
-   if (!(xserver.client = wl_client_create(compositor->display, wl[0])))
-      goto client_create_fail;
-
-   xserver.wm_fd = wm[0];
-
    if ((xserver.pid = fork()) == 0) {
-      int fds[] = { wl[1], wm[1], socks[0], socks[1] };
+      int fds[] = { xserver.wl[1], xserver.wm[1], xserver.socks[0], xserver.socks[1] };
       char strings[sizeof(fds) / sizeof(int)][16];
 
       /* Unset the FD_CLOEXEC flag on the FDs that will get passed to Xwayland. */
@@ -263,13 +275,18 @@ wlc_xwayland_init(struct wlc_compositor *compositor)
       goto fork_fail;
    }
 
-   close(wl[1]);
-   close(wm[1]);
+   close(xserver.wl[1]);
+   close(xserver.wm[1]);
+
+   if (!(xserver.client = wl_client_create(wlc_display(), xserver.wl[0])))
+      goto client_create_fail;
+
+   struct sigaction action;
+   memset(&action, 0, sizeof(action));
+   action.sa_handler = sigusr_handler;
+   sigaction(SIGUSR1, &action,  &xserver.old_sigusr1);
    return true;
 
-event_source_fail:
-   wlc_log(WLC_LOG_WARN, "Failed to create SIGUSR1 event source");
-   goto fail;
 display_open_fail:
    wlc_log(WLC_LOG_WARN, "Failed to open xwayland display");
    goto fail;
@@ -284,23 +301,4 @@ fork_fail:
 fail:
    close_display();
    return false;
-}
-
-void
-wlc_xwayland_deinit(void)
-{
-   if (xserver.event_source) {
-      wl_event_source_remove(xserver.event_source);
-      xserver.event_source = NULL;
-   }
-
-   if (xserver.client)
-      wl_client_destroy(xserver.client);
-
-   if (xserver.pid > 0)
-      kill(xserver.pid, SIGINT);
-
-   close_display();
-
-   memset(&xserver, 0, sizeof(xserver));
 }

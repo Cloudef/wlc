@@ -1,9 +1,9 @@
 #include "internal.h"
 #include "keyboard.h"
 #include "keymap.h"
-#include "client.h"
 
 #include "compositor/view.h"
+#include "compositor/client.h"
 #include "compositor/output.h"
 #include "compositor/surface.h"
 #include "compositor/compositor.h"
@@ -46,7 +46,7 @@ update_modifiers(struct wlc_keyboard *keyboard)
       if (!client->input[WLC_KEYBOARD])
          continue;
 
-      uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
+      uint32_t serial = wl_display_next_serial(wlc_display());
       wl_keyboard_send_modifiers(client->input[WLC_KEYBOARD], serial, keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
    }
 }
@@ -87,7 +87,7 @@ send_release_for_keys(struct wlc_view *view, struct wl_array *keys)
    uint32_t *k;
    uint32_t time = wlc_get_time(NULL);
    wl_array_for_each(k, keys) {
-      uint32_t serial = wl_display_next_serial(view->compositor->display);
+      uint32_t serial = wl_display_next_serial(wlc_display());
       wl_keyboard_send_key(view->client->input[WLC_KEYBOARD], serial, time, *k, WL_KEYBOARD_KEY_STATE_RELEASED);
    }
 }
@@ -105,14 +105,11 @@ reset_keyboard(struct wlc_keyboard *keyboard)
 }
 
 bool
-wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t leds, uint32_t mods, uint32_t key, enum wl_keyboard_key_state state)
+wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state)
 {
-   if (!keyboard->compositor->interface.keyboard.key)
-      return true;
+   uint32_t sym = xkb_state_key_get_one_sym(keyboard->state, key + 8);
 
-   bool handle = keyboard->compositor->interface.keyboard.key(keyboard->compositor, keyboard->focus, leds, mods, key, xkb_state_key_get_one_sym(keyboard->state, key + 8), (enum wlc_key_state)state);
-
-   if (!handle) {
+   if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->compositor, keyboard->focus, time, mods, key, sym, (enum wlc_key_state)state)) {
       reset_keyboard(keyboard);
       return false;
    }
@@ -136,7 +133,7 @@ wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key, enu
    if (!is_valid_view(keyboard->focus))
       return;
 
-   uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
+   uint32_t serial = wl_display_next_serial(wlc_display());
    wl_keyboard_send_key(keyboard->focus->client->input[WLC_KEYBOARD], serial, time, key, state);
 }
 
@@ -159,7 +156,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
    wlc_dlog(WLC_DBG_FOCUS, "-> keyboard focus event %p, %p", focused, focus);
 
    if (focused) {
-      uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
+      uint32_t serial = wl_display_next_serial(wlc_display());
       wl_keyboard_send_leave(focused, serial, keyboard->focus->surface->resource);
 
       if (keyboard->focus->xdg_popup.resource)
@@ -168,7 +165,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
 
    if (focus) {
       reset_keyboard(keyboard);
-      uint32_t serial = wl_display_next_serial(keyboard->compositor->display);
+      uint32_t serial = wl_display_next_serial(wlc_display());
       wl_keyboard_send_enter(focus, serial, view->surface->resource, &keyboard->keys);
    }
 

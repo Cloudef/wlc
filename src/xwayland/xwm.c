@@ -1,13 +1,13 @@
 #include "internal.h"
 #include "xwm.h"
+#include "xwayland.h"
 
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
 #include "compositor/output.h"
+#include "compositor/client.h"
 #include "compositor/view.h"
-
-#include "seat/seat.h"
-#include "seat/client.h"
+#include "compositor/seat/seat.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +21,6 @@
 #include <wayland-util.h>
 
 #define LENGTH(x) (sizeof(x) / sizeof(x)[0])
-
-// FIXME: contains global state
 
 struct wlc_x11_window {
    struct wlc_view *view;
@@ -72,20 +70,22 @@ enum atom_name {
    ATOM_LAST
 };
 
-static struct {
+struct wlc_xwm {
    struct wlc_compositor *compositor;
-   struct wl_client *client;
    struct wl_event_source *event_source;
    struct wl_list windows, unpaired_windows;
-   xcb_window_t focus;
-} xwm;
+
+   struct {
+      struct wl_listener surface;
+   } listener;
+};
 
 static struct {
    xcb_screen_t *screen;
    xcb_connection_t *connection;
    const xcb_query_extension_reply_t *xfixes;
    xcb_atom_t atoms[ATOM_LAST];
-   xcb_window_t window;
+   xcb_window_t window, focus;
 
    struct {
       void *xcb_handle;
@@ -294,9 +294,9 @@ wlc_x11_window_for_id(struct wl_list *list, xcb_window_t window)
 }
 
 static void
-set_parent(struct wlc_x11_window *win, xcb_window_t parent_id)
+set_parent(struct wlc_xwm *xwm, struct wlc_x11_window *win, xcb_window_t parent_id)
 {
-   assert(win && win->view);
+   assert(xwm && win && win->view);
 
    if (!parent_id || win->id == parent_id) {
       wlc_view_set_parent(win->view, NULL);
@@ -304,7 +304,7 @@ set_parent(struct wlc_x11_window *win, xcb_window_t parent_id)
    }
 
    struct wlc_x11_window *parent;
-   if ((parent = wlc_x11_window_for_id(&xwm.windows, parent_id)) && parent->view)
+   if ((parent = wlc_x11_window_for_id(&xwm->windows, parent_id)) && parent->view)
       wlc_view_set_parent(win->view, parent->view);
 }
 
@@ -333,7 +333,7 @@ handle_state(struct wlc_x11_window *win, xcb_atom_t *atoms, size_t nmemb, enum n
 }
 
 static void
-read_properties(struct wlc_x11_window *win)
+read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
 {
    assert(win);
 
@@ -387,7 +387,7 @@ read_properties(struct wlc_x11_window *win)
          case XCB_ATOM_WINDOW: {
             // Transient
             xcb_window_t *xid = x11.api.xcb_get_property_value(reply);
-            set_parent(win, *xid);
+            set_parent(xwm, win, *xid);
          }
          break;
          case XCB_ATOM_CARDINAL:
@@ -442,7 +442,7 @@ read_properties(struct wlc_x11_window *win)
 }
 
 static void
-link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
+link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource *resource)
 {
    assert(win);
 
@@ -467,13 +467,13 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    }
 
    struct wlc_client *client;
-   if (!(client = wlc_client_for_client_with_wl_client_in_list(xwm.client, &xwm.compositor->clients))) {
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(wlc_xwayland_get_client(), &xwm->compositor->clients))) {
       wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find wlc_client for wl_client");
       return;
    }
 
    struct wlc_surface *surface = wl_resource_get_user_data(resource);
-   if (!surface->view && !(surface->view = wlc_view_new(xwm.compositor, client, surface))) {
+   if (!surface->view && !(surface->view = wlc_view_new(xwm->compositor, client, surface))) {
       wl_resource_post_no_memory(resource);
       return;
    }
@@ -484,7 +484,7 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    if (win->override_redirect)
       win->view->type |= WLC_BIT_OVERRIDE_REDIRECT;
 
-   read_properties(win);
+   read_properties(xwm, win);
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
       win->view->pending.geometry = geometry;
@@ -492,8 +492,8 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    wlc_dlog(WLC_DBG_XWM, "-> Linked x11 window (%u) to view (%p) [%ux%u+%d,%d]",
          win->id, win->view, geometry.size.w, geometry.size.h, geometry.origin.x, geometry.origin.y);
 
-   if (!win->view->parent && xwm.focus && (win->view->type & WLC_BIT_MODAL))
-      set_parent(win, xwm.focus);
+   if (!win->view->parent && x11.focus && (win->view->type & WLC_BIT_MODAL))
+      set_parent(xwm, win, x11.focus);
 
    if (surface->output) {
       // Make sure the view is mapped to space.
@@ -502,20 +502,20 @@ link_surface(struct wlc_x11_window *win, struct wl_resource *resource)
    }
 
    wl_list_remove(&win->link);
-   wl_list_insert(&xwm.windows, &win->link);
+   wl_list_insert(&xwm->windows, &win->link);
 }
 
 static void
 focus_window(xcb_window_t window)
 {
-   if (xwm.focus == window)
+   if (x11.focus == window)
       return;
 
    wlc_dlog(WLC_DBG_FOCUS, "-> xwm focus %u", window);
 
    if (window == 0) {
       XCB_CALL(x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_CURRENT_TIME));
-      xwm.focus = 0;
+      x11.focus = 0;
       return;
    }
 
@@ -529,19 +529,21 @@ focus_window(xcb_window_t window)
    XCB_CALL(x11.api.xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, (char*)&m));
    XCB_CALL(x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, window, XCB_CURRENT_TIME));
    x11.api.xcb_flush(x11.connection);
-   xwm.focus = window;
+   x11.focus = window;
 }
 
 static struct wlc_x11_window*
-wlc_x11_window_new(xcb_window_t window, bool override_redirect)
+wlc_x11_window_new(struct wlc_xwm *xwm, xcb_window_t window, bool override_redirect)
 {
+   assert(xwm);
+
    struct wlc_x11_window *win;
    if (!(win = calloc(1, sizeof(struct wlc_x11_window))))
       return NULL;
 
    win->id = window;
    win->override_redirect = override_redirect;
-   wl_list_insert(&xwm.unpaired_windows, &win->link);
+   wl_list_insert(&xwm->unpaired_windows, &win->link);
    return win;
 }
 
@@ -550,7 +552,7 @@ wlc_x11_window_free(struct wlc_x11_window *win)
 {
    assert(win);
 
-   if (xwm.focus == win->id)
+   if (x11.focus == win->id)
       focus_window(0);
 
    if (win->view) {
@@ -637,28 +639,28 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 
    if (active) {
       focus_window(win->id);
-   } else if (win->id == xwm.focus) {
+   } else if (win->id == x11.focus) {
       focus_window(0);
    }
 }
 
 static void
-handle_client_message(xcb_client_message_event_t *ev)
+handle_client_message(struct wlc_xwm *xwm, xcb_client_message_event_t *ev)
 {
    assert(ev);
 
    if (ev->type == x11.atoms[WL_SURFACE_ID]) {
       struct wlc_x11_window *win;
-      if (!(win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
+      if (!(win = wlc_x11_window_for_id(&xwm->unpaired_windows, ev->window)))
          return;
 
-      link_surface(win, wl_client_get_object(xwm.client, ev->data.data32[0]));
+      link_surface(xwm, win, wl_client_get_object(wlc_xwayland_get_client(), ev->data.data32[0]));
       win->surface_id = ev->data.data32[0];
       return;
    }
 
    struct wlc_x11_window *win;
-   if (!(win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || !win->view)
+   if (!(win = wlc_x11_window_for_id(&xwm->windows, ev->window)) || !win->view)
       return;
 
    if (ev->type == x11.atoms[NET_WM_STATE])
@@ -668,7 +670,8 @@ handle_client_message(xcb_client_message_event_t *ev)
 static int
 x11_event(int fd, uint32_t mask, void *data)
 {
-   (void)fd, (void)mask, (void)data;
+   (void)fd, (void)mask;
+   struct wlc_xwm *xwm = data;
 
    int count = 0;
    xcb_generic_event_t *event;
@@ -691,15 +694,15 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_CREATE_NOTIFY: {
                xcb_create_notify_event_t *ev = (xcb_create_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_CREATE_NOTIFY (%u : %d)", ev->window, ev->override_redirect);
-               wlc_x11_window_new(ev->window, ev->override_redirect);
+               wlc_x11_window_new(xwm, ev->window, ev->override_redirect);
             }
             break;
 
             case XCB_MAP_NOTIFY: {
                xcb_map_notify_event_t *ev = (xcb_map_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_MAP_NOTIFY (%u)", ev->window);
-               if (!wlc_x11_window_for_id(&xwm.windows, ev->window) && !wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window))
-                  wlc_x11_window_new(ev->window, ev->override_redirect);
+               if (!wlc_x11_window_for_id(&xwm->windows, ev->window) && !wlc_x11_window_for_id(&xwm->unpaired_windows, ev->window))
+                  wlc_x11_window_new(xwm, ev->window, ev->override_redirect);
             }
             break;
 
@@ -707,7 +710,7 @@ x11_event(int fd, uint32_t mask, void *data)
                xcb_unmap_notify_event_t *ev = (xcb_unmap_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_UNMAP_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
-               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
+               if ((win = wlc_x11_window_for_id(&xwm->windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm->unpaired_windows, ev->window)))
                   wlc_x11_window_free(win);
             }
             break;
@@ -716,7 +719,7 @@ x11_event(int fd, uint32_t mask, void *data)
                xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_DESTROY_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
-               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm.unpaired_windows, ev->window)))
+               if ((win = wlc_x11_window_for_id(&xwm->windows, ev->window)) || (win = wlc_x11_window_for_id(&xwm->unpaired_windows, ev->window)))
                   wlc_x11_window_free(win);
             }
             break;
@@ -731,16 +734,15 @@ x11_event(int fd, uint32_t mask, void *data)
 
             case XCB_CLIENT_MESSAGE:
                wlc_dlog(WLC_DBG_XWM, "XCB_CLIENT_MESSAGE");
-               handle_client_message((xcb_client_message_event_t*)event);
+               handle_client_message(xwm, (xcb_client_message_event_t*)event);
             break;
 
             case XCB_FOCUS_IN: {
                // Do not let clients to steal focus
                xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
-               wlc_dlog(WLC_DBG_XWM, "XCB_FOCUS_IN (%u) [%u]", ev->event, xwm.focus);
-               if (xwm.focus && xwm.focus != ev->event) {
-                  xcb_window_t reset_focus = xwm.focus;
-                  xwm.focus = 0;
+               wlc_dlog(WLC_DBG_XWM, "XCB_FOCUS_IN (%u) [%u]", ev->event, x11.focus);
+               if (x11.focus && x11.focus != ev->event) {
+                  xcb_window_t reset_focus = x11.focus;
                   focus_window(reset_focus);
                }
             }
@@ -750,8 +752,8 @@ x11_event(int fd, uint32_t mask, void *data)
                xcb_property_notify_event_t *ev = (xcb_property_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_PROPERTY_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
-               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)))
-                  read_properties(win);
+               if ((win = wlc_x11_window_for_id(&xwm->windows, ev->window)))
+                  read_properties(xwm, win);
             }
             break;
 
@@ -766,8 +768,8 @@ x11_event(int fd, uint32_t mask, void *data)
                XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, ev->window, mask, (uint32_t*)&values));
 
                struct wlc_x11_window *win;
-               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) && win->view) {
-                  set_parent(win, ev->parent);
+               if ((win = wlc_x11_window_for_id(&xwm->windows, ev->window)) && win->view) {
+                  set_parent(xwm, win, ev->parent);
                   wlc_view_request_geometry(win->view, &r);
 
                   // Force geometry back, if request did not go through
@@ -784,7 +786,7 @@ x11_event(int fd, uint32_t mask, void *data)
                xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
-               if ((win = wlc_x11_window_for_id(&xwm.windows, ev->window)) && win->view) {
+               if ((win = wlc_x11_window_for_id(&xwm->windows, ev->window)) && win->view) {
                   if (win->override_redirect != ev->override_redirect) {
                      if (ev->override_redirect)
                         win->view->type |= WLC_BIT_OVERRIDE_REDIRECT;
@@ -824,12 +826,13 @@ x11_event(int fd, uint32_t mask, void *data)
    return count;
 }
 
-void
-wlc_xwm_surface_notify(struct wlc_compositor *compositor)
+static void
+surface_notify(struct wl_listener *listener, void *data)
 {
-   (void)compositor;
+   (void)data;
 
-   if (!xwm.compositor)
+   struct wlc_xwm *xwm;
+   if (!(xwm = wl_container_of(listener, xwm, listener.surface)))
       return;
 
    /* Xwayland will send the wayland requests to create the
@@ -838,21 +841,24 @@ wlc_xwm_surface_notify(struct wlc_compositor *compositor)
     * and thus when we try to look up the surface ID, the surface
     * hasn't been created yet. */
    struct wlc_x11_window *win, *wn;
-   wl_list_for_each_safe(win, wn, &xwm.unpaired_windows, link) {
+   wl_list_for_each_safe(win, wn, &xwm->unpaired_windows, link) {
       if (!win->surface_id)
          continue;
 
-      link_surface(win, wl_client_get_object(xwm.client, win->surface_id));
+      link_surface(xwm, win, wl_client_get_object(wlc_xwayland_get_client(), win->surface_id));
    }
 }
 
-bool
-wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const int fd)
+static bool
+x11_init(void)
 {
-   if (!xcb_load() || !xcb_composite_load() || !xcb_xfixes_load())
+   if (x11.connection)
+      return true;
+
+   if (!x11.api.xcb_handle && (!xcb_load() || !xcb_composite_load() || !xcb_xfixes_load()))
       goto fail;
 
-   x11.connection = x11.api.xcb_connect_to_fd(fd, NULL);
+   x11.connection = x11.api.xcb_connect_to_fd(wlc_xwayland_get_fd(), NULL);
    if (x11.api.xcb_connection_has_error(x11.connection))
       goto xcb_connection_fail;
 
@@ -909,12 +915,6 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    uint32_t value = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_PROPERTY_CHANGE;
    if (!XCB_CALL(x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &value)))
       goto change_attributes_fail;
-
-   if (!(xwm.event_source = wl_event_loop_add_fd(compositor->event_loop, fd, WL_EVENT_READABLE, &x11_event, compositor)))
-      goto event_source_fail;
-
-   wl_list_init(&xwm.windows);
-   wl_list_init(&xwm.unpaired_windows);
 
    if (!(x11.xfixes = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_xfixes_id)) || !x11.xfixes->present)
       goto xfixes_extension_fail;
@@ -993,17 +993,10 @@ wlc_xwm_init(struct wlc_compositor *compositor, struct wl_client *client, const 
    XCB_CALL(x11.api.xcb_xfixes_select_selection_input_checked(x11.connection, x11.window, x11.atoms[CLIPBOARD], mask));
 
    x11.api.xcb_flush(x11.connection);
-
-   xwm.client = client;
-   xwm.compositor = compositor;
-   wlc_log(WLC_LOG_INFO, "xwm started");
    return true;
 
 xcb_connection_fail:
    wlc_log(WLC_LOG_WARN, "Failed to connect to Xwayland");
-   goto fail;
-event_source_fail:
-   wlc_log(WLC_LOG_WARN, "Failed to setup X11 event source");
    goto fail;
 xfixes_extension_fail:
    wlc_log(WLC_LOG_WARN, "Failed to get xfixes extension");
@@ -1024,16 +1017,12 @@ atom_get_fail:
    wlc_log(WLC_LOG_WARN, "Failed to get atom");
    goto fail;
 fail:
-   wlc_xwm_deinit();
    return false;
 }
 
-void
-wlc_xwm_deinit()
+static void
+x11_terminate(void)
 {
-   if (xwm.event_source)
-      wl_event_source_remove(xwm.event_source);
-
    if (x11.window)
       XCB_CALL(x11.api.xcb_destroy_window_checked(x11.connection, x11.window));
 
@@ -1043,6 +1032,45 @@ wlc_xwm_deinit()
    if (x11.api.xcb_handle)
       dlclose(x11.api.xcb_handle);
 
-   memset(&xwm, 0, sizeof(xwm));
    memset(&x11, 0, sizeof(x11));
+}
+
+struct wlc_xwm*
+wlc_xwm_new(struct wlc_compositor *compositor)
+{
+   if (!x11_init())
+      return NULL;
+
+   struct wlc_xwm *xwm;
+   if (!(xwm = calloc(1, sizeof(struct wlc_xwm))))
+      return NULL;
+
+   wl_list_init(&xwm->windows);
+   wl_list_init(&xwm->unpaired_windows);
+
+   xwm->compositor = compositor;
+   xwm->listener.surface.notify = surface_notify;
+   wl_signal_add(&wlc_system_signals()->surface, &xwm->listener.surface);
+
+   if (!(xwm->event_source = wl_event_loop_add_fd(wlc_event_loop(), wlc_xwayland_get_fd(), WL_EVENT_READABLE, &x11_event, xwm)))
+      goto event_source_fail;
+
+   return xwm;
+
+event_source_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to setup xwm event source");
+   goto fail;
+fail:
+   if (xwm)
+      wlc_xwm_free(xwm);
+   return NULL;
+}
+
+void
+wlc_xwm_free(struct wlc_xwm *xwm)
+{
+   wl_list_remove(&xwm->listener.surface.link);
+
+   if (xwm->event_source)
+      wl_event_source_remove(xwm->event_source);
 }

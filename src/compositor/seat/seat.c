@@ -1,7 +1,6 @@
 #include "internal.h"
 #include "session/tty.h"
 #include "seat.h"
-#include "client.h"
 #include "pointer.h"
 #include "keyboard.h"
 #include "keymap.h"
@@ -10,9 +9,9 @@
 #include "compositor/compositor.h"
 #include "compositor/output.h"
 #include "compositor/surface.h"
+#include "compositor/client.h"
 #include "compositor/view.h"
-
-#include "data-device/manager.h"
+#include "compositor/data.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -173,48 +172,9 @@ wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsi
 }
 
 static void
-seat_pointer_motion(struct wlc_seat *seat, const struct wlc_origin *pos)
+seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
 {
-   if (!seat->pointer)
-      return;
-
-   if (seat->compositor->interface.pointer.motion &&
-      !seat->compositor->interface.pointer.motion(seat->compositor, seat->pointer->focus, pos->x, pos->y))
-      return;
-
-   wlc_pointer_motion(seat->pointer, wlc_get_time(NULL), pos);
-}
-
-static void
-seat_pointer_scroll(struct wlc_seat *seat, enum wl_pointer_axis axis, double amount)
-{
-   if (!seat->pointer)
-      return;
-
-   if (seat->compositor->interface.pointer.scroll &&
-      !seat->compositor->interface.pointer.scroll(seat->compositor, seat->pointer->focus, seat->leds, seat->mods, (enum wlc_scroll_axis)axis, amount))
-      return;
-
-   wlc_pointer_scroll(seat->pointer, wlc_get_time(NULL), axis, amount);
-}
-
-static void
-seat_pointer_button(struct wlc_seat *seat, uint32_t button, enum wl_pointer_button_state state)
-{
-   if (!seat->pointer)
-      return;
-
-   if (seat->compositor->interface.pointer.button &&
-      !seat->compositor->interface.pointer.button(seat->compositor, seat->pointer->focus, seat->leds, seat->mods, button, (enum wlc_button_state)state))
-      return;
-
-   wlc_pointer_button(seat->pointer, wlc_get_time(NULL), button, state);
-}
-
-static void
-seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_state state)
-{
-   if (!seat->keyboard || !wlc_keyboard_update(seat->keyboard, key, state))
+   if (!seat->keyboard || !wlc_keyboard_update(seat->keyboard, ev->key.code, ev->key.state))
       return;
 
    static enum wlc_modifier_bit mod_bits[WLC_MOD_LAST] = {
@@ -246,19 +206,81 @@ seat_keyboard_key(struct wlc_seat *seat, uint32_t key, enum wl_keyboard_key_stat
          leds |= led_bits[i];
    }
 
-   seat->leds = leds;
-   seat->mods = mods;
+   seat->modifiers.leds = leds;
+   seat->modifiers.mods = mods;
 
-   if ((mods & WLC_BIT_MOD_CTRL) && (mods & WLC_BIT_MOD_ALT) && key >= 59 && key <= 88) {
-      if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
-         wlc_tty_activate_vt((key - 59) + 1);
+   if ((mods & WLC_BIT_MOD_CTRL) && (mods & WLC_BIT_MOD_ALT) && ev->key.code >= 59 && ev->key.code <= 88) {
+      if (ev->key.state == WL_KEYBOARD_KEY_STATE_PRESSED)
+         wlc_tty_activate_vt((ev->key.code - 59) + 1);
       return;
    }
 
-   if (!wlc_keyboard_request_key(seat->keyboard, leds, mods, key, state))
+   if (!wlc_keyboard_request_key(seat->keyboard, ev->time, &seat->modifiers, ev->key.code, ev->key.state))
       return;
 
-   wlc_keyboard_key(seat->keyboard, wlc_get_time(NULL), key, state);
+   wlc_keyboard_key(seat->keyboard, ev->time, ev->key.code, ev->key.state);
+}
+
+static void
+input_event(struct wl_listener *listener, void *data)
+{
+   struct wlc_input_event *ev = data;
+   struct wlc_seat *seat;
+
+   if (!(seat = wl_container_of(listener, seat, listener.input)))
+      return;
+
+   switch (ev->type) {
+      case WLC_INPUT_EVENT_MOTION:
+         {
+            struct wlc_size resolution = (seat->compositor->output ? seat->compositor->output->resolution : wlc_size_zero);
+
+            struct wlc_origin pos = {
+               fmin(fmax(seat->pointer->pos.x + ev->motion.dx, 0), resolution.w),
+               fmin(fmax(seat->pointer->pos.y + ev->motion.dy, 0), resolution.h),
+            };
+
+            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->compositor, seat->pointer->focus, ev->time, &pos))
+               return;
+
+            wlc_pointer_motion(seat->pointer, ev->time, &pos);
+         }
+         break;
+
+      case WLC_INPUT_EVENT_MOTION_ABSOLUTE:
+         {
+            struct wlc_size resolution = (seat->compositor->output ? seat->compositor->output->resolution : wlc_size_zero);
+
+            struct wlc_origin pos = {
+               ev->motion_abs.x(ev->motion_abs.internal, resolution.w),
+               ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
+            };
+
+            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->compositor, seat->pointer->focus, ev->time, &pos))
+               return;
+
+            wlc_pointer_motion(seat->pointer, ev->time, &pos);
+         }
+         break;
+
+      case WLC_INPUT_EVENT_SCROLL:
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->compositor, seat->pointer->focus, ev->time, &seat->modifiers, (enum wlc_scroll_axis)ev->scroll.axis, ev->scroll.amount))
+            return;
+
+         wlc_pointer_scroll(seat->pointer, ev->time, ev->scroll.axis, ev->scroll.amount);
+         break;
+
+      case WLC_INPUT_EVENT_BUTTON:
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, false, seat->compositor, seat->pointer->focus, ev->time, &seat->modifiers,  ev->button.code, (enum wlc_button_state)ev->button.state))
+            return;
+
+         wlc_pointer_button(seat->pointer, ev->time, ev->button.code, ev->button.state);
+         break;
+
+      case WLC_INPUT_EVENT_KEY:
+         seat_handle_key(seat, ev);
+         break;
+   }
 }
 
 static void
@@ -288,6 +310,8 @@ wlc_seat_free(struct wlc_seat *seat)
 {
    assert(seat);
 
+   wl_list_remove(&seat->listener.input.link);
+
    if (seat->global)
       wl_global_destroy(seat->global);
 
@@ -316,6 +340,9 @@ wlc_seat_new(struct wlc_compositor *compositor)
    if (!(seat->device = wlc_data_device_new()))
       goto out_of_memory;
 
+   seat->listener.input.notify = input_event;
+   wl_signal_add(&wlc_system_signals()->input, &seat->listener.input);
+
    seat->pointer = wlc_pointer_new(compositor);
 
    /* we need to do this since libxkbcommon uses secure_getenv,
@@ -331,17 +358,13 @@ wlc_seat_new(struct wlc_compositor *compositor)
    if ((seat->keymap = wlc_keymap_new(&rules, XKB_KEYMAP_COMPILE_NO_FLAGS)))
       seat->keyboard = wlc_keyboard_new(seat->keymap, compositor);
 
-   if (!(seat->global = wl_global_create(compositor->display, &wl_seat_interface, 4, seat, wl_seat_bind)))
+   if (!(seat->global = wl_global_create(wlc_display(), &wl_seat_interface, 4, seat, wl_seat_bind)))
       goto shell_interface_fail;
 
-   seat->notify.pointer_motion = seat_pointer_motion;
-   seat->notify.pointer_scroll = seat_pointer_scroll;
-   seat->notify.pointer_button = seat_pointer_button;
-   seat->notify.keyboard_key = seat_keyboard_key;
+   seat->compositor = compositor;
+
    seat->notify.keyboard_focus = seat_keyboard_focus;
    seat->notify.view_unfocus = seat_view_unfocus;
-
-   seat->compositor = compositor;
    return seat;
 
 out_of_memory:

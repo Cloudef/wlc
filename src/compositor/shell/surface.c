@@ -1,12 +1,11 @@
 #include "surface.h"
 #include "macros.h"
 
-#include "seat/seat.h"
-#include "seat/pointer.h"
-
 #include "compositor/view.h"
 #include "compositor/surface.h"
 #include "compositor/output.h"
+#include "compositor/seat/seat.h"
+#include "compositor/seat/pointer.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -61,7 +60,7 @@ wl_cb_shell_surface_set_transient(struct wl_client *wl_client, struct wl_resourc
    struct wlc_view *view = wl_resource_get_user_data(resource);
    struct wlc_surface *surface = (parent_resource ? wl_resource_get_user_data(parent_resource) : NULL);
    wlc_view_set_parent(view, (surface ? surface->view : NULL));
-   wlc_view_position(view, x, y);
+   wlc_view_set_geometry(view, &(struct wlc_geometry){ { x, y }, view->pending.geometry.size });
 }
 
 static void

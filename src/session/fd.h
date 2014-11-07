@@ -12,6 +12,7 @@ bool wlc_fd_activate(void);
 bool wlc_fd_deactivate(void);
 int wlc_fd_open(const char *path, const int flags, const enum wlc_fd_type type);
 void wlc_fd_close(const int fd);
+void wlc_fd_terminate(void);
 void wlc_fd_init(const int argc, char *argv[]);
 
 #endif /* _WLC_FD_H_ */

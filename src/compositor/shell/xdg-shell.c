@@ -1,4 +1,4 @@
-#include "wlc.h"
+#include "internal.h"
 #include "macros.h"
 #include "xdg-shell.h"
 #include "xdg-surface.h"
@@ -6,9 +6,8 @@
 #include "compositor/compositor.h"
 #include "compositor/surface.h"
 #include "compositor/output.h"
+#include "compositor/client.h"
 #include "compositor/view.h"
-
-#include "seat/client.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -84,7 +83,7 @@ xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource
       return;
    }
 
-   wlc_view_position(surface->view, x, y);
+   wlc_view_set_geometry(surface->view, &(struct wlc_geometry){ { x, y }, surface->view->pending.geometry.size });
    wlc_view_set_parent(surface->view, psurface->view);
    wlc_xdg_popup_implement(&surface->view->xdg_popup, surface->view, xdg_popup_resource);
    surface->view->type |= WLC_BIT_POPUP;
@@ -135,7 +134,7 @@ wlc_xdg_shell_new(struct wlc_compositor *compositor)
    if (!(xdg_shell = calloc(1, sizeof(struct wlc_xdg_shell))))
       goto out_of_memory;
 
-   if (!(xdg_shell->global = wl_global_create(compositor->display, &xdg_shell_interface, 1, xdg_shell, xdg_shell_bind)))
+   if (!(xdg_shell->global = wl_global_create(wlc_display(), &xdg_shell_interface, 1, xdg_shell, xdg_shell_bind)))
       goto xdg_shell_interface_fail;
 
    xdg_shell->compositor = compositor;

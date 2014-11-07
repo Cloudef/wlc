@@ -132,7 +132,7 @@ sigusr_handler(int signal)
             return;
 
          wlc_set_active(false);
-         ioctl(wlc.tty, VT_RELDISP, 1);
+         //ioctl(wlc.tty, VT_RELDISP, 1);
          break;
       case SIGUSR2:
          wlc_log(WLC_LOG_INFO, "SIGUSR2");
@@ -140,7 +140,7 @@ sigusr_handler(int signal)
          if (!wlc_fd_activate())
             return;
 
-         ioctl(wlc.tty, VT_RELDISP, VT_ACKACQ);
+         //ioctl(wlc.tty, VT_RELDISP, VT_ACKACQ);
          wlc_set_active(true);
          break;
    }

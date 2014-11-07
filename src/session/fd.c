@@ -52,6 +52,7 @@ static struct {
       enum wlc_fd_type type;
    } fds[32];
    int socket;
+   pid_t child;
 } wlc;
 
 static ssize_t
@@ -181,7 +182,6 @@ activate(void)
 static bool
 deactivate(void)
 {
-#if 0
    for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
       switch (wlc.fds[i].type) {
          case WLC_FD_INPUT:
@@ -196,8 +196,6 @@ deactivate(void)
             break;
       }
    }
-#endif
-
    return true;
 }
 
@@ -245,7 +243,7 @@ communicate(const int sock, const pid_t parent)
    } while (kill(parent, 0) == 0);
 
    wlc_log(WLC_LOG_INFO, "Parent exit (%u)", parent);
-   wlc_terminate();
+   wlc_cleanup();
 }
 
 static bool
@@ -294,6 +292,13 @@ check_socket(const int sock)
    write_or_die(sock, -1, &request, sizeof(request));
    struct msg_response response;
    return read_response(sock, NULL, &response, TYPE_CHECK);
+}
+
+static void
+signal_handler(int signal)
+{
+   if (signal == SIGTERM)
+      _exit(EXIT_SUCCESS);
 }
 
 int
@@ -347,6 +352,16 @@ wlc_fd_deactivate(void)
 }
 
 void
+wlc_fd_terminate(void)
+{
+   if (wlc.child <= 0)
+      return;
+
+   kill(wlc.child, SIGTERM);
+   wlc.child = 0;
+}
+
+void
 wlc_fd_init(const int argc, char *argv[])
 {
    int sock[2];
@@ -359,19 +374,25 @@ wlc_fd_init(const int argc, char *argv[])
    if (fcntl(sock[1], F_SETFL, fcntl(sock[1], F_GETFL) & ~O_NONBLOCK) != 0)
       die("Could not reset NONBLOCK on socket: %m");
 
-   pid_t child;
-   if ((child = fork()) == 0) {
+   if ((wlc.child = fork()) == 0) {
       close(sock[0]);
 
       if (clearenv() != 0)
          die("Failed to clear environment");
+
+      struct sigaction action;
+      memset(&action, 0, sizeof(action));
+      action.sa_handler = signal_handler;
+      sigaction(SIGUSR1, &action, NULL);
+      sigaction(SIGUSR2, &action, NULL);
+      sigaction(SIGTERM, &action, NULL);
 
       for (int i = 0; i < argc; ++i)
          strncpy(argv[i], (i == 0 ? "wlc" : ""), strlen(argv[i]));
 
       communicate(sock[1], getppid());
       _exit(EXIT_SUCCESS);
-   } else if (child < 0) {
+   } else if (wlc.child < 0) {
       die("Fork failed");
    } else {
       close(sock[1]);
@@ -381,7 +402,7 @@ wlc_fd_init(const int argc, char *argv[])
       if (setuid(getuid()) != 0 || setgid(getgid()) != 0)
          die("Could not drop permissions: %m");
 
-      if (kill(child, 0) != 0)
+      if (kill(wlc.child, 0) != 0)
          die("Child process died");
 
       if (!check_socket(sock[0]))

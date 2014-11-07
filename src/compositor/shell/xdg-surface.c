@@ -1,12 +1,11 @@
 #include "xdg-surface.h"
 #include "macros.h"
 
-#include "seat/seat.h"
-#include "seat/pointer.h"
-
 #include "compositor/view.h"
 #include "compositor/surface.h"
 #include "compositor/output.h"
+#include "compositor/seat/seat.h"
+#include "compositor/seat/pointer.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -82,6 +81,7 @@ static void
 xdg_cb_surface_ack_configure(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
 {
    (void)wl_client, (void)serial;
+   (void)resource;
    // XXX: Some clients such simple-damage from weston does not trigger this
    // struct wlc_view *view = wl_resource_get_user_data(resource);
    // view->ack = ACK_NEXT_COMMIT;

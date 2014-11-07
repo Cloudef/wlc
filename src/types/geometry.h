@@ -1,26 +1,10 @@
 #ifndef _WLC_GEOMETRY_H_
 #define _WLC_GEOMETRY_H_
 
+#include "wlc.h"
 #include "macros.h"
-#include <stdint.h>
-#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
-
-// FIXME: make others use these as well instead of own structs
-
-struct wlc_origin {
-   int32_t x, y;
-};
-
-struct wlc_size {
-   uint32_t w, h;
-};
-
-struct wlc_geometry {
-   struct wlc_origin origin;
-   struct wlc_size size;
-};
 
 static const struct wlc_origin wlc_origin_zero = { 0, 0 };
 static const struct wlc_size wlc_size_zero = { 0, 0 };

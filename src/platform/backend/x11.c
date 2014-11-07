@@ -2,10 +2,10 @@
 #include "x11.h"
 #include "backend.h"
 
+#include "session/udev.h"
+
 #include "compositor/compositor.h"
 #include "compositor/output.h"
-
-#include "seat/seat.h"
 
 #include <xcb/xcb.h>
 #include <X11/Xlib-xcb.h>
@@ -18,11 +18,6 @@
 
 #include <wayland-server.h>
 #include <wayland-util.h>
-
-#define X11_USE_UDEV_LIBINPUT 0
-#if X11_USE_UDEV_LIBINPUT
-#  include "udev/udev.h"
-#endif
 
 // FIXME: contains global state
 
@@ -44,6 +39,7 @@ static struct {
    xcb_atom_t atoms[ATOM_LAST];
 
    struct wlc_compositor *compositor;
+   struct wl_event_source *event_source;
 
    struct {
       void *x11_handle;
@@ -80,13 +76,6 @@ static struct {
       int (*xcb_get_file_descriptor)(xcb_connection_t*);
    } api;
 } x11;
-
-static struct {
-#if X11_USE_UDEV_LIBINPUT
-   struct wlc_udev *udev;
-#endif
-   struct wl_event_source *event_source;
-} xseat;
 
 static bool
 x11_load(void)
@@ -240,9 +229,8 @@ add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_ou
 
    surface->internal = output;
 
-   if (!compositor->api.add_output(compositor, output))
-      goto fail;
-
+   struct wlc_output_event ev = { output, WLC_OUTPUT_EVENT_ADD };
+   wl_signal_emit(&wlc_system_signals()->output, &ev);
    return true;
 
 fail:
@@ -264,6 +252,20 @@ output_for_window(xcb_window_t window, struct wl_list *outputs)
    return NULL;
 }
 
+static double
+pointer_abs_x(void *internal, uint32_t width)
+{
+   xcb_motion_notify_event_t *xev = internal;
+   return fmin(fmax(xev->event_x, 0), width);
+}
+
+static double
+pointer_abs_y(void *internal, uint32_t height)
+{
+   xcb_motion_notify_event_t *xev = internal;
+   return fmin(fmax(xev->event_y, 0), height);
+}
+
 static int
 x11_event(int fd, uint32_t mask, void *data)
 {
@@ -271,90 +273,135 @@ x11_event(int fd, uint32_t mask, void *data)
 
    int count = 0;
    xcb_generic_event_t *event;
-   struct wlc_seat *seat = data;
+   struct wlc_compositor *compositor = data;
 
    while ((event = x11.api.xcb_poll_for_event(x11.connection))) {
       switch (event->response_type & ~0x80) {
-         case XCB_EXPOSE: {
-            xcb_expose_event_t *ev = (xcb_expose_event_t*)event;
-            struct wlc_output *output;
-            if (!(output = output_for_window(ev->window, &seat->compositor->outputs)))
-               wlc_output_schedule_repaint(output);
-         }
-         break;
-         case XCB_CLIENT_MESSAGE: {
-            xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
-            if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
+         case XCB_EXPOSE:
+            {
+               xcb_expose_event_t *ev = (xcb_expose_event_t*)event;
                struct wlc_output *output;
-               if ((output = output_for_window(ev->window, &seat->compositor->outputs))) {
-                  if (wl_list_length(&seat->compositor->outputs) <= 1) {
-                     wlc_compositor_terminate(seat->compositor);
-                  } else {
-                     wlc_output_terminate(output);
+               if ((output = output_for_window(ev->window, &compositor->outputs)))
+                  wlc_output_schedule_repaint(output);
+            }
+            break;
+
+         case XCB_CLIENT_MESSAGE:
+            {
+               xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
+               if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
+                  struct wlc_output *output;
+                  if ((output = output_for_window(ev->window, &compositor->outputs))) {
+                     if (wl_list_length(&compositor->outputs) <= 1) {
+                        wlc_terminate();
+                     } else {
+                        wlc_output_terminate(output);
+                     }
+                     return 1;
                   }
-                  return 1;
                }
             }
+            break;
+
+         case XCB_CONFIGURE_NOTIFY:
+            {
+               xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
+               struct wlc_output *output;
+               if ((output = output_for_window(ev->event, &compositor->outputs)))
+                  wlc_output_set_resolution(output, &(struct wlc_size){ ev->width, ev->height }); // XXX: make a request?
+            }
+            break;
+
+         case XCB_FOCUS_IN:
+            {
+               xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
+               struct wlc_output *output;
+               if ((output = output_for_window(ev->event, &compositor->outputs))) {
+                  struct wlc_output_event ev = { output, WLC_OUTPUT_EVENT_ACTIVE };
+                  wl_signal_emit(&wlc_system_signals()->output, &ev);
+               }
+            }
+            break;
+
+         case XCB_MOTION_NOTIFY:
+         {
+            xcb_motion_notify_event_t *xev = (xcb_motion_notify_event_t*)event;
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_MOTION_ABSOLUTE;
+            ev.time = xev->time;
+            ev.motion_abs.x = pointer_abs_x;
+            ev.motion_abs.y = pointer_abs_y;
+            ev.motion_abs.internal = xev;
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
          }
          break;
-         case XCB_CONFIGURE_NOTIFY: {
-            xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
-            struct wlc_output *output;
-            if ((output = output_for_window(ev->event, &seat->compositor->outputs)))
-               wlc_output_set_resolution(output, ev->width, ev->height); // XXX: make a request?
+
+         case XCB_BUTTON_PRESS:
+         {
+            xcb_button_press_event_t *xev = (xcb_button_press_event_t*)event;
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_BUTTON;
+            ev.time = xev->time;
+            ev.button.code = (xev->detail == 2 ? BTN_MIDDLE : (xev->detail == 3 ? BTN_RIGHT : xev->detail + BTN_LEFT - 1));
+            ev.button.state = WL_POINTER_BUTTON_STATE_PRESSED;
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
          }
          break;
-         case XCB_FOCUS_IN: {
-            xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
-            struct wlc_output *output;
-            if ((output = output_for_window(ev->event, &seat->compositor->outputs)))
-               seat->compositor->api.active_output(seat->compositor, output);
-         }
-         break;
-#if !X11_USE_UDEV_LIBINPUT
-         case XCB_MOTION_NOTIFY: {
-            xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t*)event;
-            seat->notify.pointer_motion(seat, &(struct wlc_origin){ ev->event_x, ev->event_y });
-         }
-         break;
-         case XCB_BUTTON_PRESS: {
-            xcb_button_press_event_t *ev = (xcb_button_press_event_t*)event;
-            uint32_t button = (ev->detail == 2 ? BTN_MIDDLE : (ev->detail == 3 ? BTN_RIGHT : ev->detail + BTN_LEFT - 1));
-            seat->notify.pointer_button(seat, button, WL_POINTER_BUTTON_STATE_PRESSED);
-         }
-         break;
-         case XCB_BUTTON_RELEASE: {
-            xcb_button_press_event_t *ev = (xcb_button_press_event_t*)event;
-            switch (ev->detail) {
+
+         case XCB_BUTTON_RELEASE:
+         {
+            xcb_button_press_event_t *xev = (xcb_button_press_event_t*)event;
+            struct wlc_input_event ev;
+            ev.time = xev->time;
+            switch (xev->detail) {
                case 4:
                case 5:
-                  seat->notify.pointer_scroll(seat, WL_POINTER_AXIS_VERTICAL_SCROLL, (ev->detail == 4 ? -10 : 10));
+                  ev.type = WLC_INPUT_EVENT_SCROLL;
+                  ev.scroll.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
+                  ev.scroll.amount = (xev->detail == 4 ? -10 : 10);
                   break;
 
                case 6:
                case 7:
-                  seat->notify.pointer_scroll(seat, WL_POINTER_AXIS_HORIZONTAL_SCROLL, (ev->detail == 6 ? -10 : 10));
+                  ev.type = WLC_INPUT_EVENT_SCROLL;
+                  ev.scroll.axis = WL_POINTER_AXIS_HORIZONTAL_SCROLL;
+                  ev.scroll.amount = (xev->detail == 6 ? -10 : 10);
                   break;
 
-               default: {
-                     uint32_t button = (ev->detail == 2 ? BTN_MIDDLE : (ev->detail == 3 ? BTN_RIGHT : ev->detail + BTN_LEFT - 1));
-                     seat->notify.pointer_button(seat, button, WL_POINTER_BUTTON_STATE_RELEASED);
-                  }
+               default:
+                  ev.type = WLC_INPUT_EVENT_BUTTON;
+                  ev.time = xev->time;
+                  ev.button.code = (xev->detail == 2 ? BTN_MIDDLE : (xev->detail == 3 ? BTN_RIGHT : xev->detail + BTN_LEFT - 1));
+                  ev.button.state = WL_POINTER_BUTTON_STATE_RELEASED;
                   break;
             }
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
          }
          break;
-         case XCB_KEY_PRESS: {
-            xcb_key_press_event_t *ev = (xcb_key_press_event_t *)event;
-            seat->notify.keyboard_key(seat, ev->detail - 8, WL_KEYBOARD_KEY_STATE_PRESSED);
+
+         case XCB_KEY_PRESS:
+         {
+            xcb_key_press_event_t *xev = (xcb_key_press_event_t*)event;
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_KEY;
+            ev.time = xev->time;
+            ev.key.code = xev->detail - 8;
+            ev.key.state = WL_KEYBOARD_KEY_STATE_PRESSED;
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
          }
          break;
-         case XCB_KEY_RELEASE: {
-            xcb_key_press_event_t *ev = (xcb_key_release_event_t *)event;
-            seat->notify.keyboard_key(seat, ev->detail - 8, WL_KEYBOARD_KEY_STATE_RELEASED);
+
+         case XCB_KEY_RELEASE:
+         {
+            xcb_key_press_event_t *xev = (xcb_key_press_event_t*)event;
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_KEY;
+            ev.time = xev->time;
+            ev.key.code = xev->detail - 8;
+            ev.key.state = WL_KEYBOARD_KEY_STATE_RELEASED;
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
          }
          break;
-#endif
       }
 
       free(event);
@@ -374,8 +421,8 @@ terminate(void)
    if (x11.display)
       x11.api.XCloseDisplay(x11.display);
 
-   if (xseat.event_source)
-      wl_event_source_remove(xseat.event_source);
+   if (x11.event_source)
+      wl_event_source_remove(x11.event_source);
 
    if (x11.api.x11_handle)
       dlclose(x11.api.x11_handle);
@@ -505,15 +552,12 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
          goto output_fail;
    }
 
-#if X11_USE_UDEV_LIBINPUT
-   if (!(xseat.udev = wlc_udev_new(compositor)))
-      goto fail;
-#endif
+   if (!wlc_input_has_init()) {
+      if (!(x11.event_source = wl_event_loop_add_fd(wlc_event_loop(), x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, compositor)))
+         goto event_source_fail;
 
-   if (!(xseat.event_source = wl_event_loop_add_fd(compositor->event_loop, x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, compositor->seat)))
-      goto event_source_fail;
-
-   wl_event_source_check(xseat.event_source);
+      wl_event_source_check(x11.event_source);
+   }
 
    x11.compositor = compositor;
    out_backend->api.terminate = terminate;

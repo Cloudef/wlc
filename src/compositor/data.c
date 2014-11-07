@@ -1,12 +1,10 @@
-#include "wlc.h"
+#include "internal.h"
 #include "macros.h"
-#include "manager.h"
+#include "data.h"
+#include "client.h"
+#include "compositor.h"
 
-#include "compositor/compositor.h"
-
-#include "seat/client.h"
 #include "seat/seat.h"
-
 #include "types/string.h"
 
 #include <stdlib.h>
@@ -307,7 +305,7 @@ wlc_data_device_manager_new(struct wlc_compositor *compositor)
    if (!(manager = calloc(1, sizeof(struct wlc_data_device_manager))))
       goto out_of_memory;
 
-   if (!(manager->global = wl_global_create(compositor->display, &wl_data_device_manager_interface, 1, manager, wl_data_device_manager_bind)))
+   if (!(manager->global = wl_global_create(wlc_display(), &wl_data_device_manager_interface, 1, manager, wl_data_device_manager_bind)))
       goto manager_interface_fail;
 
    manager->compositor = compositor;

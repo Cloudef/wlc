@@ -12,6 +12,7 @@ struct xkb_state;
 struct wlc_keymap;
 struct wlc_view;
 struct wlc_client;
+struct wlc_modifiers;
 
 struct wlc_keyboard {
    struct wlc_compositor *compositor;
@@ -27,7 +28,7 @@ struct wlc_keyboard {
    } mods;
 };
 
-bool wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t leds, uint32_t mods, uint32_t key, enum wl_keyboard_key_state state);
+bool wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state);
 bool wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state);
 void wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key, enum wl_keyboard_key_state state);
 void wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view);
