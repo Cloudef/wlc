@@ -183,6 +183,9 @@ static bool
 deactivate(void)
 {
    for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+      if (wlc.fds[i].fd < 0)
+         continue;
+
       switch (wlc.fds[i].type) {
          case WLC_FD_INPUT:
             if (ioctl(wlc.fds[i].fd, EVIOCREVOKE, 0) == -1) {
