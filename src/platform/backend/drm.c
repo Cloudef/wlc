@@ -21,14 +21,13 @@
 #include <wayland-util.h>
 
 // FIXME: contains global state (event_source && fd)
-//        dropMaster && setMaster needs root or logind
-//        make another controlled fork in wlc.c handle those if no logind
 
 #define NUM_FBS 2
 
 struct drm_output_information {
    drmModeConnector *connector;
    drmModeEncoder *encoder;
+   drmModeCrtc *crtc;
    struct wlc_output_information info;
    uint32_t width, height;
 };
@@ -39,6 +38,7 @@ struct drm_surface {
    struct gbm_surface *surface;
    drmModeConnector *connector;
    drmModeEncoder *encoder;
+   drmModeCrtc *crtc;
 
    struct drm_fb {
       struct gbm_bo *bo;
@@ -309,6 +309,12 @@ surface_free(struct wlc_backend_surface *bsurface)
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
    release_fb(dsurface->surface, fb);
 
+   // restore mode
+   drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, dsurface->crtc->buffer_id, dsurface->crtc->x, dsurface->crtc->y, &dsurface->connector->connector_id, 1, &dsurface->crtc->mode);
+
+   if (dsurface->crtc)
+      drm.api.drmModeFreeCrtc(dsurface->crtc);
+
    if (dsurface->surface)
       gbm.api.gbm_surface_destroy(dsurface->surface);
 
@@ -317,6 +323,8 @@ surface_free(struct wlc_backend_surface *bsurface)
 
    if (dsurface->connector)
       drm.api.drmModeFreeConnector(dsurface->connector);
+
+   wlc_log(WLC_LOG_INFO, "Released drm surface (%p)", bsurface);
 }
 
 static bool
@@ -329,6 +337,7 @@ add_output(struct wlc_compositor *compositor, struct gbm_device *device, struct 
    struct drm_surface *dsurface = bsurface->internal;
    dsurface->connector = info->connector;
    dsurface->encoder = info->encoder;
+   dsurface->crtc = info->crtc;
    dsurface->surface = surface;
    dsurface->device = device;
 
@@ -438,7 +447,7 @@ setup_drm(int fd, struct wl_array *out_infos)
          wlc_output_information_add_mode(&info->info, &mode);
       }
 
-      drm.api.drmModeFreeCrtc(crtc);
+      info->crtc = crtc;
       info->encoder = encoder;
       info->connector = connector;
    }
@@ -453,26 +462,14 @@ fail:
    return false;
 }
 
-static bool
-set_master(void)
-{
-   return !drm.api.drmSetMaster(drm.fd);
-}
-
-static bool
-drop_master(void)
-{
-   return !drm.api.drmDropMaster(drm.fd);
-}
-
 static void
 terminate(void)
 {
-   if (gbm.device)
-      gbm.api.gbm_device_destroy(gbm.device);
-
    if (drm.event_source)
       wl_event_source_remove(drm.event_source);
+
+   if (gbm.device)
+      gbm.api.gbm_device_destroy(gbm.device);
 
    if (drm.api.handle)
       dlclose(drm.api.handle);
@@ -485,6 +482,8 @@ terminate(void)
 
    memset(&drm, 0, sizeof(drm));
    memset(&gbm, 0, sizeof(gbm));
+
+   wlc_log(WLC_LOG_INFO, "Closed drm");
 }
 
 bool
