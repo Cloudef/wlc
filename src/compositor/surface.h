@@ -31,6 +31,9 @@ struct wlc_surface {
    struct wlc_surface_state commit;
    struct wlc_size size;
 
+   /* Output link */
+   struct wl_list link;
+
    /* Set if this surface is bind to view */
    struct wlc_view *view;
 

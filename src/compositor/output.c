@@ -68,6 +68,7 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
    wl_resource_set_implementation(resource, NULL, output, &wl_cb_output_resource_destructor);
    wl_list_insert(&output->resources, wl_resource_get_link(resource));
 
+   // FIXME: update on wlc_output_set_information
    wl_output_send_geometry(resource, output->information.x, output->information.y,
        output->information.physical_width, output->information.physical_height, output->information.subpixel,
        (output->information.make.data ? output->information.make.data : "unknown"),
@@ -103,7 +104,7 @@ fail:
 static bool
 should_render(struct wlc_output *output)
 {
-   return (wlc_get_active() && !output->pending && output->context && output->render);
+   return (wlc_get_active() && !output->pending && output->bsurface && output->context && output->render);
 }
 
 static bool
@@ -143,6 +144,20 @@ is_visible(struct wlc_output *output)
    return !wlc_geometry_contains(&g, &root);
 }
 
+static void
+finish_frame_tasks(struct wlc_output *output)
+{
+   if (output->task.bsurface) {
+      wlc_output_set_backend_surface(output, output->task.bsurface - 1);
+      output->task.bsurface = NULL;
+   }
+
+   if (output->task.terminate) {
+      wlc_output_terminate(output);
+      output->task.terminate = false;
+   }
+}
+
 static bool
 repaint(struct wlc_output *output)
 {
@@ -151,6 +166,7 @@ repaint(struct wlc_output *output)
    if (!should_render(output) || !wlc_render_bind(output->render, output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Skipped repaint");
       output->activity = output->scheduled = false;
+      finish_frame_tasks(output);
       return false;
    }
 
@@ -245,12 +261,7 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    }
 
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
-
-
-   if (output->task.terminate) {
-      wlc_output_terminate(output);
-      output->task.terminate = false;
-   }
+   finish_frame_tasks(output);
 }
 
 bool
@@ -275,13 +286,14 @@ wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surfac
    if (output->compositor->seat->pointer->surface == surface)
       output->compositor->seat->pointer->surface = NULL;
 
-   if (!output->render)
-      return;
+   if (output->render) {
+      wlc_render_surface_destroy(output->render, surface);
+      wlc_output_schedule_repaint(output);
+   }
 
-   wlc_render_surface_destroy(output->render, surface);
    surface->output = NULL;
-
-   wlc_output_schedule_repaint(output);
+   wl_list_remove(&surface->link);
+   wlc_dlog(WLC_DBG_RENDER, "-> Deattached surface (%p) from output (%p)", surface, output);
 }
 
 bool
@@ -298,7 +310,14 @@ wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface
    if (!wlc_render_surface_attach(output->render, surface, buffer))
       return false;
 
-   wlc_dlog(WLC_DBG_RENDER, "-> Attached surface (%p) to output (%p)", surface, output);
+   // We don't check for identical output until here.
+   // Since attach also updates buffer visually.
+   if (surface->output != output) {
+      surface->output = output;
+      wl_list_insert(&output->surfaces, &surface->link);
+      wlc_dlog(WLC_DBG_RENDER, "-> Attached surface (%p) to output (%p)", surface, output);
+   }
+
    wlc_output_schedule_repaint(output);
    return true;
 }
@@ -322,13 +341,22 @@ wlc_output_schedule_repaint(struct wlc_output *output)
 }
 
 bool
-wlc_output_set_surface(struct wlc_output *output, struct wlc_backend_surface *surface)
+wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_surface *bsurface)
 {
-   if (output->surface == surface)
+   if (output->bsurface == bsurface)
       return true;
 
-   if (output->surface) {
+   if (output->pending) {
+      output->task.bsurface = bsurface + 1;
+      return true;
+   }
+
+   if (output->bsurface) {
       if (output->render) {
+         struct wlc_surface *surface, *sn;
+         wl_list_for_each_safe(surface, sn, &output->surfaces, link)
+            wlc_render_surface_destroy(output->render, surface);
+
          wlc_render_free(output->render);
          output->render = NULL;
       }
@@ -338,25 +366,38 @@ wlc_output_set_surface(struct wlc_output *output, struct wlc_backend_surface *su
          output->context = NULL;
       }
 
-      if (output->surface) {
-         wlc_backend_surface_free(output->surface);
-         output->surface = NULL;
+      if (output->bsurface) {
+         wlc_backend_surface_free(output->bsurface);
+         output->bsurface = NULL;
       }
    }
 
-   if ((output->surface = surface)) {
-      if (!(output->context = wlc_context_new(surface)))
+   if ((output->bsurface = bsurface)) {
+      if (!(output->context = wlc_context_new(bsurface)))
          goto fail;
 
       if (!(output->render = wlc_render_new(output->context)))
          goto fail;
+
+      struct wlc_surface *surface, *sn;
+      wl_list_for_each_safe(surface, sn, &output->surfaces, link)
+         wlc_surface_attach_to_output(surface, output, surface->commit.buffer);
    }
 
    return true;
 
 fail:
-   wlc_output_set_surface(output, NULL);
+   wlc_output_set_backend_surface(output, NULL);
    return false;
+}
+
+void
+wlc_output_set_information(struct wlc_output *output, struct wlc_output_information *information)
+{
+   assert(output && information);
+   memcpy(&output->information, information, sizeof(output->information));
+   struct wlc_output_mode *mode = output->information.modes.data + (output->mode * sizeof(struct wlc_output_mode));
+   wlc_output_set_resolution(output, &(struct wlc_size){ mode->width, mode->height });
 }
 
 void
@@ -364,7 +405,7 @@ wlc_output_terminate(struct wlc_output *output)
 {
    assert(output);
 
-   if (should_render(output)) {
+   if (output->pending) {
       output->task.terminate = true;
       wlc_output_schedule_repaint(output);
       return;
@@ -390,7 +431,7 @@ wlc_output_free(struct wlc_output *output)
    wl_list_for_each_safe(s, sn, &output->spaces, link)
       wlc_space_free(s);
 
-   wlc_output_set_surface(output, NULL);
+   wlc_output_set_backend_surface(output, NULL);
 
    wlc_string_release(&output->information.make);
    wlc_string_release(&output->information.model);
@@ -403,7 +444,7 @@ wlc_output_free(struct wlc_output *output)
 }
 
 struct wlc_output*
-wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *surface, struct wlc_output_information *info)
+wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *bsurface, struct wlc_output_information *info)
 {
    struct wlc_output *output;
    if (!(output = calloc(1, sizeof(struct wlc_output))))
@@ -415,8 +456,8 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *su
    if (!(output->global = wl_global_create(wlc_display(), &wl_output_interface, 2, output, &wl_output_bind)))
       goto fail;
 
-   memcpy(&output->information, info, sizeof(output->information));
    wl_list_init(&output->resources);
+   wl_list_init(&output->surfaces);
    wl_list_init(&output->spaces);
 
    output->ims = 41;
@@ -425,13 +466,11 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *su
    if (!(output->space = wlc_space_new(output)))
       goto fail;
 
-   if (!wlc_output_set_surface(output, surface))
+   if (!wlc_output_set_backend_surface(output, bsurface))
       goto fail;
 
    wlc_context_bind_to_wl_display(output->context, wlc_display());
-
-   struct wlc_output_mode *mode = output->information.modes.data + (output->mode * sizeof(struct wlc_output_mode));
-   wlc_output_set_resolution(output, &(struct wlc_size){ mode->width, mode->height });
+   wlc_output_set_information(output, info);
    return output;
 
 fail:

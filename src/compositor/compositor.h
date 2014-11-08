@@ -46,4 +46,6 @@ struct wlc_compositor {
    bool terminating;
 };
 
+struct wlc_output* wlc_compositor_get_surfaless_output(struct wlc_compositor *compositor);
+
 #endif /* _WLC_COMPOSITOR_H_ */

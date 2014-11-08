@@ -224,12 +224,13 @@ activated(struct wl_listener *listener, void *data)
    if (!(compositor = wl_container_of(listener, compositor, listener.activated)))
       return;
 
-   if (!activated)
-      return;
-
-   struct wlc_output *o;
-   wl_list_for_each(o, &compositor->outputs, link)
-      wlc_output_schedule_repaint(o);
+   if (!activated) {
+      struct wlc_output *o;
+      wl_list_for_each(o, &compositor->outputs, link)
+         wlc_output_set_backend_surface(o, NULL);
+   } else {
+      wlc_backend_update_outputs(compositor->backend);
+   }
 }
 
 static void
@@ -360,25 +361,13 @@ output_event(struct wl_listener *listener, void *data)
             wlc_compositor_focus_output(compositor, o);
          }
 
-         // XXX: keep list of surfaces and change their output instead
-         struct wlc_space *space;
-         wl_list_for_each(space, &ev->output->spaces, link) {
-            struct wlc_view *view, *vn;
-            wl_list_for_each_safe(view, vn, &space->views, link)
-               wlc_view_set_space(view, (compositor->output ? compositor->output->space : NULL));
-         }
-
-         // FIXME: hack for now until above is made
-         if (compositor->seat->pointer->surface && compositor->seat->pointer->surface->output == ev->output)
-            wlc_surface_invalidate(compositor->seat->pointer->surface);
-
          WLC_INTERFACE_EMIT(output.destroyed, compositor, ev->output);
 
          // XXX: see the XXX above
 #if 0
          // Remove surface from output
          // Destroys rendering context, etc...
-         wlc_output_set_surface(ev->output, NULL);
+         wlc_output_set_backend_surface(ev->output, NULL);
 #endif
 
          wlc_output_free(ev->output);
@@ -389,6 +378,17 @@ output_event(struct wl_listener *listener, void *data)
          wlc_log(WLC_LOG_INFO, "Removed output (%p)", ev->output);
       break;
    }
+}
+
+struct wlc_output*
+wlc_compositor_get_surfaless_output(struct wlc_compositor *compositor)
+{
+   struct wlc_output *o;
+   wl_list_for_each(o, &compositor->outputs, link) {
+      if (!o->bsurface)
+         return o;
+   }
+   return NULL;
 }
 
 WLC_API void

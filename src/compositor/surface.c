@@ -304,7 +304,6 @@ wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *out
    }
 
    surface->size = size;
-   surface->output = output;
    surface->commit.attached = true;
 }
 
