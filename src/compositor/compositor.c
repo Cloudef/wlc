@@ -283,8 +283,8 @@ terminated(struct wl_listener *listener, void *data)
    if (wl_list_empty(&compositor->outputs)) {
       compositor_cleanup(compositor);
    } else {
-      struct wlc_output *o;
-      wl_list_for_each(o, &compositor->outputs, link)
+      struct wlc_output *o, *os;
+      wl_list_for_each_safe(o, os, &compositor->outputs, link)
          wlc_output_terminate(o);
    }
 }

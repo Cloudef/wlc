@@ -53,13 +53,14 @@ struct wlc_output {
 
    struct {
       void (*pixels)(const struct wlc_size *size, uint8_t *rgba);
+      bool terminate;
    } task;
 
    float ims;
    uint32_t frame_time;
    uint32_t mode;
 
-   bool pending, scheduled, activity, terminating;
+   bool pending, scheduled, activity;
    bool background_visible;
 };
 

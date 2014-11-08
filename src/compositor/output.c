@@ -234,7 +234,7 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
       output->background_visible = false;
    }
 
-   if ((output->background_visible || output->activity) && !output->terminating) {
+   if ((output->background_visible || output->activity) && !output->task.terminate) {
       output->ims = fmin(fmax(output->ims * (output->activity ? 0.9 : 1.1), 1), 41);
       wlc_dlog(WLC_DBG_RENDER, "-> Interpolated idle time %f (%u : %d)", output->ims, ms, output->activity);
       wl_event_source_timer_update(output->idle_timer, output->ims);
@@ -246,10 +246,10 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 
    wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
 
-   if (output->terminating) {
-      struct wlc_output_event ev = { output, WLC_OUTPUT_EVENT_REMOVE };
-      wl_signal_emit(&wlc_system_signals()->output, &ev);
-      output->terminating = false;
+
+   if (output->task.terminate) {
+      wlc_output_terminate(output);
+      output->task.terminate = false;
    }
 }
 
@@ -363,8 +363,15 @@ void
 wlc_output_terminate(struct wlc_output *output)
 {
    assert(output);
-   output->terminating = true;
-   wlc_output_schedule_repaint(output);
+
+   if (should_render(output)) {
+      output->task.terminate = true;
+      wlc_output_schedule_repaint(output);
+      return;
+   }
+
+   struct wlc_output_event ev = { output, WLC_OUTPUT_EVENT_REMOVE };
+   wl_signal_emit(&wlc_system_signals()->output, &ev);
 }
 
 void
