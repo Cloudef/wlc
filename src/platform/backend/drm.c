@@ -191,7 +191,7 @@ function_pointer_exception:
 static void
 release_fb(struct gbm_surface *surface, struct drm_fb *fb)
 {
-   assert(fb);
+   assert(surface && fb);
 
    if (fb->fd > 0)
       drm.api.drmModeRmFB(drm.fd, fb->fd);
@@ -206,6 +206,7 @@ release_fb(struct gbm_surface *surface, struct drm_fb *fb)
 static void
 page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
 {
+   assert(data);
    (void)fd, (void)frame;
    struct drm_surface *dsurface = data;
 
@@ -270,6 +271,7 @@ fail:
 static bool
 page_flip(struct wlc_backend_surface *bsurface)
 {
+   assert(bsurface && bsurface->internal);
    struct drm_surface *dsurface = bsurface->internal;
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
    release_fb(dsurface->surface, fb);
@@ -306,7 +308,6 @@ surface_free(struct wlc_backend_surface *bsurface)
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
    release_fb(dsurface->surface, fb);
 
-   // restore mode
    drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, dsurface->crtc->buffer_id, dsurface->crtc->x, dsurface->crtc->y, &dsurface->connector->connector_id, 1, &dsurface->crtc->mode);
 
    if (dsurface->crtc)
