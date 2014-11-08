@@ -508,9 +508,9 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
 }
 
 static void
-focus_window(xcb_window_t window)
+focus_window(xcb_window_t window, bool force)
 {
-   if (x11.focus == window)
+   if (!force && x11.focus == window)
       return;
 
    wlc_dlog(WLC_DBG_FOCUS, "-> xwm focus %u", window);
@@ -555,7 +555,7 @@ wlc_x11_window_free(struct wlc_x11_window *win)
    assert(win);
 
    if (x11.focus == win->id)
-      focus_window(0);
+      focus_window(0, false);
 
    if (win->view) {
       wlc_view_defocus(win->view);
@@ -640,9 +640,9 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
       return;
 
    if (active) {
-      focus_window(win->id);
+      focus_window(win->id, false);
    } else if (win->id == x11.focus) {
-      focus_window(0);
+      focus_window(0, false);
    }
 }
 
@@ -743,11 +743,8 @@ x11_event(int fd, uint32_t mask, void *data)
                // Do not let clients to steal focus
                xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_FOCUS_IN (%u) [%u]", ev->event, x11.focus);
-               if (x11.focus && x11.focus != ev->event) {
-                  xcb_window_t reset_focus = x11.focus;
-                  x11.focus = 0;
-                  focus_window(reset_focus);
-               }
+               if (x11.focus && x11.focus != ev->event)
+                  focus_window(x11.focus, true);
             }
             break;
 
