@@ -229,12 +229,14 @@ terminate(struct ctx *context)
    }
 
    if (context->display) {
+      // XXX: This is shared on all backends
+#if 0
       if (context->api.eglUnbindWaylandDisplayWL && context->wl_display) {
          EGL_CALL(context->api.eglUnbindWaylandDisplayWL(context->display, context->wl_display));
       }
 
-      // XXX: This is shared on all backends
       // egl.api.eglTerminate(context->display);
+#endif
    }
 
    free(context);

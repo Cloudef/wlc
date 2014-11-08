@@ -38,6 +38,13 @@ void wlc_backend_surface_free(struct wlc_backend_surface *surface)
    free(surface);
 }
 
+uint32_t
+wlc_backend_update_outputs(struct wlc_backend *backend)
+{
+   assert(backend);
+   return backend->api.update_outputs();
+}
+
 void
 wlc_backend_terminate(struct wlc_backend *backend)
 {

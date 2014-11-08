@@ -75,6 +75,7 @@ static struct {
 static struct {
    int fd;
    struct wl_event_source *event_source;
+   struct wlc_compositor *compositor;
 
    struct {
       void *handle;
@@ -341,7 +342,17 @@ add_output(struct wlc_compositor *compositor, struct gbm_device *device, struct 
    bsurface->window = (EGLNativeWindowType)surface;
    bsurface->api.page_flip = page_flip;
 
-   if (!(dsurface->output = wlc_output_new(compositor, bsurface, &info->info)))
+   // XXX: Code duplication
+   if ((dsurface->output = wlc_compositor_get_surfaless_output(compositor))) {
+      wlc_output_set_backend_surface(dsurface->output, bsurface);
+      wlc_output_set_information(dsurface->output, &info->info);
+      if (!compositor->output) {
+         struct wlc_output_event ev = { dsurface->output, WLC_OUTPUT_EVENT_ACTIVE };
+         wl_signal_emit(&wlc_system_signals()->output, &ev);
+      }
+      wlc_output_schedule_repaint(dsurface->output);
+      return true;
+   } else if (!(dsurface->output = wlc_output_new(compositor, bsurface, &info->info)))
       goto fail;
 
    struct wlc_output_event ev = { dsurface->output, WLC_OUTPUT_EVENT_ADD };
@@ -374,7 +385,7 @@ find_encoder_for_connector(const int fd, drmModeRes *resources, drmModeConnector
 }
 
 static bool
-setup_drm(int fd, struct wl_array *out_infos)
+query_drm(int fd, struct wl_array *out_infos)
 {
    drmModeRes *resources;
    if (!(resources = drm.api.drmModeGetResources(fd)))
@@ -481,6 +492,28 @@ terminate(void)
    wlc_log(WLC_LOG_INFO, "Closed drm");
 }
 
+static uint32_t
+update_outputs(void)
+{
+   struct wl_array infos;
+   wl_array_init(&infos);
+   if (!query_drm(drm.fd, &infos))
+      return 0;
+
+   uint32_t count = 0;
+   struct drm_output_information *info;
+   wl_array_for_each(info, &infos) {
+      struct gbm_surface *surface;
+      if (!(surface = gbm.api.gbm_surface_create(gbm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
+         continue;
+
+      count += (add_output(drm.compositor, gbm.device, surface, info) ? 1 : 0);
+   }
+
+   wl_array_release(&infos);
+   return count;
+}
+
 bool
 wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 {
@@ -489,6 +522,8 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 
    if ((drm.fd = wlc_fd_open("/dev/dri/card0", O_RDWR, WLC_FD_DRM)) < 0)
       goto card_open_fail;
+
+   drm.compositor = compositor;
 
    /* GBM will load a dri driver, but even though they need symbols from
     * libglapi, in some version of Mesa they are not linked to it. Since
@@ -500,26 +535,13 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!(gbm.device = gbm.api.gbm_create_device(drm.fd)))
       goto gbm_device_fail;
 
-   struct wl_array infos;
-   wl_array_init(&infos);
-
-   if (!setup_drm(drm.fd, &infos))
+   if (!update_outputs())
       goto fail;
-
-   struct drm_output_information *info;
-   wl_array_for_each(info, &infos) {
-      struct gbm_surface *surface;
-      if (!(surface = gbm.api.gbm_surface_create(gbm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
-         continue;
-
-      add_output(compositor, gbm.device, surface, info);
-   }
-
-   wl_array_release(&infos);
 
    if (!(drm.event_source = wl_event_loop_add_fd(wlc_event_loop(), drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
       goto fail;
 
+   out_backend->api.update_outputs = update_outputs;
    out_backend->api.terminate = terminate;
    return true;
 

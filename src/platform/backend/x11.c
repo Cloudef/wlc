@@ -206,38 +206,45 @@ page_flip(struct wlc_backend_surface *surface)
 }
 
 static void
-surface_free(struct wlc_backend_surface *surface)
+surface_free(struct wlc_backend_surface *bsurface)
 {
-   x11.api.xcb_destroy_window(x11.connection, surface->window);
+   x11.api.xcb_destroy_window(x11.connection, bsurface->window);
 }
 
 static bool
 add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_output_information *info)
 {
-   struct wlc_output *output = NULL;
-   struct wlc_backend_surface *surface = NULL;
+   struct wlc_backend_surface *bsurface = NULL;
 
-   if (!(surface = wlc_backend_surface_new(surface_free, 0)))
+   if (!(bsurface = wlc_backend_surface_new(surface_free, 0)))
       goto fail;
 
-   surface->window = window;
-   surface->display = x11.display;
-   surface->api.page_flip = page_flip;
+   bsurface->window = window;
+   bsurface->display = x11.display;
+   bsurface->api.page_flip = page_flip;
 
-   if (!(output = wlc_output_new(compositor, surface, info)))
+   // XXX: Code duplication
+   if ((bsurface->internal = wlc_compositor_get_surfaless_output(compositor))) {
+      wlc_output_set_backend_surface(bsurface->internal, bsurface);
+      wlc_output_set_information(bsurface->internal, info);
+      if (!compositor->output) {
+         struct wlc_output_event ev = { bsurface->internal, WLC_OUTPUT_EVENT_ACTIVE };
+         wl_signal_emit(&wlc_system_signals()->output, &ev);
+      }
+      wlc_output_schedule_repaint(bsurface->internal);
+      return true;
+   } else if (!(bsurface->internal = wlc_output_new(compositor, bsurface, info)))
       goto fail;
 
-   surface->internal = output;
-
-   struct wlc_output_event ev = { output, WLC_OUTPUT_EVENT_ADD };
+   struct wlc_output_event ev = { bsurface->internal, WLC_OUTPUT_EVENT_ADD };
    wl_signal_emit(&wlc_system_signals()->output, &ev);
    return true;
 
 fail:
-   if (surface)
-      wlc_backend_surface_free(surface);
-   if (output)
-      wlc_output_free(output);
+   if (bsurface && bsurface->internal)
+      wlc_output_free(bsurface->internal);
+   if (bsurface)
+      wlc_backend_surface_free(bsurface);
    return false;
 }
 
@@ -246,7 +253,7 @@ output_for_window(xcb_window_t window, struct wl_list *outputs)
 {
    struct wlc_output *output;
    wl_list_for_each(output, outputs, link) {
-      if (output->surface->window == window)
+      if (output->bsurface && output->bsurface->window == window)
          return output;
    }
    return NULL;
@@ -412,6 +419,77 @@ x11_event(int fd, uint32_t mask, void *data)
    return count;
 }
 
+static uint32_t
+update_outputs(void)
+{
+   struct wlc_output_information info;
+   memset(&info, 0, sizeof(info));
+   wlc_string_set(&info.make, "Xorg", false);
+   wlc_string_set(&info.model, "X11 Window", false);
+
+   struct wlc_output_mode mode;
+   memset(&mode, 0, sizeof(mode));
+   mode.refresh = 60;
+   mode.width = x11.screen->width_in_pixels;
+   mode.height = x11.screen->height_in_pixels;
+   mode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
+   wlc_output_information_add_mode(&info, &mode);
+
+   uint32_t count = 0;
+
+   xcb_generic_error_t *error;
+   unsigned int root_mask = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE | XCB_EVENT_MASK_BUTTON_PRESS;
+   if ((error = x11.api.xcb_request_check(x11.connection, x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &root_mask)))) {
+      uint32_t mask = XCB_CW_EVENT_MASK | XCB_CW_CURSOR;
+      uint32_t values[] = {
+         XCB_EVENT_MASK_FOCUS_CHANGE |
+         XCB_EVENT_MASK_EXPOSURE |
+         XCB_EVENT_MASK_STRUCTURE_NOTIFY |
+         XCB_EVENT_MASK_POINTER_MOTION |
+         XCB_EVENT_MASK_BUTTON_PRESS |
+         XCB_EVENT_MASK_BUTTON_RELEASE |
+         XCB_EVENT_MASK_KEY_PRESS |
+         XCB_EVENT_MASK_KEY_RELEASE,
+         x11.cursor,
+      };
+
+      const char *env;
+      uint32_t outputs = 1;
+      if ((env = getenv("WLC_OUTPUTS")))
+         outputs = MAX(strtol(env, NULL, 10), 1);
+
+      for (uint32_t i = 0; i < outputs; ++i) {
+         xcb_window_t window;
+         if (!(window = x11.api.xcb_generate_id(x11.connection)))
+            continue;
+
+         xcb_void_cookie_t create_cookie = x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, window, x11.screen->root, 0, 0, 800, 480, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, x11.screen->root_visual, mask, values);
+         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_PROTOCOLS], XCB_ATOM_ATOM, 32, 1, &x11.atoms[WM_DELETE_WINDOW]);
+         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, 7, "wlc-x11");
+         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_CLASS], x11.atoms[STRING], 8, 7, "wlc-x11");
+         xcb_void_cookie_t map_cookie = x11.api.xcb_map_window_checked(x11.connection, window);
+
+         if ((error = x11.api.xcb_request_check(x11.connection, create_cookie)) || (error = x11.api.xcb_request_check(x11.connection, map_cookie))) {
+            free(error);
+            continue;
+         }
+
+         count += (add_output(x11.compositor, window, &info) ? 1 : 0);
+
+         if (i < outputs) {
+            struct wl_array cpy;
+            wl_array_init(&cpy);
+            wl_array_copy(&cpy, &info.modes);
+            memcpy(&info.modes, &cpy, sizeof(struct wl_array));
+         }
+      }
+   } else {
+      count += (add_output(x11.compositor, x11.screen->root, &info) ? 1 : 0);
+   }
+
+   return count;
+}
+
 static void
 terminate(void)
 {
@@ -487,70 +565,10 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    x11.api.xcb_free_gc(x11.connection, gc);
    x11.api.xcb_free_pixmap(x11.connection, pixmap);
 
-   struct wlc_output_information info;
-   memset(&info, 0, sizeof(info));
-   wlc_string_set(&info.make, "Xorg", false);
-   wlc_string_set(&info.model, "X11 Window", false);
+   x11.compositor = compositor;
 
-   struct wlc_output_mode mode;
-   memset(&mode, 0, sizeof(mode));
-   mode.refresh = 60;
-   mode.width = x11.screen->width_in_pixels;
-   mode.height = x11.screen->height_in_pixels;
-   mode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
-   wlc_output_information_add_mode(&info, &mode);
-
-   xcb_generic_error_t *error;
-   unsigned int root_mask = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE | XCB_EVENT_MASK_BUTTON_PRESS;
-   if ((error = x11.api.xcb_request_check(x11.connection, x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &root_mask)))) {
-      uint32_t mask = XCB_CW_EVENT_MASK | XCB_CW_CURSOR;
-      uint32_t values[] = {
-         XCB_EVENT_MASK_FOCUS_CHANGE |
-         XCB_EVENT_MASK_EXPOSURE |
-         XCB_EVENT_MASK_STRUCTURE_NOTIFY |
-         XCB_EVENT_MASK_POINTER_MOTION |
-         XCB_EVENT_MASK_BUTTON_PRESS |
-         XCB_EVENT_MASK_BUTTON_RELEASE |
-         XCB_EVENT_MASK_KEY_PRESS |
-         XCB_EVENT_MASK_KEY_RELEASE,
-         x11.cursor,
-      };
-
-      const char *env;
-      uint32_t outputs = 1;
-      if ((env = getenv("WLC_OUTPUTS")))
-         outputs = MAX(strtol(env, NULL, 10), 1);
-
-      for (uint32_t i = 0; i < outputs; ++i) {
-         xcb_window_t window;
-         if (!(window = x11.api.xcb_generate_id(x11.connection)))
-            goto window_fail;
-
-         xcb_void_cookie_t create_cookie = x11.api.xcb_create_window_checked(x11.connection, XCB_COPY_FROM_PARENT, window, x11.screen->root, 0, 0, 800, 480, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, x11.screen->root_visual, mask, values);
-         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_PROTOCOLS], XCB_ATOM_ATOM, 32, 1, &x11.atoms[WM_DELETE_WINDOW]);
-         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, 7, "wlc-x11");
-         x11.api.xcb_change_property(x11.connection, XCB_PROP_MODE_REPLACE, window, x11.atoms[WM_CLASS], x11.atoms[STRING], 8, 7, "wlc-x11");
-         xcb_void_cookie_t map_cookie = x11.api.xcb_map_window_checked(x11.connection, window);
-
-         if ((error = x11.api.xcb_request_check(x11.connection, create_cookie)) || (error = x11.api.xcb_request_check(x11.connection, map_cookie))) {
-            free(error);
-            goto window_fail;
-         }
-
-         if (!add_output(compositor, window, &info))
-            goto output_fail;
-
-         if (i < outputs) {
-            struct wl_array cpy;
-            wl_array_init(&cpy);
-            wl_array_copy(&cpy, &info.modes);
-            memcpy(&info.modes, &cpy, sizeof(struct wl_array));
-         }
-      }
-   } else {
-      if (!add_output(compositor, x11.screen->root, &info))
-         goto output_fail;
-   }
+   if (!update_outputs())
+      goto output_fail;
 
    if (!wlc_input_has_init()) {
       if (!(x11.event_source = wl_event_loop_add_fd(wlc_event_loop(), x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, compositor)))
@@ -559,7 +577,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
       wl_event_source_check(x11.event_source);
    }
 
-   x11.compositor = compositor;
+   out_backend->api.update_outputs = update_outputs;
    out_backend->api.terminate = terminate;
    return true;
 
@@ -571,9 +589,6 @@ xcb_connection_fail:
    goto fail;
 cursor_fail:
    wlc_log(WLC_LOG_WARN, "Failed to create empty X11 cursor");
-   goto fail;
-window_fail:
-   wlc_log(WLC_LOG_WARN, "Failed to create X11 window");
    goto fail;
 event_source_fail:
    wlc_log(WLC_LOG_WARN, "Failed to add X11 event source");

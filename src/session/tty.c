@@ -127,7 +127,6 @@ sigusr_handler(int signal)
    switch (signal) {
       case SIGUSR1:
          wlc_log(WLC_LOG_INFO, "SIGUSR1");
-         return;
 
          if (!wlc_fd_deactivate())
             return;
@@ -137,7 +136,6 @@ sigusr_handler(int signal)
          break;
       case SIGUSR2:
          wlc_log(WLC_LOG_INFO, "SIGUSR2");
-         return;
 
          if (!wlc_fd_activate())
             return;
