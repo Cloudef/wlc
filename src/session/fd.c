@@ -323,6 +323,9 @@ communicate(const int sock, const pid_t parent)
       if (wlc.fds[i].fd < 0)
          continue;
 
+      if (wlc.fds[i].type == WLC_FD_DRM && drm.api.drmDropMaster)
+         drm.api.drmDropMaster(wlc.fds[i].fd);
+
       close(wlc.fds[i].fd);
    }
 
