@@ -209,7 +209,7 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
    seat->modifiers.leds = leds;
    seat->modifiers.mods = mods;
 
-   if ((mods & WLC_BIT_MOD_CTRL) && (mods & WLC_BIT_MOD_ALT) && ev->key.code >= 59 && ev->key.code <= 88) {
+   if (mods == (WLC_BIT_MOD_CTRL | WLC_BIT_MOD_ALT) && ev->key.code >= 59 && ev->key.code <= 88) {
       if (ev->key.state == WL_KEYBOARD_KEY_STATE_PRESSED)
          wlc_tty_activate_vt((ev->key.code - 59) + 1);
       return;
