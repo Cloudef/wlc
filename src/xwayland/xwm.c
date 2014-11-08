@@ -745,6 +745,7 @@ x11_event(int fd, uint32_t mask, void *data)
                wlc_dlog(WLC_DBG_XWM, "XCB_FOCUS_IN (%u) [%u]", ev->event, x11.focus);
                if (x11.focus && x11.focus != ev->event) {
                   xcb_window_t reset_focus = x11.focus;
+                  x11.focus = 0;
                   focus_window(reset_focus);
                }
             }
