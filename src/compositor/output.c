@@ -104,7 +104,7 @@ fail:
 static bool
 should_render(struct wlc_output *output)
 {
-   return (wlc_get_active() && !output->pending && output->bsurface && output->context && output->render);
+   return (wlc_get_active() && !output->pending && !output->sleeping && output->bsurface && output->context && output->render);
 }
 
 static bool
@@ -150,6 +150,11 @@ finish_frame_tasks(struct wlc_output *output)
    if (output->task.bsurface) {
       wlc_output_set_backend_surface(output, output->task.bsurface - 1);
       output->task.bsurface = NULL;
+   }
+
+   if (output->task.sleep) {
+      wlc_output_set_sleep(output, true);
+      output->task.sleep = false;
    }
 
    if (output->task.terminate) {
@@ -229,6 +234,13 @@ static int
 cb_idle_timer(void *data)
 {
    repaint(data);
+   return 1;
+}
+
+static int
+cb_sleep_timer(void *data)
+{
+   wlc_output_set_sleep(data, true);
    return 1;
 }
 
@@ -331,6 +343,8 @@ wlc_output_schedule_repaint(struct wlc_output *output)
       wlc_dlog(WLC_DBG_RENDER, "-> Activity marked");
 
    output->activity = true;
+   wlc_output_set_sleep(output, false);
+   wl_event_source_timer_update(output->sleep_timer, 1000 * output->compositor->options.idle_time);
 
    if (output->scheduled)
       return;
@@ -403,6 +417,29 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
 }
 
 void
+wlc_output_set_sleep(struct wlc_output *output, bool sleep)
+{
+   if (output->sleeping == sleep)
+      return;
+
+   if (sleep && output->pending) {
+      output->task.sleep = true;
+      return;
+   }
+
+   if (output->bsurface && output->bsurface->api.sleep)
+      output->bsurface->api.sleep(output->bsurface, sleep);
+
+   if (!(output->sleeping = sleep)) {
+      wlc_output_schedule_repaint(output);
+      wlc_log(WLC_LOG_INFO, "Output (%p) wake up", output);
+   } else {
+      wl_event_source_timer_update(output->sleep_timer, 0);
+      wlc_log(WLC_LOG_INFO, "Output (%p) sleep", output);
+   }
+}
+
+void
 wlc_output_terminate(struct wlc_output *output)
 {
    assert(output);
@@ -424,6 +461,9 @@ wlc_output_free(struct wlc_output *output)
 
    if (output->idle_timer)
       wl_event_source_remove(output->idle_timer);
+
+   if (output->sleep_timer)
+      wl_event_source_remove(output->sleep_timer);
 
    struct wl_resource *r, *rn;
    wl_resource_for_each_safe(r, rn, &output->resources)
@@ -453,6 +493,9 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *bs
       goto fail;
 
    if (!(output->idle_timer = wl_event_loop_add_timer(wlc_event_loop(), cb_idle_timer, output)))
+      goto fail;
+
+   if (!(output->sleep_timer = wl_event_loop_add_timer(wlc_event_loop(), cb_sleep_timer, output)))
       goto fail;
 
    if (!(output->global = wl_global_create(wlc_display(), &wl_output_interface, 2, output, &wl_output_bind)))

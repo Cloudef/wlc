@@ -45,7 +45,7 @@ struct wlc_output {
    struct wlc_render *render;
    struct wlc_space *space;
    struct wl_global *global;
-   struct wl_event_source *idle_timer;
+   struct wl_event_source *idle_timer, *sleep_timer;
    struct wlc_output_information information;
    struct wlc_size resolution;
    struct wl_list resources, surfaces, spaces;
@@ -55,13 +55,14 @@ struct wlc_output {
       void (*pixels)(const struct wlc_size *size, uint8_t *rgba);
       struct wlc_backend_surface *bsurface;
       bool terminate;
+      bool sleep;
    } task;
 
    float ims;
    uint32_t frame_time;
    uint32_t mode;
 
-   bool pending, scheduled, activity;
+   bool pending, scheduled, activity, sleeping;
    bool background_visible;
 };
 
@@ -72,6 +73,7 @@ bool wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *su
 void wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surface);
 bool wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_surface *surface);
 void wlc_output_set_information(struct wlc_output *output, struct wlc_output_information *information);
+void wlc_output_set_sleep(struct wlc_output *output, bool sleep);
 struct wlc_output* wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *surface, struct wlc_output_information *info);
 void wlc_output_terminate(struct wlc_output *output);
 void wlc_output_free(struct wlc_output *output);

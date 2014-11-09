@@ -16,6 +16,7 @@ struct wlc_backend_surface {
 
    struct {
       void (*terminate)(struct wlc_backend_surface *surface);
+      void (*sleep)(struct wlc_backend_surface *surface, bool sleep);
       bool (*page_flip)(struct wlc_backend_surface *surface);
    } api;
 };

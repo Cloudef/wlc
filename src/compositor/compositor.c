@@ -472,6 +472,11 @@ wlc_compositor_new(void *userdata)
 
    compositor->userdata = userdata;
 
+   const char *bg = getenv("WLC_BG");
+   const char *idle_time = getenv("WLC_IDLE_TIME");
+   compositor->options.enable_bg = (bg && !strcmp(bg, "0") ? false : true);
+   compositor->options.idle_time = (idle_time ? strtol(idle_time, NULL, 10) : 60);
+
    wl_list_init(&compositor->clients);
    wl_list_init(&compositor->outputs);
 
@@ -505,8 +510,6 @@ wlc_compositor_new(void *userdata)
    if (!(compositor->backend = wlc_backend_init(compositor)))
       goto fail;
 
-   const char *bg = getenv("WLC_BG");
-   compositor->options.enable_bg = (bg && !strcmp(bg, "0") ? false : true);
    return compositor;
 
 out_of_memory:

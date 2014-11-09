@@ -25,7 +25,8 @@ fail:
    return NULL;
 }
 
-void wlc_backend_surface_free(struct wlc_backend_surface *surface)
+void
+wlc_backend_surface_free(struct wlc_backend_surface *surface)
 {
    assert(surface);
 

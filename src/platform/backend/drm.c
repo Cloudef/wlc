@@ -301,6 +301,17 @@ fail:
 }
 
 static void
+surface_sleep(struct wlc_backend_surface *bsurface, bool sleep)
+{
+   struct drm_surface *dsurface = bsurface->internal;
+
+   if (sleep) {
+      drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, 0, 0, 0, 0, 0, 0);
+      dsurface->stride = 0;
+   }
+}
+
+static void
 surface_free(struct wlc_backend_surface *bsurface)
 {
    struct drm_surface *dsurface = bsurface->internal;
@@ -340,6 +351,7 @@ add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_ou
 
    bsurface->display = (EGLNativeDisplayType)device;
    bsurface->window = (EGLNativeWindowType)surface;
+   bsurface->api.sleep = surface_sleep;
    bsurface->api.page_flip = page_flip;
 
    struct wlc_output_event ev = { .add = { bsurface, &info->info }, .type = WLC_OUTPUT_EVENT_ADD };

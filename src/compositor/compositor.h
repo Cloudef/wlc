@@ -40,6 +40,7 @@ struct wlc_compositor {
 
    struct {
       // XXX: temporary
+      uint32_t idle_time;
       bool enable_bg;
    } options;
 
