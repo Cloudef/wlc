@@ -120,7 +120,7 @@ static void
 wl_subcompositor_bind(struct wl_client *wl_client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &wl_subcompositor_interface, MIN(version, 1), id))) {
+   if (!(resource = wl_resource_create(wl_client, &wl_subcompositor_interface, fmin(version, 1), id))) {
       wl_client_post_no_memory(wl_client);
       wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 1);
       return;
@@ -203,7 +203,7 @@ wl_compositor_bind(struct wl_client *wl_client, void *data, unsigned int version
    }
 
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &wl_compositor_interface, MIN(version, 3), id))) {
+   if (!(resource = wl_resource_create(wl_client, &wl_compositor_interface, fmin(version, 3), id))) {
       client->wl_client = NULL;
       wlc_client_free(client);
       wl_client_post_no_memory(wl_client);

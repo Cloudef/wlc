@@ -5,6 +5,7 @@
 #include "macros.h"
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 static const struct wlc_origin wlc_origin_zero = { 0, 0 };
 static const struct wlc_size wlc_size_zero = { 0, 0 };
@@ -14,32 +15,32 @@ static inline void
 wlc_origin_min(const struct wlc_origin *a, const struct wlc_origin *b, struct wlc_origin *out)
 {
    assert(a && b && out);
-   out->x = MIN(a->x, b->x);
-   out->y = MIN(a->y, b->y);
+   out->x = fmin(a->x, b->x);
+   out->y = fmin(a->y, b->y);
 }
 
 static inline void
 wlc_origin_max(const struct wlc_origin *a, const struct wlc_origin *b, struct wlc_origin *out)
 {
    assert(a && b && out);
-   out->x = MAX(a->x, b->x);
-   out->y = MAX(a->y, b->y);
+   out->x = fmax(a->x, b->x);
+   out->y = fmax(a->y, b->y);
 }
 
 static inline void
 wlc_size_min(const struct wlc_size *a, const struct wlc_size *b, struct wlc_size *out)
 {
    assert(a && b && out);
-   out->w = MIN(a->w, b->w);
-   out->h = MIN(a->h, b->h);
+   out->w = fmin(a->w, b->w);
+   out->h = fmin(a->h, b->h);
 }
 
 static inline void
 wlc_size_max(const struct wlc_size *a, const struct wlc_size *b, struct wlc_size *out)
 {
    assert(a && b && out);
-   out->w = MAX(a->w, b->w);
-   out->h = MAX(a->h, b->h);
+   out->w = fmax(a->w, b->w);
+   out->h = fmax(a->h, b->h);
 }
 
 static inline bool

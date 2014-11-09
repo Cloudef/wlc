@@ -61,7 +61,7 @@ static void
 wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(client, &wl_output_interface, MIN(version, 2) , id)))
+   if (!(resource = wl_resource_create(client, &wl_output_interface, fmin(version, 2) , id)))
       goto fail;
 
    struct wlc_output *output = data;

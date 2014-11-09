@@ -165,14 +165,14 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
          out_bounds->origin.y -= view->commit.visible.origin.y;
 
          // Make sure size is at least what we want, but may be bigger (shadows etc...)
-         out_bounds->size.w = MAX(view->surface->size.w, view->commit.geometry.size.w);
-         out_bounds->size.h = MAX(view->surface->size.h, view->commit.geometry.size.h);
+         out_bounds->size.w = fmax(view->surface->size.w, view->commit.geometry.size.w);
+         out_bounds->size.h = fmax(view->surface->size.h, view->commit.geometry.size.h);
       }
    }
 
    // Make sure bounds is never 0x0 w/h
-   out_bounds->size.w = MAX(out_bounds->size.w, 1);
-   out_bounds->size.h = MAX(out_bounds->size.h, 1);
+   out_bounds->size.w = fmax(out_bounds->size.w, 1);
+   out_bounds->size.h = fmax(out_bounds->size.h, 1);
 
    if (!out_visible)
       return;
@@ -198,8 +198,8 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
       out_visible->origin.y = out_bounds->origin.y + out_bounds->size.h * 0.5 - out_visible->size.h * 0.5;
 
       // Make sure visible is never 0x0 w/h
-      out_visible->size.w = MAX(out_visible->size.w, 1);
-      out_visible->size.h = MAX(out_visible->size.h, 1);
+      out_visible->size.w = fmax(out_visible->size.w, 1);
+      out_visible->size.h = fmax(out_visible->size.h, 1);
    } else {
       // For non wl_shell or x11 surfaces, just memcpy
       memcpy(out_visible, out_bounds, sizeof(struct wlc_geometry));

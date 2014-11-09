@@ -414,7 +414,7 @@ update_outputs(struct wl_list *outputs)
    const char *env;
    uint32_t fakes = 1;
    if ((env = getenv("WLC_OUTPUTS")))
-      fakes = MAX(strtol(env, NULL, 10), 1);
+      fakes = fmax(strtol(env, NULL, 10), 1);
 
    if (alive >= fakes)
       return 0;

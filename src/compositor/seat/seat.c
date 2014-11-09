@@ -141,7 +141,7 @@ static void
 wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &wl_seat_interface, MIN(version, 4), id))) {
+   if (!(resource = wl_resource_create(wl_client, &wl_seat_interface, fmin(version, 4), id))) {
       wl_client_post_no_memory(wl_client);
       wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 4);
       return;

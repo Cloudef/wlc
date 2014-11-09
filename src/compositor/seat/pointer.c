@@ -174,15 +174,15 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
          const struct wlc_size min = { 80, 40 };
 
          if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
-            g.size.w = MAX(min.w, g.size.w - dx);
+            g.size.w = fmax(min.w, g.size.w - dx);
          } else if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_RIGHT) {
-            g.size.w = MAX(min.w, g.size.w + dx);
+            g.size.w = fmax(min.w, g.size.w + dx);
          }
 
          if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_TOP) {
-            g.size.h = MAX(min.h, g.size.h - dy);
+            g.size.h = fmax(min.h, g.size.h - dy);
          } else if (pointer->action_edges & WL_SHELL_SURFACE_RESIZE_BOTTOM) {
-            g.size.h = MAX(min.h, g.size.h + dy);
+            g.size.h = fmax(min.h, g.size.h + dy);
          }
 
          wlc_view_set_state(focused, WLC_BIT_RESIZING, true);

@@ -218,7 +218,7 @@ static void
 wl_data_device_manager_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &wl_data_device_manager_interface, MIN(version, 1), id))) {
+   if (!(resource = wl_resource_create(wl_client, &wl_data_device_manager_interface, fmin(version, 1), id))) {
       wl_client_post_no_memory(wl_client);
       wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 1);
       return;
