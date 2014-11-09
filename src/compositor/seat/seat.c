@@ -230,6 +230,16 @@ input_event(struct wl_listener *listener, void *data)
    if (!(seat = wl_container_of(listener, seat, listener.input)))
       return;
 
+   // Wake up output
+   if (seat->compositor->output) {
+      bool was_asleep = seat->compositor->output->sleeping;
+      wlc_output_set_sleep(seat->compositor->output, false);
+
+      // Skip input event
+      if (was_asleep)
+         return;
+   }
+
    switch (ev->type) {
       case WLC_INPUT_EVENT_MOTION:
          {

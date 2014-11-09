@@ -343,8 +343,16 @@ wlc_output_schedule_repaint(struct wlc_output *output)
       wlc_dlog(WLC_DBG_RENDER, "-> Activity marked");
 
    output->activity = true;
-   wlc_output_set_sleep(output, false);
-   wl_event_source_timer_update(output->sleep_timer, 1000 * output->compositor->options.idle_time);
+
+   // XXX: Move sleep logic to public api
+   struct wlc_view *view;
+   wl_list_for_each(view, &output->space->views, link) {
+      if (!view->created || !view->surface->commit.attached || !(view->commit.state & WLC_BIT_FULLSCREEN))
+         continue;
+
+      wlc_output_set_sleep(output, false);
+      break;
+   }
 
    if (output->scheduled)
       return;
@@ -419,6 +427,21 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
 void
 wlc_output_set_sleep(struct wlc_output *output, bool sleep)
 {
+   // XXX: when all outputs sleep on my nouveau setup, they won't wake up...
+   //      bit hard to investigate, but maybe the event loop gets stuck.
+   uint32_t not_sleeping = 0;
+   struct wlc_output *o;
+   wl_list_for_each(o, &output->compositor->outputs, link)
+      if (!o->sleeping)
+         ++not_sleeping;
+
+   if (!sleep || (sleep && (!wlc_get_active() || not_sleeping == 1))) {
+      wl_event_source_timer_update(output->sleep_timer, 1000 * output->compositor->options.idle_time);
+
+      if (sleep && (!wlc_get_active() || not_sleeping == 1))
+         return;
+   }
+
    if (output->sleeping == sleep)
       return;
 
@@ -435,6 +458,8 @@ wlc_output_set_sleep(struct wlc_output *output, bool sleep)
       wlc_log(WLC_LOG_INFO, "Output (%p) wake up", output);
    } else {
       wl_event_source_timer_update(output->sleep_timer, 0);
+      wl_event_source_timer_update(output->idle_timer, 0);
+      output->scheduled = output->activity = false;
       wlc_log(WLC_LOG_INFO, "Output (%p) sleep", output);
    }
 }
@@ -516,6 +541,7 @@ wlc_output_new(struct wlc_compositor *compositor, struct wlc_backend_surface *bs
 
    wlc_context_bind_to_wl_display(output->context, wlc_display());
    wlc_output_set_information(output, info);
+   wlc_output_set_sleep(output, false);
    return output;
 
 fail:
