@@ -184,7 +184,6 @@ is_hotplug(uint32_t drm_id, struct udev_device *device)
    return (strcmp(val, "1") == 0);
 }
 
-
 static int
 udev_event(int fd, uint32_t mask, void *data)
 {
