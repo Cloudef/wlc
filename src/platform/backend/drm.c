@@ -306,7 +306,7 @@ surface_sleep(struct wlc_backend_surface *bsurface, bool sleep)
    struct drm_surface *dsurface = bsurface->internal;
 
    if (sleep) {
-      drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, 0, 0, 0, 0, 0, 0);
+      drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
       dsurface->stride = 0;
    }
 }
