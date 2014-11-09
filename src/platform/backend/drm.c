@@ -35,7 +35,6 @@ struct drm_output_information {
 };
 
 struct drm_surface {
-   struct wlc_output *output;
    struct gbm_device *device;
    struct gbm_surface *surface;
    drmModeConnector *connector;
@@ -75,7 +74,6 @@ static struct {
 static struct {
    int fd;
    struct wl_event_source *event_source;
-   struct wlc_compositor *compositor;
 
    struct {
       void *handle;
@@ -208,7 +206,8 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
 {
    assert(data);
    (void)fd, (void)frame;
-   struct drm_surface *dsurface = data;
+   struct wlc_backend_surface *bsurface = data;
+   struct drm_surface *dsurface = bsurface->internal;
 
    uint8_t next = (dsurface->index + 1) % NUM_FBS;
    release_fb(dsurface->surface, &dsurface->fb[next]);
@@ -217,7 +216,7 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
    struct timespec ts;
    ts.tv_sec = sec;
    ts.tv_nsec = usec * 1000;
-   wlc_output_finish_frame(dsurface->output, &ts);
+   wlc_output_finish_frame(bsurface->output, &ts);
 }
 
 static int
@@ -280,13 +279,13 @@ page_flip(struct wlc_backend_surface *bsurface)
       return false;
 
    if (fb->stride != dsurface->stride) {
-      if (drm.api.drmModeSetCrtc(drm.fd, dsurface->encoder->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[dsurface->output->mode]))
+      if (drm.api.drmModeSetCrtc(drm.fd, dsurface->encoder->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[bsurface->output->mode]))
          goto set_crtc_fail;
 
       dsurface->stride = fb->stride;
    }
 
-   if (drm.api.drmModePageFlip(drm.fd, dsurface->encoder->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, dsurface))
+   if (drm.api.drmModePageFlip(drm.fd, dsurface->encoder->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, bsurface))
       goto failed_to_page_flip;
 
    return true;
@@ -326,7 +325,7 @@ surface_free(struct wlc_backend_surface *bsurface)
 }
 
 static bool
-add_output(struct wlc_compositor *compositor, struct gbm_device *device, struct gbm_surface *surface, struct drm_output_information *info)
+add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_output_information *info)
 {
    struct wlc_backend_surface *bsurface = NULL;
    if (!(bsurface = wlc_backend_surface_new(surface_free, sizeof(struct drm_surface))))
@@ -343,29 +342,9 @@ add_output(struct wlc_compositor *compositor, struct gbm_device *device, struct 
    bsurface->window = (EGLNativeWindowType)surface;
    bsurface->api.page_flip = page_flip;
 
-   // XXX: Code duplication
-   if ((dsurface->output = wlc_compositor_get_surfaless_output(compositor))) {
-      wlc_output_set_backend_surface(dsurface->output, bsurface);
-      wlc_output_set_information(dsurface->output, &info->info);
-      if (!compositor->output) {
-         struct wlc_output_event ev = { dsurface->output, WLC_OUTPUT_EVENT_ACTIVE };
-         wl_signal_emit(&wlc_system_signals()->output, &ev);
-      }
-      wlc_output_schedule_repaint(dsurface->output);
-      return true;
-   } else if (!(dsurface->output = wlc_output_new(compositor, bsurface, &info->info)))
-      goto fail;
-
-   struct wlc_output_event ev = { dsurface->output, WLC_OUTPUT_EVENT_ADD };
+   struct wlc_output_event ev = { .add = { bsurface, &info->info }, .type = WLC_OUTPUT_EVENT_ADD };
    wl_signal_emit(&wlc_system_signals()->output, &ev);
    return true;
-
-fail:
-   if (bsurface)
-      wlc_backend_surface_free(bsurface);
-   if (bsurface && dsurface->output)
-      wlc_output_free(dsurface->output);
-   return false;
 }
 
 static drmModeEncoder*
@@ -493,22 +472,62 @@ terminate(void)
    wlc_log(WLC_LOG_INFO, "Closed drm");
 }
 
+static bool
+output_exists_for_connector(struct wl_list *outputs, drmModeConnector *connector)
+{
+   assert(outputs && connector);
+   struct wlc_output *o;
+   wl_list_for_each(o, outputs, link) {
+      struct drm_surface *dsurface = (o->bsurface ? o->bsurface->internal : NULL);
+      if (dsurface && dsurface->connector == connector)
+         return true;
+   }
+   return false;
+}
+
+static bool
+info_exists_for_drm_surface(struct wl_array *infos, struct drm_surface *dsurface)
+{
+   assert(infos && dsurface);
+   struct drm_output_information *info;
+   wl_array_for_each(info, infos) {
+      if (dsurface->connector == info->connector)
+         return true;
+   }
+   return false;
+}
+
 static uint32_t
-update_outputs(void)
+update_outputs(struct wl_list *outputs)
 {
    struct wl_array infos;
    wl_array_init(&infos);
    if (!query_drm(drm.fd, &infos))
       return 0;
 
+   if (outputs) {
+      struct wlc_output *o, *on;
+      wl_list_for_each_safe(o, on, outputs, link) {
+         struct drm_surface *dsurface = (o->bsurface ? o->bsurface->internal : NULL);
+         if (!dsurface)
+            continue;
+
+         if (!info_exists_for_drm_surface(&infos, dsurface))
+            wlc_output_terminate(o);
+      }
+   }
+
    uint32_t count = 0;
    struct drm_output_information *info;
    wl_array_for_each(info, &infos) {
+      if (outputs && output_exists_for_connector(outputs, info->connector))
+         continue;
+
       struct gbm_surface *surface;
       if (!(surface = gbm.api.gbm_surface_create(gbm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
          continue;
 
-      count += (add_output(drm.compositor, gbm.device, surface, info) ? 1 : 0);
+      count += (add_output(gbm.device, surface, info) ? 1 : 0);
    }
 
    wl_array_release(&infos);
@@ -518,13 +537,13 @@ update_outputs(void)
 bool
 wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 {
+   (void)compositor;
+
    if (!gbm_load() || !drm_load())
       goto fail;
 
    if ((drm.fd = wlc_fd_open("/dev/dri/card0", O_RDWR, WLC_FD_DRM)) < 0)
       goto card_open_fail;
-
-   drm.compositor = compositor;
 
    /* GBM will load a dri driver, but even though they need symbols from
     * libglapi, in some version of Mesa they are not linked to it. Since
@@ -536,7 +555,7 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!(gbm.device = gbm.api.gbm_create_device(drm.fd)))
       goto gbm_device_fail;
 
-   if (!update_outputs())
+   if (!update_outputs(NULL))
       goto fail;
 
    if (!(drm.event_source = wl_event_loop_add_fd(wlc_event_loop(), drm.fd, WL_EVENT_READABLE, drm_event, NULL)))

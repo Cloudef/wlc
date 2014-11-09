@@ -61,10 +61,30 @@ enum wlc_output_event_type {
    WLC_OUTPUT_EVENT_ADD,
    WLC_OUTPUT_EVENT_REMOVE,
    WLC_OUTPUT_EVENT_ACTIVE,
+   WLC_OUTPUT_EVENT_UPDATE,
 };
 
 struct wlc_output_event {
-   struct wlc_output *output;
+   union {
+      // WLC_OUTPUT_EVENT_ADD
+      struct wlc_output_event_add {
+         struct wlc_backend_surface *bsurface;
+         struct wlc_output_information *info;
+      } add;
+
+      // WLC_OUTPUT_EVENT_REMOVE
+      struct wlc_output_evnet_remove {
+         struct wlc_output *output;
+      } remove;
+
+      // WLC_OUTPUT_EVENT_ACTIVE
+      struct wlc_output_event_active {
+         struct wlc_output *output;
+      } active;
+
+      // WLC_OUTPUT_EVENT_UPDATE
+      // no data, compositor just tells backend to update outputs
+   };
    enum wlc_output_event_type type;
 };
 
@@ -73,7 +93,7 @@ struct wlc_system_signals {
    struct wl_signal activated; // data: bool <false/true> (wlc_set_active)
    struct wl_signal surface;   // data: wlc_surface (compositor/compositor.c)
    struct wl_signal input;     // data: struct wlc_input_event (session/udev.c, backend/x11.c)
-   struct wl_signal output;    // data: struct wlc_output_event (backend/x11.c)
+   struct wl_signal output;    // data: struct wlc_output_event (backend/x11.c, backend/drm.c, session/udev.c)
    struct wl_signal xwayland;  // data: bool <false/true> (xwayland/xwayland.c)
 };
 

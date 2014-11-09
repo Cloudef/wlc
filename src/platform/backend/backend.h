@@ -9,6 +9,7 @@ struct wlc_output;
 
 struct wlc_backend_surface {
    void *internal;
+   struct wlc_output *output;
    EGLNativeDisplayType display;
    EGLNativeWindowType window;
    size_t internal_size;
@@ -21,7 +22,7 @@ struct wlc_backend_surface {
 
 struct wlc_backend {
    struct {
-      uint32_t (*update_outputs)(void);
+      uint32_t (*update_outputs)(struct wl_list *outputs);
       void (*terminate)(void);
    } api;
 };
@@ -29,7 +30,7 @@ struct wlc_backend {
 struct wlc_backend_surface* wlc_backend_surface_new(void (*destructor)(struct wlc_backend_surface*), size_t internal_size);
 void wlc_backend_surface_free(struct wlc_backend_surface *surface);
 
-uint32_t wlc_backend_update_outputs(struct wlc_backend *backend);
+uint32_t wlc_backend_update_outputs(struct wlc_backend *backend, struct wl_list *outputs);
 void wlc_backend_terminate(struct wlc_backend *backend);
 struct wlc_backend* wlc_backend_init(struct wlc_compositor *compositor);
 

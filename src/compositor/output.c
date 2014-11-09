@@ -379,6 +379,8 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
       if (!(output->render = wlc_render_new(output->context)))
          goto fail;
 
+      bsurface->output = output;
+
       struct wlc_surface *surface, *sn;
       wl_list_for_each_safe(surface, sn, &output->surfaces, link)
          wlc_surface_attach_to_output(surface, output, surface->commit.buffer);
@@ -411,7 +413,7 @@ wlc_output_terminate(struct wlc_output *output)
       return;
    }
 
-   struct wlc_output_event ev = { output, WLC_OUTPUT_EVENT_REMOVE };
+   struct wlc_output_event ev = { .remove = { output }, .type = WLC_OUTPUT_EVENT_REMOVE };
    wl_signal_emit(&wlc_system_signals()->output, &ev);
 }
 

@@ -229,7 +229,7 @@ activated(struct wl_listener *listener, void *data)
       wl_list_for_each(o, &compositor->outputs, link)
          wlc_output_set_backend_surface(o, NULL);
    } else {
-      wlc_backend_update_outputs(compositor->backend);
+      wlc_backend_update_outputs(compositor->backend, &compositor->outputs);
    }
 }
 
@@ -242,6 +242,10 @@ compositor_cleanup(struct wlc_compositor *compositor)
    wl_list_remove(&compositor->listener.terminated.link);
    wl_list_remove(&compositor->listener.xwayland.link);
    wl_list_remove(&compositor->listener.output.link);
+
+   struct wlc_output *o, *on;
+   wl_list_for_each_safe(o, on, &compositor->outputs, link)
+      wlc_output_free(o);
 
    if (compositor->xwm)
       wlc_xwm_free(compositor->xwm);
@@ -307,9 +311,22 @@ xwayland(struct wl_listener *listener, void *data)
    }
 }
 
+static struct wlc_output*
+get_surfaceless_output(struct wlc_compositor *compositor)
+{
+   struct wlc_output *o;
+   wl_list_for_each(o, &compositor->outputs, link) {
+      if (!o->bsurface)
+         return o;
+   }
+   return NULL;
+}
+
 static void
 active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
+   assert(compositor && output);
+
    if (output == compositor->output)
       return;
 
@@ -324,6 +341,61 @@ active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 }
 
 static void
+add_output(struct wlc_compositor *compositor, struct wlc_backend_surface *bsurface, struct wlc_output_information *info)
+{
+   assert(compositor && bsurface && info);
+   struct wlc_output *output;
+
+   if ((output = get_surfaceless_output(compositor))) {
+      wlc_output_set_backend_surface(output, bsurface);
+      wlc_output_set_information(output, info);
+   } else if ((output = wlc_output_new(compositor, bsurface, info))) {
+      wl_list_insert(&compositor->outputs, &output->link);
+      WLC_INTERFACE_EMIT(output.created, compositor, output);
+   }
+
+   if (!output) {
+      wlc_backend_surface_free(bsurface);
+      return;
+   }
+
+   if (!compositor->output)
+      active_output(compositor, output);
+
+   wlc_output_schedule_repaint(output);
+   wlc_log(WLC_LOG_INFO, "Added output (%p)", output);
+}
+
+static void
+remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
+{
+   assert(compositor && output);
+
+   struct wlc_output *o, *alive;
+   wl_list_for_each(o, &compositor->outputs, link) {
+      if (!o->bsurface)
+         continue;
+
+      alive = o;
+      break;
+   }
+
+   if (compositor->output == output) {
+      compositor->output = NULL; // make sure we don't redraw
+      wlc_compositor_focus_output(compositor, alive);
+   }
+
+   WLC_INTERFACE_EMIT(output.destroyed, compositor, output);
+
+   wlc_output_set_backend_surface(output, NULL);
+
+   if (compositor->terminating && !alive)
+      compositor_cleanup(compositor);
+
+   wlc_log(WLC_LOG_INFO, "Removed output (%p)", output);
+}
+
+static void
 output_event(struct wl_listener *listener, void *data)
 {
    struct wlc_output_event *ev = data;
@@ -334,61 +406,21 @@ output_event(struct wl_listener *listener, void *data)
 
    switch (ev->type) {
       case WLC_OUTPUT_EVENT_ADD:
-         assert(ev->output);
-
-         wl_list_insert(&compositor->outputs, &ev->output->link);
-         WLC_INTERFACE_EMIT(output.created, compositor, ev->output);
-
-         if (!compositor->output)
-            active_output(compositor, ev->output);
-
-         wlc_output_schedule_repaint(ev->output);
-         wlc_log(WLC_LOG_INFO, "Added output (%p)", ev->output);
+         add_output(compositor, ev->add.bsurface, ev->add.info);
       break;
 
       case WLC_OUTPUT_EVENT_ACTIVE:
-         active_output(compositor, ev->output);
+         active_output(compositor, ev->active.output);
       break;
 
       case WLC_OUTPUT_EVENT_REMOVE:
-         assert(ev->output);
-         // XXX: we may want to keep output alive, but remove from list and free for now
-         wl_list_remove(&ev->output->link);
+         remove_output(compositor, ev->remove.output);
+      break;
 
-         if (compositor->output == ev->output) {
-            compositor->output = NULL; // make sure we don't redraw
-            struct wlc_output *o = (wl_list_empty(&compositor->outputs) ? NULL : wl_container_of(compositor->outputs.next, o, link));
-            wlc_compositor_focus_output(compositor, o);
-         }
-
-         WLC_INTERFACE_EMIT(output.destroyed, compositor, ev->output);
-
-         // XXX: see the XXX above
-#if 0
-         // Remove surface from output
-         // Destroys rendering context, etc...
-         wlc_output_set_backend_surface(ev->output, NULL);
-#endif
-
-         wlc_output_free(ev->output);
-
-         if (compositor->terminating && wl_list_empty(&compositor->outputs))
-            compositor_cleanup(compositor);
-
-         wlc_log(WLC_LOG_INFO, "Removed output (%p)", ev->output);
+      case WLC_OUTPUT_EVENT_UPDATE:
+         wlc_backend_update_outputs(compositor->backend, &compositor->outputs);
       break;
    }
-}
-
-struct wlc_output*
-wlc_compositor_get_surfaless_output(struct wlc_compositor *compositor)
-{
-   struct wlc_output *o;
-   wl_list_for_each(o, &compositor->outputs, link) {
-      if (!o->bsurface)
-         return o;
-   }
-   return NULL;
 }
 
 WLC_API void

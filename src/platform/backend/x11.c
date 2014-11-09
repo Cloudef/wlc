@@ -198,7 +198,7 @@ function_pointer_exception:
 static bool
 page_flip(struct wlc_backend_surface *surface)
 {
-   struct wlc_output *output = surface->internal;
+   struct wlc_output *output = surface->output;
    struct timespec ts;
    wlc_get_time(&ts);
    wlc_output_finish_frame(output, &ts);
@@ -212,40 +212,20 @@ surface_free(struct wlc_backend_surface *bsurface)
 }
 
 static bool
-add_output(struct wlc_compositor *compositor, xcb_window_t window, struct wlc_output_information *info)
+add_output(xcb_window_t window, struct wlc_output_information *info)
 {
    struct wlc_backend_surface *bsurface = NULL;
 
    if (!(bsurface = wlc_backend_surface_new(surface_free, 0)))
-      goto fail;
+      return false;
 
    bsurface->window = window;
    bsurface->display = x11.display;
    bsurface->api.page_flip = page_flip;
 
-   // XXX: Code duplication
-   if ((bsurface->internal = wlc_compositor_get_surfaless_output(compositor))) {
-      wlc_output_set_backend_surface(bsurface->internal, bsurface);
-      wlc_output_set_information(bsurface->internal, info);
-      if (!compositor->output) {
-         struct wlc_output_event ev = { bsurface->internal, WLC_OUTPUT_EVENT_ACTIVE };
-         wl_signal_emit(&wlc_system_signals()->output, &ev);
-      }
-      wlc_output_schedule_repaint(bsurface->internal);
-      return true;
-   } else if (!(bsurface->internal = wlc_output_new(compositor, bsurface, info)))
-      goto fail;
-
-   struct wlc_output_event ev = { bsurface->internal, WLC_OUTPUT_EVENT_ADD };
+   struct wlc_output_event ev = { .add = { bsurface, info }, .type = WLC_OUTPUT_EVENT_ADD };
    wl_signal_emit(&wlc_system_signals()->output, &ev);
    return true;
-
-fail:
-   if (bsurface && bsurface->internal)
-      wlc_output_free(bsurface->internal);
-   if (bsurface)
-      wlc_backend_surface_free(bsurface);
-   return false;
 }
 
 static struct wlc_output*
@@ -324,7 +304,7 @@ x11_event(int fd, uint32_t mask, void *data)
                xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
                struct wlc_output *output;
                if ((output = output_for_window(ev->event, &compositor->outputs))) {
-                  struct wlc_output_event ev = { output, WLC_OUTPUT_EVENT_ACTIVE };
+                  struct wlc_output_event ev = { .active = { output }, .type = WLC_OUTPUT_EVENT_ACTIVE };
                   wl_signal_emit(&wlc_system_signals()->output, &ev);
                }
             }
@@ -420,8 +400,25 @@ x11_event(int fd, uint32_t mask, void *data)
 }
 
 static uint32_t
-update_outputs(void)
+update_outputs(struct wl_list *outputs)
 {
+   uint32_t alive = 0;
+   if (outputs) {
+      struct wlc_output *o;
+      wl_list_for_each(o, outputs, link) {
+         if (o->bsurface)
+            ++alive;
+      }
+   }
+
+   const char *env;
+   uint32_t fakes = 1;
+   if ((env = getenv("WLC_OUTPUTS")))
+      fakes = MAX(strtol(env, NULL, 10), 1);
+
+   if (alive >= fakes)
+      return 0;
+
    struct wlc_output_information info;
    memset(&info, 0, sizeof(info));
    wlc_string_set(&info.make, "Xorg", false);
@@ -453,12 +450,7 @@ update_outputs(void)
          x11.cursor,
       };
 
-      const char *env;
-      uint32_t outputs = 1;
-      if ((env = getenv("WLC_OUTPUTS")))
-         outputs = MAX(strtol(env, NULL, 10), 1);
-
-      for (uint32_t i = 0; i < outputs; ++i) {
+      for (uint32_t i = 0; i < fakes; ++i) {
          xcb_window_t window;
          if (!(window = x11.api.xcb_generate_id(x11.connection)))
             continue;
@@ -474,9 +466,9 @@ update_outputs(void)
             continue;
          }
 
-         count += (add_output(x11.compositor, window, &info) ? 1 : 0);
+         count += (add_output(window, &info) ? 1 : 0);
 
-         if (i < outputs) {
+         if (i < fakes) {
             struct wl_array cpy;
             wl_array_init(&cpy);
             wl_array_copy(&cpy, &info.modes);
@@ -484,7 +476,7 @@ update_outputs(void)
          }
       }
    } else {
-      count += (add_output(x11.compositor, x11.screen->root, &info) ? 1 : 0);
+      count += (add_output(x11.screen->root, &info) ? 1 : 0);
    }
 
    return count;
@@ -517,6 +509,8 @@ terminate(void)
 bool
 wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
 {
+   (void)compositor;
+
    if (!x11_load() || !x11_xcb_load() || !xcb_load())
       goto fail;
 
@@ -565,9 +559,7 @@ wlc_x11_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    x11.api.xcb_free_gc(x11.connection, gc);
    x11.api.xcb_free_pixmap(x11.connection, pixmap);
 
-   x11.compositor = compositor;
-
-   if (!update_outputs())
+   if (!update_outputs(NULL))
       goto output_fail;
 
    if (!wlc_input_has_init()) {

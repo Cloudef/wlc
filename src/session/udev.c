@@ -199,7 +199,8 @@ udev_event(int fd, uint32_t mask, void *data)
    // FIXME: pass correct drm id
    if (is_hotplug(0, device)) {
       wlc_log(WLC_LOG_INFO, "udev: hotplug");
-      // FIXME: update drm outputs here
+      struct wlc_output_event ev = { .type = WLC_OUTPUT_EVENT_UPDATE };
+      wl_signal_emit(&wlc_system_signals()->output, &ev);
       goto out;
    }
 
