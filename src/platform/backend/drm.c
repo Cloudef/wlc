@@ -491,7 +491,7 @@ output_exists_for_connector(struct wl_list *outputs, drmModeConnector *connector
    struct wlc_output *o;
    wl_list_for_each(o, outputs, link) {
       struct drm_surface *dsurface = (o->bsurface ? o->bsurface->internal : NULL);
-      if (dsurface && dsurface->connector == connector)
+      if (dsurface && dsurface->connector->connector_id == connector->connector_id)
          return true;
    }
    return false;
@@ -503,7 +503,7 @@ info_exists_for_drm_surface(struct wl_array *infos, struct drm_surface *dsurface
    assert(infos && dsurface);
    struct drm_output_information *info;
    wl_array_for_each(info, infos) {
-      if (dsurface->connector == info->connector)
+      if (dsurface->connector->connector_id == info->connector->connector_id)
          return true;
    }
    return false;
