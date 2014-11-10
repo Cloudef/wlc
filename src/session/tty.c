@@ -56,7 +56,7 @@ open_tty(int vt)
    snprintf(tty_name, sizeof tty_name, "/dev/tty%d", vt);
 
    /* check if we are running on the desired VT */
-   if (!strcmp(tty_name, ttyname(STDIN_FILENO)))
+   if (ttyname(STDIN_FILENO) && !strcmp(tty_name, ttyname(STDIN_FILENO)))
       return STDIN_FILENO;
 
    int fd;
