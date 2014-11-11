@@ -423,6 +423,7 @@ update_outputs(struct wl_list *outputs)
    memset(&info, 0, sizeof(info));
    wlc_string_set(&info.make, "Xorg", false);
    wlc_string_set(&info.model, "X11 Window", false);
+   info.scale = 1;
 
    struct wlc_output_mode mode;
    memset(&mode, 0, sizeof(mode));

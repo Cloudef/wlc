@@ -420,6 +420,7 @@ query_drm(int fd, struct wl_array *out_infos)
       info->info.physical_width = connector->mmWidth;
       info->info.physical_height = connector->mmHeight;
       info->info.subpixel = connector->subpixel;
+      info->info.scale = 1; // weston gets this from config?
 
       for (int i = 0; i < connector->count_modes; ++i) {
          struct wlc_output_mode mode;

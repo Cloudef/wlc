@@ -75,6 +75,7 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
        (output->information.model.data ? output->information.model.data : "model"),
        output->information.transform);
 
+   assert(output->information.scale > 0);
    if (version >= WL_OUTPUT_SCALE_SINCE_VERSION)
       wl_output_send_scale(resource, output->information.scale);
 
