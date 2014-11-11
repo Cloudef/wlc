@@ -30,6 +30,7 @@ static struct {
    int display;
    int wl[2], wm[2], socks[2];
    pid_t pid;
+   bool fds_set[3];
 } xserver;
 
 static int
@@ -186,22 +187,27 @@ wlc_xwayland_get_fd(void)
 void
 wlc_xwayland_terminate(void)
 {
-   wlc_log(WLC_LOG_INFO, "Closing Xwayland");
-
-   if (xserver.pid > 0)
+   if (xserver.pid > 0) {
+      wlc_log(WLC_LOG_INFO, "Closing Xwayland");
       kill(xserver.pid, SIGTERM);
+   }
 
    if (xserver.client) {
       wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){false});
       wl_client_destroy(xserver.client);
    }
 
-   close(xserver.socks[0]);
-   close(xserver.socks[1]);
-   close(xserver.wl[0]);
-   close(xserver.wm[0]);
+   if (xserver.fds_set[0]) {
+      close(xserver.socks[0]);
+      close(xserver.socks[1]);
+      close_display();
+   }
 
-   close_display();
+   if (xserver.fds_set[1])
+      close(xserver.wl[0]);
+
+   if (xserver.fds_set[2])
+      close(xserver.wm[0]);
 
    memset(&xserver, 0, sizeof(xserver));
 }
@@ -212,13 +218,19 @@ wlc_xwayland_init(void)
    if (!open_display(xserver.socks))
       goto display_open_fail;
 
+   xserver.fds_set[0] = true;
+
    /* Open a socket for the Wayland connection from Xwayland. */
    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, xserver.wl) != 0)
       goto socketpair_fail;
 
+   xserver.fds_set[1] = true;
+
    /* Open a socket for the X connection to Xwayland. */
    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, xserver.wm) != 0)
       goto socketpair_fail;
+
+   xserver.fds_set[2] = true;
 
    if ((xserver.pid = fork()) == 0) {
       int fds[] = { xserver.wl[1], xserver.wm[1], xserver.socks[0], xserver.socks[1] };
@@ -299,6 +311,6 @@ client_create_fail:
 fork_fail:
    wlc_log(WLC_LOG_WARN, "Fork failed");
 fail:
-   close_display();
+   wlc_xwayland_terminate();
    return false;
 }
