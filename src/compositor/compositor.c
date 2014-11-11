@@ -371,7 +371,7 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
    assert(compositor && output);
 
-   struct wlc_output *o, *alive;
+   struct wlc_output *o, *alive = NULL;
    wl_list_for_each(o, &compositor->outputs, link) {
       if (!o->bsurface)
          continue;
