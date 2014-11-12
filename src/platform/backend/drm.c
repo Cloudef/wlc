@@ -49,6 +49,7 @@ struct drm_surface {
 
    uint32_t stride;
    uint8_t index;
+   bool flipping;
 };
 
 static struct {
@@ -217,6 +218,7 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
    ts.tv_sec = sec;
    ts.tv_nsec = usec * 1000;
    wlc_output_finish_frame(bsurface->output, &ts);
+   dsurface->flipping = false;
 }
 
 static int
@@ -272,6 +274,7 @@ page_flip(struct wlc_backend_surface *bsurface)
 {
    assert(bsurface && bsurface->internal);
    struct drm_surface *dsurface = bsurface->internal;
+   assert(!dsurface->flipping);
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
    release_fb(dsurface->surface, fb);
 
@@ -288,6 +291,7 @@ page_flip(struct wlc_backend_surface *bsurface)
    if (drm.api.drmModePageFlip(drm.fd, dsurface->encoder->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, bsurface))
       goto failed_to_page_flip;
 
+   dsurface->flipping = true;
    return true;
 
 set_crtc_fail:
