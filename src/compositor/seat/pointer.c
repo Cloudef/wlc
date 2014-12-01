@@ -195,6 +195,55 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
 }
 
 void
+wlc_pointer_touch(struct wlc_pointer *pointer, uint32_t time, enum wlc_touch_type type, int32_t slot, const struct wlc_origin *pos)
+{
+   assert(pointer);
+
+   struct wlc_view *focused = view_under_pointer(pointer);
+
+   if (type == WLC_TOUCH_MOTION || type == WLC_TOUCH_DOWN) {
+      memcpy(&pointer->pos, pos, sizeof(pointer->pos));
+
+      struct wlc_origin d;
+      wlc_pointer_focus(pointer, focused, &d);
+
+      if (pointer->compositor->output)
+         wlc_output_schedule_repaint(pointer->compositor->output);
+   }
+
+   if (!is_valid_view(focused))
+      return;
+
+   switch (type) {
+      case WLC_TOUCH_DOWN:
+         {
+            uint32_t serial = wl_display_next_serial(wlc_display());
+            wl_touch_send_down(focused->client->input[WLC_TOUCH], serial, time, focused->surface->resource, slot, wl_fixed_from_int(pos->x), wl_fixed_from_int(pos->y));
+         }
+         break;
+
+      case WLC_TOUCH_UP:
+         {
+            uint32_t serial = wl_display_next_serial(wlc_display());
+            wl_touch_send_up(focused->client->input[WLC_TOUCH], serial, time, slot);
+         }
+         break;
+
+      case WLC_TOUCH_MOTION:
+         wl_touch_send_motion(focused->client->input[WLC_TOUCH], time, slot, wl_fixed_from_int(pos->x), wl_fixed_from_int(pos->y));
+         break;
+
+      case WLC_TOUCH_FRAME:
+         wl_touch_send_frame(focused->client->input[WLC_TOUCH]);
+         break;
+
+      case WLC_TOUCH_CANCEL:
+         wl_touch_send_cancel(focused->client->input[WLC_TOUCH]);
+         break;
+   }
+}
+
+void
 wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource)
 {
    assert(pointer && resource);

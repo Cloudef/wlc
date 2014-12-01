@@ -59,6 +59,42 @@ pointer_abs_y(void *internal, uint32_t height)
    return libinput_event_pointer_get_absolute_y_transformed(pev, height);
 }
 
+static double
+touch_abs_x(void *internal, uint32_t width)
+{
+   struct libinput_event_touch *tev = internal;
+   return libinput_event_touch_get_x_transformed(tev, width);
+}
+
+static double
+touch_abs_y(void *internal, uint32_t height)
+{
+   struct libinput_event_touch *tev = internal;
+   return libinput_event_touch_get_y_transformed(tev, height);
+}
+
+static enum wlc_touch_type
+wlc_touch_type_for_libinput_type(enum libinput_event_type type)
+{
+   switch (type) {
+      case LIBINPUT_EVENT_TOUCH_UP:
+         return WLC_TOUCH_UP;
+      case LIBINPUT_EVENT_TOUCH_DOWN:
+         return WLC_TOUCH_DOWN;
+      case LIBINPUT_EVENT_TOUCH_MOTION:
+         return WLC_TOUCH_MOTION;
+      case LIBINPUT_EVENT_TOUCH_FRAME:
+         return WLC_TOUCH_FRAME;
+      case LIBINPUT_EVENT_TOUCH_CANCEL:
+         return WLC_TOUCH_CANCEL;
+
+      default:break;
+   }
+
+   assert(0 && "should not happen");
+   return WLC_TOUCH_CANCEL;
+}
+
 static int
 input_event(int fd, uint32_t mask, void *data)
 {
@@ -139,6 +175,24 @@ input_event(int fd, uint32_t mask, void *data)
                ev.time = libinput_event_keyboard_get_time(kev);
                ev.key.code = libinput_event_keyboard_get_key(kev);
                ev.key.state = (enum wl_keyboard_key_state)libinput_event_keyboard_get_key_state(kev);
+               wl_signal_emit(&wlc_system_signals()->input, &ev);
+            }
+            break;
+
+         case LIBINPUT_EVENT_TOUCH_UP:
+         case LIBINPUT_EVENT_TOUCH_DOWN:
+         case LIBINPUT_EVENT_TOUCH_MOTION:
+         case LIBINPUT_EVENT_TOUCH_FRAME:
+         case LIBINPUT_EVENT_TOUCH_CANCEL:
+            {
+               struct libinput_event_touch *tev = libinput_event_get_touch_event(event);
+               struct wlc_input_event ev;
+               ev.type = WLC_INPUT_EVENT_TOUCH;
+               ev.time = libinput_event_touch_get_time(tev);
+               ev.touch.type = wlc_touch_type_for_libinput_type(libinput_event_get_type(event));
+               ev.touch.x = touch_abs_x;
+               ev.touch.y = touch_abs_y;
+               ev.touch.slot = libinput_event_touch_get_seat_slot(tev);
                wl_signal_emit(&wlc_system_signals()->input, &ev);
             }
             break;

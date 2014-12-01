@@ -18,6 +18,7 @@ enum wlc_input_event_type {
    WLC_INPUT_EVENT_BUTTON,
    WLC_INPUT_EVENT_SCROLL,
    WLC_INPUT_EVENT_KEY,
+   WLC_INPUT_EVENT_TOUCH,
 };
 
 struct wlc_input_event {
@@ -51,6 +52,21 @@ struct wlc_input_event {
          uint32_t code;
          enum wl_keyboard_key_state state;
       } key;
+
+      // WLC_INPUT_EVENT_TOUCH
+      struct wlc_input_event_touch {
+         enum wlc_touch_type {
+            WLC_TOUCH_DOWN,
+            WLC_TOUCH_UP,
+            WLC_TOUCH_MOTION,
+            WLC_TOUCH_FRAME,
+            WLC_TOUCH_CANCEL
+         } type;
+         double (*x)(void *internal, uint32_t width);
+         double (*y)(void *internal, uint32_t height);
+         void *internal;
+         int32_t slot;
+      } touch;
    };
 
    uint32_t time;

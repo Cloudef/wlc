@@ -6,6 +6,7 @@
 #include <wayland-util.h>
 
 #include "types/geometry.h"
+#include "internal.h"
 
 enum grab_action {
    WLC_GRAB_ACTION_NONE,
@@ -41,6 +42,7 @@ void wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struc
 void wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, enum wl_pointer_button_state state);
 void wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, enum wl_pointer_axis axis, double amount);
 void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_origin *pos);
+void wlc_pointer_touch(struct wlc_pointer *pointer, uint32_t time, enum wlc_touch_type type, int32_t slot, const struct wlc_origin *pos);
 void wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource);
 void wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_origin *tip);
 void wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render);

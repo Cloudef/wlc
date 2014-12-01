@@ -124,11 +124,32 @@ wl_cb_seat_get_keyboard(struct wl_client *wl_client, struct wl_resource *resourc
    }
 }
 
+static const struct wl_touch_interface wl_touch_implementation = {
+   .release = wl_cb_input_resource_release
+};
+
 static void
 wl_cb_seat_get_touch(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id)
 {
-   (void)wl_client, (void)id;
-   STUB(resource);
+   struct wlc_seat *seat = wl_resource_get_user_data(resource);
+
+   if (!seat->pointer)
+      return;
+
+   struct wlc_client *client;
+   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &seat->compositor->clients))) {
+      wl_resource_post_error(resource, 1, "client was not found (out of memory?)");
+      return;
+   }
+
+   struct wl_resource *touch_resource;
+   if (!(touch_resource = wl_resource_create(wl_client, &wl_touch_interface, wl_resource_get_version(resource), id))) {
+      wl_client_post_no_memory(wl_client);
+      return;
+   }
+
+   client->input[WLC_TOUCH] = touch_resource;
+   wl_resource_set_implementation(touch_resource, &wl_touch_implementation, seat->pointer, wl_cb_pointer_client_destructor);
 }
 
 static const struct wl_seat_interface wl_seat_implementation = {
@@ -153,15 +174,10 @@ wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsi
    enum wl_seat_capability caps = 0;
 
    if (seat->pointer)
-      caps |= WL_SEAT_CAPABILITY_POINTER;
+      caps |= WL_SEAT_CAPABILITY_POINTER | WL_SEAT_CAPABILITY_TOUCH;
 
    if (seat->keyboard)
       caps |= WL_SEAT_CAPABILITY_KEYBOARD;
-
-#if 0
-   if (seat->touch)
-      caps |= WL_SEAT_CAPABILITY_TOUCH;
-#endif
 
    wl_seat_send_capabilities(resource, caps);
 
@@ -289,6 +305,21 @@ input_event(struct wl_listener *listener, void *data)
 
       case WLC_INPUT_EVENT_KEY:
          seat_handle_key(seat, ev);
+         break;
+
+      case WLC_INPUT_EVENT_TOUCH:
+         {
+            struct wlc_size resolution = (seat->compositor->output ? seat->compositor->output->resolution : wlc_size_zero);
+
+            struct wlc_origin pos = {
+               ev->touch.x(ev->touch.internal, resolution.w),
+               ev->touch.y(ev->touch.internal, resolution.h)
+            };
+
+            // FIXME: interface callback
+
+            wlc_pointer_touch(seat->pointer, ev->time, ev->touch.type, ev->touch.slot, &pos);
+         }
          break;
    }
 }
