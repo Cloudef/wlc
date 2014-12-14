@@ -691,14 +691,14 @@ surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buff
 static void
 texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_geometry *geometry, struct paint *settings)
 {
-   const GLint vertices[8] = {
+   const GLfloat vertices[8] = {
       geometry->origin.x + geometry->size.w, geometry->origin.y,
       geometry->origin.x,                    geometry->origin.y,
       geometry->origin.x + geometry->size.w, geometry->origin.y + geometry->size.h,
       geometry->origin.x,                    geometry->origin.y + geometry->size.h,
    };
 
-   const GLint coords[8] = {
+   const GLfloat coords[8] = {
       1, 0,
       0, 0,
       1, 1,
@@ -733,8 +733,8 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_ge
       }
    }
 
-   GL_CALL(gl.api.glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, vertices));
-   GL_CALL(gl.api.glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, 0, coords));
+   GL_CALL(gl.api.glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, vertices));
+   GL_CALL(gl.api.glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, coords));
    GL_CALL(gl.api.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4));
 }
 
