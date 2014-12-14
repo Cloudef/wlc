@@ -23,6 +23,8 @@
 
 #include <wayland-server.h>
 
+static float DIM = 0.5f;
+
 static GLubyte cursor_palette[];
 
 enum program_type {
@@ -778,7 +780,8 @@ view_paint(struct ctx *context, struct wlc_view *view)
 
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
-   settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : 0.5f);
+
+   settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : DIM);
    settings.program = (enum program_type)view->surface->format;
 
    struct wlc_geometry geometry;
@@ -886,6 +889,10 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
    api->clear = clear;
    api->time = frame_time;
    api->swap = swap;
+
+   const char *dimenv;
+   if ((dimenv = getenv("WLC_DIM")))
+      DIM = strtof(dimenv, NULL);
 
    wlc_log(WLC_LOG_INFO, "GLES2 renderer initialized");
    return gl;
