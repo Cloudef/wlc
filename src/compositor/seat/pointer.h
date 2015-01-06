@@ -24,13 +24,20 @@ struct wlc_client;
 struct wlc_surface;
 struct wlc_render;
 
+// We want to store internally for sub-pixel precision
+// Events to wlc goes as wlc_origin though.
+// May need to change that.
+struct wlc_pointer_origin {
+   double x, y;
+};
+
 struct wlc_pointer {
    struct wlc_compositor *compositor;
    struct wlc_surface *surface;
    struct wlc_view *focus;
 
+   struct wlc_pointer_origin pos;
    struct wlc_origin tip;
-   struct wlc_origin pos;
    struct wlc_origin grab;
 
    uint32_t action_edges;
@@ -38,10 +45,10 @@ struct wlc_pointer {
    bool grabbing;
 };
 
-void wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_origin *out_pos);
+void wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_pointer_origin *out_pos);
 void wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, enum wl_pointer_button_state state);
 void wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, enum wl_pointer_axis axis, double amount);
-void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_origin *pos);
+void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_pointer_origin *pos);
 void wlc_pointer_touch(struct wlc_pointer *pointer, uint32_t time, enum wlc_touch_type type, int32_t slot, const struct wlc_origin *pos);
 void wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource);
 void wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_origin *tip);

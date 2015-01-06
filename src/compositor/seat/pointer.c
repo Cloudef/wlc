@@ -66,11 +66,11 @@ degrab(struct wlc_pointer *pointer)
 }
 
 void
-wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_origin *out_pos)
+wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_pointer_origin *out_pos)
 {
    assert(pointer);
 
-   struct wlc_origin d;
+   struct wlc_pointer_origin d;
 
    if (view) {
       struct wlc_geometry b, v;
@@ -97,7 +97,7 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
 
    if (focus) {
       uint32_t serial = wl_display_next_serial(wlc_display());
-      wl_pointer_send_enter(focus, serial, view->surface->resource, wl_fixed_from_int(d.x), wl_fixed_from_int(d.y));
+      wl_pointer_send_enter(focus, serial, view->surface->resource, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
    }
 
    if (!view)
@@ -117,7 +117,7 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, 
 
    if (state == WL_POINTER_BUTTON_STATE_PRESSED && !pointer->grabbing) {
       pointer->grabbing = true;
-      pointer->grab = pointer->pos;
+      pointer->grab = (struct wlc_origin){ pointer->pos.x, pointer->pos.y };
    } else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
       degrab(pointer);
    }
@@ -138,13 +138,13 @@ wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, enum wl_pointer_a
 }
 
 void
-wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_origin *pos)
+wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_pointer_origin *pos)
 {
    assert(pointer);
    memcpy(&pointer->pos, pos, sizeof(pointer->pos));
    struct wlc_view *focused = view_under_pointer(pointer);
 
-   struct wlc_origin d;
+   struct wlc_pointer_origin d;
    wlc_pointer_focus(pointer, focused, &d);
 
    if (pointer->compositor->output)
@@ -153,7 +153,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
    if (!is_valid_view(focused))
       return;
 
-   wl_pointer_send_motion(focused->client->input[WLC_POINTER], time, wl_fixed_from_int(d.x), wl_fixed_from_int(d.y));
+   wl_pointer_send_motion(focused->client->input[WLC_POINTER], time, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
 
    if (pointer->grabbing) {
       struct wlc_geometry g = focused->pending.geometry;
@@ -190,7 +190,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
          wlc_view_set_geometry(focused, &g);
       }
 
-      pointer->grab = pointer->pos;
+      pointer->grab = (struct wlc_origin){ pointer->pos.x, pointer->pos.y };
    }
 }
 
@@ -204,7 +204,7 @@ wlc_pointer_touch(struct wlc_pointer *pointer, uint32_t time, enum wlc_touch_typ
    if (type == WLC_TOUCH_MOTION || type == WLC_TOUCH_DOWN) {
       memcpy(&pointer->pos, pos, sizeof(pointer->pos));
 
-      struct wlc_origin d;
+      struct wlc_pointer_origin d;
       wlc_pointer_focus(pointer, focused, &d);
 
       if (pointer->compositor->output)
@@ -218,7 +218,7 @@ wlc_pointer_touch(struct wlc_pointer *pointer, uint32_t time, enum wlc_touch_typ
       case WLC_TOUCH_DOWN:
          {
             uint32_t serial = wl_display_next_serial(wlc_display());
-            wl_touch_send_down(focused->client->input[WLC_TOUCH], serial, time, focused->surface->resource, slot, wl_fixed_from_int(pos->x), wl_fixed_from_int(pos->y));
+            wl_touch_send_down(focused->client->input[WLC_TOUCH], serial, time, focused->surface->resource, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
          }
          break;
 
@@ -230,7 +230,7 @@ wlc_pointer_touch(struct wlc_pointer *pointer, uint32_t time, enum wlc_touch_typ
          break;
 
       case WLC_TOUCH_MOTION:
-         wl_touch_send_motion(focused->client->input[WLC_TOUCH], time, slot, wl_fixed_from_int(pos->x), wl_fixed_from_int(pos->y));
+         wl_touch_send_motion(focused->client->input[WLC_TOUCH], time, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
          break;
 
       case WLC_TOUCH_FRAME:
@@ -300,7 +300,7 @@ wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render)
    } else if (!pointer->focus || pointer->focus->x11_window) {
       // Show default cursor when no focus and no surface, or if the focused window is x11_window.
       // In x11 you hide cursor with surface that has transparent pixels.
-      wlc_render_pointer_paint(render, &pointer->pos);
+      wlc_render_pointer_paint(render, &(struct wlc_origin){ pointer->pos.x, pointer->pos.y });
    }
 }
 

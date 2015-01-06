@@ -261,12 +261,12 @@ input_event(struct wl_listener *listener, void *data)
          {
             struct wlc_size resolution = (seat->compositor->output ? seat->compositor->output->resolution : wlc_size_zero);
 
-            struct wlc_origin pos = {
+            struct wlc_pointer_origin pos = {
                fmin(fmax(seat->pointer->pos.x + ev->motion.dx, 0), resolution.w),
                fmin(fmax(seat->pointer->pos.y + ev->motion.dy, 0), resolution.h),
             };
 
-            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->compositor, seat->pointer->focus, ev->time, &pos))
+            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->compositor, seat->pointer->focus, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
                return;
 
             wlc_pointer_motion(seat->pointer, ev->time, &pos);
@@ -277,12 +277,12 @@ input_event(struct wl_listener *listener, void *data)
          {
             struct wlc_size resolution = (seat->compositor->output ? seat->compositor->output->resolution : wlc_size_zero);
 
-            struct wlc_origin pos = {
+            struct wlc_pointer_origin pos = {
                ev->motion_abs.x(ev->motion_abs.internal, resolution.w),
                ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
             };
 
-            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->compositor, seat->pointer->focus, ev->time, &pos))
+            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->compositor, seat->pointer->focus, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
                return;
 
             wlc_pointer_motion(seat->pointer, ev->time, &pos);
