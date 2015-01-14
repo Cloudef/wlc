@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <errno.h>
 
 #include <wayland-server.h>
 
@@ -97,12 +98,18 @@ retry:
 
       char *end;
       pid_t owner = strtol(pid, &end, 10);
-      if (end == pid + 10 && kill(owner, 0) != 0) {
+
+      /**
+       * Check if the pid for existing lock file is not alive by
+       * sending kill signal and checking that errno == ESRCH (process not found, in most cases)
+       */
+      if (end == pid + 10 && kill(owner, 0) != 0 && errno == ESRCH) {
          unlink(lock_name);
          snprintf(lock_name, sizeof(lock_name), socket_fmt, dpy);
          unlink(lock_name);
 
-         /* try open again, as the X server for this lock is not running */
+         /* try open again, as the X server for this lock is not running,
+          * if we fail here, give up and try next display */
          snprintf(lock_name, sizeof(lock_name), lock_fmt, dpy);
          if ((lock_fd = open(lock_name, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0444)) >= 0)
             break;
