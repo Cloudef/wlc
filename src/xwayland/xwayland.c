@@ -101,8 +101,11 @@ retry:
          unlink(lock_name);
          snprintf(lock_name, sizeof(lock_name), socket_fmt, dpy);
          unlink(lock_name);
-         dpy -= 1;
-         continue;
+
+         /* try open again, as the X server for this lock is not running */
+         snprintf(lock_name, sizeof(lock_name), lock_fmt, dpy);
+         if ((lock_fd = open(lock_name, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0444)) >= 0)
+            break;
       }
    }
 
