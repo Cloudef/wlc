@@ -43,8 +43,8 @@ struct wlc_input_event {
 
       // WLC_INPUT_EVENT_SCROLL
       struct wlc_input_event_scroll {
-         double amount;
-         enum wl_pointer_axis axis;
+         double amount[2]; // 0 == vertical, 1 == horizontal
+         uint8_t axis_bits;
       } scroll;
 
       // WLC_INPUT_EVENT_KEY

@@ -93,9 +93,9 @@ enum wlc_button_state {
 };
 
 /** axis in interface.pointer.scroll function */
-enum wlc_scroll_axis {
-   WLC_SCROLL_AXIS_VERTICAL,
-   WLC_SCROLL_AXIS_HORIZONTAL
+enum wlc_scroll_axis_bit {
+   WLC_SCROLL_AXIS_VERTICAL = 1<<0,
+   WLC_SCROLL_AXIS_HORIZONTAL = 1<<1
 };
 
 /** state of keyboard modifiers in various functions */
@@ -121,7 +121,7 @@ struct wlc_interface {
 
    struct {
       bool (*button)(struct wlc_compositor*, struct wlc_view*, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state state);
-      bool (*scroll)(struct wlc_compositor*, struct wlc_view*, uint32_t time, const struct wlc_modifiers*, enum wlc_scroll_axis axis, double amount);
+      bool (*scroll)(struct wlc_compositor*, struct wlc_view*, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]);
       bool (*motion)(struct wlc_compositor*, struct wlc_view*, uint32_t time, const struct wlc_origin*);
    } pointer;
 

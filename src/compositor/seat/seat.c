@@ -290,10 +290,10 @@ input_event(struct wl_listener *listener, void *data)
          break;
 
       case WLC_INPUT_EVENT_SCROLL:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->compositor, seat->pointer->focus, ev->time, &seat->modifiers, (enum wlc_scroll_axis)ev->scroll.axis, ev->scroll.amount))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->compositor, seat->pointer->focus, ev->time, &seat->modifiers, ev->scroll.axis_bits, ev->scroll.amount))
             return;
 
-         wlc_pointer_scroll(seat->pointer, ev->time, ev->scroll.axis, ev->scroll.amount);
+         wlc_pointer_scroll(seat->pointer, ev->time, ev->scroll.axis_bits, ev->scroll.amount);
          break;
 
       case WLC_INPUT_EVENT_BUTTON:

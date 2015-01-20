@@ -127,14 +127,18 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, 
 }
 
 void
-wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, enum wl_pointer_axis axis, double amount)
+wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, uint8_t axis_bits, double amount[2])
 {
    assert(pointer);
 
    if (!is_valid_view(pointer->focus))
       return;
 
-   wl_pointer_send_axis(pointer->focus->client->input[WLC_POINTER], time, axis, wl_fixed_from_double(amount));
+   if (axis_bits & WLC_SCROLL_AXIS_VERTICAL)
+      wl_pointer_send_axis(pointer->focus->client->input[WLC_POINTER], time, WL_POINTER_AXIS_VERTICAL_SCROLL, wl_fixed_from_double(amount[0]));
+
+   if (axis_bits & WLC_SCROLL_AXIS_HORIZONTAL)
+      wl_pointer_send_axis(pointer->focus->client->input[WLC_POINTER], time, WL_POINTER_AXIS_HORIZONTAL_SCROLL, wl_fixed_from_double(amount[1]));
 }
 
 void

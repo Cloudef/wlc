@@ -344,15 +344,15 @@ x11_event(int fd, uint32_t mask, void *data)
                case 4:
                case 5:
                   ev.type = WLC_INPUT_EVENT_SCROLL;
-                  ev.scroll.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
-                  ev.scroll.amount = (xev->detail == 4 ? -10 : 10);
+                  ev.scroll.axis_bits = WLC_SCROLL_AXIS_VERTICAL;
+                  ev.scroll.amount[0] = (xev->detail == 4 ? -10 : 10);
                   break;
 
                case 6:
                case 7:
                   ev.type = WLC_INPUT_EVENT_SCROLL;
-                  ev.scroll.axis = WL_POINTER_AXIS_HORIZONTAL_SCROLL;
-                  ev.scroll.amount = (xev->detail == 6 ? -10 : 10);
+                  ev.scroll.axis_bits = WLC_SCROLL_AXIS_HORIZONTAL;
+                  ev.scroll.amount[1] = (xev->detail == 6 ? -10 : 10);
                   break;
 
                default:

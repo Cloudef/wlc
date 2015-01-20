@@ -161,8 +161,18 @@ input_event(int fd, uint32_t mask, void *data)
                struct wlc_input_event ev;
                ev.type = WLC_INPUT_EVENT_SCROLL;
                ev.time = libinput_event_pointer_get_time(pev);
-               ev.scroll.amount = libinput_event_pointer_get_axis_value(pev);
-               ev.scroll.axis  = (enum wl_pointer_axis)libinput_event_pointer_get_axis(pev);
+
+               ev.scroll.amount[0] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL);
+               ev.scroll.amount[1] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL);
+
+               ev.scroll.axis_bits = 0;
+               if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL))
+                  ev.scroll.axis_bits |= WLC_SCROLL_AXIS_VERTICAL;
+
+               if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL))
+                  ev.scroll.axis_bits |= WLC_SCROLL_AXIS_HORIZONTAL;
+
+               // We should get other axis information from libinput as well, like source (finger, wheel) (v0.8)
                wl_signal_emit(&wlc_system_signals()->input, &ev);
             }
             break;
