@@ -1,8 +1,6 @@
 Readme coming..
 
 Get everything working first.
-Rethink resource management.
-Atm there is lots of -> stupid pointer redirections.
 
 TODO:
 legend: x = works, v = works, but major features still missing

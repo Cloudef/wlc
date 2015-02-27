@@ -1,27 +1,23 @@
-#include "internal.h"
-#include "egl.h"
-#include "context.h"
-
-#include "compositor/compositor.h"
-#include "compositor/output.h"
-
-#include "platform/backend/backend.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <assert.h>
-
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-
 #include <wayland-server.h>
+#include <chck/string/string.h>
+#include "internal.h"
+#include "egl.h"
+#include "context.h"
+#include "compositor/compositor.h"
+#include "compositor/output.h"
+#include "platform/backend/backend.h"
 
 static void *bound = NULL;
 
 struct ctx {
    const char *extensions;
-   struct wlc_backend_surface *bsurface;
    struct wl_display *wl_display;
    EGLDisplay display;
    EGLContext context;
@@ -204,7 +200,7 @@ has_extension(const struct ctx *context, const char *extension)
    while ((pos = strcspn(s, " ")) != 0) {
       size_t next = pos + (s[pos] != 0);
 
-      if (!strncmp(s, extension, len))
+      if (chck_cstrneq(s, extension, len))
          return true;
 
       s += next;
@@ -228,30 +224,30 @@ terminate(struct ctx *context)
       EGL_CALL(egl.api.eglDestroyContext(context->display, context->context));
    }
 
-   if (context->display) {
-      // XXX: This is shared on all backends
+   // XXX: This is shared on all backends
 #if 0
+   if (context->display) {
       if (context->api.eglUnbindWaylandDisplayWL && context->wl_display) {
          EGL_CALL(context->api.eglUnbindWaylandDisplayWL(context->display, context->wl_display));
       }
 
-      // egl.api.eglTerminate(context->display);
-#endif
+      EGL_CALL(egl.api.eglTerminate(context->display));
    }
+#endif
 
    free(context);
 }
 
 static struct ctx*
-create_context(struct wlc_backend_surface *surface)
+create_context(struct wlc_backend_surface *bsurface)
 {
-   assert(surface);
+   assert(bsurface);
 
    struct ctx *context;
    if (!(context = calloc(1, sizeof(struct ctx))))
       return NULL;
 
-   if (!(context->display = egl.api.eglGetDisplay(surface->display)))
+   if (!(context->display = egl.api.eglGetDisplay(bsurface->display)))
       goto egl_fail;
 
    EGLint major, minor;
@@ -284,7 +280,7 @@ create_context(struct wlc_backend_surface *surface)
    if ((context->context = egl.api.eglCreateContext(context->display, context->config, EGL_NO_CONTEXT, context_attribs)) == EGL_NO_CONTEXT)
       goto egl_fail;
 
-   if ((context->surface = egl.api.eglCreateWindowSurface(context->display, context->config, surface->window, NULL)) == EGL_NO_SURFACE)
+   if ((context->surface = egl.api.eglCreateWindowSurface(context->display, context->config, bsurface->window, NULL)) == EGL_NO_SURFACE)
       goto egl_fail;
 
    if (!egl.api.eglMakeCurrent(context->display, context->surface, context->surface, context->context))
@@ -362,7 +358,7 @@ bind_to_wl_display(struct ctx *context, struct wl_display *wl_display)
    assert(context);
 
    const char *env;
-   if ((env = getenv("WLC_SHM")) && !strcmp(env, "1"))
+   if ((env = getenv("WLC_SHM")) && chck_cstreq(env, "1"))
       return false;
 
    if (context->api.eglBindWaylandDisplayWL) {
@@ -375,7 +371,7 @@ bind_to_wl_display(struct ctx *context, struct wl_display *wl_display)
 }
 
 static void
-swap(struct ctx *context)
+swap(struct ctx *context, struct wlc_backend_surface *bsurface)
 {
    assert(context);
 
@@ -389,8 +385,8 @@ swap(struct ctx *context)
    if (!context->flip_failed)
       ret = EGL_CALL(egl.api.eglSwapBuffers(context->display, context->surface));
 
-   if (ret == EGL_TRUE && context->bsurface->api.page_flip)
-      context->flip_failed = !context->bsurface->api.page_flip(context->bsurface);
+   if (ret == EGL_TRUE && bsurface->api.page_flip)
+      context->flip_failed = !bsurface->api.page_flip(bsurface);
 }
 
 static EGLBoolean
@@ -430,9 +426,9 @@ egl_unload(void)
 }
 
 void*
-wlc_egl_new(struct wlc_backend_surface *surface, struct wlc_context_api *api)
+wlc_egl(struct wlc_backend_surface *bsurface, struct wlc_context_api *api)
 {
-   assert(surface && api);
+   assert(bsurface && api);
 
    if (!egl.api.handle && !egl_load()) {
       egl_unload();
@@ -440,10 +436,8 @@ wlc_egl_new(struct wlc_backend_surface *surface, struct wlc_context_api *api)
    }
 
    struct ctx *context;
-   if (!(context = create_context(surface)))
+   if (!(context = create_context(bsurface)))
       return NULL;
-
-   context->bsurface = surface;
 
    api->terminate = terminate;
    api->bind = bind;

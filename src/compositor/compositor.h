@@ -1,52 +1,55 @@
 #ifndef _WLC_COMPOSITOR_H_
 #define _WLC_COMPOSITOR_H_
 
-#include "wlc.h"
+#include <wlc/wlc.h>
 #include <stdbool.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
+#include "seat/seat.h"
+#include "shell/shell.h"
+#include "shell/xdg-shell.h"
+#include "xwayland/xwm.h"
+#include "resources/resources.h"
+#include "platform/backend/backend.h"
 
-struct wl_display;
-struct wl_event_loop;
-struct wl_event_source;
-struct wlc_data_device_manager;
-struct wlc_seat;
-struct wlc_shell;
-struct wlc_output;
-struct wlc_xdg_shell;
-struct wlc_backend;
-struct wlc_context;
-struct wlc_render;
+struct wlc_view;
+struct wlc_surface;
 
 struct wlc_compositor {
-   void *userdata;
-   struct wl_global *global, *global_sub;
-   struct wlc_data_device_manager *manager;
-   struct wlc_seat *seat;
-   struct wlc_shell *shell;
-   struct wlc_xdg_shell *xdg_shell;
-   struct wlc_backend *backend;
-   struct wlc_output *output;
-   struct wlc_xwm *xwm;
+   struct wlc_backend backend;
+   struct wlc_seat seat;
+   struct wlc_shell shell;
+   struct wlc_xdg_shell xdg_shell;
+   struct wlc_xwm xwm;
+   struct wlc_source outputs, views, surfaces, subsurfaces, regions;
 
-   struct wl_list clients, outputs;
+   struct {
+      wlc_handle output;
+   } active;
+
+   struct {
+      struct wl_global *compositor;
+      struct wl_global *subcompositor;
+   } wl;
 
    struct {
       struct wl_listener activated;
       struct wl_listener terminated;
       struct wl_listener xwayland;
+      struct wl_listener surface;
       struct wl_listener output;
+      struct wl_listener focus;
    } listener;
 
    struct {
-      // XXX: temporary
-      uint32_t idle_time;
-      bool enable_bg;
-   } options;
+      wlc_handle *outputs;
+   } tmp;
 
    bool terminating;
 };
 
-struct wlc_output* wlc_compositor_get_surfaless_output(struct wlc_compositor *compositor);
+struct wlc_view* wlc_compositor_view_for_surface(struct wlc_compositor *compositor, struct wlc_surface *surface);
+void wlc_compositor_release(struct wlc_compositor *compositor);
+bool wlc_compositor(struct wlc_compositor *compositor);
 
 #endif /* _WLC_COMPOSITOR_H_ */

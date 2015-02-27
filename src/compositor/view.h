@@ -1,17 +1,14 @@
 #ifndef _WLC_VIEW_H_
 #define _WLC_VIEW_H_
 
-#include <wayland-util.h>
 #include <stdbool.h>
+#include <wlc/geometry.h>
+#include <wayland-util.h>
+#include <chck/pool/pool.h>
+#include <chck/string/string.h>
+#include "xwayland/xwm.h"
+#include "resources/resources.h"
 
-#include "wlc.h"
-#include "shell/surface.h"
-#include "shell/xdg-surface.h"
-#include "shell/xdg-popup.h"
-#include "types/geometry.h"
-
-struct wl_resource;
-struct wlc_client;
 struct wlc_surface;
 struct wlc_x11_window;
 
@@ -28,35 +25,61 @@ struct wlc_view_state {
 };
 
 struct wlc_view {
-   void *userdata;
-   struct wlc_compositor *compositor;
-   struct wlc_view *parent;
-   struct wlc_client *client;
-   struct wlc_space *space;
-   struct wlc_surface *surface;
-   struct wlc_x11_window *x11_window;
-   struct wlc_shell_surface shell_surface;
-   struct wlc_xdg_surface xdg_surface;
-   struct wlc_xdg_popup xdg_popup;
-   struct wl_list childs;
-   struct wl_list link, user_link, parent_link;
+   struct wlc_x11_window x11;
    struct wlc_view_state pending;
    struct wlc_view_state commit;
-   struct wl_array wl_state;
+   struct chck_iter_pool wl_state;
+
+   wlc_handle parent;
+   wlc_resource surface;
+   wlc_resource shell_surface;
+   wlc_resource xdg_surface;
+   wlc_resource xdg_popup;
+
+   struct {
+      struct chck_string app_id;
+      struct chck_string title;
+      struct chck_string _class;
+      enum wl_shell_surface_fullscreen_method fullscreen_mode;
+      bool minimized;
+   } data;
+
    uint32_t type;
-   uint32_t resizing;
-   enum wlc_view_ack ack;
-   bool created;
+   uint32_t mask;
+
+   struct {
+      uint32_t resizing;
+      enum wlc_view_ack ack;
+      bool created;
+   } state;
 };
 
-bool wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r);
-void wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
 void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
 void wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_size);
 void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible);
-struct wlc_space* wlc_view_get_mapped_space(struct wlc_view *view);
-void wlc_view_defocus(struct wlc_view *view);
-void wlc_view_free(struct wlc_view *view);
-struct wlc_view* wlc_view_new(struct wlc_compositor *compositor, struct wlc_client *client, struct wlc_surface *surface);
+bool wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r);
+void wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
+void wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface);
+struct wl_client* wlc_view_get_client(struct wlc_view *view);
+void wlc_view_release(struct wlc_view *view);
+bool wlc_view(struct wlc_view *view);
+
+void wlc_view_focus_ptr(struct wlc_view *view);
+void wlc_view_close_ptr(struct wlc_view *view);
+struct wlc_output* wlc_view_get_output_ptr(struct wlc_view *view);
+void wlc_view_set_output_ptr(struct wlc_view *view, struct wlc_output *output);
+void wlc_view_send_to_back_ptr(struct wlc_view *view);
+void wlc_view_send_below_ptr(struct wlc_view *view, struct wlc_view *other);
+void wlc_view_bring_above_ptr(struct wlc_view *view, struct wlc_view *other);
+void wlc_view_bring_to_front_ptr(struct wlc_view *view);
+void wlc_view_set_mask_ptr(struct wlc_view *view, uint32_t mask);
+void wlc_view_set_geometry_ptr(struct wlc_view *view, const struct wlc_geometry *geometry);
+void wlc_view_set_type_ptr(struct wlc_view *view, enum wlc_view_type_bit type, bool toggle);
+void wlc_view_set_state_ptr(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
+void wlc_view_set_parent_ptr(struct wlc_view *view, struct wlc_view *parent);
+void wlc_view_set_minimized_ptr(struct wlc_view *view, bool minimized);
+bool wlc_view_set_title_ptr(struct wlc_view *view, const char *title);
+bool wlc_view_set_class_ptr(struct wlc_view *view, const char *class_);
+bool wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id);
 
 #endif /* _WLC_VIEW_H_ */

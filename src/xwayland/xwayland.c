@@ -1,11 +1,5 @@
 /* This is mostly based on swc's xwayland.c which is based on weston's xwayland/launcher.c */
 
-#include "internal.h"
-#include "xwayland.h"
-#include "xwm.h"
-
-#include "compositor/compositor.h"
-
 #include <assert.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -17,8 +11,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <errno.h>
-
 #include <wayland-server.h>
+#include "internal.h"
+#include "xwayland.h"
+#include "xwm.h"
+#include "compositor/compositor.h"
 
 static const char *lock_fmt = "/tmp/.X%d-lock";
 static const char *socket_dir = "/tmp/.X11-unix";
@@ -35,7 +32,7 @@ static struct {
 } xserver;
 
 static int
-open_socket(struct sockaddr_un *addr, const size_t path_size)
+open_socket(struct sockaddr_un *addr, size_t path_size)
 {
    int fd;
    socklen_t size = offsetof(struct sockaddr_un, sun_path) + path_size + 1;
@@ -131,7 +128,7 @@ retry:
 
    struct sockaddr_un addr = { .sun_family = AF_LOCAL };
    addr.sun_path[0] = '\0';
-   int path_size = snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, socket_fmt, dpy);
+   size_t path_size = snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, socket_fmt, dpy);
    if ((socks[0] = open_socket(&addr, path_size)) < 0) {
       unlink(lock_name);
       unlink(addr.sun_path + 1);
@@ -176,7 +173,7 @@ static void
 sigusr_handler(int signal_number)
 {
    assert(signal_number == SIGUSR1);
-   wlc_log(WLC_LOG_INFO, "Xwayland started");
+   wlc_log(WLC_LOG_INFO, "Xwayland started (DISPLAY %s)", xserver.display_name);
    sigaction(signal_number, &xserver.old_sigusr1, NULL);
    setenv("DISPLAY", xserver.display_name, true);
    wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){true});

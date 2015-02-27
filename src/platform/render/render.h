@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "resources/resources.h"
 
 struct wlc_context;
 struct wlc_surface;
@@ -26,7 +27,11 @@ struct wlc_render_api {
    void (*background)(struct ctx *render);
    void (*clear)(struct ctx *render);
    void (*time)(struct ctx *render, uint32_t time);
-   void (*swap)(struct ctx *render);
+};
+
+struct wlc_render {
+   void *render; // internal renderer context (OpenGL, etc)
+   struct wlc_render_api api;
 };
 
 bool wlc_render_bind(struct wlc_render *render, struct wlc_output *output);
@@ -39,8 +44,7 @@ void wlc_render_read_pixels(struct wlc_render *render, struct wlc_geometry *geom
 void wlc_render_background(struct wlc_render *render);
 void wlc_render_clear(struct wlc_render *render);
 void wlc_render_time(struct wlc_render *render, uint32_t time);
-void wlc_render_swap(struct wlc_render *render);
-void wlc_render_free(struct wlc_render *render);
-struct wlc_render* wlc_render_new(struct wlc_context *context);
+void wlc_render_release(struct wlc_render *render);
+bool wlc_render(struct wlc_render *render, struct wlc_context *context);
 
 #endif /* _WLC_RENDER_H_ */

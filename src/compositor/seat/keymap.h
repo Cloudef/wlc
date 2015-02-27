@@ -40,7 +40,7 @@ struct wlc_keymap {
    xkb_led_index_t leds[WLC_LED_LAST];
 };
 
-void wlc_keymap_free(struct wlc_keymap *keymap);
-struct wlc_keymap* wlc_keymap_new(const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags);
+void wlc_keymap_release(struct wlc_keymap *keymap);
+bool wlc_keymap(struct wlc_keymap *keymap, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags);
 
 #endif /* _WLC_KEYMAP_H_ */

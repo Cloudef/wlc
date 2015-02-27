@@ -1,14 +1,17 @@
 #ifndef _WLC_SHELL_H_
 #define _WLC_SHELL_H_
 
-struct wlc_compositor;
+#include "resources/resources.h"
 
 struct wlc_shell {
-   struct wl_global *global;
-   struct wlc_compositor *compositor;
+   struct wlc_source surfaces;
+
+   struct {
+      struct wl_global *shell;
+   } wl;
 };
 
-void wlc_shell_free(struct wlc_shell *shell);
-struct wlc_shell* wlc_shell_new(struct wlc_compositor *compositor);
+void wlc_shell_release(struct wlc_shell *shell);
+bool wlc_shell(struct wlc_shell *shell);
 
 #endif /* _WLC_SHELL_H_ */

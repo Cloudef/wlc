@@ -1,13 +1,13 @@
-#include "internal.h"
-#include "tty.h"
-#include "fd.h"
-
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <chck/string/string.h>
+#include "internal.h"
+#include "tty.h"
+#include "fd.h"
 
 #if defined(__linux__)
 #  include <linux/kd.h>
@@ -56,7 +56,7 @@ open_tty(int vt)
    snprintf(tty_name, sizeof tty_name, "/dev/tty%d", vt);
 
    /* check if we are running on the desired VT */
-   if (ttyname(STDIN_FILENO) && !strcmp(tty_name, ttyname(STDIN_FILENO)))
+   if (ttyname(STDIN_FILENO) && chck_cstreq(tty_name, ttyname(STDIN_FILENO)))
       return STDIN_FILENO;
 
    int fd;
@@ -147,7 +147,7 @@ sigusr_handler(int signal)
 }
 
 bool
-wlc_tty_activate_vt(const int vt)
+wlc_tty_activate_vt(int vt)
 {
    if (wlc.tty < 0)
       return false;

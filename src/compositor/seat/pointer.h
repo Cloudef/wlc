@@ -4,9 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <wayland-util.h>
-
-#include "types/geometry.h"
-#include "internal.h"
+#include "resources/resources.h"
 
 enum grab_action {
    WLC_GRAB_ACTION_NONE,
@@ -16,13 +14,12 @@ enum grab_action {
 
 enum wl_pointer_button_state;
 enum wl_pointer_axis;
+enum wl_touch_type;
+enum wlc_touch_type;
 
-struct wl_list;
-struct wl_resource;
-struct wlc_view;
-struct wlc_client;
-struct wlc_surface;
 struct wlc_render;
+struct wlc_surface;
+struct wlc_view;
 
 // We want to store internally for sub-pixel precision
 // Events to wlc goes as wlc_origin though.
@@ -32,28 +29,37 @@ struct wlc_pointer_origin {
 };
 
 struct wlc_pointer {
-   struct wlc_compositor *compositor;
-   struct wlc_surface *surface;
-   struct wlc_view *focus;
-
+   struct wlc_source resources;
    struct wlc_pointer_origin pos;
    struct wlc_origin tip;
-   struct wlc_origin grab;
 
-   uint32_t action_edges;
-   enum grab_action action;
-   bool grabbing;
+   wlc_resource surface;
+
+   struct {
+      wlc_handle view;
+      wlc_resource resource;
+   } focused;
+
+   struct {
+      struct wlc_origin grab;
+      uint32_t action_edges;
+      enum grab_action action;
+      bool grabbing;
+   } state;
+
+   struct {
+      struct wl_listener render;
+   } listener;
 };
+
+const struct wl_pointer_interface wl_pointer_implementation;
 
 void wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_pointer_origin *out_pos);
 void wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, enum wl_pointer_button_state state);
 void wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, uint8_t axis_bits, double amount[2]);
 void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_pointer_origin *pos);
-void wlc_pointer_touch(struct wlc_pointer *pointer, uint32_t time, enum wlc_touch_type type, int32_t slot, const struct wlc_origin *pos);
-void wlc_pointer_remove_client_for_resource(struct wlc_pointer *pointer, struct wl_resource *resource);
 void wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_origin *tip);
-void wlc_pointer_paint(struct wlc_pointer *pointer, struct wlc_render *render);
-void wlc_pointer_free(struct wlc_pointer *pointer);
-struct wlc_pointer* wlc_pointer_new(struct wlc_compositor *compositor);
+void wlc_pointer_release(struct wlc_pointer *pointer);
+bool wlc_pointer(struct wlc_pointer *pointer);
 
 #endif /* _WLC_POINTER_H_ */

@@ -1,19 +1,17 @@
-#include "internal.h"
-#include "session/fd.h"
-#include "udev.h"
-
-#include "compositor/compositor.h"
-#include "compositor/output.h"
-
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-
 #include <libudev.h>
 #include <libinput.h>
 #include <wayland-server.h>
+#include <chck/string/string.h>
+#include "internal.h"
+#include "session/fd.h"
+#include "udev.h"
+#include "compositor/compositor.h"
+#include "compositor/output.h"
 
 static struct input {
    struct libinput *handle;
@@ -245,7 +243,7 @@ is_hotplug(uint32_t drm_id, struct udev_device *device)
    if (!(val = udev_device_get_property_value(device, "HOTPLUG")))
       return false;
 
-   return (strcmp(val, "1") == 0);
+   return chck_cstreq(val, "1");
 }
 
 static int
@@ -272,13 +270,13 @@ udev_event(int fd, uint32_t mask, void *data)
    if (!(action = udev_device_get_action(device)))
       goto out;
 
-   if (!strncmp("event", udev_device_get_sysname(device), sizeof("event")) != 0)
+   if (!chck_cstrneq("event", udev_device_get_sysname(device), sizeof("event")))
       goto out;
 
    // XXX: Free event loop for any other stuff. We probably should expose this to api.
-   if (!strcmp(action, "add"))
+   if (chck_cstreq(action, "add"))
       wlc_log(WLC_LOG_INFO, "udev: device added");
-   else if (!strcmp(action, "remove")) {
+   else if (chck_cstreq(action, "remove")) {
       wlc_log(WLC_LOG_INFO, "udev: device removed");
    }
 
@@ -340,10 +338,7 @@ void
 wlc_input_terminate(void)
 {
    input_set_event_loop(NULL);
-
-   if (input.handle)
-      libinput_unref(input.handle);
-
+   libinput_unref(input.handle);
    memset(&input, 0, sizeof(input));
 }
 
@@ -355,20 +350,25 @@ wlc_input_init(void)
    if (input.handle)
       return true;
 
-   if (!(input.handle = libinput_udev_create_context(&libinput_implementation, &input, udev.handle))) {
-      wlc_log(WLC_LOG_WARN, "Failed to create libinput udev context");
-      return false;
-   }
+   if (!(input.handle = libinput_udev_create_context(&libinput_implementation, &input, udev.handle)))
+         goto failed_to_create_context;
 
    const char *xdg_seat = getenv("XDG_SEAT");
-   if (libinput_udev_assign_seat(input.handle, (xdg_seat ? xdg_seat : "seat0")) != 0) {
-      wlc_log(WLC_LOG_WARN, "Failed to assign seat to libinput");
-      return false;
-   }
+   if (libinput_udev_assign_seat(input.handle, (xdg_seat ? xdg_seat : "seat0")) != 0)
+      goto failed_to_assign_seat;
 
    libinput_log_set_handler(input.handle, &cb_input_log_handler);
    libinput_log_set_priority(input.handle, LIBINPUT_LOG_PRIORITY_ERROR);
    return input_set_event_loop(wlc_event_loop());
+
+failed_to_create_context:
+   wlc_log(WLC_LOG_WARN, "Failed to create libinput udev context");
+   goto fail;
+failed_to_assign_seat:
+   wlc_log(WLC_LOG_WARN, "Failed to assign seat to libinput");
+fail:
+   wlc_input_terminate();
+   return false;
 }
 
 void
@@ -378,10 +378,8 @@ wlc_udev_terminate(void)
       wl_list_remove(&activated_listener.link);
 
    udev_set_event_loop(NULL);
-
-   if (udev.handle)
-      udev_unref(udev.handle);
-
+   udev_monitor_unref(udev.monitor);
+   udev_unref(udev.handle);
    memset(&udev, 0, sizeof(udev));
 }
 
@@ -415,8 +413,6 @@ monitor_fail:
 monitor_receiving_fail:
    wlc_log(WLC_LOG_WARN, "Failed to enable udev-monitor receiving");
 fail:
-   udev_set_event_loop(NULL);
-   if (udev.handle)
-      udev_unref(udev.handle);
+   wlc_udev_terminate();
    return false;
 }

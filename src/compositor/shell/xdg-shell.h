@@ -1,14 +1,17 @@
 #ifndef _WLC_XDG_SHELL_H_
 #define _WLC_XDG_SHELL_H_
 
-struct wlc_compositor;
+#include "resources/resources.h"
 
 struct wlc_xdg_shell {
-   struct wl_global *global;
-   struct wlc_compositor *compositor;
+   struct wlc_source surfaces, popups;
+
+   struct {
+      struct wl_global *xdg_shell;
+   } wl;
 };
 
-void wlc_xdg_shell_free(struct wlc_xdg_shell *xdg_shell);
-struct wlc_xdg_shell* wlc_xdg_shell_new(struct wlc_compositor *compositor);
+void wlc_xdg_shell_release(struct wlc_xdg_shell *xdg_shell);
+bool wlc_xdg_shell(struct wlc_xdg_shell *xdg_shell);
 
 #endif /* _WLC_XDG_SHELL_H_ */

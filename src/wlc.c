@@ -1,18 +1,18 @@
-#include "internal.h"
-#include "visibility.h"
-
-#include "session/tty.h"
-#include "session/fd.h"
-#include "session/udev.h"
-
-#include "xwayland/xwayland.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <chck/string/string.h>
+#include "internal.h"
+#include "visibility.h"
+#include "compositor/compositor.h"
+#include "session/tty.h"
+#include "session/fd.h"
+#include "session/udev.h"
+#include "xwayland/xwayland.h"
+#include "resources/resources.h"
 
 #if defined(__linux__)
 #  include <linux/version.h>
@@ -33,6 +33,7 @@ int feenableexcept(int excepts);
 #endif
 
 static struct {
+   struct wlc_compositor compositor;
    struct wlc_interface interface;
    struct wlc_system_signals signals;
    struct wl_display *display;
@@ -170,6 +171,7 @@ wlc_dlog(enum wlc_debug dbg, const char *fmt, ...)
       bool active;
       bool checked;
    } channels[WLC_DBG_LAST] = {
+      { "handle", false, false },
       { "render", false, false },
       { "focus", false, false },
       { "xwm", false, false },
@@ -178,7 +180,7 @@ wlc_dlog(enum wlc_debug dbg, const char *fmt, ...)
    if (!channels[dbg].checked) {
       const char *name = channels[dbg].name;
       const char *s = getenv("WLC_DEBUG");
-      for (size_t len = strlen(name); s && *s && strncmp(s, name, len); s += strcspn(s, ",") + 1);
+      for (size_t len = strlen(name); s && *s && !chck_cstrneq(s, name, len); s += strcspn(s, ",") + 1);
       channels[dbg].checked = true;
       if (!(channels[dbg].active = (s && *s != 0)))
          return;
@@ -249,6 +251,8 @@ wlc_cleanup(void)
       wl_event_source_remove(wlc.terminate_timer);
 
    if (wlc.display) {
+      wlc_compositor_release(&wlc.compositor);
+
       // fd process never allocates display
       wlc_xwayland_terminate();
       wlc_input_terminate();
@@ -263,7 +267,7 @@ wlc_cleanup(void)
    if (wlc.display)
       wl_display_terminate(wlc.display);
 
-   wlc.display = NULL;
+   memset(&wlc, 0, sizeof(wlc));
 }
 
 static int
@@ -275,7 +279,7 @@ cb_terminate_timer(void *data)
 }
 
 WLC_API void
-wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list args)
+wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
 {
    FILE *out = wlc_get_log_file();
 
@@ -302,7 +306,7 @@ wlc_vlog(const enum wlc_log_type type, const char *fmt, va_list args)
 }
 
 WLC_API void
-wlc_log(const enum wlc_log_type type, const char *fmt, ...)
+wlc_log(enum wlc_log_type type, const char *fmt, ...)
 {
    va_list argp;
    va_start(argp, fmt);
@@ -328,13 +332,16 @@ wlc_set_log_file(FILE *out)
 WLC_API void
 wlc_run(void)
 {
+   if (!wlc.display)
+      return;
+
    wl_display_run(wlc.display);
 }
 
 WLC_API void
 wlc_terminate(void)
 {
-   if (wlc.terminate_timer)
+   if (!wlc.display || wlc.terminate_timer)
       return;
 
    wlc.terminate_timer = wl_event_loop_add_timer(wlc_event_loop(), cb_terminate_timer, NULL);
@@ -344,8 +351,13 @@ wlc_terminate(void)
 }
 
 WLC_API bool
-wlc_init(const struct wlc_interface *interface, const int argc, char *argv[])
+wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
 {
+   assert(interface);
+
+   if (!interface)
+      return false;
+
    if (wlc.display)
       return true;
 
@@ -354,7 +366,7 @@ wlc_init(const struct wlc_interface *interface, const int argc, char *argv[])
    wl_log_set_handler_server(wl_cb_log);
 
    for (int i = 1; i < argc; ++i) {
-      if (!strcmp(argv[i], "--log")) {
+      if (chck_cstreq(argv[i], "--log")) {
          if (i + 1 >= argc)
             die("--log takes an argument (filename)");
          wlc_set_log_file(fopen(argv[++i], "w"));
@@ -401,10 +413,15 @@ wlc_init(const struct wlc_interface *interface, const int argc, char *argv[])
 
    wl_signal_init(&wlc.signals.terminated);
    wl_signal_init(&wlc.signals.activated);
+   wl_signal_init(&wlc.signals.focus);
    wl_signal_init(&wlc.signals.surface);
    wl_signal_init(&wlc.signals.input);
    wl_signal_init(&wlc.signals.output);
+   wl_signal_init(&wlc.signals.render);
    wl_signal_init(&wlc.signals.xwayland);
+
+   if (!wlc_resources_init())
+      die("Failed to initialize resource manager");
 
    if (!(wlc.display = wl_display_create()))
       die("Failed to create wayland display");
@@ -423,18 +440,22 @@ wlc_init(const struct wlc_interface *interface, const int argc, char *argv[])
       return false;
 
    const char *libinput = getenv("WLC_LIBINPUT");
-   if (!display || (libinput && !strcmp(libinput, "1"))) {
+   if (!display || chck_cstreq(libinput, "1")) {
       if (!wlc_input_init())
          return false;
    }
 
    const char *xwayland = getenv("WLC_XWAYLAND");
-   if (!xwayland || strcmp(xwayland, "0")) {
+   if (!xwayland || chck_cstreq(xwayland, "0")) {
       if (!(wlc_xwayland_init()))
          return false;
    }
 
    memcpy(&wlc.interface, interface, sizeof(wlc.interface));
+
+   if (!wlc_compositor(&wlc.compositor))
+      return false;
+
    wlc_set_active(true);
    return (wlc.init = true);
 }

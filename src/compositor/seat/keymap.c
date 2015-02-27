@@ -1,6 +1,3 @@
-#include "wlc.h"
-#include "keymap.h"
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -8,8 +5,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <assert.h>
-
+#include <wlc/wlc.h>
 #include <wayland-server.h>
+#include <chck/string/string.h>
+#include "keymap.h"
 
 const char* WLC_MOD_NAMES[WLC_MOD_LAST] = {
    XKB_MOD_NAME_SHIFT,
@@ -28,34 +27,14 @@ const char* WLC_LED_NAMES[WLC_LED_LAST] = {
    XKB_LED_NAME_SCROLL
 };
 
-static char*
-csprintf(const char *fmt, ...)
-{
-   assert(fmt);
-
-   va_list args;
-   va_start(args, fmt);
-   size_t len = vsnprintf(NULL, 0, fmt, args) + 1;
-   va_end(args);
-
-   char *buffer;
-   if (!(buffer = calloc(1, len)))
-      return NULL;
-
-   va_start(args, fmt);
-   vsnprintf(buffer, len, fmt, args);
-   va_end(args);
-   return buffer;
-}
-
 static int
 set_cloexec_or_close(int fd)
 {
    if (fd == -1)
       return -1;
 
-   long flags = fcntl(fd, F_GETFD);
-   if (flags == -1)
+   long flags;
+   if ((flags = fcntl(fd, F_GETFD)) == -1)
       goto err;
 
    if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1)
@@ -90,26 +69,22 @@ static int
 os_create_anonymous_file(off_t size)
 {
    static const char template[] = "/loliwm-shared-XXXXXX";
-   int fd;
-   int ret;
 
-   const char *path;
-   if (!(path = getenv("XDG_RUNTIME_DIR")) || strlen(path) <= 0) {
-      errno = ENOENT;
-      return -1;
-   }
-
-   char *name;
-   int ts = (path[strlen(path) - 1] == '/');
-   if (!(name = csprintf("%s%s%s", path, (ts ? "" : "/"), template)))
+   const char *path = getenv("XDG_RUNTIME_DIR");
+   if (chck_cstr_is_empty(path))
       return -1;
 
-   fd = create_tmpfile_cloexec(name);
-   free(name);
+   struct chck_string name = {0};
+   if (!chck_string_set_format(&name, "%s%s%s", path, (chck_cstr_ends_with(path, "/") ? "" : "/"), template))
+      return -1;
+
+   int fd = create_tmpfile_cloexec(name.data);
+   chck_string_release(&name);
 
    if (fd < 0)
       return -1;
 
+   int ret;
 #ifdef HAVE_POSIX_FALLOCATE
    if ((ret = posix_fallocate(fd, 0, size)) != 0) {
       close(fd);
@@ -127,9 +102,10 @@ os_create_anonymous_file(off_t size)
 }
 
 void
-wlc_keymap_free(struct wlc_keymap *keymap)
+wlc_keymap_release(struct wlc_keymap *keymap)
 {
-   assert(keymap);
+   if (!keymap)
+      return;
 
    if (keymap->keymap)
       xkb_map_unref(keymap->keymap);
@@ -139,16 +115,15 @@ wlc_keymap_free(struct wlc_keymap *keymap)
 
    if (keymap->fd >= 0)
       close(keymap->fd);
-
-   free(keymap);
 }
 
-struct wlc_keymap*
-wlc_keymap_new(const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags)
+bool
+wlc_keymap(struct wlc_keymap *keymap, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags)
 {
-   struct wlc_keymap *keymap;
-   if (!(keymap = calloc(1, sizeof(struct wlc_keymap))))
-      goto fail;
+   assert(keymap);
+   memset(keymap, 0, sizeof(struct wlc_keymap));
+
+   char *keymap_str = NULL;
 
    struct xkb_context *context;
    if (!(context = xkb_context_new(XKB_CONTEXT_NO_FLAGS)))
@@ -157,7 +132,9 @@ wlc_keymap_new(const struct xkb_rule_names *names, enum xkb_keymap_compile_flags
    if (!(keymap->keymap = xkb_map_new_from_names(context, names, flags)))
       goto keymap_fail;
 
-   char *keymap_str;
+   xkb_context_unref(context);
+   context = NULL;
+
    if (!(keymap_str = xkb_map_get_as_string(keymap->keymap)))
       goto string_fail;
 
@@ -168,14 +145,14 @@ wlc_keymap_new(const struct xkb_rule_names *names, enum xkb_keymap_compile_flags
    if (!(keymap->area = mmap(NULL, keymap->size, PROT_READ | PROT_WRITE, MAP_SHARED, keymap->fd, 0)))
       goto mmap_fail;
 
-   for (int i = 0; i < WLC_MOD_LAST; ++i)
+   for (uint32_t i = 0; i < WLC_MOD_LAST; ++i)
       keymap->mods[i] = xkb_map_mod_get_index(keymap->keymap, WLC_MOD_NAMES[i]);
 
-   for (int i = 0; i < WLC_LED_LAST; ++i)
+   for (uint32_t i = 0; i < WLC_LED_LAST; ++i)
       keymap->leds[i] = xkb_map_led_get_index(keymap->keymap, WLC_LED_NAMES[i]);
 
    keymap->format = WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1;
-   strcpy(keymap->area, keymap_str);
+   memcpy(keymap->area, keymap_str, keymap->size - 1);
    free(keymap_str);
    return keymap;
 
@@ -194,7 +171,8 @@ file_fail:
 mmap_fail:
    wlc_log(WLC_LOG_WARN, "Failed to mmap keymap");
 fail:
-   if (keymap)
-      wlc_keymap_free(keymap);
+   free(keymap_str);
+   xkb_context_unref(context);
+   wlc_keymap_release(keymap);
    return NULL;
 }

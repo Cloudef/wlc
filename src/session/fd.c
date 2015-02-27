@@ -1,6 +1,3 @@
-#include "internal.h"
-#include "fd.h"
-
 #include <dlfcn.h>
 #include <signal.h>
 #include <string.h>
@@ -12,6 +9,8 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include "internal.h"
+#include "fd.h"
 
 #ifndef EVIOCREVOKE
 #  define EVIOCREVOKE _IOW('E', 0x91, int)
@@ -91,7 +90,7 @@ function_pointer_exception:
 }
 
 static ssize_t
-write_fd(const int sock, const int fd, const void *buffer, const ssize_t buffer_size)
+write_fd(int sock, int fd, const void *buffer, ssize_t buffer_size)
 {
    char control[CMSG_SPACE(sizeof(int))];
    memset(control, 0, sizeof(control));
@@ -116,7 +115,7 @@ write_fd(const int sock, const int fd, const void *buffer, const ssize_t buffer_
 }
 
 static ssize_t
-recv_fd(const int sock, int *out_fd, void *out_buffer, const ssize_t buffer_size)
+recv_fd(int sock, int *out_fd, void *out_buffer, ssize_t buffer_size)
 {
    assert(out_fd && out_buffer);
 
@@ -146,12 +145,12 @@ recv_fd(const int sock, int *out_fd, void *out_buffer, const ssize_t buffer_size
 }
 
 static int
-fd_open(const char *path, const int flags, const enum wlc_fd_type type)
+fd_open(const char *path, int flags, enum wlc_fd_type type)
 {
    assert(path);
 
    struct wlc_fd *pfd = NULL;
-   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
       if (wlc.fds[i].fd < 0) {
          pfd = &wlc.fds[i];
          break;
@@ -192,13 +191,13 @@ fd_open(const char *path, const int flags, const enum wlc_fd_type type)
 }
 
 static void
-fd_close(const int fd)
+fd_close(int fd)
 {
    if (fd < 0)
       return;
 
    struct wlc_fd *pfd = NULL;
-   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
       if (wlc.fds[i].fd == fd) {
          pfd = &wlc.fds[i];
          break;
@@ -218,7 +217,7 @@ fd_close(const int fd)
 static bool
 activate(void)
 {
-   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
       if (wlc.fds[i].fd < 0)
          continue;
 
@@ -242,7 +241,7 @@ static bool
 deactivate(void)
 {
    // try drop drm fds first before we kill input
-   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
       if (wlc.fds[i].fd < 0 || wlc.fds[i].type != WLC_FD_DRM)
          continue;
 
@@ -252,7 +251,7 @@ deactivate(void)
       }
    }
 
-   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
       if (wlc.fds[i].fd < 0)
          continue;
 
@@ -276,7 +275,7 @@ deactivate(void)
 }
 
 static void
-handle_request(const int sock, int fd, const struct msg_request *request)
+handle_request(int sock, int fd, const struct msg_request *request)
 {
    struct msg_response response;
    memset(&response, 0, sizeof(response));
@@ -307,7 +306,7 @@ handle_request(const int sock, int fd, const struct msg_request *request)
 }
 
 static void
-communicate(const int sock, const pid_t parent)
+communicate(int sock, pid_t parent)
 {
    memset(wlc.fds, -1, sizeof(wlc.fds));
 
@@ -319,7 +318,7 @@ communicate(const int sock, const pid_t parent)
    } while (kill(parent, 0) == 0);
 
    // Close all open fds
-   for (unsigned int i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
       if (wlc.fds[i].fd < 0)
          continue;
 
@@ -334,7 +333,7 @@ communicate(const int sock, const pid_t parent)
 }
 
 static bool
-read_response(const int sock, int *out_fd, struct msg_response *response, const enum msg_type expected_type)
+read_response(int sock, int *out_fd, struct msg_response *response, enum msg_type expected_type)
 {
    if (out_fd)
       *out_fd = -1;
@@ -365,14 +364,14 @@ read_response(const int sock, int *out_fd, struct msg_response *response, const 
 }
 
 static void
-write_or_die(const int sock, const int fd, const void *buffer, const ssize_t size)
+write_or_die(int sock, int fd, const void *buffer, ssize_t size)
 {
    if (write_fd(sock, (fd >= 0 ? fd : 0), buffer, size) != size)
       die("Failed to write %zu bytes to socket", size);
 }
 
 static bool
-check_socket(const int sock)
+check_socket(int sock)
 {
    struct msg_request request;
    memset(&request, 0, sizeof(request));
@@ -389,7 +388,7 @@ signal_handler(int signal)
 }
 
 int
-wlc_fd_open(const char *path, const int flags, const enum wlc_fd_type type)
+wlc_fd_open(const char *path, int flags, enum wlc_fd_type type)
 {
    struct msg_request request;
    memset(&request, 0, sizeof(request));
@@ -408,7 +407,7 @@ wlc_fd_open(const char *path, const int flags, const enum wlc_fd_type type)
 }
 
 void
-wlc_fd_close(const int fd)
+wlc_fd_close(int fd)
 {
    struct msg_request request;
    memset(&request, 0, sizeof(request));
@@ -446,10 +445,16 @@ wlc_fd_terminate(void)
 
    kill(wlc.child, SIGTERM);
    wlc.child = 0;
+
+   if (drm.api.handle)
+      dlclose(drm.api.handle);
+
+   memset(&drm, 0, sizeof(drm));
+   memset(&wlc, 0, sizeof(wlc));
 }
 
 void
-wlc_fd_init(const int argc, char *argv[])
+wlc_fd_init(int argc, char *argv[])
 {
    int sock[2];
    if (socketpair(AF_LOCAL, SOCK_SEQPACKET, 0, sock) != 0)

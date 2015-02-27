@@ -6,12 +6,13 @@
 #include "platform/context/context.h"
 
 #include "compositor/view.h"
-#include "compositor/surface.h"
-#include "compositor/buffer.h"
 #include "compositor/output.h"
 
-#include "compositor/shell/xdg-surface.h"
 #include "xwayland/xwm.h"
+
+#include "resources/types/surface.h"
+#include "resources/types/xdg-surface.h"
+#include "resources/types/buffer.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -22,8 +23,9 @@
 #include <GLES2/gl2ext.h>
 
 #include <wayland-server.h>
+#include <chck/string/string.h>
 
-static float DIM = 0.5f;
+static GLfloat DIM = 0.5f;
 
 static GLubyte cursor_palette[];
 
@@ -55,7 +57,6 @@ static const char *uniform_names[UNIFORM_LAST] = {
 };
 
 struct ctx {
-   struct wlc_context *context;
    const char *extensions;
 
    struct ctx_program *program;
@@ -80,7 +81,7 @@ struct ctx {
 
 struct paint {
    struct wlc_geometry visible;
-   float dim;
+   GLfloat dim;
    enum program_type program;
    bool filter;
 };
@@ -99,12 +100,14 @@ static struct {
       GLuint (*glCreateShader)(GLenum);
       void (*glShaderSource)(GLuint, GLsizei count, const GLchar **string, const GLint *length);
       void (*glCompileShader)(GLuint);
+      void (*glDeleteShader)(GLuint);
       void (*glGetShaderiv)(GLuint, GLenum, GLint*);
       void (*glGetShaderInfoLog)(GLuint, GLsizei, GLsizei*, GLchar*);
       GLuint (*glCreateProgram)(void);
       void (*glAttachShader)(GLuint, GLuint);
       void (*glLinkProgram)(GLuint);
       void (*glUseProgram)(GLuint);
+      void (*glDeleteProgram)(GLuint);
       void (*glGetProgramiv)(GLuint, GLenum, GLint*);
       void (*glGetProgramInfoLog)(GLuint, GLsizei, GLsizei*, GLchar*);
       void (*glBindAttribLocation)(GLuint, GLuint, const GLchar*);
@@ -159,6 +162,8 @@ gles2_load(void)
       goto function_pointer_exception;
    if (!(load(glCompileShader)))
       goto function_pointer_exception;
+   if (!(load(glDeleteShader)))
+      goto function_pointer_exception;
    if (!(load(glGetShaderiv)))
       goto function_pointer_exception;
    if (!(load(glGetShaderInfoLog)))
@@ -170,6 +175,8 @@ gles2_load(void)
    if (!(load(glLinkProgram)))
       goto function_pointer_exception;
    if (!(load(glUseProgram)))
+      goto function_pointer_exception;
+   if (!(load(glDeleteProgram)))
       goto function_pointer_exception;
    if (!(load(glGetProgramiv)))
       goto function_pointer_exception;
@@ -264,7 +271,7 @@ has_extension(const struct ctx *context, const char *extension)
    while ((pos = strcspn(s, " ")) != 0) {
       size_t next = pos + (s[pos] != 0);
 
-      if (!strncmp(s, extension, len))
+      if (chck_cstrneq(s, extension, len))
          return true;
 
       s += next;
@@ -274,9 +281,9 @@ has_extension(const struct ctx *context, const char *extension)
 }
 
 static void
-set_program(struct ctx *context, const enum program_type type)
+set_program(struct ctx *context, enum program_type type)
 {
-   assert(context);
+   assert(context && type >= 0 && type < PROGRAM_LAST);
 
    if (&context->programs[type] == context->program)
       return;
@@ -354,7 +361,7 @@ create_context(void)
       "}\n"
       "void main() {\n"
       "  vec3 color = vec3(0.0);\n"
-      "  vec2 pos = (v_uv * 2.0 - 1.0) * resolution.x / resolution.y;\n"
+      "  vec2 pos = (v_uv * 4.0 - 2.0);\n"
       "  float frame = time * M_PI * 10.0;\n"
       "  float f = impulse(0.01, sin(frame) + 1.0) + 0.25;\n"
       "  color += vec3(0.15, 0.3, 0.35) * (1.0 / distance(vec2(1.0, 0.0), pos) * f);\n"
@@ -400,13 +407,15 @@ create_context(void)
 
    context->extensions = (const char*)GL_CALL(gl.api.glGetString(GL_EXTENSIONS));
 
-   for (int i = 0; i < PROGRAM_LAST; ++i) {
+   for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
       GLuint vert = create_shader(map[i].vert, GL_VERTEX_SHADER);
       GLuint frag = create_shader(map[i].frag, GL_FRAGMENT_SHADER);
       context->programs[i].obj = gl.api.glCreateProgram();
       GL_CALL(gl.api.glAttachShader(context->programs[i].obj, vert));
       GL_CALL(gl.api.glAttachShader(context->programs[i].obj, frag));
       GL_CALL(gl.api.glLinkProgram(context->programs[i].obj));
+      GL_CALL(gl.api.glDeleteShader(vert));
+      GL_CALL(gl.api.glDeleteShader(frag));
 
       GLint status;
       GL_CALL(gl.api.glGetProgramiv(context->programs[i].obj, GL_LINK_STATUS, &status));
@@ -443,7 +452,7 @@ create_context(void)
    GL_CALL(gl.api.glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
    GL_CALL(gl.api.glGenTextures(TEXTURE_LAST, context->textures));
 
-   for (uint32_t i = 0; i < TEXTURE_LAST; ++i) {
+   for (GLuint i = 0; i < TEXTURE_LAST; ++i) {
       GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, context->textures[i]));
       GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
       GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
@@ -455,7 +464,7 @@ create_context(void)
 
    GL_CALL(gl.api.glEnable(GL_BLEND));
    GL_CALL(gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-   GL_CALL(gl.api.glClearColor(0.2, 0.2, 0.2, 1));
+   GL_CALL(gl.api.glClearColor(0.0, 0.0, 0.0, 1));
 
    context->programs[PROGRAM_BG].frames = 4096 * 2;
    return context;
@@ -466,11 +475,11 @@ bind(struct ctx *context, struct wlc_output *output)
 {
    assert(context && output);
 
-   if (!wlc_context_bind(output->context))
+   if (!wlc_context_bind(&output->context))
       return false;
 
    if (!wlc_size_equals(&context->resolution, &output->resolution)) {
-      for (int i = 0; i < PROGRAM_LAST; ++i) {
+      for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
          set_program(context, i);
          GL_CALL(gl.api.glUniform2fv(context->program->uniforms[UNIFORM_RESOLUTION], 1, (GLfloat[]){ output->resolution.w, output->resolution.h }));
       }
@@ -483,11 +492,11 @@ bind(struct ctx *context, struct wlc_output *output)
 }
 
 static void
-surface_gen_textures(struct wlc_surface *surface, const int num_textures)
+surface_gen_textures(struct wlc_surface *surface, const GLuint num_textures)
 {
    assert(surface);
 
-   for (int i = 0; i < num_textures; ++i) {
+   for (GLuint i = 0; i < num_textures; ++i) {
       if (surface->textures[i])
          continue;
 
@@ -503,7 +512,7 @@ surface_flush_textures(struct wlc_surface *surface)
 {
    assert(surface);
 
-   for (int i = 0; i < 3; ++i) {
+   for (GLuint i = 0; i < 3; ++i) {
       if (surface->textures[i]) {
          GL_CALL(gl.api.glDeleteTextures(1, &surface->textures[i]));
       }
@@ -517,7 +526,7 @@ surface_flush_images(struct wlc_context *context, struct wlc_surface *surface)
 {
    assert(surface);
 
-   for (int i = 0; i < 3; ++i) {
+   for (GLuint i = 0; i < 3; ++i) {
       if (surface->images[i])
          wlc_context_destroy_image(context, surface->images[i]);
    }
@@ -530,18 +539,13 @@ surface_destroy(struct ctx *context, struct wlc_surface *surface)
 {
    assert(context && surface);
 
-   if (!surface->output)
-      return;
-
-   if (!wlc_context_bind(surface->output->context))
+   struct wlc_output *output;
+   if (!(output = convert_from_wlc_handle(surface->output, "output")) || !wlc_context_bind(&output->context))
       return;
 
    surface_flush_textures(surface);
-   surface_flush_images(surface->output->context, surface);
+   surface_flush_images(&output->context, surface);
    wlc_dlog(WLC_DBG_RENDER, "-> Destroyed surface");
-
-   if (surface->output->context != context->context)
-      wlc_context_bind(context->context);
 }
 
 static bool
@@ -553,7 +557,7 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    buffer->size.w = wl_shm_buffer_get_width(shm_buffer);
    buffer->size.h = wl_shm_buffer_get_height(shm_buffer);
 
-   int pitch;
+   GLint pitch;
    GLenum gl_format, gl_pixel_type;
    switch (wl_shm_buffer_get_format(shm_buffer)) {
       case WL_SHM_FORMAT_XRGB8888:
@@ -582,8 +586,9 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
          return false;
    }
 
-   if (surface->view && surface->view->x11_window)
-      surface->format = wlc_x11_window_get_surface_format(surface->view->x11_window);
+   struct wlc_view *view;
+   if ((view = convert_from_wlc_handle(surface->view, "view")) && view->x11.id)
+      surface->format = wlc_x11_window_get_surface_format(&view->x11);
 
    surface_gen_textures(surface, 1);
    GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[0]));
@@ -598,16 +603,16 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
 }
 
 static bool
-egl_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t format)
+egl_attach(struct ctx *context, struct wlc_context *ectx, struct wlc_surface *surface, struct wlc_buffer *buffer, EGLint format)
 {
    assert(context && surface && buffer);
 
-   buffer->legacy_buffer = (struct wlc_buffer*)buffer->resource;
-   wlc_context_query_buffer(context->context, buffer->legacy_buffer, EGL_WIDTH, (EGLint*)&buffer->size.w);
-   wlc_context_query_buffer(context->context, buffer->legacy_buffer, EGL_HEIGHT, (EGLint*)&buffer->size.h);
-   wlc_context_query_buffer(context->context, buffer->legacy_buffer, EGL_WAYLAND_Y_INVERTED_WL, (EGLint*)&buffer->y_inverted);
+   buffer->legacy_buffer = convert_to_wl_resource(buffer, "buffer");
+   wlc_context_query_buffer(ectx, buffer->legacy_buffer, EGL_WIDTH, (EGLint*)&buffer->size.w);
+   wlc_context_query_buffer(ectx, buffer->legacy_buffer, EGL_HEIGHT, (EGLint*)&buffer->size.h);
+   wlc_context_query_buffer(ectx, buffer->legacy_buffer, EGL_WAYLAND_Y_INVERTED_WL, (EGLint*)&buffer->y_inverted);
 
-   int num_planes;
+   GLuint num_planes;
    GLenum target = GL_TEXTURE_2D;
    switch (format) {
       case EGL_TEXTURE_RGB:
@@ -635,20 +640,21 @@ egl_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *
          break;
    }
 
-   if (surface->view && surface->view->x11_window)
-      surface->format = wlc_x11_window_get_surface_format(surface->view->x11_window);
+   struct wlc_view *view;
+   if ((view = convert_from_wlc_handle(surface->view, "view")) && view->x11.id)
+      surface->format = wlc_x11_window_get_surface_format(&view->x11);
 
    if (num_planes > 3) {
       wlc_log(WLC_LOG_WARN, "planes > 3 in egl surfaces not supported, nor should be possible");
       return false;
    }
 
-   surface_flush_images(context->context, surface);
+   surface_flush_images(ectx, surface);
    surface_gen_textures(surface, num_planes);
 
-   for (int i = 0; i < num_planes; ++i) {
+   for (GLuint i = 0; i < num_planes; ++i) {
       EGLint attribs[] = { EGL_WAYLAND_PLANE_WL, i, EGL_NONE };
-      if (!(surface->images[i] = wlc_context_create_image(context->context, EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
+      if (!(surface->images[i] = wlc_context_create_image(ectx, EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
          return false;
 
       GL_CALL(gl.api.glActiveTexture(GL_TEXTURE0 + i));
@@ -664,21 +670,24 @@ surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buff
 {
    assert(context && surface);
 
-   if (!buffer || !buffer->resource) {
+   struct wl_resource *wl_buffer;
+   if (!buffer || !(wl_buffer = convert_to_wl_resource(buffer, "buffer"))) {
       surface_destroy(context, surface);
       return true;
    }
 
-   if (!wlc_context_bind(context->context))
+   struct wlc_output *output;
+   if (!(output = convert_from_wlc_handle(surface->output, "output")) || !wlc_context_bind(&output->context))
       return false;
 
-   int format;
+   EGLint format;
    bool attached = false;
-   struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(buffer->resource);
+
+   struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(wl_buffer);
    if (shm_buffer) {
       attached = shm_attach(surface, buffer, shm_buffer);
-   } else if (context->api.glEGLImageTargetTexture2DOES && wlc_context_query_buffer(context->context, (void*)buffer->resource, EGL_TEXTURE_FORMAT, &format)) {
-      attached = egl_attach(context, surface, buffer, format);
+   } else if (context->api.glEGLImageTargetTexture2DOES && wlc_context_query_buffer(&output->context, (void*)wl_buffer, EGL_TEXTURE_FORMAT, &format)) {
+      attached = egl_attach(context, &output->context, surface, buffer, format);
    } else {
       /* unknown buffer */
       wlc_log(WLC_LOG_WARN, "Unknown buffer");
@@ -745,8 +754,8 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
 {
    assert(context && surface && geometry && settings);
 
-   if (!surface->output || surface->output->context != context->context) {
-      wlc_log(WLC_LOG_ERROR, "Trying to paint surface with wrong context or none (%p != %p)", context->context, (surface->output ? surface->output->context : NULL));
+   if (!surface->output) {
+      wlc_log(WLC_LOG_ERROR, "Trying to paint surface with no context");
       return;
    }
 
@@ -778,15 +787,18 @@ view_paint(struct ctx *context, struct wlc_view *view)
 {
    assert(context && view);
 
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return;
+
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
-
    settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : DIM);
-   settings.program = (enum program_type)view->surface->format;
+   settings.program = (enum program_type)surface->format;
 
    struct wlc_geometry geometry;
    wlc_view_get_bounds(view, &geometry, &settings.visible);
-   surface_paint_internal(context, view->surface, &geometry, &settings);
+   surface_paint_internal(context, surface, &geometry, &settings);
 }
 
 static void
@@ -815,13 +827,6 @@ frame_time(struct ctx *context, GLuint time)
 }
 
 static void
-swap(struct ctx *context)
-{
-   assert(context);
-   wlc_context_swap(context->context);
-}
-
-static void
 background(struct ctx *context)
 {
    assert(context);
@@ -844,7 +849,11 @@ terminate(struct ctx *context)
 {
    assert(context);
 
-   // FIXME: Free gl resources here
+   for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
+      GL_CALL(gl.api.glDeleteProgram(context->programs[i].obj));
+   }
+
+   GL_CALL(gl.api.glDeleteTextures(TEXTURE_LAST, context->textures));
 
    free(context);
 }
@@ -859,7 +868,7 @@ unload_egl(void)
 }
 
 void*
-wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
+wlc_gles2(struct wlc_context *context, struct wlc_render_api *api)
 {
    assert(api);
 
@@ -875,8 +884,6 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
    if (!(gl = create_context()))
       return NULL;
 
-   gl->context = context;
-
    api->terminate = terminate;
    api->bind = bind;
    api->surface_destroy = surface_destroy;
@@ -888,7 +895,6 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
    api->background = background;
    api->clear = clear;
    api->time = frame_time;
-   api->swap = swap;
 
    const char *dimenv;
    if ((dimenv = getenv("WLC_DIM")))

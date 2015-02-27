@@ -1,81 +1,63 @@
-#include "internal.h"
-#include "compositor.h"
-#include "visibility.h"
-#include "callback.h"
-#include "view.h"
-#include "surface.h"
-#include "region.h"
-#include "output.h"
-#include "data.h"
-#include "client.h"
-#include "macros.h"
-
-#include "seat/seat.h"
-#include "seat/pointer.h"
-
-#include "shell/shell.h"
-#include "shell/xdg-shell.h"
-
-#include "platform/backend/backend.h"
-
-#include "xwayland/xwayland.h"
-#include "xwayland/xwm.h"
-
-#include <sys/time.h>
-#include <stdlib.h>
-#include <string.h>
 #include <assert.h>
+#include "internal.h"
+#include "macros.h"
+#include "visibility.h"
+#include "compositor.h"
+#include "output.h"
+#include "view.h"
+#include "resources/resources.h"
+#include "resources/types/region.h"
+#include "resources/types/surface.h"
 
 static void
-wl_cb_subsurface_destroy(struct wl_client *wl_client, struct wl_resource *resource)
+wl_cb_subsurface_set_position(struct wl_client *client, struct wl_resource *resource, int32_t x, int32_t y)
 {
-   (void)wl_client;
-   wl_resource_destroy(resource);
-}
-
-static void
-wl_cb_subsurface_set_position(struct wl_client *wl_client, struct wl_resource *resource, int32_t x, int32_t y)
-{
-   (void)wl_client, (void)resource, (void)x, (void)y;
+   (void)client, (void)resource, (void)x, (void)y;
    STUBL(resource);
 }
 
 static void
-wl_cb_subsurface_place_above(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *sibling_resource)
+wl_cb_subsurface_place_above(struct wl_client *client, struct wl_resource *resource, struct wl_resource *sibling_resource)
 {
-   (void)wl_client, (void)resource, (void)sibling_resource;
+   (void)client, (void)resource, (void)sibling_resource;
    STUBL(resource);
 }
 
 static void
-wl_cb_subsurface_place_below(struct wl_client *wl_client, struct wl_resource *resource, struct wl_resource *sibling_resource)
+wl_cb_subsurface_place_below(struct wl_client *client, struct wl_resource *resource, struct wl_resource *sibling_resource)
 {
-   (void)wl_client, (void)resource, (void)sibling_resource;
+   (void)client, (void)resource, (void)sibling_resource;
    STUBL(resource);
 }
 
 static void
-wl_cb_subsurface_set_sync(struct wl_client *wl_client, struct wl_resource *resource)
+wl_cb_subsurface_set_sync(struct wl_client *client, struct wl_resource *resource)
 {
-   (void)wl_client;
-   struct wlc_surface *surface = wl_resource_get_user_data(resource);
+   (void)client;
+
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wl_resource(resource, "surface")))
+      return;
 
    if (surface)
       surface->synchronized = true;
 }
 
 static void
-wl_cb_subsurface_set_desync(struct wl_client *wl_client, struct wl_resource *resource)
+wl_cb_subsurface_set_desync(struct wl_client *client, struct wl_resource *resource)
 {
-   (void)wl_client;
-   struct wlc_surface *surface = wl_resource_get_user_data(resource);
+   (void)client;
+
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wl_resource(resource, "surface")))
+      return;
 
    if (surface)
       surface->synchronized = false;
 }
 
 static const struct wl_subsurface_interface wl_subsurface_implementation = {
-   .destroy = wl_cb_subsurface_destroy,
+   .destroy = wlc_cb_resource_destructor,
    .set_position = wl_cb_subsurface_set_position,
    .place_above = wl_cb_subsurface_place_above,
    .place_below = wl_cb_subsurface_place_below,
@@ -84,30 +66,32 @@ static const struct wl_subsurface_interface wl_subsurface_implementation = {
 };
 
 static void
-wl_cb_subcompositor_get_subsurface(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent_resource)
+wl_cb_subcompositor_get_subsurface(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent_resource)
 {
-   struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
-   struct wlc_surface *parent = wl_resource_get_user_data(parent_resource);
+   struct wlc_compositor *compositor;
+   if (!(compositor = wl_resource_get_user_data(resource)))
+      return;
+
+   wlc_resource surface = wlc_resource_from_wl_resource(surface_resource);
+   wlc_resource parent = wlc_resource_from_wl_resource(parent_resource);
 
    if (surface == parent) {
       wl_resource_post_error(resource, WL_SUBCOMPOSITOR_ERROR_BAD_SURFACE, "wl_surface@%d cannot be its own parent", wl_resource_get_id(surface_resource));
       return;
    }
 
-   struct wl_resource *subsurface_resource;
-   if (!(subsurface_resource = wl_resource_create(wl_client, &wl_subsurface_interface, wl_resource_get_version(resource), id))) {
-      wl_resource_post_no_memory(resource);
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&compositor->subsurfaces, client, &wl_subsurface_interface, wl_resource_get_version(resource), 1, id)))
       return;
-   }
 
-   // surface->parent = parent;
-   wl_resource_set_implementation(subsurface_resource, &wl_subsurface_implementation, surface, NULL);
+   wlc_resource_implement(r, &wl_subsurface_implementation, compositor);
+   wlc_surface_set_parent(convert_from_wlc_resource(surface, "surface"), convert_from_wlc_resource(parent, "surface"));
 }
 
 static void
-wl_cb_subcompositor_destroy(struct wl_client *wl_client, struct wl_resource *resource)
+wl_cb_subcompositor_destroy(struct wl_client *client, struct wl_resource *resource)
 {
-   (void)wl_client;
+   (void)client;
    wl_resource_destroy(resource);
 }
 
@@ -117,59 +101,44 @@ static const struct wl_subcompositor_interface wl_subcompositor_implementation =
 };
 
 static void
-wl_subcompositor_bind(struct wl_client *wl_client, void *data, uint32_t version, uint32_t id)
+wl_subcompositor_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &wl_subcompositor_interface, fmin(version, 1), id))) {
-      wl_client_post_no_memory(wl_client);
-      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 1);
+   if (!(resource = wl_resource_create_checked(client, &wl_subcompositor_interface, version, 1, id)))
       return;
-   }
 
    wl_resource_set_implementation(resource, &wl_subcompositor_implementation, data, NULL);
 }
 
 static void
-wl_cb_surface_create(struct wl_client *wl_client, struct wl_resource *resource, unsigned int id)
+wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uint32_t id)
 {
-   struct wlc_surface *surface = NULL;
-   struct wl_resource *surface_resource;
-   if (!(surface_resource = wl_resource_create(wl_client, &wl_surface_interface, wl_resource_get_version(resource), id)))
-      goto fail;
+   struct wlc_compositor *compositor;
+   if (!(compositor = wl_resource_get_user_data(resource)))
+      return;
 
-   if (!(surface = wlc_surface_new()))
-      goto fail;
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&compositor->surfaces, client, &wl_surface_interface, wl_resource_get_version(resource), 3, id)))
+      return;
 
-   wlc_surface_implement(surface, surface_resource);
-   wl_signal_emit(&wlc_system_signals()->surface, wl_resource_get_user_data(resource));
-   return;
+   wlc_resource_implement(r, &wl_surface_implementation, compositor);
 
-fail:
-   if (surface)
-      wlc_surface_free(surface);
-   if (surface_resource)
-      wl_resource_destroy(surface_resource);
-   wl_resource_post_no_memory(resource);
+   struct wlc_surface_event ev = { .surface = convert_from_wlc_resource(r, "surface"), .type = WLC_SURFACE_EVENT_CREATED };
+   wl_signal_emit(&wlc_system_signals()->surface, &ev);
 }
 
 static void
-wl_cb_region_create(struct wl_client *wl_client, struct wl_resource *resource, unsigned int id)
+wl_cb_region_create(struct wl_client *client, struct wl_resource *resource, uint32_t id)
 {
-   struct wl_resource *region_resource;
-   if (!(region_resource = wl_resource_create(wl_client, &wl_region_interface, wl_resource_get_version(resource), id)))
-      goto fail;
+   struct wlc_compositor *compositor;
+   if (!(compositor = wl_resource_get_user_data(resource)))
+      return;
 
-   struct wlc_region *region;
-   if (!(region = wlc_region_new()))
-      goto fail;
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&compositor->regions, client, &wl_region_interface, wl_resource_get_version(resource), 3, id)))
+      return;
 
-   wlc_region_implement(region, region_resource);
-   return;
-
-fail:
-   if (region_resource)
-      wl_resource_destroy(region_resource);
-   wl_resource_post_no_memory(resource);
+   wlc_resource_implement(r, &wl_region_implementation, wl_resource_get_user_data(resource));
 }
 
 static const struct wl_compositor_interface wl_compositor_implementation = {
@@ -178,136 +147,137 @@ static const struct wl_compositor_interface wl_compositor_implementation = {
 };
 
 static void
-wl_cb_compositor_client_destructor(struct wl_resource *resource)
+wl_compositor_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
-   assert(resource);
-   struct wl_client *wl_client = wl_resource_get_client(resource);
-   struct wlc_compositor *compositor = wl_resource_get_user_data(resource);
-
-   struct wlc_client *client;
-   if ((client = wlc_client_for_client_with_wl_client_in_list(wl_client, &compositor->clients))) {
-      client->wl_client = NULL;
-      wlc_client_free(client);
-   }
-}
-
-static void
-wl_compositor_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
-{
-   struct wlc_compositor *compositor = data;
-
-   struct wlc_client *client;
-   if (!(client = wlc_client_new(wl_client))) {
-      wl_client_post_no_memory(wl_client);
+   struct wl_resource *r;
+   if (!(r = wl_resource_create_checked(client, &wl_compositor_interface, version, 3, id)))
       return;
-   }
 
-   struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &wl_compositor_interface, fmin(version, 3), id))) {
-      client->wl_client = NULL;
-      wlc_client_free(client);
-      wl_client_post_no_memory(wl_client);
-      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 3);
-      return;
-   }
-
-   wl_resource_set_implementation(resource, &wl_compositor_implementation, data, wl_cb_compositor_client_destructor);
-   wl_list_insert(&compositor->clients, &client->link);
+   wl_resource_set_implementation(r, &wl_compositor_implementation, data, NULL);
 }
 
 static void
 activated(struct wl_listener *listener, void *data)
 {
    bool activated = *(bool*)data;
-   struct wlc_compositor *compositor;
 
-   if (!(compositor = wl_container_of(listener, compositor, listener.activated)))
-      return;
+   struct wlc_compositor *compositor;
+   assert(compositor = wl_container_of(listener, compositor, listener.activated));
 
    if (!activated) {
-      struct wlc_output *o;
-      wl_list_for_each(o, &compositor->outputs, link)
-         wlc_output_set_backend_surface(o, NULL);
+      chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_set_backend_surface, NULL);
    } else {
-      wlc_backend_update_outputs(compositor->backend, &compositor->outputs);
+      wlc_backend_update_outputs(&compositor->backend, &compositor->outputs.pool);
    }
-}
-
-static void
-compositor_cleanup(struct wlc_compositor *compositor)
-{
-   assert(compositor);
-
-   wl_list_remove(&compositor->listener.activated.link);
-   wl_list_remove(&compositor->listener.terminated.link);
-   wl_list_remove(&compositor->listener.xwayland.link);
-   wl_list_remove(&compositor->listener.output.link);
-
-   struct wlc_output *o, *on;
-   wl_list_for_each_safe(o, on, &compositor->outputs, link)
-      wlc_output_free(o);
-
-   if (compositor->xwm)
-      wlc_xwm_free(compositor->xwm);
-
-   if (compositor->backend)
-      wlc_backend_terminate(compositor->backend);
-
-   if (compositor->xdg_shell)
-      wlc_xdg_shell_free(compositor->xdg_shell);
-
-   if (compositor->shell)
-      wlc_shell_free(compositor->shell);
-
-   if (compositor->seat)
-      wlc_seat_free(compositor->seat);
-
-   if (compositor->manager)
-      wlc_data_device_manager_free(compositor->manager);
-
-   if (compositor->global_sub)
-      wl_global_destroy(compositor->global_sub);
-
-   if (compositor->global)
-      wl_global_destroy(compositor->global);
-
-   free(compositor);
 }
 
 static void
 terminated(struct wl_listener *listener, void *data)
 {
    (void)data;
-   struct wlc_compositor *compositor;
 
-   if (!(compositor = wl_container_of(listener, compositor, listener.terminated)))
-      return;
+   struct wlc_compositor *compositor;
+   assert(compositor = wl_container_of(listener, compositor, listener.terminated));
 
    compositor->terminating = true;
 
-   if (wl_list_empty(&compositor->outputs)) {
-      compositor_cleanup(compositor);
+#if 0
+   if (!compositor->outputs.pool.items.count) {
+      wlc_compositor_release(compositor);
    } else {
-      struct wlc_output *o, *os;
-      wl_list_for_each_safe(o, os, &compositor->outputs, link)
-         wlc_output_terminate(o);
+      chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_terminate);
    }
+#endif
 }
 
 static void
 xwayland(struct wl_listener *listener, void *data)
 {
    bool activated = *(bool*)data;
-   struct wlc_compositor *compositor;
 
-   if (!(compositor = wl_container_of(listener, compositor, listener.xwayland)))
-      return;
+   struct wlc_compositor *compositor;
+   assert(compositor = wl_container_of(listener, compositor, listener.xwayland));
 
    if (activated) {
-      compositor->xwm = wlc_xwm_new(compositor);
-   } else if (compositor->xwm) {
-      wlc_xwm_free(compositor->xwm);
-      compositor->xwm = NULL;
+      wlc_xwm(&compositor->xwm);
+   } else {
+      wlc_xwm_release(&compositor->xwm);
+   }
+}
+
+static void
+attach_surface_to_view_or_create(struct wlc_compositor *compositor, struct wlc_surface *surface, enum wlc_shell_surface_type type, wlc_resource shell_surface)
+{
+   assert(compositor && surface && type >= 0 && type < WLC_SHELL_SURFACE_TYPE_LAST);
+
+   struct wlc_view *view;
+   if (!(view = wlc_compositor_view_for_surface(compositor, surface)))
+      return;
+
+   wlc_resource *res[WLC_SHELL_SURFACE_TYPE_LAST] = {
+      &view->shell_surface,
+      &view->xdg_surface,
+   };
+
+   const char *name[WLC_SHELL_SURFACE_TYPE_LAST] = {
+      "shell-surface",
+      "xdg-surface",
+   };
+
+   *res[type] = shell_surface;
+   wl_resource_set_user_data(wl_resource_from_wlc_resource(shell_surface, name[type]), (void*)convert_to_wlc_handle(view));
+}
+
+static void
+attach_popup_to_view_or_create(struct wlc_compositor *compositor, struct wlc_surface *surface, struct wlc_surface *parent, struct wlc_origin *origin, wlc_resource resource)
+{
+   assert(compositor && surface && parent);
+
+   struct wlc_view *view;
+   if (!(view = wlc_compositor_view_for_surface(compositor, surface)))
+      return;
+
+   view->xdg_popup = resource;
+   view->pending.geometry.origin = *origin;
+   wlc_view_set_parent_ptr(view, convert_from_wlc_handle(parent->view, "view"));
+   wlc_view_set_type_ptr(view, WLC_BIT_POPUP, true);
+   wl_resource_set_user_data(wl_resource_from_wlc_resource(resource, "xdg-popup"), (void*)convert_to_wlc_handle(view));
+}
+
+static void
+surface_event(struct wl_listener *listener, void *data)
+{
+   struct wlc_compositor *compositor;
+   assert(compositor = wl_container_of(listener, compositor, listener.surface));
+
+   struct wlc_surface_event *ev = data;
+   switch (ev->type) {
+      case WLC_SURFACE_EVENT_REQUEST_VIEW_ATTACH:
+         attach_surface_to_view_or_create(compositor, ev->surface, ev->attach.type, ev->attach.shell_surface);
+      break;
+
+      case WLC_SURFACE_EVENT_REQUEST_VIEW_POPUP:
+         attach_popup_to_view_or_create(compositor, ev->surface, ev->popup.parent, &ev->popup.origin, ev->popup.resource);
+      break;
+
+      case WLC_SURFACE_EVENT_DESTROYED:
+         {
+            struct wlc_view *v;
+            chck_pool_for_each(&compositor->views.pool, v) {
+               if (v->parent == ev->surface->view)
+                  wlc_view_set_parent_ptr(v, NULL);
+            }
+
+            struct wlc_surface *s;
+            chck_pool_for_each(&compositor->surfaces.pool, s) {
+               if (s->parent == convert_to_wlc_resource(ev->surface))
+                  wlc_surface_set_parent(s, NULL);
+            }
+         }
+      break;
+
+      default:
+      break;
    }
 }
 
@@ -315,8 +285,8 @@ static struct wlc_output*
 get_surfaceless_output(struct wlc_compositor *compositor)
 {
    struct wlc_output *o;
-   wl_list_for_each(o, &compositor->outputs, link) {
-      if (!o->bsurface)
+   chck_pool_for_each(&compositor->outputs.pool, o) {
+      if (!o->bsurface.display)
          return o;
    }
    return NULL;
@@ -325,45 +295,45 @@ get_surfaceless_output(struct wlc_compositor *compositor)
 static void
 active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
-   assert(compositor && output);
+   assert(compositor);
 
-   if (output == compositor->output)
+   if (compositor->active.output == convert_to_wlc_handle(output))
       return;
 
-   if (compositor->output)
-      wlc_output_schedule_repaint(compositor->output);
+   if (compositor->active.output)
+      WLC_INTERFACE_EMIT(output.focus, compositor->active.output, false);
 
-   compositor->output = output;
-   WLC_INTERFACE_EMIT(output.activated, compositor, output);
+   wlc_output_schedule_repaint(convert_from_wlc_handle(compositor->active.output, "output"));
+   compositor->active.output = convert_to_wlc_handle(output);
 
-   if (output)
+   if (compositor->active.output) {
+      WLC_INTERFACE_EMIT(output.focus, compositor->active.output, true);
       wlc_output_schedule_repaint(output);
+   }
 }
 
 static void
 add_output(struct wlc_compositor *compositor, struct wlc_backend_surface *bsurface, struct wlc_output_information *info)
 {
    assert(compositor && bsurface && info);
-   struct wlc_output *output;
 
-   if ((output = get_surfaceless_output(compositor))) {
-      wlc_output_set_backend_surface(output, bsurface);
-      wlc_output_set_information(output, info);
-   } else if ((output = wlc_output_new(compositor, bsurface, info))) {
-      wl_list_insert(&compositor->outputs, &output->link);
-      WLC_INTERFACE_EMIT(output.created, compositor, output);
-   }
+   struct wlc_output *output;
+   if (!(output = get_surfaceless_output(compositor)) && (output = wlc_handle_create(&compositor->outputs)))
+      WLC_INTERFACE_EMIT(output.created, convert_to_wlc_handle(output));
 
    if (!output) {
-      wlc_backend_surface_free(bsurface);
+      wlc_backend_surface_release(bsurface);
       return;
    }
 
-   if (!compositor->output)
+   wlc_output_set_information(output, info);
+   wlc_output_set_backend_surface(output, bsurface);
+
+   if (!compositor->active.output)
       active_output(compositor, output);
 
    wlc_output_schedule_repaint(output);
-   wlc_log(WLC_LOG_INFO, "Added output (%p)", output);
+   wlc_log(WLC_LOG_INFO, "Added output (%zu)", convert_to_wlc_handle(output));
 }
 
 static void
@@ -372,25 +342,24 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    assert(compositor && output);
 
    struct wlc_output *o, *alive = NULL;
-   wl_list_for_each(o, &compositor->outputs, link) {
-      if (!o->bsurface)
+   chck_pool_for_each(&compositor->outputs.pool, o) {
+      if (!o->bsurface.display)
          continue;
 
       alive = o;
       break;
    }
 
-   if (compositor->output == output) {
-      compositor->output = NULL; // make sure we don't redraw
-      wlc_compositor_focus_output(compositor, alive);
+   if (compositor->active.output == convert_to_wlc_handle(output)) {
+      compositor->active.output = 0; // make sure we don't redraw
+      active_output(compositor, alive);
    }
 
-   WLC_INTERFACE_EMIT(output.destroyed, compositor, output);
-
+   WLC_INTERFACE_EMIT(output.destroyed, convert_to_wlc_handle(output));
    wlc_output_set_backend_surface(output, NULL);
 
    if (compositor->terminating && !alive)
-      compositor_cleanup(compositor);
+      wlc_compositor_release(compositor);
 
    wlc_log(WLC_LOG_INFO, "Removed output (%p)", output);
 }
@@ -399,10 +368,9 @@ static void
 output_event(struct wl_listener *listener, void *data)
 {
    struct wlc_output_event *ev = data;
-   struct wlc_compositor *compositor;
 
-   if (!(compositor = wl_container_of(listener, compositor, listener.output)))
-      return;
+   struct wlc_compositor *compositor;
+   assert(compositor = wl_container_of(listener, compositor, listener.output));
 
    switch (ev->type) {
       case WLC_OUTPUT_EVENT_ADD:
@@ -418,103 +386,161 @@ output_event(struct wl_listener *listener, void *data)
       break;
 
       case WLC_OUTPUT_EVENT_UPDATE:
-         wlc_backend_update_outputs(compositor->backend, &compositor->outputs);
+         wlc_backend_update_outputs(&compositor->backend, &compositor->outputs.pool);
       break;
    }
 }
 
-WLC_API void
-wlc_compositor_focus_view(struct wlc_compositor *compositor, struct wlc_view *view)
+static void
+focus_event(struct wl_listener *listener, void *data)
 {
-   assert(compositor);
-   compositor->seat->notify.keyboard_focus(compositor->seat, view);
+   struct wlc_compositor *compositor;
+   assert(compositor = wl_container_of(listener, compositor, listener.surface));
+
+   struct wlc_focus_event *ev = data;
+   switch (ev->type) {
+      case WLC_FOCUS_EVENT_OUTPUT:
+         active_output(compositor, ev->output);
+      break;
+
+      default:break;
+   }
 }
 
-WLC_API void
-wlc_compositor_focus_output(struct wlc_compositor *compositor, struct wlc_output *output)
+struct wlc_view*
+wlc_compositor_view_for_surface(struct wlc_compositor *compositor, struct wlc_surface *surface)
 {
-   assert(compositor);
-   active_output(compositor, output);
-}
+   struct wlc_view *view;
+   if (!(view = convert_from_wlc_handle(surface->view, "view")) && !(view = wlc_handle_create(&compositor->views)))
+      return NULL;
 
-WLC_API struct wl_list*
-wlc_compositor_get_outputs(struct wlc_compositor *compositor)
-{
-   assert(compositor);
-   return &compositor->outputs;
-}
+   wlc_surface_attach_to_view(surface, view);
 
-WLC_API struct wlc_output*
-wlc_compositor_get_focused_output(struct wlc_compositor *compositor)
-{
-   assert(compositor);
-   return compositor->output;
-}
-
-WLC_API struct wlc_space*
-wlc_compositor_get_focused_space(struct wlc_compositor *compositor)
-{
-   assert(compositor);
-   return (compositor->output ? compositor->output->space : NULL);
-}
-
-WLC_API struct wlc_compositor*
-wlc_compositor_new(void *userdata)
-{
-   if (!wlc_display() || !wlc_event_loop()) {
-      wlc_log(WLC_LOG_ERROR, "wlc_init() must be called before creating compositor.");
-      exit(EXIT_FAILURE);
+   struct wlc_output *output;
+   if ((output = convert_from_wlc_handle(compositor->active.output, "output"))) {
+      wlc_view_set_output_ptr(view, output);
+      wlc_view_set_mask_ptr(view, output->active.mask);
    }
 
-   struct wlc_compositor *compositor;
-   if (!(compositor = calloc(1, sizeof(struct wlc_compositor))))
-      goto out_of_memory;
+   return view;
+}
 
-   compositor->userdata = userdata;
+// XXX: We do not currently expose compositor to public API.
+//      So we use static variable here for some public api functions.
+//
+//      Never use this variable anywhere else.
+static struct wlc_compositor *_g_compositor;
 
-   const char *bg = getenv("WLC_BG");
-   const char *idle_time = getenv("WLC_IDLE_TIME");
-   compositor->options.enable_bg = (bg && !strcmp(bg, "0") ? false : true);
-   compositor->options.idle_time = (idle_time ? strtol(idle_time, NULL, 10) : 60 * 5);
+WLC_API const wlc_handle*
+wlc_get_outputs(size_t *out_memb)
+{
+   assert(_g_compositor);
 
-   wl_list_init(&compositor->clients);
-   wl_list_init(&compositor->outputs);
+   if (out_memb)
+      *out_memb = 0;
+
+   // Allocate linear array which we then return
+   free(_g_compositor->tmp.outputs);
+   if (!(_g_compositor->tmp.outputs = malloc(_g_compositor->outputs.pool.items.count * sizeof(wlc_handle))))
+      return NULL;
+
+   wlc_handle *o;
+   chck_pool_for_each(&_g_compositor->outputs.pool, o)
+      _g_compositor->tmp.outputs[_I - 1] = *o;
+
+   if (out_memb)
+      *out_memb = _g_compositor->outputs.pool.items.count;
+
+   return _g_compositor->tmp.outputs;
+}
+
+WLC_API wlc_handle
+wlc_get_focused_output(void)
+{
+   assert(_g_compositor);
+   return _g_compositor->active.output;
+}
+
+void
+wlc_compositor_release(struct wlc_compositor *compositor)
+{
+   if (!compositor)
+      return;
+
+   wl_list_remove(&compositor->listener.activated.link);
+   wl_list_remove(&compositor->listener.terminated.link);
+   wl_list_remove(&compositor->listener.xwayland.link);
+   wl_list_remove(&compositor->listener.surface.link);
+   wl_list_remove(&compositor->listener.output.link);
+   wl_list_remove(&compositor->listener.focus.link);
+
+   wlc_xwm_release(&compositor->xwm);
+   wlc_backend_release(&compositor->backend);
+   wlc_shell_release(&compositor->shell);
+   wlc_seat_release(&compositor->seat);
+
+   if (compositor->wl.subcompositor)
+      wl_global_destroy(compositor->wl.subcompositor);
+
+   if (compositor->wl.compositor)
+      wl_global_destroy(compositor->wl.compositor);
+
+   free(_g_compositor->tmp.outputs);
+   wlc_source_release(&compositor->outputs);
+   wlc_source_release(&compositor->views);
+   wlc_source_release(&compositor->surfaces);
+   wlc_source_release(&compositor->regions);
+
+   memset(compositor, 0, sizeof(struct wlc_compositor));
+   _g_compositor = NULL;
+}
+
+bool
+wlc_compositor(struct wlc_compositor *compositor)
+{
+   assert(wlc_display() && wlc_event_loop());
+   memset(compositor, 0, sizeof(struct wlc_compositor));
+
+   if (!wlc_display() || !wlc_event_loop()) {
+      wlc_log(WLC_LOG_ERROR, "wlc_compositor called before wlc_init()");
+      abort();
+   }
+
+   _g_compositor = compositor;
+
+   if (!wlc_source(&compositor->outputs, "output", wlc_output, wlc_output_release, 4, sizeof(struct wlc_output)) ||
+       !wlc_source(&compositor->views, "view", wlc_view, wlc_view_release, 32, sizeof(struct wlc_view)) ||
+       !wlc_source(&compositor->surfaces, "surface", wlc_surface, wlc_surface_release, 32, sizeof(struct wlc_surface)) ||
+       !wlc_source(&compositor->regions, "region", NULL, wlc_region_release, 32, sizeof(struct wlc_region)))
+      goto fail;
 
    compositor->listener.activated.notify = activated;
    compositor->listener.terminated.notify = terminated;
    compositor->listener.xwayland.notify = xwayland;
+   compositor->listener.surface.notify = surface_event;
    compositor->listener.output.notify = output_event;
+   compositor->listener.focus.notify = focus_event;
    wl_signal_add(&wlc_system_signals()->activated, &compositor->listener.activated);
    wl_signal_add(&wlc_system_signals()->terminated, &compositor->listener.terminated);
    wl_signal_add(&wlc_system_signals()->xwayland, &compositor->listener.xwayland);
+   wl_signal_add(&wlc_system_signals()->surface, &compositor->listener.surface);
    wl_signal_add(&wlc_system_signals()->output, &compositor->listener.output);
+   wl_signal_add(&wlc_system_signals()->focus, &compositor->listener.focus);
 
-   if (!(compositor->global = wl_global_create(wlc_display(), &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
+   if (!(compositor->wl.compositor = wl_global_create(wlc_display(), &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
       goto compositor_interface_fail;
 
-   if (!(compositor->global_sub = wl_global_create(wlc_display(), &wl_subcompositor_interface, 1, compositor, wl_subcompositor_bind)))
+   if (!(compositor->wl.subcompositor = wl_global_create(wlc_display(), &wl_subcompositor_interface, 1, compositor, wl_subcompositor_bind)))
       goto subcompositor_interface_fail;
 
-   if (!(compositor->manager = wlc_data_device_manager_new(compositor)))
+   if (!wlc_seat(&compositor->seat) ||
+       !wlc_shell(&compositor->shell) ||
+       !wlc_xdg_shell(&compositor->xdg_shell) ||
+       !wlc_backend(&compositor->backend))
       goto fail;
 
-   if (!(compositor->seat = wlc_seat_new(compositor)))
-      goto fail;
+   return true;
 
-   if (!(compositor->shell = wlc_shell_new(compositor)))
-      goto fail;
-
-   if (!(compositor->xdg_shell = wlc_xdg_shell_new(compositor)))
-      goto fail;
-
-   if (!(compositor->backend = wlc_backend_init(compositor)))
-      goto fail;
-
-   return compositor;
-
-out_of_memory:
-   wlc_log(WLC_LOG_WARN, "Out of memory");
-   goto fail;
 compositor_interface_fail:
    wlc_log(WLC_LOG_WARN, "Failed to bind compositor interface");
    goto fail;
@@ -522,7 +548,6 @@ subcompositor_interface_fail:
    wlc_log(WLC_LOG_WARN, "Failed to bind subcompositor interface");
    goto fail;
 fail:
-   if (compositor)
-      compositor_cleanup(compositor);
-   return NULL;
+   wlc_compositor_release(compositor);
+   return false;
 }

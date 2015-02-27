@@ -1,152 +1,132 @@
+#include <stdlib.h>
+#include <assert.h>
+#include <wayland-server.h>
+#include "wayland-xdg-shell-server-protocol.h"
 #include "internal.h"
 #include "macros.h"
 #include "xdg-shell.h"
-#include "xdg-surface.h"
-
 #include "compositor/compositor.h"
-#include "compositor/surface.h"
 #include "compositor/output.h"
-#include "compositor/client.h"
 #include "compositor/view.h"
+#include "resources/types/xdg-surface.h"
 
-#include <stdlib.h>
-#include <assert.h>
-
-#include <wayland-server.h>
-#include "wayland-xdg-shell-server-protocol.h"
+static_assert_x(XDG_SHELL_VERSION_CURRENT == 5, generated_protocol_and_implementation_version_are_different);
 
 static void
-xdg_cb_shell_use_unstable_version(struct wl_client *wl_client, struct wl_resource *resource, int32_t version)
+xdg_cb_shell_use_unstable_version(struct wl_client *client, struct wl_resource *resource, int32_t version)
 {
-   (void)wl_client;
-   if (version > XDG_SHELL_VERSION_CURRENT) {
-      wl_resource_post_error(resource, 1, "xdg-shell :: version not implemented yet.");
+   (void)client;
+   if (version != XDG_SHELL_VERSION_CURRENT) {
+      wl_resource_post_error(resource, 1, "xdg-shell :: unsupported version %u, supported %u", version, XDG_SHELL_VERSION_CURRENT);
       return;
    }
 }
 
 static void
-xdg_cb_shell_get_surface(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
+xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource)
 {
-   struct wlc_xdg_shell *xdg_shell = wl_resource_get_user_data(resource);
-   struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
-
-   struct wlc_client *client;
-   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &xdg_shell->compositor->clients))) {
-      wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find wlc_client for wl_client");
+   struct wlc_surface *surface;
+   struct wlc_xdg_shell *xdg_shell;
+   if (!(xdg_shell = wl_resource_get_user_data(resource)) || !(surface = convert_from_wl_resource(surface_resource, "surface")))
       return;
-   }
 
-   struct wl_resource *xdg_surface_resource;
-   if (!(xdg_surface_resource = wl_resource_create(wl_client, &xdg_surface_interface, wl_resource_get_version(resource), id))) {
-      wl_resource_post_no_memory(resource);
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&xdg_shell->surfaces, client, &xdg_surface_interface, wl_resource_get_version(resource), 1, id)))
       return;
-   }
 
-   if (!surface->view && !(surface->view = wlc_view_new(xdg_shell->compositor, client, surface))) {
-      wl_resource_destroy(xdg_surface_resource);
-      wl_resource_post_no_memory(resource);
+   wlc_resource_implement(r, &xdg_surface_implementation, NULL);
+
+   struct wlc_surface_event ev = { .attach = { .type = WLC_XDG_SURFACE, .shell_surface = r }, .surface = surface, .type = WLC_SURFACE_EVENT_REQUEST_VIEW_ATTACH };
+   wl_signal_emit(&wlc_system_signals()->surface, &ev);
+}
+
+static const struct xdg_popup_interface xdg_popup_implementation = {
+   .destroy = wlc_cb_resource_destructor,
+};
+
+static void
+xdg_cb_shell_get_popup(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent_resource, struct wl_resource *seat_resource, uint32_t serial, int32_t x, int32_t y)
+{
+   (void)seat_resource, (void)serial;
+
+   struct wlc_surface *surface, *psurface;
+   struct wlc_xdg_shell *xdg_shell;
+   if (!(xdg_shell = wl_resource_get_user_data(resource)) || !(surface = convert_from_wl_resource(surface_resource, "surface")) || !(psurface = convert_from_wl_resource(parent_resource, "surface")))
       return;
-   }
 
-   wlc_xdg_surface_implement(&surface->view->xdg_surface, surface->view, xdg_surface_resource);
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&xdg_shell->popups, client, &xdg_popup_interface, wl_resource_get_version(resource), 1, id)))
+      return;
+
+   wlc_resource_implement(r, &xdg_popup_implementation, NULL);
+
+   struct wlc_surface_event ev = { .popup = { .parent = psurface, .origin = { x, y }, .resource = r }, .surface = surface, .type = WLC_SURFACE_EVENT_REQUEST_VIEW_POPUP };
+   wl_signal_emit(&wlc_system_signals()->surface, &ev);
 }
 
 static void
-xdg_cb_shell_get_popup(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id, struct wl_resource *surface_resource, struct wl_resource *parent_resource, struct wl_resource *seat_resource, uint32_t serial, int32_t x, int32_t y, uint32_t flags)
+xdg_cb_shell_pong(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
 {
-   (void)wl_client, (void)id, (void)seat_resource, (void)serial, (void)flags;
-   struct wlc_xdg_shell *xdg_shell = wl_resource_get_user_data(resource);
-   struct wlc_surface *surface = wl_resource_get_user_data(surface_resource);
-   struct wlc_surface *psurface = wl_resource_get_user_data(parent_resource);
-
-   if (!psurface || !psurface->view) {
-      wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find parent surface for popup");
-      return;
-   }
-
-   struct wlc_client *client;
-   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &xdg_shell->compositor->clients))) {
-      wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "Could not find wlc_client for wl_client");
-      return;
-   }
-
-   struct wl_resource *xdg_popup_resource;
-   if (!(xdg_popup_resource = wl_resource_create(wl_client, &xdg_popup_interface, wl_resource_get_version(resource), id))) {
-      wl_resource_post_no_memory(resource);
-      return;
-   }
-
-   if (!surface->view && !(surface->view = wlc_view_new(xdg_shell->compositor, client, surface))) {
-      wl_resource_destroy(xdg_popup_resource);
-      wl_resource_post_no_memory(resource);
-      return;
-   }
-
-   wlc_view_set_geometry(surface->view, &(struct wlc_geometry){ { x, y }, surface->view->pending.geometry.size });
-   wlc_view_set_parent(surface->view, psurface->view);
-   wlc_xdg_popup_implement(&surface->view->xdg_popup, surface->view, xdg_popup_resource);
-   surface->view->type |= WLC_BIT_POPUP;
-}
-
-static void
-xdg_cb_shell_pong(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial)
-{
-   (void)wl_client, (void)serial;
+   (void)client, (void)serial;
    STUB(resource);
+}
+
+static void
+xdg_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   (void)client, (void)resource;
 }
 
 static const struct xdg_shell_interface xdg_shell_implementation = {
    .use_unstable_version = xdg_cb_shell_use_unstable_version,
    .get_xdg_surface = xdg_cb_shell_get_surface,
    .get_xdg_popup = xdg_cb_shell_get_popup,
-   .pong = xdg_cb_shell_pong
+   .pong = xdg_cb_shell_pong,
+   .destroy = xdg_cb_destroy,
 };
 
 static void
-xdg_shell_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
+xdg_shell_bind(struct wl_client *client, void *data, unsigned int version, unsigned int id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &xdg_shell_interface, fmin(version, 1), id))) {
-      wl_client_post_no_memory(wl_client);
-      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 1);
+   if (!(resource = wl_resource_create_checked(client, &xdg_shell_interface, version, 1, id)))
       return;
-   }
 
    wl_resource_set_implementation(resource, &xdg_shell_implementation, data, NULL);
 }
 
 void
-wlc_xdg_shell_free(struct wlc_xdg_shell *xdg_shell)
+wlc_xdg_shell_release(struct wlc_xdg_shell *xdg_shell)
 {
-   assert(xdg_shell);
+   if (!xdg_shell)
+      return;
 
-   if (xdg_shell->global)
-      wl_global_destroy(xdg_shell->global);
+   if (xdg_shell->wl.xdg_shell)
+      wl_global_destroy(xdg_shell->wl.xdg_shell);
 
-   free(xdg_shell);
+   wlc_source_release(&xdg_shell->surfaces);
+   wlc_source_release(&xdg_shell->popups);
+   memset(xdg_shell, 0, sizeof(struct wlc_xdg_shell));
 }
 
-struct wlc_xdg_shell*
-wlc_xdg_shell_new(struct wlc_compositor *compositor)
+bool
+wlc_xdg_shell(struct wlc_xdg_shell *xdg_shell)
 {
-   struct wlc_xdg_shell *xdg_shell;
-   if (!(xdg_shell = calloc(1, sizeof(struct wlc_xdg_shell))))
-      goto out_of_memory;
+   assert(xdg_shell);
+   memset(xdg_shell, 0, sizeof(struct wlc_xdg_shell));
 
-   if (!(xdg_shell->global = wl_global_create(wlc_display(), &xdg_shell_interface, 1, xdg_shell, xdg_shell_bind)))
+   if (!(xdg_shell->wl.xdg_shell = wl_global_create(wlc_display(), &xdg_shell_interface, 1, xdg_shell, xdg_shell_bind)))
       goto xdg_shell_interface_fail;
 
-   xdg_shell->compositor = compositor;
+   if (!wlc_source(&xdg_shell->surfaces, "xdg-surface", NULL, NULL, 32, sizeof(struct wlc_resource)) ||
+       !wlc_source(&xdg_shell->popups, "xdg-popup", NULL, NULL, 4, sizeof(struct wlc_resource)))
+      goto fail;
+
    return xdg_shell;
 
-out_of_memory:
-   wlc_log(WLC_LOG_WARN, "Out of memory");
-   goto fail;
 xdg_shell_interface_fail:
    wlc_log(WLC_LOG_WARN, "Failed to bind xdg_shell interface");
 fail:
-   if (xdg_shell)
-      wlc_xdg_shell_free(xdg_shell);
+   wlc_xdg_shell_release(xdg_shell);
    return NULL;
 }

@@ -1,43 +1,48 @@
-#include "internal.h"
-#include "view.h"
-#include "macros.h"
-#include "visibility.h"
-#include "compositor.h"
-#include "output.h"
-#include "client.h"
-#include "surface.h"
-
-#include "shell/surface.h"
-#include "shell/xdg-surface.h"
-
-#include "seat/seat.h"
-#include "seat/pointer.h"
-
-#include "xwayland/xwm.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-
+#include <chck/math/math.h>
 #include <wayland-server.h>
 #include "wayland-xdg-shell-server-protocol.h"
+#include "internal.h"
+#include "view.h"
+#include "macros.h"
+#include "visibility.h"
+#include "output.h"
+#include "resources/types/xdg-surface.h"
+#include "resources/types/shell-surface.h"
+#include "resources/types/surface.h"
 
 static void
 update(struct wlc_view *view)
 {
    assert(view);
 
-   if (!view->space || !memcmp(&view->pending, &view->commit, sizeof(view->commit)))
+   if (!memcmp(&view->pending, &view->commit, sizeof(view->commit)))
       return;
 
-   wlc_output_schedule_repaint(view->space->output);
+   wlc_output_schedule_repaint(wlc_view_get_output_ptr(view));
 }
 
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
-   if (view->ack != ACK_NONE)
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return;
+
+   if (!view->state.created) {
+      if (WLC_INTERFACE_EMIT_EXCEPT(view.created, false, convert_to_wlc_handle(view))) {
+         wlc_resource_release(convert_to_wlc_resource(surface));
+         wlc_handle_release(convert_to_wlc_handle(view));
+         return;
+      }
+
+      view->state.created = true;
+   }
+
+   if (view->state.ack != ACK_NONE)
       return;
 
    if (pending->state != out->state) {
@@ -52,43 +57,42 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
          { 0, 0 },
       };
 
-      wl_array_release(&view->wl_state);
-      wl_array_init(&view->wl_state);
+      chck_iter_pool_release(&view->wl_state);
 
-      for (unsigned int i = 0; map[i].state != 0; ++i) {
-         if (pending->state & map[i].bit) {
-            uint32_t *s = wl_array_add(&view->wl_state, sizeof(uint32_t));
-            *s = map[i].state;
-         }
+      for (uint32_t i = 0; map[i].state != 0; ++i) {
+         if (pending->state & map[i].bit)
+            chck_iter_pool_push_back(&view->wl_state, &map[i].state);
       }
    }
 
-   bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) && !wlc_size_equals(&pending->geometry.size, &view->surface->size));
+   bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) && !wlc_size_equals(&pending->geometry.size, &surface->size));
 
    if (pending->state != out->state || size_changed) {
-      if (view->xdg_surface.resource) {
+      struct wl_resource *r;
+      if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
          uint32_t serial = wl_display_next_serial(wlc_display());
-         xdg_surface_send_configure(view->xdg_surface.resource, pending->geometry.size.w, pending->geometry.size.h, &view->wl_state, serial);
+         struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
+         xdg_surface_send_configure(r, pending->geometry.size.w, pending->geometry.size.h, &states, serial);
          // XXX: Some clients such simple-damage from weston does not trigger the ack, force next commit.
          //      Otherwise we could go pending state here and wait for surface reply.
-         view->ack = (size_changed ? ACK_NEXT_COMMIT : ACK_NONE);
-      } else if (view->shell_surface.resource) {
-         wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, pending->geometry.size.w, pending->geometry.size.h);
-         view->ack = (size_changed ? ACK_NEXT_COMMIT : ACK_NONE);
+         view->state.ack = (size_changed ? ACK_NEXT_COMMIT : ACK_NONE);
+      } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
+         wl_shell_surface_send_configure(r, view->state.resizing, pending->geometry.size.w, pending->geometry.size.h);
+         view->state.ack = (size_changed ? ACK_NEXT_COMMIT : ACK_NONE);
       }
    }
 
-   if (view->x11_window) {
+   if (view->x11.id) {
       if (!wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin))
-         wlc_x11_window_position(view->x11_window, pending->geometry.origin.x, pending->geometry.origin.y);
+         wlc_x11_window_position(&view->x11, pending->geometry.origin.x, pending->geometry.origin.y);
 
       if (size_changed) {
-         wlc_x11_window_resize(view->x11_window, pending->geometry.size.w, pending->geometry.size.h);
-         view->ack = ACK_NEXT_COMMIT;
+         wlc_x11_window_resize(&view->x11, pending->geometry.size.w, pending->geometry.size.h);
+         view->state.ack = ACK_NEXT_COMMIT;
       }
    }
 
-   if (view->ack == ACK_NONE) {
+   if (view->state.ack == ACK_NONE) {
       // Commit immediately if no ack requested
       // XXX: We may need to detect frozen client
       memcpy(out, pending, sizeof(struct wlc_view_state));
@@ -100,49 +104,54 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
 {
    assert(view && old_surface_size);
 
-   if (!view->resizing && !wlc_size_equals(&view->surface->size, old_surface_size) && !wlc_size_equals(&view->pending.geometry.size, &view->surface->size)) {
-      struct wlc_geometry r = { view->pending.geometry.origin, view->surface->size };
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return;
+
+   if (!view->state.resizing && !wlc_size_equals(&surface->size, old_surface_size) && !wlc_size_equals(&view->pending.geometry.size, &surface->size)) {
+      struct wlc_geometry r = { view->pending.geometry.origin, surface->size };
       wlc_view_request_geometry(view, &r);
    }
 
-   if (view->x11_window)
-      view->surface->pending.opaque.extents = (pixman_box32_t){ 0, 0, view->surface->size.w, view->surface->size.h };
+   if (view->x11.id)
+      surface->pending.opaque.extents = (pixman_box32_t){ 0, 0, surface->size.w, surface->size.h };
 
-   if (view->ack != ACK_NEXT_COMMIT)
+   if (view->state.ack != ACK_NEXT_COMMIT)
       return;
 
    bool reconfigure = false;
-
-   if (view->resizing) {
+   if (view->state.resizing) {
       struct wlc_geometry r = view->pending.geometry;
-      if (view->resizing & WL_SHELL_SURFACE_RESIZE_LEFT)
-         r.origin.x += old_surface_size->w - view->surface->size.w;
-      if (view->resizing & WL_SHELL_SURFACE_RESIZE_TOP)
-         r.origin.y += old_surface_size->h - view->surface->size.h;
+      if (view->state.resizing & WL_SHELL_SURFACE_RESIZE_LEFT)
+         r.origin.x += old_surface_size->w - surface->size.w;
+      if (view->state.resizing & WL_SHELL_SURFACE_RESIZE_TOP)
+         r.origin.y += old_surface_size->h - surface->size.h;
 
-      // reset to before resize
+      // Reset to before resize
       memcpy(&view->pending.geometry, &view->commit.geometry, sizeof(view->pending.geometry));
 
-      // request resize
+      // Request resize
       if (!wlc_view_request_geometry(view, &r))
          reconfigure = true;
    }
 
    if (reconfigure) {
-      if (view->xdg_surface.resource) {
+      struct wl_resource *r;
+      if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
          uint32_t serial = wl_display_next_serial(wlc_display());
-         xdg_surface_send_configure(view->xdg_surface.resource, view->pending.geometry.size.w, view->pending.geometry.size.h, &view->wl_state, serial);
-         view->ack = ACK_NEXT_COMMIT;
-      } else if (view->shell_surface.resource) {
-         wl_shell_surface_send_configure(view->shell_surface.resource, view->resizing, view->pending.geometry.size.w, view->pending.geometry.size.h);
-         view->ack = ACK_NEXT_COMMIT;
-      } else if (view->x11_window) {
-         wlc_x11_window_resize(view->x11_window, view->pending.geometry.size.w, view->pending.geometry.size.h);
-         view->ack = ACK_NEXT_COMMIT;
+         struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
+         xdg_surface_send_configure(r, view->pending.geometry.size.w, view->pending.geometry.size.h, &states, serial);
+         view->state.ack = ACK_NEXT_COMMIT;
+      } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
+         wl_shell_surface_send_configure(r, view->state.resizing, view->pending.geometry.size.w, view->pending.geometry.size.h);
+         view->state.ack = ACK_NEXT_COMMIT;
+      } else if (view->x11.id) {
+         wlc_x11_window_resize(&view->x11, view->pending.geometry.size.w, view->pending.geometry.size.h);
+         view->state.ack = ACK_NEXT_COMMIT;
       }
    } else {
       memcpy(&view->commit, &view->pending, sizeof(view->commit));
-      view->ack = ACK_NONE;
+      view->state.ack = ACK_NONE;
    }
 }
 
@@ -152,12 +161,16 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    assert(view && out_bounds);
    memcpy(out_bounds, &view->commit.geometry, sizeof(struct wlc_geometry));
 
-   for (struct wlc_view *parent = view->parent; !(view->type & WLC_BIT_OVERRIDE_REDIRECT) && parent; parent = parent->parent) {
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return;
+
+   for (struct wlc_view *parent = convert_from_wlc_handle(view->parent, "view"); !(view->type & WLC_BIT_OVERRIDE_REDIRECT) && parent; parent = convert_from_wlc_handle(parent->parent, "view")) {
       out_bounds->origin.x += parent->commit.geometry.origin.x;
       out_bounds->origin.y += parent->commit.geometry.origin.y;
    }
 
-   if (view->xdg_surface.resource && view->commit.visible.size.w > 0 && view->commit.visible.size.h > 0) {
+   if (view->xdg_surface && view->commit.visible.size.w > 0 && view->commit.visible.size.h > 0) {
       // xdg-surface client that draws drop shadows or other stuff.
       // Only obey visible hints when not maximized or fullscreen.
       if (!(view->commit.state & WLC_BIT_MAXIMIZED) && !(view->commit.state & WLC_BIT_FULLSCREEN)) {
@@ -165,32 +178,33 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
          out_bounds->origin.y -= view->commit.visible.origin.y;
 
          // Make sure size is at least what we want, but may be bigger (shadows etc...)
-         out_bounds->size.w = fmax(view->surface->size.w, view->commit.geometry.size.w);
-         out_bounds->size.h = fmax(view->surface->size.h, view->commit.geometry.size.h);
+         out_bounds->size.w = chck_maxu32(surface->size.w, view->commit.geometry.size.w);
+         out_bounds->size.h = chck_maxu32(surface->size.h, view->commit.geometry.size.h);
       }
    }
 
    // Make sure bounds is never 0x0 w/h
-   out_bounds->size.w = fmax(out_bounds->size.w, 1);
-   out_bounds->size.h = fmax(out_bounds->size.h, 1);
+   wlc_size_max(&out_bounds->size, &(struct wlc_size){ 1, 1 }, &out_bounds->size);
 
    if (!out_visible)
       return;
 
    // Actual visible area of the view
    // The idea is to draw black borders to the bounds area, while centering the visible area.
-   if ((view->x11_window || view->shell_surface.resource) && !wlc_size_equals(&view->surface->size, &out_bounds->size)) {
-      out_visible->size = view->surface->size;
+   if ((view->x11.id || view->shell_surface) && !wlc_size_equals(&surface->size, &out_bounds->size)) {
+      out_visible->size = surface->size;
 
       // Scale visible area retaining aspect
+      struct wlc_size ssize;
+      wlc_size_max(&surface->size, &(struct wlc_size){ 1, 1 }, &ssize);
       float ba = (float)out_bounds->size.w / (float)out_bounds->size.h;
-      float sa = (float)view->surface->size.w / (float)view->surface->size.h;
+      float sa = (float)ssize.w / (float)ssize.h;
       if (ba < sa) {
-         out_visible->size.w *= (float)out_bounds->size.w / view->surface->size.w;
-         out_visible->size.h *= (float)out_bounds->size.w / view->surface->size.w;
+         out_visible->size.w *= (float)out_bounds->size.w / ssize.w;
+         out_visible->size.h *= (float)out_bounds->size.w / ssize.w;
       } else {
-         out_visible->size.w *= (float)out_bounds->size.h / view->surface->size.h;
-         out_visible->size.h *= (float)out_bounds->size.h / view->surface->size.h;
+         out_visible->size.w *= (float)out_bounds->size.h / ssize.h;
+         out_visible->size.h *= (float)out_bounds->size.h / ssize.h;
       }
 
       // Center visible area
@@ -198,8 +212,8 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
       out_visible->origin.y = out_bounds->origin.y + out_bounds->size.h * 0.5 - out_visible->size.h * 0.5;
 
       // Make sure visible is never 0x0 w/h
-      out_visible->size.w = fmax(out_visible->size.w, 1);
-      out_visible->size.h = fmax(out_visible->size.h, 1);
+      out_visible->size.w = chck_maxu32(out_visible->size.w, 1);
+      out_visible->size.h = chck_maxu32(out_visible->size.h, 1);
    } else {
       // For non wl_shell or x11 surfaces, just memcpy
       memcpy(out_visible, out_bounds, sizeof(struct wlc_geometry));
@@ -209,10 +223,11 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
 bool
 wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
 {
+   assert(view && r);
    bool granted = true;
 
    if (wlc_interface()->view.request.geometry) {
-      WLC_INTERFACE_EMIT(view.request.geometry, view->compositor, view, r);
+      WLC_INTERFACE_EMIT(view.request.geometry, convert_to_wlc_handle(view), r);
 
       // User did not follow the request.
       if (!wlc_geometry_equals(r, &view->pending.geometry))
@@ -227,98 +242,92 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
 void
 wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {
-   if (!view->created || (bool)(view->pending.state & state) == toggle)
+   if (!view || !!(view->pending.state & state) == toggle)
       return;
 
-   WLC_INTERFACE_EMIT(view.request.state, view->compositor, view, state, toggle);
-}
-
-struct wlc_space*
-wlc_view_get_mapped_space(struct wlc_view *view)
-{
-   assert(view);
-   return (view->space ? view->space : (view->compositor->output ? view->compositor->output->space : NULL));
+   WLC_INTERFACE_EMIT(view.request.state, convert_to_wlc_handle(view), state, toggle);
 }
 
 void
-wlc_view_defocus(struct wlc_view *view)
+wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface)
 {
-   // XXX: needed for X11 for now, rethink.
-   view->compositor->seat->notify.view_unfocus(view->compositor->seat, view);
+   if (!view || view->surface == convert_to_wlc_resource(surface))
+      return;
+
+   wlc_handle old = view->surface;
+   view->surface = convert_to_wlc_resource(surface);
+   wlc_surface_attach_to_view(convert_from_wlc_resource(old, "surface"), NULL);
+   wlc_surface_attach_to_view(surface, view);
 }
 
-void
-wlc_view_free(struct wlc_view *view)
+struct wl_client*
+wlc_view_get_client(struct wlc_view *view)
 {
-   assert(view);
-
-   if (view->created)
-      WLC_INTERFACE_EMIT(view.destroyed, view->compositor, view);
-
-   // XXX: ugly
-   view->compositor->seat->notify.view_unfocus(view->compositor->seat, view);
-
-   wlc_view_set_parent(view, NULL);
-
-   struct wlc_view *v, *vn;
-   wl_list_for_each_safe(v, vn, &view->childs, parent_link)
-      wlc_view_set_parent(v, NULL);
-
-   wlc_shell_surface_release(&view->shell_surface);
-   wlc_xdg_surface_release(&view->xdg_surface);
-   wlc_xdg_popup_release(&view->xdg_popup);
-
-   if (view->x11_window)
-      wlc_x11_window_free(view->x11_window);
-
-   if (view->surface)
-      view->surface->view = NULL;
-
-   if (view->space)
-      wl_list_remove(&view->link);
-
-   wl_array_release(&view->wl_state);
-   free(view);
+   struct wl_resource *r = (view ? wl_resource_from_wlc_resource(view->surface, "surface") : NULL);
+   return (r ? wl_resource_get_client(r) : NULL);
 }
 
-struct wlc_view*
-wlc_view_new(struct wlc_compositor *compositor, struct wlc_client *client, struct wlc_surface *surface)
+struct wlc_output*
+wlc_view_get_output_ptr(struct wlc_view *view)
 {
-   assert(surface && client && surface);
-
-   struct wlc_view *view;
-   if (!(view = calloc(1, sizeof(struct wlc_view))))
+   struct wlc_surface *surface;
+   if (!view || !(surface = convert_from_wlc_resource(view->surface, "surface")))
       return NULL;
 
-   view->client = client;
-   view->surface = surface;
-   view->compositor = compositor;
-   wl_array_init(&view->wl_state);
-   wl_list_init(&view->childs);
-   return view;
+   return convert_from_wlc_handle(surface->output, "output");
 }
 
-WLC_API uint32_t
-wlc_view_get_type(struct wlc_view *view)
+void
+wlc_view_set_output_ptr(struct wlc_view *view, struct wlc_output *output)
 {
-   assert(view);
-   return view->type;
+   if (!view || wlc_view_get_output_ptr(view) == output)
+      return;
+
+   wlc_output_unlink_view(wlc_view_get_output_ptr(view), view);
+   wlc_output_link_view(output, view, LINK_ABOVE, NULL);
 }
 
-WLC_API uint32_t
-wlc_view_get_state(struct wlc_view *view)
+void
+wlc_view_set_mask_ptr(struct wlc_view *view, uint32_t mask)
 {
-   assert(view);
-   return view->pending.state;
+   if (!view)
+      return;
+
+   view->mask = mask;
+   update(view);
 }
 
-WLC_API void
-wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
+void
+wlc_view_set_geometry_ptr(struct wlc_view *view, const struct wlc_geometry *geometry)
 {
-   assert(view);
+   assert(geometry);
 
-   if (view->x11_window)
-      wlc_x11_window_set_state(view->x11_window, state, toggle);
+   if (!view)
+      return;
+
+   view->pending.geometry = *geometry;
+   update(view);
+}
+
+void
+wlc_view_set_type_ptr(struct wlc_view *view, enum wlc_view_type_bit type, bool toggle)
+{
+   if (!view)
+      return;
+
+#define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
+   view->type = BIT_TOGGLE(view->type, type, toggle);
+#undef BIT_TOGGLE
+}
+
+void
+wlc_view_set_state_ptr(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
+{
+   if (!view)
+      return;
+
+   if (view->x11.id)
+      wlc_x11_window_set_state(&view->x11, state, toggle);
 
 #define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
    view->pending.state = BIT_TOGGLE(view->pending.state, state, toggle);
@@ -326,229 +335,261 @@ wlc_view_set_state(struct wlc_view *view, enum wlc_view_state_bit state, bool to
    update(view);
 }
 
+void
+wlc_view_set_parent_ptr(struct wlc_view *view, struct wlc_view *parent)
+{
+   if (!view || view == parent)
+      return;
+
+   view->parent = convert_to_wlc_handle(parent);
+   update(view);
+}
+
+void
+wlc_view_set_minimized_ptr(struct wlc_view *view, bool minimized)
+{
+   if (!view)
+      return;
+
+   view->data.minimized = minimized;
+}
+
+bool
+wlc_view_set_title_ptr(struct wlc_view *view, const char *title)
+{
+   return (view ? chck_string_set_cstr(&view->data.title, title, true) : false);
+}
+
+bool
+wlc_view_set_class_ptr(struct wlc_view *view, const char *class_)
+{
+   return (view ? chck_string_set_cstr(&view->data._class, class_, true) : false);
+}
+
+bool
+wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id)
+{
+   return (view ? chck_string_set_cstr(&view->data.app_id, app_id, true) : false);
+}
+
+void
+wlc_view_close_ptr(struct wlc_view *view)
+{
+   if (!view)
+      return;
+
+   struct wl_resource *r;
+   if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
+      xdg_surface_send_close(r);
+   } else if (view->x11.id) {
+      wlc_x11_window_close(&view->x11);
+   } else if (view->xdg_popup && (r = wl_resource_from_wlc_resource(view->xdg_popup, "xdg-popup"))) {
+      xdg_popup_send_popup_done(r);
+   } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
+      struct wl_client *client = wl_resource_get_client(r);
+      wlc_resource_release(view->shell_surface);
+      wl_client_destroy(client);
+   }
+}
+
+void
+wlc_view_send_to(struct wlc_view *view, enum output_link link)
+{
+   if (!view)
+      return;
+
+   wlc_output_link_view(wlc_view_get_output_ptr(view), view, link, NULL);
+}
+
+void
+wlc_view_send_to_other(struct wlc_view *view, enum output_link link, struct wlc_view *other)
+{
+   if (!view || other)
+      return;
+
+   wlc_output_link_view(wlc_view_get_output_ptr(other), view, link, other);
+}
+
+void
+wlc_view_focus_ptr(struct wlc_view *view)
+{
+   struct wlc_focus_event ev = { .view = view, .type = WLC_FOCUS_EVENT_VIEW };
+   wl_signal_emit(&wlc_system_signals()->focus, &ev);
+}
+
+static void*
+get(struct wlc_view *view, size_t offset)
+{
+   return (view ? ((void*)view + offset) : NULL);
+}
+
+WLC_API void
+wlc_view_focus(wlc_handle view)
+{
+   wlc_view_focus_ptr(convert_from_wlc_handle(view, "view"));
+}
+
+WLC_API void
+wlc_view_close(wlc_handle view)
+{
+   wlc_view_close_ptr(convert_from_wlc_handle(view, "view"));
+}
+
+WLC_API wlc_handle
+wlc_view_get_output(wlc_handle view)
+{
+   return convert_to_wlc_handle(wlc_view_get_output_ptr(convert_from_wlc_handle(view, "view")));
+}
+
+WLC_API void
+wlc_view_set_output(wlc_handle view, wlc_handle output)
+{
+   wlc_view_set_output_ptr(convert_from_wlc_handle(view, "view"), convert_from_wlc_handle(output, "output"));
+}
+
+WLC_API void
+wlc_view_send_to_back(wlc_handle view)
+{
+   wlc_view_send_to(convert_from_wlc_handle(view, "view"), LINK_BELOW);
+}
+
+WLC_API void
+wlc_view_send_below(wlc_handle view, wlc_handle other)
+{
+   wlc_view_send_to_other(convert_from_wlc_handle(view, "view"), LINK_BELOW, convert_from_wlc_handle(other, "view"));
+}
+
+WLC_API void
+wlc_view_bring_above(wlc_handle view, wlc_handle other)
+{
+   wlc_view_send_to_other(convert_from_wlc_handle(view, "view"), LINK_ABOVE, convert_from_wlc_handle(other, "view"));
+}
+
+WLC_API void
+wlc_view_bring_to_front(wlc_handle view)
+{
+   wlc_view_send_to(convert_from_wlc_handle(view, "view"), LINK_ABOVE);
+}
+
+WLC_API uint32_t
+wlc_view_get_mask(wlc_handle view)
+{
+   return *(uint32_t*)get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, mask));
+}
+
+WLC_API void
+wlc_view_set_mask(wlc_handle view, uint32_t mask)
+{
+   wlc_view_set_mask_ptr(convert_from_wlc_handle(view, "view"), mask);
+}
+
 WLC_API const struct wlc_geometry*
-wlc_view_get_geometry(struct wlc_view *view)
+wlc_view_get_geometry(wlc_handle view)
 {
-   assert(view);
-   return &view->pending.geometry;
+   return get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, pending.geometry));
 }
 
 WLC_API void
-wlc_view_set_geometry(struct wlc_view *view, const struct wlc_geometry *geometry)
+wlc_view_set_geometry(wlc_handle view, const struct wlc_geometry *geometry)
 {
-   assert(view && geometry);
-   view->pending.geometry = *geometry;
-   update(view);
+   wlc_view_set_geometry_ptr(convert_from_wlc_handle(view, "view"), geometry);
+}
+
+WLC_API uint32_t
+wlc_view_get_type(wlc_handle view)
+{
+   return *(uint32_t*)get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, type));
 }
 
 WLC_API void
-wlc_view_close(struct wlc_view *view)
+wlc_view_set_type(wlc_handle view, enum wlc_view_type_bit type, bool toggle)
 {
-   assert(view);
-
-   if (view->xdg_popup.resource) {
-      xdg_popup_send_popup_done(view->xdg_popup.resource, wl_display_next_serial(wlc_display()));
-   } else if (view->xdg_surface.resource) {
-      xdg_surface_send_close(view->xdg_surface.resource);
-   } else if (view->x11_window) {
-      wlc_x11_window_close(view->x11_window);
-   } else if (view->shell_surface.resource) {
-      wlc_shell_surface_release(&view->shell_surface);
-      wlc_client_free(view->client);
-   }
+   wlc_view_set_type_ptr(convert_from_wlc_handle(view, "view"), type, toggle);
 }
 
-WLC_API struct wl_list*
-wlc_view_get_user_link(struct wlc_view *view)
+WLC_API uint32_t
+wlc_view_get_state(wlc_handle view)
 {
-   assert(view);
-   return &view->user_link;
-}
-
-WLC_API struct wlc_view*
-wlc_view_from_user_link(struct wl_list *view_link)
-{
-   assert(view_link);
-   struct wlc_view *view;
-   return wl_container_of(view_link, view, user_link);
-}
-
-WLC_API struct wl_list*
-wlc_view_get_link(struct wlc_view *view)
-{
-   assert(view);
-   return &view->link;
-}
-
-WLC_API struct wlc_view*
-wlc_view_from_link(struct wl_list *view_link)
-{
-   assert(view_link);
-   struct wlc_view *view;
-   return wl_container_of(view_link, view, link);
+   return *(uint32_t*)get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, pending.state));
 }
 
 WLC_API void
-wlc_view_send_below(struct wlc_view *view, struct wlc_view *below)
+wlc_view_set_state(wlc_handle view, enum wlc_view_state_bit state, bool toggle)
 {
-   assert(view && below && view != below);
+   wlc_view_set_state_ptr(convert_from_wlc_handle(view, "view"), state, toggle);
+}
 
-   if (below->link.next == &view->link)
-      return;
-
-   wl_list_remove(&view->link);
-   wl_list_insert(&below->link, &view->link);
-   update(view);
+WLC_API wlc_handle
+wlc_view_get_parent(wlc_handle view)
+{
+   return *(wlc_handle*)get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, parent));
 }
 
 WLC_API void
-wlc_view_send_to_back(struct wlc_view *view)
+wlc_view_set_parent(wlc_handle view, wlc_handle parent)
 {
-   assert(view);
-
-   struct wl_list *views = &view->space->views;
-   if (&view->link == views->prev)
-      return;
-
-   wl_list_remove(&view->link);
-   wl_list_insert(views->prev, &view->link);
-   update(view);
-}
-
-WLC_API void
-wlc_view_bring_above(struct wlc_view *view, struct wlc_view *above)
-{
-   assert(view && above && view != above);
-
-   if (above->link.prev == &view->link)
-      return;
-
-   wl_list_remove(&view->link);
-   wl_list_insert(above->link.prev, &view->link);
-   update(view);
-}
-
-WLC_API void
-wlc_view_bring_to_front(struct wlc_view *view)
-{
-   assert(view);
-
-   struct wl_list *views = &view->space->views;
-   if (&view->link == views->prev)
-      return;
-
-   wl_list_remove(&view->link);
-   wl_list_insert(views->prev, &view->link);
-   update(view);
-}
-
-WLC_API void
-wlc_view_set_space(struct wlc_view *view, struct wlc_space *space)
-{
-   assert(view);
-
-   if (view->space == space)
-      return;
-
-   if (view->space)
-      wl_list_remove(&view->link);
-
-   if (space)
-      wl_list_insert(space->views.prev, &view->link);
-
-   if (!space || space->output != view->surface->output)
-      wlc_surface_invalidate(view->surface);
-
-   struct wlc_space *old_space = view->space;
-   view->space = space;
-
-   if (space && !view->created) {
-      if (!wlc_size_equals(&view->pending.geometry.size, &wlc_size_zero))
-         view->pending.geometry.size = view->surface->size;
-
-      if (WLC_INTERFACE_EMIT_EXCEPT(view.created, false, view->compositor, view, space)) {
-         wlc_view_free(view);
-         return;
-      }
-
-      wlc_log(WLC_LOG_INFO, "-> Created view (%p) with surface (%p) [%ux%u]",
-            view, view->surface, view->surface->size.w, view->surface->size.h);
-
-      view->created = true;
-   } else if (old_space && space) {
-      wlc_surface_attach_to_output(view->surface, space->output, view->surface->commit.buffer);
-      WLC_INTERFACE_EMIT(view.switch_space, view->compositor, view, old_space, space);
-   }
-
-   update(view);
-}
-
-WLC_API struct wlc_space*
-wlc_view_get_space(struct wlc_view *view)
-{
-   assert(view);
-   return view->space;
-}
-
-WLC_API void
-wlc_view_set_userdata(struct wlc_view *view, void *userdata)
-{
-   assert(view);
-   view->userdata = userdata;
-}
-
-WLC_API void*
-wlc_view_get_userdata(struct wlc_view *view)
-{
-   assert(view);
-   return view->userdata;
-}
-
-WLC_API void
-wlc_view_set_title(struct wlc_view *view, const char *title)
-{
-   assert(view);
-   wlc_string_set(&view->shell_surface.title, title, true);
+   wlc_view_set_parent_ptr(convert_from_wlc_handle(view, "view"), convert_from_wlc_handle(parent, "parent"));
 }
 
 WLC_API const char*
-wlc_view_get_title(struct wlc_view *view)
+wlc_view_get_title(wlc_handle view)
 {
-   assert(view);
-   return view->shell_surface.title.data;
+   return get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.title.data));
 }
 
-WLC_API void
-wlc_view_set_class(struct wlc_view *view, const char *_class)
+WLC_API bool
+wlc_view_set_title(wlc_handle view, const char *title)
 {
-   assert(view);
-   wlc_string_set(&view->shell_surface._class, _class, true);
+   return wlc_view_set_title_ptr(convert_from_wlc_handle(view, "view"), title);
 }
 
 WLC_API const char*
-wlc_view_get_class(struct wlc_view *view)
+wlc_view_get_class(wlc_handle view)
 {
-   assert(view);
-   return view->shell_surface._class.data;
+   return get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data._class.data));
 }
 
-WLC_API void
-wlc_view_set_parent(struct wlc_view *view, struct wlc_view *parent)
+WLC_API bool
+wlc_view_set_class(wlc_handle view, const char *class_)
 {
-   assert(view && view != parent);
-
-   if (view->parent)
-      wl_list_remove(&view->parent_link);
-
-   if ((view->parent = parent))
-      wl_list_insert(&parent->childs, &view->parent_link);
-
-   update(view);
+   return wlc_view_set_class_ptr(convert_from_wlc_handle(view, "view"), class_);
 }
 
-WLC_API struct wlc_view*
-wlc_view_get_parent(struct wlc_view *view)
+WLC_API const char*
+wlc_view_get_app_id(wlc_handle view)
+{
+   return get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.app_id.data));
+}
+
+WLC_API bool
+wlc_view_set_app_id(wlc_handle view, const char *app_id)
+{
+   return wlc_view_set_app_id_ptr(convert_from_wlc_handle(view, "view"), app_id);
+}
+
+void
+wlc_view_release(struct wlc_view *view)
+{
+   if (!view)
+      return;
+
+   wlc_view_set_output_ptr(view, NULL);
+
+   if (view->state.created)
+      WLC_INTERFACE_EMIT(view.destroyed, convert_to_wlc_handle(view));
+
+   wlc_view_set_parent_ptr(view, NULL);
+   wlc_resource_release(view->shell_surface);
+   wlc_resource_release(view->xdg_surface);
+   wlc_resource_release(view->xdg_popup);
+
+   wlc_surface_attach_to_view(convert_from_wlc_resource(view->surface, "surface"), NULL);
+   chck_iter_pool_release(&view->wl_state);
+}
+
+bool
+wlc_view(struct wlc_view *view)
 {
    assert(view);
-   return view->parent;
+   return chck_iter_pool(&view->wl_state, 8, 0, sizeof(uint32_t));
 }
