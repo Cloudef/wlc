@@ -1,1 +1,1 @@
-ADD_SUBDIRECTORY(chck)
+add_subdirectory(chck)

@@ -1,4 +1,4 @@
-SET(SRC
+set(sources
    compositor/compositor.c
    compositor/output.c
    compositor/seat/data.c
@@ -32,60 +32,82 @@ SET(SRC
    xwayland/xwm.c
    )
 
-IF (UNIX)
-   FIND_LIBRARY(DL_LIBRARY dl)
-   MARK_AS_ADVANCED(DL_LIBRARY)
-   IF (NOT DL_LIBRARY)
-      MESSAGE(FATAL_ERROR "libdl is needed on unix systems")
-   ENDIF ()
+if (UNIX)
+   find_library(DL_LIBRARY dl)
+   mark_as_advanced(DL_LIBRARY)
+   if (NOT DL_LIBRARY)
+      message(FATAL_ERROR "libdl is needed on unix systems")
+   endif ()
 
    # FIXME: tests need visibility, build 2 libraries
    # ADD_DEFINITIONS(-fvisibility=hidden)
-ENDIF (UNIX)
+endif (UNIX)
 
 # Parse soversion version
-STRING(REGEX MATCHALL "[0-9]+" VERSION_COMPONENTS ${WLC_VERSION})
-LIST(GET VERSION_COMPONENTS 0 SOVERSION)
+string(REGEX MATCHALL "[0-9]+" VERSION_COMPONENTS ${WLC_VERSION})
+list(GET VERSION_COMPONENTS 0 SOVERSION)
 
 # Required
-FIND_PACKAGE(Wayland REQUIRED)
-FIND_PACKAGE(Pixman REQUIRED)
-FIND_PACKAGE(XKBCommon REQUIRED)
+find_package(Wayland REQUIRED)
+find_package(Pixman REQUIRED)
+find_package(XKBCommon REQUIRED)
 
 # These are optional runtime (loaded dynamically)
 # But are needed for compilation (headers)
-FIND_PACKAGE(X11 REQUIRED)
-FIND_PACKAGE(XCB REQUIRED COMPONENTS ewmh composite)
-FIND_PACKAGE(GLESv2 REQUIRED)
-FIND_PACKAGE(EGL REQUIRED)
-FIND_PACKAGE(DRM REQUIRED)
-FIND_PACKAGE(UDEV REQUIRED)
-FIND_PACKAGE(libinput REQUIRED)
+find_package(X11 REQUIRED)
+find_package(XCB REQUIRED COMPONENTS ewmh composite)
+find_package(GLESv2 REQUIRED)
+find_package(EGL REQUIRED)
+find_package(DRM REQUIRED)
+find_package(UDEV REQUIRED)
+find_package(libinput REQUIRED)
 
 # Protocols
-INCLUDE(Wayland)
-WAYLAND_ADD_PROTOCOL_SERVER(proto-xdg-shell "${wlc_SOURCE_DIR}/protos/xdg-shell.xml" xdg-shell)
-LIST(APPEND SRC ${proto-xdg-shell})
+include(Wayland)
+wayland_add_protocol_server(proto-xdg-shell "${wlc_SOURCE_DIR}/protos/xdg-shell.xml" xdg-shell)
+list(APPEND sources ${proto-xdg-shell})
 
-ADD_DEFINITIONS(-DWL_HIDE_DEPRECATED)
-INCLUDE_DIRECTORIES(${wlc_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${WAYLAND_SERVER_INCLUDE_DIR} ${PIXMAN_INCLUDE_DIRS} ${GBM_INCLUDE_DIR} ${DRM_INCLUDE_DIR} ${XCBCOMMON_INCLUDE_DIR} ${EGL_INCLUDE_DIR} ${GLESv2_INCLUDE_DIR} ${UDEV_INCLUDE_DIR} ${LIBINPUT_INCLUDE_DIR} ${X11_INCLUDE_DIR} ${wlc_SOURCE_DIR}/lib/chck/src)
+add_definitions(-DWL_HIDE_DEPRECATED)
+include_directories(
+   ${CMAKE_CURRENT_SOURCE_DIR}
+   ${CMAKE_CURRENT_BINARY_DIR}
+   ${wlc_SOURCE_DIR}/include
+   ${wlc_SOURCE_DIR}/lib/chck/src
+   ${WAYLAND_SERVER_INCLUDE_DIR}
+   ${PIXMAN_INCLUDE_DIRS}
+   ${GBM_INCLUDE_DIR}
+   ${DRM_INCLUDE_DIR}
+   ${XCBCOMMON_INCLUDE_DIR}
+   ${EGL_INCLUDE_DIR}
+   ${GLESv2_INCLUDE_DIR}
+   ${UDEV_INCLUDE_DIR}
+   ${LIBINPUT_INCLUDE_DIR}
+   ${X11_INCLUDE_DIR}
+   )
 
-IF (WLC_BUILD_STATIC)
-   ADD_LIBRARY(wlc STATIC ${SRC})
-ELSE ()
-   ADD_DEFINITIONS(-DWLC_BUILD_SHARED)
-   ADD_LIBRARY(wlc SHARED ${SRC})
-ENDIF ()
+if (WLC_BUILD_STATIC)
+   add_library(wlc STATIC ${sources})
+else ()
+   add_definitions(-DWLC_BUILD_SHARED)
+   add_library(wlc SHARED ${sources})
+endif ()
 
-SET_TARGET_PROPERTIES(wlc PROPERTIES
-   VERSION ${WLC_VERSION}
-   SOVERSION ${SOVERSION})
-TARGET_LINK_LIBRARIES(wlc ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${LIBINPUT_LIBRARIES} ${UDEV_LIBRARIES} ${DL_LIBRARY} chck_wlc)
+set_target_properties(wlc PROPERTIES VERSION ${WLC_VERSION} SOVERSION ${SOVERSION})
 
-SET(WLC_LIBRARY wlc CACHE STRING "wlc library" FORCE)
-SET(WLC_INCLUDE_DIRS "${wlc_SOURCE_DIR}/include" CACHE STRING "Include directories of wlc" FORCE)
-SET(WLC_LIBRARIES ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${DL_LIBRARY} CACHE STRING "Dependencies of wlc" FORCE)
+target_link_libraries(wlc
+   chck_wlc
+   ${WAYLAND_SERVER_LIBRARIES}
+   ${PIXMAN_LIBRARIES}
+   ${XKBCOMMON_LIBRARIES}
+   ${LIBINPUT_LIBRARIES}
+   ${UDEV_LIBRARIES}
+   ${DL_LIBRARY}
+   )
+
+set(WLC_LIBRARY wlc CACHE STRING "wlc library" FORCE)
+set(WLC_INCLUDE_DIRS "${wlc_SOURCE_DIR}/include" CACHE STRING "Include directories of wlc" FORCE)
+set(WLC_LIBRARIES ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${DL_LIBRARY} CACHE STRING "Dependencies of wlc" FORCE)
 
 # Install rules
-INSTALL(TARGETS wlc DESTINATION lib)
-INSTALL(DIRECTORY "${wlc_SOURCE_DIR}/include" DESTINATION include)
+install(TARGETS wlc DESTINATION lib)
+install(DIRECTORY "${wlc_SOURCE_DIR}/include" DESTINATION include)
