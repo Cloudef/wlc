@@ -32,6 +32,9 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
+   if (view->state.ack != ACK_NONE)
+      return;
+
    if (!view->state.created) {
       if (WLC_INTERFACE_EMIT_EXCEPT(view.created, false, convert_to_wlc_handle(view))) {
          wlc_view_close_ptr(view);
@@ -40,9 +43,6 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
 
       view->state.created = true;
    }
-
-   if (view->state.ack != ACK_NONE)
-      return;
 
    if (pending->state != out->state) {
       struct {
