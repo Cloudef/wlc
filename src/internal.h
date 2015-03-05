@@ -149,7 +149,7 @@ enum wlc_render_event_type {
 };
 
 struct wlc_render_event {
-   struct wlc_render *render;
+   struct wlc_output *output;
    enum wlc_render_event_type type;
 };
 

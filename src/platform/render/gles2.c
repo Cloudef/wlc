@@ -6,7 +6,6 @@
 #include "platform/context/context.h"
 
 #include "compositor/view.h"
-#include "compositor/output.h"
 
 #include "xwayland/xwm.h"
 
@@ -470,25 +469,20 @@ create_context(void)
    return context;
 }
 
-static bool
-bind(struct ctx *context, struct wlc_output *output)
+static void
+resolution(struct ctx *context, const struct wlc_size *resolution)
 {
-   assert(context && output);
+   assert(context && resolution);
 
-   if (!wlc_context_bind(&output->context))
-      return false;
-
-   if (!wlc_size_equals(&context->resolution, &output->resolution)) {
+   if (!wlc_size_equals(&context->resolution, resolution)) {
       for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
          set_program(context, i);
-         GL_CALL(gl.api.glUniform2fv(context->program->uniforms[UNIFORM_RESOLUTION], 1, (GLfloat[]){ output->resolution.w, output->resolution.h }));
+         GL_CALL(gl.api.glUniform2fv(context->program->uniforms[UNIFORM_RESOLUTION], 1, (GLfloat[]){ resolution->w, resolution->h }));
       }
 
-      GL_CALL(gl.api.glViewport(0, 0, output->resolution.w, output->resolution.h));
-      context->resolution = output->resolution;
+      GL_CALL(gl.api.glViewport(0, 0, resolution->w, resolution->h));
+      context->resolution = *resolution;
    }
-
-   return true;
 }
 
 static void
@@ -535,16 +529,11 @@ surface_flush_images(struct wlc_context *context, struct wlc_surface *surface)
 }
 
 static void
-surface_destroy(struct ctx *context, struct wlc_surface *surface)
+surface_destroy(struct ctx *context, struct wlc_context *bound, struct wlc_surface *surface)
 {
-   assert(context && surface);
-
-   struct wlc_output *output;
-   if (!(output = convert_from_wlc_handle(surface->output, "output")) || !wlc_context_bind(&output->context))
-      return;
-
+   assert(context && bound && surface);
    surface_flush_textures(surface);
-   surface_flush_images(&output->context, surface);
+   surface_flush_images(bound, surface);
    wlc_dlog(WLC_DBG_RENDER, "-> Destroyed surface");
 }
 
@@ -666,19 +655,15 @@ egl_attach(struct ctx *context, struct wlc_context *ectx, struct wlc_surface *su
 }
 
 static bool
-surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *buffer)
+surface_attach(struct ctx *context, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
-   assert(context && surface);
+   assert(context && bound && surface);
 
    struct wl_resource *wl_buffer;
    if (!buffer || !(wl_buffer = convert_to_wl_resource(buffer, "buffer"))) {
-      surface_destroy(context, surface);
+      surface_destroy(context, bound, surface);
       return true;
    }
-
-   struct wlc_output *output;
-   if (!(output = convert_from_wlc_handle(surface->output, "output")) || !wlc_context_bind(&output->context))
-      return false;
 
    EGLint format;
    bool attached = false;
@@ -686,8 +671,8 @@ surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buff
    struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(wl_buffer);
    if (shm_buffer) {
       attached = shm_attach(surface, buffer, shm_buffer);
-   } else if (context->api.glEGLImageTargetTexture2DOES && wlc_context_query_buffer(&output->context, (void*)wl_buffer, EGL_TEXTURE_FORMAT, &format)) {
-      attached = egl_attach(context, &output->context, surface, buffer, format);
+   } else if (context->api.glEGLImageTargetTexture2DOES && wlc_context_query_buffer(bound, (void*)wl_buffer, EGL_TEXTURE_FORMAT, &format)) {
+      attached = egl_attach(context, bound, surface, buffer, format);
    } else {
       /* unknown buffer */
       wlc_log(WLC_LOG_WARN, "Unknown buffer");
@@ -753,11 +738,6 @@ static void
 surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct wlc_geometry *geometry, struct paint *settings)
 {
    assert(context && surface && geometry && settings);
-
-   if (!surface->output) {
-      wlc_log(WLC_LOG_ERROR, "Trying to paint surface with no context");
-      return;
-   }
 
    if (!wlc_size_equals(&surface->size, &geometry->size)) {
       if (wlc_geometry_equals(&settings->visible, geometry)) {
@@ -854,7 +834,6 @@ terminate(struct ctx *context)
    }
 
    GL_CALL(gl.api.glDeleteTextures(TEXTURE_LAST, context->textures));
-
    free(context);
 }
 
@@ -885,7 +864,7 @@ wlc_gles2(struct wlc_context *context, struct wlc_render_api *api)
       return NULL;
 
    api->terminate = terminate;
-   api->bind = bind;
+   api->resolution = resolution;
    api->surface_destroy = surface_destroy;
    api->surface_attach = surface_attach;
    api->view_paint = view_paint;

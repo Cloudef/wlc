@@ -168,18 +168,19 @@ repaint(struct wlc_output *output)
    if (!output)
       return false;
 
-   if (!should_render(output) || !wlc_render_bind(&output->render, output)) {
+   if (!should_render(output)) {
       wlc_dlog(WLC_DBG_RENDER, "-> Skipped repaint");
       output->state.activity = output->state.scheduled = false;
       finish_frame_tasks(output);
       return false;
    }
 
-   wlc_render_time(&output->render, output->state.frame_time);
+   wlc_render_time(&output->render, &output->context, output->state.frame_time);
+   wlc_render_resolution(&output->render, &output->context, &output->resolution);
 
    if (output->state.sleeping) {
       // fake sleep
-      wlc_render_clear(&output->render);
+      wlc_render_clear(&output->render, &output->context);
       output->state.pending = true;
       wlc_context_swap(&output->context, &output->bsurface);
       wlc_dlog(WLC_DBG_RENDER, "-> Repaint");
@@ -192,9 +193,9 @@ repaint(struct wlc_output *output)
    }
 
    if (output->state.background_visible) {
-      wlc_render_background(&output->render);
+      wlc_render_background(&output->render, &output->context);
    } else if (!output->options.enable_bg) {
-      wlc_render_clear(&output->render);
+      wlc_render_clear(&output->render, &output->context);
    }
 
    struct chck_iter_pool callbacks;
@@ -212,7 +213,7 @@ repaint(struct wlc_output *output)
          continue;
 
       wlc_view_commit_state(view, &view->pending, &view->commit);
-      wlc_render_view_paint(&output->render, view);
+      wlc_render_view_paint(&output->render, &output->context, view);
 
       wlc_resource *r;
       chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
@@ -220,14 +221,14 @@ repaint(struct wlc_output *output)
       chck_iter_pool_release(&surface->commit.frame_cbs);
    }
 
-   struct wlc_render_event ev = { .render = &output->render, .type = WLC_RENDER_EVENT_POINTER };
+   struct wlc_render_event ev = { .output = output, .type = WLC_RENDER_EVENT_POINTER };
    wl_signal_emit(&wlc_system_signals()->render, &ev);
 
    {
       void *rgba;
       struct wlc_geometry g = { { 0, 0 }, output->resolution };
       if (output->task.pixels.cb && (rgba = calloc(1, g.size.w * g.size.h * 4))) {
-         wlc_render_read_pixels(&output->render, &g, rgba);
+         wlc_render_read_pixels(&output->render, &output->context, &g, rgba);
          output->task.pixels.cb(&g.size, rgba, output->task.pixels.arg);
          memset(&output->task.pixels, 0, sizeof(output->task.pixels));
          free(rgba);
@@ -313,7 +314,7 @@ wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surfac
 
    assert(surface && surface->output == convert_to_wlc_handle(output));
 
-   wlc_render_surface_destroy(&output->render, surface);
+   wlc_render_surface_destroy(&output->render, &output->context, surface);
    surface->output = 0;
 
    wlc_output_schedule_repaint(output);
@@ -345,7 +346,7 @@ wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface
       new_surface = true;
    }
 
-   if (!wlc_render_surface_attach(&output->render, surface, buffer)) {
+   if (!wlc_render_surface_attach(&output->render, &output->context, surface, buffer)) {
       surface->output = 0;
       return false;
    }
@@ -371,7 +372,7 @@ wlc_output_view_attach(struct wlc_output *output, struct wlc_view *view)
    if (!output || !view || !(surface = convert_from_wlc_resource(view->surface, "surface")))
       return false;
 
-   return wlc_surface_attach_to_output(surface, output, convert_from_wlc_resource(surface->commit.buffer, "buffer"));
+   return wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface));
 }
 
 void
@@ -425,11 +426,11 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
       chck_iter_pool_for_each(&output->surfaces, r) {
          struct wlc_surface *s;
          if ((s = convert_from_wlc_resource(*r, "surface")))
-            wlc_render_surface_destroy(&output->render, s);
+            wlc_render_surface_destroy(&output->render, &output->context, s);
       }
    }
 
-   wlc_render_release(&output->render);
+   wlc_render_release(&output->render, &output->context);
    wlc_context_release(&output->context);
    wlc_backend_surface_release(&output->bsurface);
 
@@ -456,7 +457,7 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
             if (!(s = convert_from_wlc_resource(*r, "surface")))
                continue;
 
-            wlc_surface_attach_to_output(s, output, convert_from_wlc_resource(s->commit.buffer, "buffer"));
+            wlc_surface_attach_to_output(s, output, wlc_surface_get_buffer(s));
          }
       }
    }
@@ -515,8 +516,11 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
       return;
 
    struct wlc_output *old;
-   if ((old = wlc_view_get_output_ptr(view)))
+   if ((old = wlc_view_get_output_ptr(view))) {
       remove_from_pool(&old->views, convert_to_wlc_handle(view));
+      if (old != output)
+         remove_from_pool(&old->mutable, convert_to_wlc_handle(view));
+   }
 
    bool added = false;
    wlc_handle handle = convert_to_wlc_handle(view);

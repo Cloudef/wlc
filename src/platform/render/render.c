@@ -1,107 +1,136 @@
 #include <wlc/wlc.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "platform/context/context.h"
 #include "render.h"
 #include "gles2.h"
 
-bool
-wlc_render_bind(struct wlc_render *render, struct wlc_output *output)
+void
+wlc_render_resolution(struct wlc_render *render, struct wlc_context *bound, const struct wlc_size *resolution)
 {
-   assert(render && output);
+   assert(render && bound && resolution);
 
-   if (!render->api.bind)
-      return false;
+   if (!wlc_context_bind(bound))
+      return;
 
-   return render->api.bind(render->render, output);
+   if (render->api.resolution)
+      render->api.resolution(render->render, resolution);
 }
 
 void
-wlc_render_surface_destroy(struct wlc_render *render, struct wlc_surface *surface)
+wlc_render_surface_destroy(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface)
 {
-   assert(render && surface);
+   assert(render && bound && surface);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.surface_destroy)
-      render->api.surface_destroy(render->render, surface);
+      render->api.surface_destroy(render->render, bound, surface);
 }
 
 bool
-wlc_render_surface_attach(struct wlc_render *render, struct wlc_surface *surface, struct wlc_buffer *buffer)
+wlc_render_surface_attach(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
-   assert(render && surface);
+   assert(render && bound && surface);
 
-   if (!render->api.surface_attach)
+   if (!wlc_context_bind(bound) || !render->api.surface_attach)
       return false;
 
-   return render->api.surface_attach(render->render, surface, buffer);
+   return render->api.surface_attach(render->render, bound, surface, buffer);
 }
 
 void
-wlc_render_view_paint(struct wlc_render *render, struct wlc_view *view)
+wlc_render_view_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_view *view)
 {
    assert(render && view);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.view_paint)
       render->api.view_paint(render->render, view);
 }
 
 void
-wlc_render_surface_paint(struct wlc_render *render, struct wlc_surface *surface, struct wlc_origin *pos)
+wlc_render_surface_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_origin *pos)
 {
    assert(render);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.surface_paint)
       render->api.surface_paint(render->render, surface, pos);
 }
 
 void
-wlc_render_pointer_paint(struct wlc_render *render, struct wlc_origin *pos)
+wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_origin *pos)
 {
    assert(render);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.pointer_paint)
       render->api.pointer_paint(render->render, pos);
 }
 
 void
-wlc_render_read_pixels(struct wlc_render *render, struct wlc_geometry *geometry, void *out_data)
+wlc_render_read_pixels(struct wlc_render *render, struct wlc_context *bound, struct wlc_geometry *geometry, void *out_data)
 {
    assert(render);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.read_pixels)
       render->api.read_pixels(render->render, geometry, out_data);
 }
 
 void
-wlc_render_background(struct wlc_render *render)
+wlc_render_background(struct wlc_render *render, struct wlc_context *bound)
 {
    assert(render);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.background)
       render->api.background(render->render);
 }
 
 void
-wlc_render_clear(struct wlc_render *render)
+wlc_render_clear(struct wlc_render *render, struct wlc_context *bound)
 {
    assert(render);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.clear)
       render->api.clear(render->render);
 }
 
 void
-wlc_render_time(struct wlc_render *render, uint32_t time)
+wlc_render_time(struct wlc_render *render, struct wlc_context *bound, uint32_t time)
 {
    assert(render);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.time)
       render->api.time(render->render, time);
 }
 
 void
-wlc_render_release(struct wlc_render *render)
+wlc_render_release(struct wlc_render *render, struct wlc_context *bound)
 {
    assert(render);
+
+   if (!wlc_context_bind(bound))
+      return;
 
    if (render->api.terminate)
       render->api.terminate(render->render);
@@ -126,6 +155,6 @@ wlc_render(struct wlc_render *render, struct wlc_context *context)
    }
 
    wlc_log(WLC_LOG_WARN, "Could not initialize any rendering backend");
-   wlc_render_release(render);
+   wlc_render_release(render, context);
    return false;
 }

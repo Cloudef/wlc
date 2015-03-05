@@ -1,6 +1,7 @@
 #include "buffer.h"
 #include <stdlib.h>
 #include <assert.h>
+#include "surface.h"
 
 void
 wlc_buffer_dispose(struct wlc_buffer *buffer)
@@ -27,6 +28,14 @@ wlc_buffer_use(struct wlc_buffer *buffer)
 void
 wlc_buffer_release(struct wlc_buffer *buffer)
 {
+   struct wlc_surface *surface;
+   if ((surface = convert_from_wlc_resource(buffer->surface, "surface"))) {
+      if (surface->commit.buffer == convert_to_wlc_resource(buffer))
+         surface->commit.buffer = 0;
+      if (surface->pending.buffer == convert_to_wlc_resource(buffer))
+         surface->pending.buffer = 0;
+   }
+
    struct wl_resource *resource;
    if ((resource = convert_to_wl_resource(buffer, "buffer"))) {
       wlc_resource_invalidate(convert_to_wlc_resource(buffer));

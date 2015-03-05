@@ -61,6 +61,7 @@ struct wlc_surface {
 
 const struct wl_surface_interface wl_surface_implementation;
 
+struct wlc_buffer* wlc_surface_get_buffer(struct wlc_surface *surface);
 void wlc_surface_attach_to_view(struct wlc_surface *surface, struct wlc_view *view);
 bool wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *output, struct wlc_buffer *buffer);
 void wlc_surface_set_parent(struct wlc_surface *surface, struct wlc_surface *parent);

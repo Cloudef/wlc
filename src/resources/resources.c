@@ -160,13 +160,19 @@ handle_release(struct chck_pool *pool, struct handle *handle, void (*preremove)(
    chck_pool_remove(pool, handle->public - 1);
 }
 
+static bool
+handle_is(struct handle *handle, const char *name)
+{
+   return (handle ? chck_cstreq(handle->source->name, name) : false);
+}
+
 void*
 handle_get(struct handle *handle, const char *name)
 {
    if (!handle || !handle->private)
       return NULL;
 
-   if (!chck_cstreq(handle->source->name, name)) {
+   if (!handle_is(handle, name)) {
       wlc_log(WLC_LOG_WARN, "Tried to retrieve handle of wrong type (%s != %s)", handle->source->name, name);
       return NULL;
    }
@@ -427,14 +433,11 @@ convert_from_wl_resource(struct wl_resource *resource, const char *name)
 struct wl_resource*
 wl_resource_from_wlc_resource(wlc_resource resource, const char *name)
 {
-   if (!resource)
-      return NULL;
-
    struct resource *r;
-   if (!(r = chck_pool_get(&resources, resource - 1)))
+   if (!resource || !(r = chck_pool_get(&resources, resource - 1)))
       return NULL;
 
-   if (!chck_cstreq(r->handle.source->name, name)) {
+   if (!handle_is(&r->handle, name)) {
       wlc_log(WLC_LOG_WARN, "Tried to retrieve resource of wrong type (%s != %s)", r->handle.source->name, name);
       return NULL;
    }

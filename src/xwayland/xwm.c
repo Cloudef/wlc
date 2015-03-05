@@ -261,7 +261,7 @@ paired_for_id(struct wlc_xwm *xwm, xcb_window_t window)
 
    wlc_handle *h;
    struct wlc_view *view;
-   if (!(h = chck_hash_table_get(&xwm->paired, window)) || (view = convert_from_wlc_handle(*h, "view")))
+   if (!(h = chck_hash_table_get(&xwm->paired, window)) || !(view = convert_from_wlc_handle(*h, "view")))
       return NULL;
 
    return &view->x11;

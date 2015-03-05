@@ -9,6 +9,7 @@ struct wl_shm_buffer;
 
 struct wlc_buffer {
    struct wlc_size size;
+   wlc_resource surface;
 
    union {
       struct wl_shm_buffer *shm_buffer;

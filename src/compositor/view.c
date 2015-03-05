@@ -282,7 +282,6 @@ wlc_view_set_output_ptr(struct wlc_view *view, struct wlc_output *output)
    if (!view || wlc_view_get_output_ptr(view) == output)
       return;
 
-   wlc_output_unlink_view(wlc_view_get_output_ptr(view), view);
    wlc_output_link_view(output, view, LINK_ABOVE, NULL);
 }
 
@@ -583,7 +582,7 @@ wlc_view_release(struct wlc_view *view)
    if (!view)
       return;
 
-   wlc_view_set_output_ptr(view, NULL);
+   wlc_output_unlink_view(wlc_view_get_output_ptr(view), view);
 
    if (view->state.created)
       WLC_INTERFACE_EMIT(view.destroyed, convert_to_wlc_handle(view));

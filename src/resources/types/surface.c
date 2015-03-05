@@ -84,7 +84,7 @@ release_state(struct wlc_surface_state *state)
    if (!state)
       return;
 
-   wlc_buffer_dispose(convert_from_wlc_resource(state->buffer, "buffer"));
+   state_set_buffer(state, 0);
    chck_iter_pool_for_each_call(&state->frame_cbs, wlc_resource_release_ptr);
    chck_iter_pool_release(&state->frame_cbs);
 }
@@ -104,7 +104,12 @@ wl_cb_surface_attach(struct wl_client *client, struct wl_resource *resource, str
       return;
    }
 
-   state_set_buffer(&surface->pending, convert_from_wlc_resource(buffer, "buffer"));
+   struct wlc_buffer *b;
+   if ((b = convert_from_wlc_resource(buffer, "buffer"))) {
+      b->surface = convert_to_wlc_resource(surface);
+      state_set_buffer(&surface->pending, b);
+   }
+
    surface->pending.offset = (struct wlc_origin){ x, y };
    surface->pending.attached = true;
 
@@ -224,6 +229,15 @@ const struct wl_surface_interface wl_surface_implementation = {
    .set_buffer_transform = wl_cb_surface_set_buffer_transform,
    .set_buffer_scale = wl_cb_surface_set_buffer_scale
 };
+
+struct wlc_buffer*
+wlc_surface_get_buffer(struct wlc_surface *surface)
+{
+   if (!surface)
+      return NULL;
+
+   return convert_from_wlc_resource((surface->commit.buffer ? surface->commit.buffer : surface->pending.buffer), "buffer");
+}
 
 void
 wlc_surface_attach_to_view(struct wlc_surface *surface, struct wlc_view *view)

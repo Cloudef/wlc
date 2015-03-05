@@ -14,8 +14,6 @@
 #include "compositor/output.h"
 #include "platform/backend/backend.h"
 
-static void *bound = NULL;
-
 struct ctx {
    const char *extensions;
    struct wl_display *wl_display;
@@ -342,7 +340,11 @@ egl_fail:
 static bool
 bind(struct ctx *context)
 {
+   static struct ctx *bound = NULL;
    assert(context);
+
+   if (context == bound)
+      return true;
 
    EGLBoolean made_current = EGL_CALL(egl.api.eglMakeCurrent(context->display, context->surface, context->surface, context->context));
    if (made_current != EGL_TRUE)
@@ -377,8 +379,8 @@ swap(struct ctx *context, struct wlc_backend_surface *bsurface)
 
    EGLBoolean ret = EGL_FALSE;
 
-   if (bound != context) {
-      wlc_log(WLC_LOG_ERROR, "Bound context is wrong, eglSwapBuffers will fail!");
+   if (!bind(context)) {
+      wlc_log(WLC_LOG_ERROR, "Failed to bind context.");
       abort();
    }
 

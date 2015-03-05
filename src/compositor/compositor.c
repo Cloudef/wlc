@@ -297,6 +297,8 @@ active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
    assert(compositor);
 
+   wlc_dlog(WLC_DBG_FOCUS, "focus output %zu %zu", compositor->active.output, convert_to_wlc_handle(output));
+
    if (compositor->active.output == convert_to_wlc_handle(output))
       return;
 
@@ -395,7 +397,7 @@ static void
 focus_event(struct wl_listener *listener, void *data)
 {
    struct wlc_compositor *compositor;
-   assert(compositor = wl_container_of(listener, compositor, listener.surface));
+   assert(compositor = wl_container_of(listener, compositor, listener.focus));
 
    struct wlc_focus_event *ev = data;
    switch (ev->type) {
@@ -444,9 +446,12 @@ wlc_get_outputs(size_t *out_memb)
    if (!(_g_compositor->tmp.outputs = malloc(_g_compositor->outputs.pool.items.count * sizeof(wlc_handle))))
       return NULL;
 
-   wlc_handle *o;
-   chck_pool_for_each(&_g_compositor->outputs.pool, o)
-      _g_compositor->tmp.outputs[_I - 1] = *o;
+   {
+      size_t i = 0;
+      struct wlc_output *o;
+      chck_pool_for_each(&_g_compositor->outputs.pool, o)
+         _g_compositor->tmp.outputs[i++] = convert_to_wlc_handle(o);
+   }
 
    if (out_memb)
       *out_memb = _g_compositor->outputs.pool.items.count;

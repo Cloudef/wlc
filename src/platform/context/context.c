@@ -43,10 +43,14 @@ wlc_context_bind(struct wlc_context *context)
 {
    assert(context);
 
-   if (!context->api.bind)
-      return false;
+   if (!context->api.bind || !context->api.bind(context->context))
+      goto fail;
 
-   return context->api.bind(context->context);
+   return true;
+
+fail:
+   wlc_log(WLC_LOG_ERROR, "Failed to bind context");
+   return false;
 }
 
 bool
