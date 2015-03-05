@@ -544,7 +544,8 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
 
    if (old != output) {
       chck_iter_pool_push_back(&output->mutable, &handle);
-      WLC_INTERFACE_EMIT(view.move_to_output, convert_to_wlc_handle(view), convert_to_wlc_handle(old), (added ? convert_to_wlc_handle(output) : 0));
+      if (view->state.created)
+         WLC_INTERFACE_EMIT(view.move_to_output, convert_to_wlc_handle(view), convert_to_wlc_handle(old), (added ? convert_to_wlc_handle(output) : 0));
    }
 
    if (!added)
