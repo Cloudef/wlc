@@ -505,9 +505,7 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
    chck_hash_table_set(&xwm->unpaired, win->id, NULL);
    wlc_dlog(WLC_DBG_XWM, "-> Paired collisions (%u)", chck_hash_table_collisions(&xwm->paired));
 
-   if (win->override_redirect)
-      wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, true);
-
+   wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, win->override_redirect);
    read_properties(xwm, &view->x11);
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
