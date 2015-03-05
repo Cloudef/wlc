@@ -364,6 +364,16 @@ wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface
    return true;
 }
 
+bool
+wlc_output_view_attach(struct wlc_output *output, struct wlc_view *view)
+{
+   struct wlc_surface *surface;
+   if (!output || !view || !(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return false;
+
+   return wlc_surface_attach_to_output(surface, output, convert_from_wlc_resource(surface->commit.buffer, "buffer"));
+}
+
 void
 wlc_output_schedule_repaint(struct wlc_output *output)
 {
@@ -472,21 +482,27 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
    wlc_output_set_resolution_ptr(output, &(struct wlc_size){ mode->width, mode->height });
 }
 
+static void
+remove_from_pool(struct chck_iter_pool *pool, wlc_handle handle)
+{
+   wlc_handle *h;
+   chck_iter_pool_for_each(pool, h) {
+      if (*h != handle)
+         continue;
+
+      chck_iter_pool_remove(pool, _I - 1);
+      break;
+   }
+}
+
 void
 wlc_output_unlink_view(struct wlc_output *output, struct wlc_view *view)
 {
    if (!output || wlc_view_get_output_ptr(view) != output)
       return;
 
-   wlc_handle *h, handle = convert_to_wlc_handle(view);
-   chck_iter_pool_for_each(&output->views, h) {
-      if (*h != handle)
-         continue;
-
-      chck_iter_pool_remove(&output->views, _I - 1);
-      break;
-   }
-
+   remove_from_pool(&output->views, convert_to_wlc_handle(view));
+   remove_from_pool(&output->mutable, convert_to_wlc_handle(view));
    wlc_output_schedule_repaint(output);
 }
 
@@ -498,10 +514,11 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
    if (!output)
       return;
 
+   struct wlc_output *old;
+   if ((old = wlc_view_get_output_ptr(view)))
+      remove_from_pool(&old->views, convert_to_wlc_handle(view));
 
    bool added = false;
-   struct wlc_output *old = wlc_view_get_output_ptr(view);
-   wlc_output_unlink_view(old, view);
    wlc_handle handle = convert_to_wlc_handle(view);
 
    if (other) {
@@ -525,17 +542,15 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
       }
    }
 
-   if (old != output)
+   if (old != output) {
+      chck_iter_pool_push_back(&output->mutable, &handle);
       WLC_INTERFACE_EMIT(view.move_to_output, convert_to_wlc_handle(view), convert_to_wlc_handle(old), (added ? convert_to_wlc_handle(output) : 0));
+   }
 
    if (!added)
       return;
 
-   struct wlc_surface *surface;
-   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
-      return;
-
-   wlc_surface_attach_to_output(surface, output, convert_from_wlc_resource(surface->commit.buffer, "buffer"));
+   wlc_output_view_attach(output, view);
    wlc_output_schedule_repaint(output);
 }
 
@@ -637,8 +652,12 @@ wlc_output_get_pixels_ptr(struct wlc_output *output, void (*pixels)(const struct
 bool
 wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb)
 {
-   if (!output || !chck_iter_pool_set_c_array(&output->views, views, memb))
+   if (!output || !chck_iter_pool_set_c_array(&output->views, views, memb) || !chck_iter_pool_set_c_array(&output->mutable, views, memb))
       return false;
+
+   wlc_handle *h;
+   chck_iter_pool_for_each(&output->views, h)
+      wlc_output_view_attach(output, convert_from_wlc_handle(*h, "view"));
 
    wlc_output_schedule_repaint(output);
    return true;
@@ -651,6 +670,15 @@ wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb)
       *out_memb = 0;
 
    return (output ? chck_iter_pool_to_c_array(&output->views, out_memb) : NULL);
+}
+
+wlc_handle*
+wlc_output_get_mutable_views_ptr(struct wlc_output *output, size_t *out_memb)
+{
+   if (out_memb)
+      *out_memb = 0;
+
+   return (output ? chck_iter_pool_to_c_array(&output->mutable, out_memb) : NULL);
 }
 
 void
@@ -714,6 +742,12 @@ wlc_output_get_views(wlc_handle output, size_t *out_memb)
    return wlc_output_get_views_ptr(convert_from_wlc_handle(output, "output"), out_memb);
 }
 
+WLC_API wlc_handle*
+wlc_output_get_mutable_views(wlc_handle output, size_t *out_memb)
+{
+   return wlc_output_get_mutable_views_ptr(convert_from_wlc_handle(output, "output"), out_memb);
+}
+
 WLC_API bool
 wlc_output_set_views(wlc_handle output, const wlc_handle *views, size_t memb)
 {
@@ -741,6 +775,7 @@ wlc_output_release(struct wlc_output *output)
    wlc_output_set_backend_surface(output, NULL);
    chck_iter_pool_release(&output->surfaces);
    chck_iter_pool_release(&output->views);
+   chck_iter_pool_release(&output->mutable);
 
    if (output->wl.output)
       wl_global_destroy(output->wl.output);
@@ -766,7 +801,8 @@ wlc_output(struct wlc_output *output)
       goto fail;
 
    if (!chck_iter_pool(&output->surfaces, 32, 0, sizeof(wlc_resource)) ||
-       !chck_iter_pool(&output->views, 4, 0, sizeof(wlc_handle)))
+       !chck_iter_pool(&output->views, 4, 0, sizeof(wlc_handle)) ||
+       !chck_iter_pool(&output->mutable, 4, 0, sizeof(wlc_handle)))
       goto fail;
 
    output->state.ims = 41;

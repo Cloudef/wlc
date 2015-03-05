@@ -181,7 +181,7 @@ void* wlc_handle_get_user_data(wlc_handle handle);
 
 /** -- Output API */
 
-/** Get outputs. */
+/** Get outputs. Returned array is a direct reference, careful when moving and destroying handles. */
 const wlc_handle* wlc_get_outputs(size_t *out_memb);
 
 /** Get focused output. */
@@ -208,10 +208,17 @@ void wlc_output_set_mask(wlc_handle output, uint32_t mask);
 /** Get pixels. */
 void wlc_output_get_pixels(wlc_handle output, void (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
 
-/** Get view stack. Returned stack is a direct reference, careful when moving and destroying views. */
+/** Get views in stack order. Returned array is a direct reference, careful when moving and destroying handles. */
 const wlc_handle* wlc_output_get_views(wlc_handle output, size_t *out_memb);
 
-/** Set view stack. Returns false on failure */
+/**
+ * Get mutable views in creation order. Returned array is a direct reference, careful when moving and destroying handles.
+ * This is mainly useful for wm's who need another view stack for inplace sorting.
+ * For example tiling wms, may want to use this to keep their tiling order separated from floating order.
+ */
+wlc_handle* wlc_output_get_mutable_views(wlc_handle output, size_t *out_memb);
+
+/** Set views in stack order. This will also change mutable views. Returns false on failure. */
 bool wlc_output_set_views(wlc_handle output, const wlc_handle *views, size_t memb);
 
 /** Focus output. Pass zero for no focus. */

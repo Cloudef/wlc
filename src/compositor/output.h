@@ -45,7 +45,7 @@ struct wlc_output {
    struct wlc_render render;
 
    // XXX: maybe we can use source later and provide move semantics (for views)?
-   struct chck_iter_pool surfaces, views;
+   struct chck_iter_pool surfaces, views, mutable;
 
    struct {
       struct wl_event_source *idle, *sleep;
