@@ -422,6 +422,13 @@ get(struct wlc_view *view, size_t offset)
    return (view ? ((void*)view + offset) : NULL);
 }
 
+static void*
+get_cstr(struct wlc_view *view, size_t offset)
+{
+   struct chck_string *string = ((void*)view + offset);
+   return (view && !chck_string_is_empty(string) ? string->data : NULL);
+}
+
 WLC_API void
 wlc_view_focus(wlc_handle view)
 {
@@ -473,7 +480,8 @@ wlc_view_bring_to_front(wlc_handle view)
 WLC_API uint32_t
 wlc_view_get_mask(wlc_handle view)
 {
-   return *(uint32_t*)get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, mask));
+   void *ptr = get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, mask));
+   return (ptr ? *(uint32_t*)ptr : 0);
 }
 
 WLC_API void
@@ -497,7 +505,8 @@ wlc_view_set_geometry(wlc_handle view, const struct wlc_geometry *geometry)
 WLC_API uint32_t
 wlc_view_get_type(wlc_handle view)
 {
-   return *(uint32_t*)get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, type));
+   void *ptr = get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, type));
+   return (ptr ? *(uint32_t*)ptr : 0);
 }
 
 WLC_API void
@@ -509,7 +518,8 @@ wlc_view_set_type(wlc_handle view, enum wlc_view_type_bit type, bool toggle)
 WLC_API uint32_t
 wlc_view_get_state(wlc_handle view)
 {
-   return *(uint32_t*)get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, pending.state));
+   void *ptr = get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, pending.state));
+   return (ptr ? *(uint32_t*)ptr : 0);
 }
 
 WLC_API void
@@ -521,7 +531,8 @@ wlc_view_set_state(wlc_handle view, enum wlc_view_state_bit state, bool toggle)
 WLC_API wlc_handle
 wlc_view_get_parent(wlc_handle view)
 {
-   return *(wlc_handle*)get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, parent));
+   void *ptr = get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, parent));
+   return (ptr ? *(wlc_handle*)ptr : 0);
 }
 
 WLC_API void
@@ -533,7 +544,7 @@ wlc_view_set_parent(wlc_handle view, wlc_handle parent)
 WLC_API const char*
 wlc_view_get_title(wlc_handle view)
 {
-   return get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.title.data));
+   return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.title));
 }
 
 WLC_API bool
@@ -545,7 +556,7 @@ wlc_view_set_title(wlc_handle view, const char *title)
 WLC_API const char*
 wlc_view_get_class(wlc_handle view)
 {
-   return get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data._class.data));
+   return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data._class));
 }
 
 WLC_API bool
@@ -557,7 +568,7 @@ wlc_view_set_class(wlc_handle view, const char *class_)
 WLC_API const char*
 wlc_view_get_app_id(wlc_handle view)
 {
-   return get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.app_id.data));
+   return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.app_id));
 }
 
 WLC_API bool

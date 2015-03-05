@@ -709,7 +709,8 @@ wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution)
 WLC_API bool
 wlc_output_get_sleep(wlc_handle output)
 {
-   return *(bool*)get(convert_from_wlc_handle(output, "output"), offsetof(struct wlc_output, state.sleeping));
+   void *ptr = get(convert_from_wlc_handle(output, "output"), offsetof(struct wlc_output, state.sleeping));
+   return (ptr ? *(bool*)ptr : false);
 }
 
 WLC_API void
@@ -721,7 +722,8 @@ wlc_output_set_sleep(wlc_handle output, bool sleep)
 WLC_API uint32_t
 wlc_output_get_mask(wlc_handle output)
 {
-   return *(uint32_t*)get(convert_from_wlc_handle(output, "output"), offsetof(struct wlc_output, active.mask));
+   void *ptr = get(convert_from_wlc_handle(output, "output"), offsetof(struct wlc_output, active.mask));
+   return (ptr ? *(uint32_t*)ptr : 0);
 }
 
 WLC_API void
