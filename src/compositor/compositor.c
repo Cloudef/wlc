@@ -464,7 +464,7 @@ wlc_get_focused_output(void)
 void
 wlc_compositor_release(struct wlc_compositor *compositor)
 {
-   if (!compositor)
+   if (!compositor || !_g_compositor)
       return;
 
    wl_list_remove(&compositor->listener.activated.link);
@@ -498,21 +498,15 @@ wlc_compositor_release(struct wlc_compositor *compositor)
 bool
 wlc_compositor(struct wlc_compositor *compositor)
 {
-   assert(wlc_display() && wlc_event_loop());
+   assert(wlc_display() && wlc_event_loop() && !_g_compositor);
    memset(compositor, 0, sizeof(struct wlc_compositor));
 
-   if (!wlc_display() || !wlc_event_loop()) {
+   if (!wlc_display() || !wlc_event_loop() || _g_compositor) {
       wlc_log(WLC_LOG_ERROR, "wlc_compositor called before wlc_init()");
       abort();
    }
 
    _g_compositor = compositor;
-
-   if (!wlc_source(&compositor->outputs, "output", wlc_output, wlc_output_release, 4, sizeof(struct wlc_output)) ||
-       !wlc_source(&compositor->views, "view", wlc_view, wlc_view_release, 32, sizeof(struct wlc_view)) ||
-       !wlc_source(&compositor->surfaces, "surface", wlc_surface, wlc_surface_release, 32, sizeof(struct wlc_surface)) ||
-       !wlc_source(&compositor->regions, "region", NULL, wlc_region_release, 32, sizeof(struct wlc_region)))
-      goto fail;
 
    compositor->listener.activated.notify = activated;
    compositor->listener.terminated.notify = terminated;
@@ -526,6 +520,12 @@ wlc_compositor(struct wlc_compositor *compositor)
    wl_signal_add(&wlc_system_signals()->surface, &compositor->listener.surface);
    wl_signal_add(&wlc_system_signals()->output, &compositor->listener.output);
    wl_signal_add(&wlc_system_signals()->focus, &compositor->listener.focus);
+
+   if (!wlc_source(&compositor->outputs, "output", wlc_output, wlc_output_release, 4, sizeof(struct wlc_output)) ||
+       !wlc_source(&compositor->views, "view", wlc_view, wlc_view_release, 32, sizeof(struct wlc_view)) ||
+       !wlc_source(&compositor->surfaces, "surface", wlc_surface, wlc_surface_release, 32, sizeof(struct wlc_surface)) ||
+       !wlc_source(&compositor->regions, "region", NULL, wlc_region_release, 32, sizeof(struct wlc_region)))
+      goto fail;
 
    if (!(compositor->wl.compositor = wl_global_create(wlc_display(), &wl_compositor_interface, 3, compositor, wl_compositor_bind)))
       goto compositor_interface_fail;
