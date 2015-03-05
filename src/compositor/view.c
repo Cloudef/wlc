@@ -34,8 +34,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
 
    if (!view->state.created) {
       if (WLC_INTERFACE_EMIT_EXCEPT(view.created, false, convert_to_wlc_handle(view))) {
-         wlc_resource_release(convert_to_wlc_resource(surface));
-         wlc_handle_release(convert_to_wlc_handle(view));
+         wlc_view_close_ptr(view);
          return;
       }
 
