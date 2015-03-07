@@ -133,7 +133,7 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
 
    uint32_t leds = 0;
    for (uint32_t i = 0; i < WLC_LED_LAST; ++i) {
-      if (xkb_state_led_index_is_active(seat->keyboard.state, seat->keymap.leds[i]))
+      if (xkb_state_led_index_is_active(seat->keyboard.state.xkb, seat->keymap.leds[i]))
          leds |= led_bits[i];
    }
 

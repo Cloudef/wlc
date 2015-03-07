@@ -11,10 +11,10 @@ static void
 update_modifiers(struct wlc_keyboard *keyboard)
 {
    assert(keyboard);
-   uint32_t depressed = xkb_state_serialize_mods(keyboard->state, XKB_STATE_DEPRESSED);
-   uint32_t latched = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LATCHED);
-   uint32_t locked = xkb_state_serialize_mods(keyboard->state, XKB_STATE_LOCKED);
-   uint32_t group = xkb_state_serialize_layout(keyboard->state, XKB_STATE_LAYOUT_EFFECTIVE);
+   uint32_t depressed = xkb_state_serialize_mods(keyboard->state.xkb, XKB_STATE_DEPRESSED);
+   uint32_t latched = xkb_state_serialize_mods(keyboard->state.xkb, XKB_STATE_LATCHED);
+   uint32_t locked = xkb_state_serialize_mods(keyboard->state.xkb, XKB_STATE_LOCKED);
+   uint32_t group = xkb_state_serialize_layout(keyboard->state.xkb, XKB_STATE_LAYOUT_EFFECTIVE);
 
    if (depressed == keyboard->mods.depressed &&
        latched   == keyboard->mods.latched   &&
@@ -101,6 +101,7 @@ cb_send_keys(void *data)
    except((keyboard = data));
    send_press_for_keys(keyboard->focused.resource, &keyboard->keys);
    wl_event_source_timer_update(keyboard->timer.focus, 0);
+   keyboard->state.locked = false;
    return 1;
 }
 
@@ -111,16 +112,18 @@ cb_repeat(void *data)
    except((keyboard = data));
    chck_iter_pool_release(&keyboard->keys);
    wl_event_source_timer_update(keyboard->timer.repeat, 0);
+   keyboard->state.repeat = false;
    return 1;
 }
 
 bool
 wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state)
 {
-   uint32_t sym = xkb_state_key_get_one_sym(keyboard->state, key + 8);
+   uint32_t sym = xkb_state_key_get_one_sym(keyboard->state.xkb, key + 8);
 
    if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, sym, (enum wlc_key_state)state)) {
       wl_event_source_timer_update(keyboard->timer.repeat, 90);
+      keyboard->state.repeat = true;
       return false;
    }
 
@@ -130,16 +133,24 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const str
 bool
 wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state)
 {
-   xkb_state_update_key(keyboard->state, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
+   assert(keyboard);
+   xkb_state_update_key(keyboard->state.xkb, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
    update_modifiers(keyboard);
-   return update_keys(&keyboard->keys, key, state);
+   const bool ret = update_keys(&keyboard->keys, key, state);
+
+   if (keyboard->state.repeat)
+      cb_repeat(keyboard);
+
+   if (keyboard->state.locked)
+      cb_send_keys(keyboard);
+
+   return ret;
 }
 
 void
 wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key, enum wl_keyboard_key_state state)
 {
    assert(keyboard);
-
    struct wl_resource *focus;
    if (!(focus = wl_resource_from_wlc_resource(keyboard->focused.resource, "keyboard")))
       return;
@@ -189,6 +200,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
          wl_keyboard_send_enter(focus, serial, surface, &keys);
 
          // do not send keys immediately, maybe make this timer tied to repeat rate
+         keyboard->state.locked = true;
          wl_event_source_timer_update(keyboard->timer.focus, 100);
       }
 
@@ -208,10 +220,10 @@ wlc_keyboard_set_keymap(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap
 {
    assert(keyboard);
 
-   if (!keymap && keyboard->state)
-      xkb_state_unref(keyboard->state);
+   if (!keymap && keyboard->state.xkb)
+      xkb_state_unref(keyboard->state.xkb);
 
-   if (keymap && (!(keyboard->state = xkb_state_new(keymap->keymap))))
+   if (keymap && (!(keyboard->state.xkb = xkb_state_new(keymap->keymap))))
       return false;
 
    return true;
@@ -223,8 +235,8 @@ wlc_keyboard_release(struct wlc_keyboard *keyboard)
    if (!keyboard)
       return;
 
-   if (keyboard->state)
-      xkb_state_unref(keyboard->state);
+   if (keyboard->state.xkb)
+      xkb_state_unref(keyboard->state.xkb);
 
    if (keyboard->timer.focus)
       wl_event_source_remove(keyboard->timer.focus);

@@ -18,7 +18,6 @@ struct wlc_modifiers;
 
 struct wlc_keyboard {
    struct wlc_source resources;
-   struct xkb_state *state;
    struct chck_iter_pool keys;
 
    struct {
@@ -37,6 +36,11 @@ struct wlc_keyboard {
       uint32_t locked;
       uint32_t group;
    } mods;
+
+   struct {
+      struct xkb_state *xkb;
+      bool locked, repeat;
+   } state;
 };
 
 bool wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state);
