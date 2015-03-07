@@ -1,4 +1,5 @@
 #include <xcb/xcb.h>
+#include <xcb/xkb.h>
 #include <X11/Xlib-xcb.h>
 #include <linux/input.h>
 #include <chck/math/math.h>
@@ -41,6 +42,7 @@ static struct {
       void *x11_handle;
       void *x11_xcb_handle;
       void *xcb_handle;
+      void *xcb_xkb_handle;
 
       Display* (*XOpenDisplay)(const char*);
       int (*XCloseDisplay)(Display*);
@@ -70,6 +72,14 @@ static struct {
       xcb_generic_error_t* (*xcb_request_check)(xcb_connection_t*, xcb_void_cookie_t);
       xcb_generic_event_t* (*xcb_poll_for_event)(xcb_connection_t*);
       int (*xcb_get_file_descriptor)(xcb_connection_t*);
+      xcb_query_extension_reply_t* (*xcb_get_extension_data)(xcb_connection_t*, xcb_extension_t*);
+
+      xcb_xkb_per_client_flags_cookie_t (*xcb_xkb_per_client_flags)(xcb_connection_t*, xcb_xkb_device_spec_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+      xcb_xkb_per_client_flags_reply_t* (*xcb_xkb_per_client_flags_reply)(xcb_connection_t*, xcb_xkb_per_client_flags_cookie_t, xcb_generic_error_t**);
+      xcb_void_cookie_t (*xcb_xkb_select_events_checked)(xcb_connection_t*, xcb_xkb_device_spec_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, const void*);
+      xcb_xkb_use_extension_reply_t* (*xcb_xkb_use_extension_reply)(xcb_connection_t*, xcb_xkb_use_extension_cookie_t, xcb_generic_error_t**);
+      xcb_xkb_use_extension_cookie_t (*xcb_xkb_use_extension)(xcb_connection_t*, uint16_t, uint16_t);
+      xcb_extension_t *xcb_xkb_id;
    } api;
 } x11;
 
@@ -180,6 +190,42 @@ xcb_load(void)
    if (!load(xcb_poll_for_event))
       goto function_pointer_exception;
    if (!load(xcb_get_file_descriptor))
+      goto function_pointer_exception;
+   if (!load(xcb_get_extension_data))
+      goto function_pointer_exception;
+
+#undef load
+
+   return true;
+
+function_pointer_exception:
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
+   return false;
+}
+
+static bool
+xcb_xkb_load(void)
+{
+   const char *lib = "libxcb-xkb.so", *func = NULL;
+
+   if (!(x11.api.xcb_xkb_handle = dlopen(lib, RTLD_LAZY))) {
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
+      return false;
+   }
+
+#define load(x) (x11.api.x = dlsym(x11.api.xcb_xkb_handle, (func = #x)))
+
+   if (!load(xcb_xkb_per_client_flags))
+      goto function_pointer_exception;
+   if (!load(xcb_xkb_per_client_flags_reply))
+      goto function_pointer_exception;
+   if (!load(xcb_xkb_select_events_checked))
+      goto function_pointer_exception;
+   if (!load(xcb_xkb_use_extension))
+      goto function_pointer_exception;
+   if (!load(xcb_xkb_use_extension_reply))
+      goto function_pointer_exception;
+   if (!load(xcb_xkb_id))
       goto function_pointer_exception;
 
 #undef load
@@ -489,6 +535,66 @@ update_outputs(struct chck_pool *outputs)
    return count;
 }
 
+static bool
+setup_xkb(void)
+{
+   const xcb_query_extension_reply_t *ext;
+   if (!(ext = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_xkb_id)))
+      return false;
+
+#if 0 // need this to synchronize xkb state
+   c->xkb_event_base = ext->first_event;
+#endif
+
+   xcb_void_cookie_t select = x11.api.xcb_xkb_select_events_checked(x11.connection,
+         XCB_XKB_ID_USE_CORE_KBD,
+         XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
+         0,
+         XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
+         0,
+         0,
+         NULL);
+
+   xcb_generic_error_t *error;
+   if ((error = x11.api.xcb_request_check(x11.connection, select))) {
+      free(error);
+      return false;
+   }
+
+   xcb_xkb_use_extension_reply_t *use_ext_reply;
+   xcb_xkb_use_extension_cookie_t use_ext = x11.api.xcb_xkb_use_extension(x11.connection, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION);
+   if (!(use_ext_reply = x11.api.xcb_xkb_use_extension_reply(x11.connection, use_ext, NULL)))
+      return false;
+
+   const bool supported = use_ext_reply->supported;
+   free(use_ext_reply);
+
+   if (!supported)
+      return false;
+
+   xcb_xkb_per_client_flags_cookie_t pcf = x11.api.xcb_xkb_per_client_flags(x11.connection,
+         XCB_XKB_ID_USE_CORE_KBD,
+         XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
+         XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
+         0,
+         0,
+         0);
+
+   xcb_xkb_per_client_flags_reply_t *pcf_reply;
+   if (!(pcf_reply = x11.api.xcb_xkb_per_client_flags_reply(x11.connection, pcf, NULL)))
+      return false;
+
+   const bool has_repeat = (pcf_reply->value & XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT);
+   free(pcf_reply);
+
+   if (!has_repeat)
+      return false;
+
+   uint32_t values[1] = { XCB_EVENT_MASK_PROPERTY_CHANGE };
+   x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, values);
+   return true;
+}
+
 static void
 terminate(void)
 {
@@ -507,6 +613,9 @@ terminate(void)
    if (x11.api.x11_xcb_handle)
       dlclose(x11.api.x11_xcb_handle);
 
+   if (x11.api.xcb_xkb_handle)
+      dlclose(x11.api.x11_xcb_handle);
+
    if (x11.api.xcb_handle)
       dlclose(x11.api.xcb_handle);
 
@@ -516,7 +625,7 @@ terminate(void)
 bool
 wlc_x11(struct wlc_backend *backend)
 {
-   if (!x11_load() || !x11_xcb_load() || !xcb_load())
+   if (!x11_load() || !x11_xcb_load() || !xcb_load() || !xcb_xkb_load())
       goto fail;
 
    if (!(x11.display = x11.api.XOpenDisplay(NULL)))
@@ -565,6 +674,9 @@ wlc_x11(struct wlc_backend *backend)
    x11.api.xcb_free_gc(x11.connection, gc);
    x11.api.xcb_free_pixmap(x11.connection, pixmap);
 
+   if (!setup_xkb())
+      goto could_not_use_xkb_extension;
+
    if (!update_outputs(NULL))
       goto output_fail;
 
@@ -588,6 +700,9 @@ cursor_fail:
    goto fail;
 event_source_fail:
    wlc_log(WLC_LOG_WARN, "Failed to add X11 event source");
+   goto fail;
+could_not_use_xkb_extension:
+   wlc_log(WLC_LOG_WARN, "Could not disable auto repeat or use xkb extension (seriously get better X11 server)");
    goto fail;
 output_fail:
    wlc_log(WLC_LOG_WARN, "Failed to create output");
