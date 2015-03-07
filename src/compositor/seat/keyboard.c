@@ -189,6 +189,9 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
       WLC_INTERFACE_EMIT(view.focus, keyboard->focused.view, false);
 
    {
+      if (view)
+         wlc_x11_window_set_active(&view->x11, true);
+
       struct wl_client *client;
       struct wl_resource *surface, *focus = NULL;
       if (view && (surface = wl_resource_from_wlc_resource(view->surface, "surface")) &&
@@ -203,9 +206,6 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
          keyboard->state.locked = true;
          wl_event_source_timer_update(keyboard->timer.focus, 100);
       }
-
-      if (view)
-         wlc_x11_window_set_active(&view->x11, true);
 
       keyboard->focused.view = convert_to_wlc_handle(view);
       keyboard->focused.resource = wlc_resource_from_wl_resource(focus);

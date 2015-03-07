@@ -473,6 +473,7 @@ void
 wlc_output_set_information(struct wlc_output *output, struct wlc_output_information *info)
 {
    assert(output && info);
+   wlc_output_information_release(&output->information);
    memcpy(&output->information, info, sizeof(output->information));
    memset(info, 0, sizeof(output->information));
 
@@ -779,6 +780,7 @@ wlc_output_release(struct wlc_output *output)
    if (output->timer.sleep)
       wl_event_source_remove(output->timer.sleep);
 
+   wlc_output_information_release(&output->information);
    wlc_output_set_backend_surface(output, NULL);
    chck_iter_pool_release(&output->surfaces);
    chck_iter_pool_release(&output->views);

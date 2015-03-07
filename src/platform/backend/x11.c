@@ -601,8 +601,11 @@ terminate(void)
    if (x11.cursor)
       x11.api.xcb_free_cursor(x11.connection, x11.cursor);
 
+   // XXX: Seems to race with eglDestroySurface
+#if 0
    if (x11.display)
       x11.api.XCloseDisplay(x11.display);
+#endif
 
    if (x11.event_source)
       wl_event_source_remove(x11.event_source);

@@ -592,6 +592,10 @@ wlc_view_release(struct wlc_view *view)
    wlc_resource_release(view->xdg_surface);
    wlc_resource_release(view->xdg_popup);
 
+   chck_string_release(&view->data.title);
+   chck_string_release(&view->data._class);
+   chck_string_release(&view->data.app_id);
+
    wlc_surface_attach_to_view(convert_from_wlc_resource(view->surface, "surface"), NULL);
    chck_iter_pool_release(&view->wl_state);
 }
