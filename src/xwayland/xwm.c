@@ -251,6 +251,7 @@ xcb_call(const char *func, uint32_t line, xcb_void_cookie_t cookie)
       return true;
 
    wlc_log(WLC_LOG_ERROR, "xwm: function %s at line %u x11 error code %d", func, line, error->error_code);
+   free(error);
    return false;
 }
 #define XCB_CALL(x) xcb_call(__PRETTY_FUNCTION__, __LINE__, x)
