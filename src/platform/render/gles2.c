@@ -531,6 +531,7 @@ surface_flush_images(struct wlc_context *context, struct wlc_surface *surface)
 static void
 surface_destroy(struct ctx *context, struct wlc_context *bound, struct wlc_surface *surface)
 {
+   (void)context;
    assert(context && bound && surface);
    surface_flush_textures(surface);
    surface_flush_images(bound, surface);
@@ -795,6 +796,7 @@ pointer_paint(struct ctx *context, struct wlc_origin *pos)
 static void
 read_pixels(struct ctx *context, struct wlc_geometry *geometry, void *out_data)
 {
+   (void)context;
    assert(context && geometry && out_data);
    GL_CALL(gl.api.glReadPixels(geometry->origin.x, geometry->origin.y, geometry->size.w, geometry->size.h, GL_RGBA, GL_UNSIGNED_BYTE, out_data));
 }
@@ -820,6 +822,7 @@ background(struct ctx *context)
 static void
 clear(struct ctx *context)
 {
+   (void)context;
    assert(context);
    GL_CALL(gl.api.glClear(GL_COLOR_BUFFER_BIT));
 }

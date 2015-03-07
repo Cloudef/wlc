@@ -3,6 +3,7 @@
 #include <wayland-server.h>
 #include "touch.h"
 #include "internal.h"
+#include "macros.h"
 #include "compositor/compositor.h"
 #include "compositor/view.h"
 #include "compositor/output.h"
@@ -12,7 +13,7 @@ active_output(struct wlc_touch *touch)
 {
    struct wlc_seat *seat;
    struct wlc_compositor *compositor;
-   assert((seat = wl_container_of(touch, seat, touch)) && (compositor = wl_container_of(seat, compositor, seat)));
+   except((seat = wl_container_of(touch, seat, touch)) && (compositor = wl_container_of(seat, compositor, seat)));
    return convert_from_wlc_handle(compositor->active.output, "output");
 }
 

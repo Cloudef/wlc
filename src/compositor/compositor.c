@@ -162,7 +162,7 @@ activated(struct wl_listener *listener, void *data)
    bool activated = *(bool*)data;
 
    struct wlc_compositor *compositor;
-   assert(compositor = wl_container_of(listener, compositor, listener.activated));
+   except(compositor = wl_container_of(listener, compositor, listener.activated));
 
    if (!activated) {
       chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_set_backend_surface, NULL);
@@ -177,7 +177,7 @@ terminated(struct wl_listener *listener, void *data)
    (void)data;
 
    struct wlc_compositor *compositor;
-   assert(compositor = wl_container_of(listener, compositor, listener.terminated));
+   except(compositor = wl_container_of(listener, compositor, listener.terminated));
 
    compositor->terminating = true;
 
@@ -196,7 +196,7 @@ xwayland(struct wl_listener *listener, void *data)
    bool activated = *(bool*)data;
 
    struct wlc_compositor *compositor;
-   assert(compositor = wl_container_of(listener, compositor, listener.xwayland));
+   except(compositor = wl_container_of(listener, compositor, listener.xwayland));
 
    if (activated) {
       wlc_xwm(&compositor->xwm);
@@ -248,7 +248,7 @@ static void
 surface_event(struct wl_listener *listener, void *data)
 {
    struct wlc_compositor *compositor;
-   assert(compositor = wl_container_of(listener, compositor, listener.surface));
+   except(compositor = wl_container_of(listener, compositor, listener.surface));
 
    struct wlc_surface_event *ev = data;
    switch (ev->type) {
@@ -372,7 +372,7 @@ output_event(struct wl_listener *listener, void *data)
    struct wlc_output_event *ev = data;
 
    struct wlc_compositor *compositor;
-   assert(compositor = wl_container_of(listener, compositor, listener.output));
+   except(compositor = wl_container_of(listener, compositor, listener.output));
 
    switch (ev->type) {
       case WLC_OUTPUT_EVENT_ADD:
@@ -397,7 +397,7 @@ static void
 focus_event(struct wl_listener *listener, void *data)
 {
    struct wlc_compositor *compositor;
-   assert(compositor = wl_container_of(listener, compositor, listener.focus));
+   except(compositor = wl_container_of(listener, compositor, listener.focus));
 
    struct wlc_focus_event *ev = data;
    switch (ev->type) {

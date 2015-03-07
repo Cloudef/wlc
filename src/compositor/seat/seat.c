@@ -159,7 +159,7 @@ input_event(struct wl_listener *listener, void *data)
 
    struct wlc_seat *seat;
    struct wlc_compositor *compositor;
-   assert((seat = wl_container_of(listener, seat, listener.input)) && (compositor = wl_container_of(seat, compositor, seat)));
+   except((seat = wl_container_of(listener, seat, listener.input)) && (compositor = wl_container_of(seat, compositor, seat)));
 
    struct wlc_output *output = convert_from_wlc_handle(compositor->active.output, "output");
 
@@ -249,7 +249,7 @@ static void
 focus_event(struct wl_listener *listener, void *data)
 {
    struct wlc_seat *seat;
-   assert((seat = wl_container_of(listener, seat, listener.focus)));
+   except((seat = wl_container_of(listener, seat, listener.focus)));
 
    struct wlc_focus_event *ev = data;
    switch (ev->type) {
@@ -266,7 +266,7 @@ focus_event(struct wl_listener *listener, void *data)
 surface_event(struct wl_listener *listener, void *data)
 {
    struct wlc_seat *seat;
-   assert((seat = wl_container_of(listener, seat, listener.surface)));
+   except((seat = wl_container_of(listener, seat, listener.surface)));
 
    struct wlc_surface_event *ev = data;
    switch (ev->type) {

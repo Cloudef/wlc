@@ -17,4 +17,6 @@
 #  define static_assert_x(x, y) static_assert(x, #y)
 #endif
 
+#define except(x) if (!(x)) { wlc_log(WLC_LOG_ERROR, "assertion failed: %s", #x); abort(); }
+
 #endif /* _WLC_MACROS_H_ */

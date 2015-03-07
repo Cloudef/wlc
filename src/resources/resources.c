@@ -3,6 +3,7 @@
 #include <chck/string/string.h>
 #include "visibility.h"
 #include "internal.h"
+#include "macros.h"
 #include "resources.h"
 
 struct handle {
@@ -367,7 +368,7 @@ wl_destructor(struct wl_listener *listener, void *data)
    assert(listener);
 
    struct resource *r;
-   assert((r = wl_container_of(listener, r, wl.destructor)));
+   except((r = wl_container_of(listener, r, wl.destructor)));
    wl_list_remove(&r->wl.destructor.link);
    r->wl.r = NULL;
 

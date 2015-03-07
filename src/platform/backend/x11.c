@@ -9,6 +9,7 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include "internal.h"
+#include "macros.h"
 #include "x11.h"
 #include "backend.h"
 #include "session/udev.h"
@@ -254,7 +255,7 @@ x11_event(int fd, uint32_t mask, void *data)
    (void)fd, (void)mask;
 
    struct wlc_compositor *compositor;
-   assert((compositor = wl_container_of(data, compositor, backend)));
+   except((compositor = wl_container_of(data, compositor, backend)));
 
    int count = 0;
    xcb_generic_event_t *event;

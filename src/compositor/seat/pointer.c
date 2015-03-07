@@ -40,7 +40,7 @@ active_output(struct wlc_pointer *pointer)
 {
    struct wlc_seat *seat;
    struct wlc_compositor *compositor;
-   assert((seat = wl_container_of(pointer, seat, pointer)) && (compositor = wl_container_of(seat, compositor, seat)));
+   except((seat = wl_container_of(pointer, seat, pointer)) && (compositor = wl_container_of(seat, compositor, seat)));
    return convert_from_wlc_handle(compositor->active.output, "output");
 }
 
@@ -127,7 +127,7 @@ static void
 render_event(struct wl_listener *listener, void *data)
 {
    struct wlc_pointer *pointer;
-   assert(pointer = wl_container_of(listener, pointer, listener.render));
+   except(pointer = wl_container_of(listener, pointer, listener.render));
 
    struct wlc_render_event *ev = data;
    switch (ev->type) {

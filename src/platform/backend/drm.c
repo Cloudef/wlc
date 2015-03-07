@@ -12,6 +12,7 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include "internal.h"
+#include "macros.h"
 #include "drm.h"
 #include "backend.h"
 #include "compositor/compositor.h"
@@ -276,7 +277,7 @@ page_flip(struct wlc_backend_surface *bsurface)
    release_fb(dsurface->surface, fb);
 
    struct wlc_output *o;
-   assert((o = wl_container_of(bsurface, o, bsurface)));
+   except((o = wl_container_of(bsurface, o, bsurface)));
 
    if (!create_fb(dsurface->surface, fb))
       return false;

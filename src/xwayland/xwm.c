@@ -7,6 +7,7 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include "internal.h"
+#include "macros.h"
 #include "xwm.h"
 #include "xwayland.h"
 #include "compositor/compositor.h"
@@ -815,7 +816,7 @@ static void
 surface_notify(struct wl_listener *listener, void *data)
 {
    struct wlc_xwm *xwm;
-   assert((xwm = wl_container_of(listener, xwm, listener.surface)));
+   except((xwm = wl_container_of(listener, xwm, listener.surface)));
 
    struct wlc_surface_event *ev = data;
    if (ev->type != WLC_SURFACE_EVENT_CREATED)
