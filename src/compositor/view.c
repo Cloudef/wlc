@@ -600,5 +600,6 @@ bool
 wlc_view(struct wlc_view *view)
 {
    assert(view);
+   assert(!view->state.created);
    return chck_iter_pool(&view->wl_state, 8, 0, sizeof(uint32_t));
 }
