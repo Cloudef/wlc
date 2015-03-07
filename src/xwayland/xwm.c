@@ -280,6 +280,14 @@ static void
 remove_window_for_id(struct wlc_xwm *xwm, xcb_window_t window)
 {
    assert(xwm);
+
+   if (x11.focus == window)
+      x11.focus = 0;
+
+   struct wlc_x11_window *win;
+   if ((win = paired_for_id(xwm, window)))
+      memset(win, 0, sizeof(struct wlc_x11_window));
+
    chck_hash_table_set(&xwm->paired, window, NULL);
    chck_hash_table_set(&xwm->unpaired, window, NULL);
 }
