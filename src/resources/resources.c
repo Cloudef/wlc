@@ -77,6 +77,8 @@ relocate_resources(struct chck_pool *pool)
    // worst case scenario
    // when resrouce container pool address changes, we need to reset all destructors again
 
+   wlc_dlog(WLC_DBG_HANDLE, "Relocating resources");
+
    struct resource *r;
    chck_pool_for_each(pool, r) {
       if (!r->wl.r)
@@ -158,7 +160,12 @@ handle_release(struct chck_pool *pool, struct handle *handle, void (*preremove)(
       preremove(chck_pool_get(pool, handle->public - 1));
 
    wlc_dlog(WLC_DBG_HANDLE, "Released %s (%s) %zu", (pool == &handles ? "handle" : "resource"), handle->source->name, handle->public);
+
+   void *original = pool->items.buffer;
    chck_pool_remove(pool, handle->public - 1);
+
+   if (pool == &resources && original != pool->items.buffer)
+      relocate_resources(pool);
 }
 
 static bool
