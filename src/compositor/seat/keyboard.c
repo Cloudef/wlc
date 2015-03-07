@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <wayland-server.h>
 #include "internal.h"
+#include "macros.h"
 #include "keyboard.h"
 #include "keymap.h"
 #include "compositor/view.h"
@@ -76,12 +77,41 @@ send_release_for_keys(wlc_resource resource, struct chck_iter_pool *keys)
    }
 }
 
-void
-reset_keyboard(struct wlc_keyboard *keyboard)
+static void
+send_press_for_keys(wlc_resource resource, struct chck_iter_pool *keys)
 {
-   assert(keyboard);
-   send_release_for_keys(keyboard->focused.resource, &keyboard->keys);
+   assert(keys);
+
+   struct wl_resource *focus;
+   if (!(focus = wl_resource_from_wlc_resource(resource, "keyboard")))
+      return;
+
+   uint32_t *k;
+   uint32_t time = wlc_get_time(NULL);
+   chck_iter_pool_for_each(keys, k) {
+      uint32_t serial = wl_display_next_serial(wlc_display());
+      wl_keyboard_send_key(focus, serial, time, *k, WL_KEYBOARD_KEY_STATE_PRESSED);
+   }
+}
+
+static int
+cb_send_keys(void *data)
+{
+   struct wlc_keyboard *keyboard;
+   except((keyboard = data));
+   send_press_for_keys(keyboard->focused.resource, &keyboard->keys);
+   wl_event_source_timer_update(keyboard->timer.focus, 0);
+   return 1;
+}
+
+static int
+cb_repeat(void *data)
+{
+   struct wlc_keyboard *keyboard;
+   except((keyboard = data));
    chck_iter_pool_release(&keyboard->keys);
+   wl_event_source_timer_update(keyboard->timer.repeat, 0);
+   return 1;
 }
 
 bool
@@ -90,7 +120,8 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const str
    uint32_t sym = xkb_state_key_get_one_sym(keyboard->state, key + 8);
 
    if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, sym, (enum wlc_key_state)state)) {
-      reset_keyboard(keyboard);
+      send_release_for_keys(keyboard->focused.resource, &keyboard->keys);
+      wl_event_source_timer_update(keyboard->timer.repeat, 100);
       return false;
    }
 
@@ -111,7 +142,6 @@ wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key, enu
    assert(keyboard);
 
    struct wl_resource *focus;
-
    if (!(focus = wl_resource_from_wlc_resource(keyboard->focused.resource, "keyboard")))
       return;
 
@@ -128,7 +158,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
       return;
 
    wlc_dlog(WLC_DBG_FOCUS, "-> keyboard focus event %zu, %zu", keyboard->focused.view, convert_to_wlc_handle(view));
-   reset_keyboard(keyboard);
+   send_release_for_keys(keyboard->focused.resource, &keyboard->keys);
 
    {
       struct wlc_view *v;
@@ -155,8 +185,12 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
           (client = wl_resource_get_client(surface)) &&
           (focus = wl_resource_for_client(&keyboard->resources, client))) {
          uint32_t serial = wl_display_next_serial(wlc_display());
-         struct wl_array keys = { .size = keyboard->keys.items.used, .alloc = keyboard->keys.items.allocated, .data = keyboard->keys.items.buffer };
+         struct wl_array keys;
+         wl_array_init(&keys);
          wl_keyboard_send_enter(focus, serial, surface, &keys);
+
+         // do not send keys immediately, maybe make this timer tied to repeat rate
+         wl_event_source_timer_update(keyboard->timer.focus, 100);
       }
 
       if (view)
@@ -193,6 +227,12 @@ wlc_keyboard_release(struct wlc_keyboard *keyboard)
    if (keyboard->state)
       xkb_state_unref(keyboard->state);
 
+   if (keyboard->timer.focus)
+      wl_event_source_remove(keyboard->timer.focus);
+
+   if (keyboard->timer.repeat)
+      wl_event_source_remove(keyboard->timer.repeat);
+
    chck_iter_pool_release(&keyboard->keys);
    wlc_source_release(&keyboard->resources);
    memset(keyboard, 0, sizeof(struct wlc_keyboard));
@@ -211,6 +251,10 @@ wlc_keyboard(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap)
       goto fail;
 
    if (!wlc_source(&keyboard->resources, "keyboard", NULL, NULL, 32, sizeof(struct wlc_resource)))
+      goto fail;
+
+   if (!(keyboard->timer.focus = wl_event_loop_add_timer(wlc_event_loop(), cb_send_keys, keyboard)) ||
+       !(keyboard->timer.repeat = wl_event_loop_add_timer(wlc_event_loop(), cb_repeat, keyboard)))
       goto fail;
 
    return true;

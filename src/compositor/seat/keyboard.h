@@ -22,6 +22,11 @@ struct wlc_keyboard {
    struct chck_iter_pool keys;
 
    struct {
+      struct wl_event_source *focus;
+      struct wl_event_source *repeat;
+   } timer;
+
+   struct {
       wlc_handle view;
       wlc_resource resource;
    } focused;
