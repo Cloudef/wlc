@@ -155,8 +155,6 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
 static void
 input_event(struct wl_listener *listener, void *data)
 {
-   struct wlc_input_event *ev = data;
-
    struct wlc_seat *seat;
    struct wlc_compositor *compositor;
    except((seat = wl_container_of(listener, seat, listener.input)) && (compositor = wl_container_of(seat, compositor, seat)));
@@ -173,6 +171,7 @@ input_event(struct wl_listener *listener, void *data)
          return;
    }
 
+   struct wlc_input_event *ev = data;
    switch (ev->type) {
       case WLC_INPUT_EVENT_MOTION:
          {
