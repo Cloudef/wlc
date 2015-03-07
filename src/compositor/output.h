@@ -58,7 +58,7 @@ struct wlc_output {
    struct {
       struct {
          void *arg;
-         void (*cb)(const struct wlc_size *size, uint8_t *rgba, void *userdata);
+         bool (*cb)(const struct wlc_size *size, uint8_t *rgba, void *userdata);
       } pixels;
       struct wlc_backend_surface *bsurface;
       bool terminate;
@@ -102,7 +102,7 @@ bool wlc_output(struct wlc_output *output);
 void wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep);
 void wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution);
 void wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask);
-void wlc_output_get_pixels_ptr(struct wlc_output *output, void (*async)(const struct wlc_size *size, uint8_t *rgba, void *userdata), void *userdata);
+void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
 bool wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb);
 const wlc_handle* wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb);
 

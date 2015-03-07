@@ -229,9 +229,9 @@ repaint(struct wlc_output *output)
       struct wlc_geometry g = { { 0, 0 }, output->resolution };
       if (output->task.pixels.cb && (rgba = calloc(1, g.size.w * g.size.h * 4))) {
          wlc_render_read_pixels(&output->render, &output->context, &g, rgba);
-         output->task.pixels.cb(&g.size, rgba, output->task.pixels.arg);
+         if (!output->task.pixels.cb(&g.size, rgba, output->task.pixels.arg))
+            free(rgba);
          memset(&output->task.pixels, 0, sizeof(output->task.pixels));
-         free(rgba);
       }
    }
 
@@ -641,7 +641,7 @@ wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask)
 }
 
 void
-wlc_output_get_pixels_ptr(struct wlc_output *output, void (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg)
+wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg)
 {
    assert(pixels);
 
@@ -738,9 +738,9 @@ wlc_output_set_mask(wlc_handle output, uint32_t mask)
 }
 
 WLC_API void
-wlc_output_get_pixels(wlc_handle output, void (*async)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg)
+wlc_output_get_pixels(wlc_handle output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg)
 {
-   wlc_output_get_pixels_ptr(convert_from_wlc_handle(output, "output"), async, arg);
+   wlc_output_get_pixels_ptr(convert_from_wlc_handle(output, "output"), pixels, arg);
 }
 
 WLC_API const wlc_handle*
