@@ -542,7 +542,7 @@ focus_window(xcb_window_t window, bool force)
       return;
    }
 
-   xcb_client_message_event_t m;
+   xcb_client_message_event_t m = {0};
    m.response_type = XCB_CLIENT_MESSAGE;
    m.format = 32;
    m.window = window;
@@ -558,7 +558,7 @@ focus_window(xcb_window_t window, bool force)
 static void
 deletewindow(xcb_window_t window)
 {
-   xcb_client_message_event_t ev;
+   xcb_client_message_event_t ev = {0};
    ev.response_type = XCB_CLIENT_MESSAGE;
    ev.window = window;
    ev.format = 32;
