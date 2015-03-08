@@ -55,6 +55,7 @@ struct wlc_output {
       struct wl_global *output;
    } wl;
 
+   // FIXME: replace with better system
    struct {
       struct {
          void *arg;

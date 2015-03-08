@@ -10,6 +10,9 @@
 #include "view.h"
 #include "resources/types/surface.h"
 
+// FIXME: this is a hack
+static EGLNativeDisplayType INVALID_DISPLAY = (EGLNativeDisplayType)~0;
+
 bool
 wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode)
 {
@@ -147,7 +150,7 @@ finish_frame_tasks(struct wlc_output *output)
    assert(output);
 
    if (output->task.bsurface.display) {
-      wlc_output_set_backend_surface(output, &output->task.bsurface);
+      wlc_output_set_backend_surface(output, (output->task.bsurface.display == INVALID_DISPLAY ? NULL : &output->task.bsurface));
       memset(&output->task.bsurface, 0, sizeof(output->task.bsurface));
    }
 
@@ -416,7 +419,11 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
 
    if (output->state.pending) {
       wlc_log(WLC_LOG_INFO, "Pending bsurface set for output (%zu)", convert_to_wlc_handle(output));
-      memcpy(&output->task.bsurface, bsurface, sizeof(output->task.bsurface));
+      if (bsurface) {
+         memcpy(&output->task.bsurface, bsurface, sizeof(output->task.bsurface));
+      } else {
+         output->task.bsurface.display = INVALID_DISPLAY;
+      }
       return true;
    }
 
