@@ -1048,10 +1048,10 @@ wlc_xwm_release(struct wlc_xwm *xwm)
    chck_hash_table_release(&xwm->unpaired);
    chck_hash_table_release(&xwm->paired);
 
-   wl_list_remove(&xwm->listener.surface.link);
-
-   if (xwm->event_source)
+   if (xwm->event_source) {
+      wl_list_remove(&xwm->listener.surface.link);
       wl_event_source_remove(xwm->event_source);
+   }
 
    memset(xwm, 0, sizeof(struct wlc_xwm));
 }
@@ -1065,9 +1065,6 @@ wlc_xwm(struct wlc_xwm *xwm)
    if (!x11_init())
       return false;
 
-   xwm->listener.surface.notify = surface_notify;
-   wl_signal_add(&wlc_system_signals()->surface, &xwm->listener.surface);
-
    if (!chck_hash_table(&xwm->paired, 0, 256, sizeof(wlc_handle)) ||
        !chck_hash_table(&xwm->unpaired, 0, 32, sizeof(struct wlc_x11_window)))
       goto fail;
@@ -1075,6 +1072,8 @@ wlc_xwm(struct wlc_xwm *xwm)
    if (!(xwm->event_source = wl_event_loop_add_fd(wlc_event_loop(), wlc_xwayland_get_fd(), WL_EVENT_READABLE, &x11_event, xwm)))
       goto event_source_fail;
 
+   xwm->listener.surface.notify = surface_notify;
+   wl_signal_add(&wlc_system_signals()->surface, &xwm->listener.surface);
    return true;
 
 event_source_fail:
