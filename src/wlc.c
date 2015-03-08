@@ -208,7 +208,8 @@ wlc_set_active(bool active)
       return;
 
    wlc.active = active;
-   wl_signal_emit(&wlc.signals.activate, (void*)wlc.active);
+   struct wlc_activate_event ev = { .active = active, .vt = 0 };
+   wl_signal_emit(&wlc.signals.activate, &ev);
    wlc_log(WLC_LOG_INFO, (wlc.active ? "become active" : "deactive"));
 }
 

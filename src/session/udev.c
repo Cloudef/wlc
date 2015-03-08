@@ -307,9 +307,9 @@ activate_event(struct wl_listener *listener, void *data)
 {
    (void)listener;
 
-   bool activated = (bool)data;
+   struct wlc_activate_event *ev = data;
    if (input.handle) {
-      if (!activated) {
+      if (!ev->active) {
          libinput_suspend(input.handle);
       } else {
          libinput_resume(input.handle);

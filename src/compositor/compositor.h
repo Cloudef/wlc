@@ -51,6 +51,7 @@ struct wlc_compositor {
          ACTIVATING,
          DEACTIVATING,
       } tty;
+      int vt;
       bool terminating;
    } state;
 };

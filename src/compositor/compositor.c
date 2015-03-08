@@ -163,8 +163,8 @@ activate_tty(struct wlc_compositor *compositor)
    if (compositor->state.tty != ACTIVATING)
       return;
 
-   wlc_tty_activate();
    compositor->state.tty = IDLE;
+   wlc_tty_activate();
 }
 
 static void
@@ -180,8 +180,14 @@ deactivate_tty(struct wlc_compositor *compositor)
          return;
    }
 
-   wlc_tty_deactivate();
    compositor->state.tty = IDLE;
+
+   if (compositor->state.vt != 0) {
+      wlc_tty_activate_vt(compositor->state.vt);
+      compositor->state.vt = 0;
+   } else {
+      wlc_tty_deactivate();
+   }
 }
 
 static void
@@ -200,13 +206,15 @@ activate_event(struct wl_listener *listener, void *data)
    struct wlc_compositor *compositor;
    except(compositor = wl_container_of(listener, compositor, listener.activate));
 
-   bool activated = (bool)data;
-   if (!activated) {
+   struct wlc_activate_event *ev = data;
+   if (!ev->active) {
       compositor->state.tty = DEACTIVATING;
+      compositor->state.vt = ev->vt;
       chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_set_backend_surface, NULL);
       deactivate_tty(compositor);
    } else {
       compositor->state.tty = ACTIVATING;
+      compositor->state.vt = 0;
       activate_tty(compositor);
       wlc_backend_update_outputs(&compositor->backend, &compositor->outputs.pool);
    }

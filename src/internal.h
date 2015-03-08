@@ -9,6 +9,11 @@
 #include <wayland-server.h>
 #include "resources/resources.h"
 
+struct wlc_activate_event {
+   int vt; // if != 0, means vt switch
+   bool active;
+};
+
 enum wlc_focus_event_type {
    WLC_FOCUS_EVENT_VIEW,
    WLC_FOCUS_EVENT_OUTPUT
@@ -162,7 +167,7 @@ struct wlc_render_event {
 
 struct wlc_system_signals {
    struct wl_signal terminate; // data: null (wlc.c)
-   struct wl_signal activate;  // data: bool <false/true> (wlc_set_active)
+   struct wl_signal activate;  // data: struct wlc_activate_event (wlc/wlc.c, compositor/seat/seat.c)
    struct wl_signal compositor;// data: null (compositor.c)
    struct wl_signal focus;     // data: struct wlc_focus_event (view/view.c, output/output.c)
    struct wl_signal surface;   // data: struct wlc_surface_event (compositor/compositor.c, shell/shell.c, shell/xdg-shell.c, resources/types/surface.c)
