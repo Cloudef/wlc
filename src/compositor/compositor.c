@@ -5,6 +5,7 @@
 #include "compositor.h"
 #include "output.h"
 #include "view.h"
+#include "session/tty.h"
 #include "resources/resources.h"
 #include "resources/types/region.h"
 #include "resources/types/surface.h"
@@ -157,7 +158,41 @@ wl_compositor_bind(struct wl_client *client, void *data, uint32_t version, uint3
 }
 
 static void
+activate_tty(struct wlc_compositor *compositor)
 {
+   if (compositor->state.tty != ACTIVATING)
+      return;
+
+   wlc_tty_activate();
+   compositor->state.tty = IDLE;
+}
+
+static void
+deactivate_tty(struct wlc_compositor *compositor)
+{
+   if (compositor->state.tty != DEACTIVATING)
+      return;
+
+   // check that all outputs are surfaceless
+   struct wlc_output *o;
+   chck_pool_for_each(&compositor->outputs.pool, o) {
+      if (o->bsurface.display)
+         return;
+   }
+
+   wlc_tty_deactivate();
+   compositor->state.tty = IDLE;
+}
+
+static void
+respond_tty_activate(struct wlc_compositor *compositor)
+{
+   if (compositor->state.tty == ACTIVATING) {
+      activate_tty(compositor);
+   } else if (compositor->state.tty == DEACTIVATING) {
+      deactivate_tty(compositor);
+   }
+}
 
 static void
 activate_event(struct wl_listener *listener, void *data)
@@ -167,8 +202,12 @@ activate_event(struct wl_listener *listener, void *data)
 
    bool activated = (bool)data;
    if (!activated) {
+      compositor->state.tty = DEACTIVATING;
       chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_set_backend_surface, NULL);
+      deactivate_tty(compositor);
    } else {
+      compositor->state.tty = ACTIVATING;
+      activate_tty(compositor);
       wlc_backend_update_outputs(&compositor->backend, &compositor->outputs.pool);
    }
 }
@@ -381,6 +420,10 @@ output_event(struct wl_listener *listener, void *data)
 
       case WLC_OUTPUT_EVENT_UPDATE:
          wlc_backend_update_outputs(&compositor->backend, &compositor->outputs.pool);
+      break;
+
+      case WLC_OUTPUT_EVENT_SURFACE:
+         respond_tty_activate(compositor);
       break;
    }
 }

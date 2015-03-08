@@ -127,23 +127,37 @@ sigusr_handler(int signal)
    switch (signal) {
       case SIGUSR1:
          wlc_log(WLC_LOG_INFO, "SIGUSR1");
-
-         if (!wlc_fd_deactivate())
-            return;
-
          wlc_set_active(false);
-         ioctl(wlc.tty, VT_RELDISP, 1);
          break;
       case SIGUSR2:
          wlc_log(WLC_LOG_INFO, "SIGUSR2");
-
-         if (!wlc_fd_activate())
-            return;
-
-         ioctl(wlc.tty, VT_RELDISP, VT_ACKACQ);
          wlc_set_active(true);
          break;
    }
+}
+
+void
+wlc_tty_activate(void)
+{
+   if (!wlc_fd_activate()) {
+      wlc_set_active(false);
+      return;
+   }
+
+   wlc_log(WLC_LOG_INFO, "Activating tty");
+   ioctl(wlc.tty, VT_RELDISP, VT_ACKACQ);
+}
+
+void
+wlc_tty_deactivate(void)
+{
+   if (!wlc_fd_deactivate()) {
+      wlc_set_active(true);
+      return;
+   }
+
+   wlc_log(WLC_LOG_INFO, "Releasing tty");
+   ioctl(wlc.tty, VT_RELDISP, 1);
 }
 
 bool

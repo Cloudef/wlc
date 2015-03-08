@@ -46,6 +46,11 @@ struct wlc_compositor {
    } tmp;
 
    struct {
+      enum {
+         IDLE,
+         ACTIVATING,
+         DEACTIVATING,
+      } tty;
       bool terminating;
    } state;
 };
