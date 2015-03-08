@@ -163,7 +163,7 @@ wlc_tty_deactivate(void)
 bool
 wlc_tty_activate_vt(int vt)
 {
-   if (wlc.tty < 0)
+   if (!wlc_get_active() || wlc.tty < 0)
       return false;
 
    wlc_log(WLC_LOG_INFO, "Activate VT: %d", vt);
