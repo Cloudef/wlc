@@ -443,13 +443,13 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
       die("Failed to init udev");
 
    const char *libinput = getenv("WLC_LIBINPUT");
-   if (!display || chck_cstreq(libinput, "1")) {
+   if (!display || (libinput && !chck_cstreq(libinput, "0"))) {
       if (!wlc_input_init())
          die("Failed to init input");
    }
 
    const char *xwayland = getenv("WLC_XWAYLAND");
-   if (!xwayland || chck_cstreq(xwayland, "0")) {
+   if (!xwayland || !chck_cstreq(xwayland, "0")) {
       if (!(wlc_xwayland_init()))
          die("Failed to init xwayland");
    }
