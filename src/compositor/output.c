@@ -832,7 +832,7 @@ wlc_output(struct wlc_output *output)
    const char *bg = getenv("WLC_BG");
    const char *idle_time = getenv("WLC_IDLE_TIME");
    output->options.enable_bg = (chck_cstreq(bg, "0") ? false : true);
-   output->options.idle_time = (idle_time ? strtol(idle_time, NULL, 10) : 60 * 5);
+   output->options.idle_time = (chck_cstr_is_empty(idle_time) ? 60 * 5 : strtol(idle_time, NULL, 10));
 
    wlc_output_set_sleep_ptr(output, false);
    wlc_output_set_mask_ptr(output, (1<<0));
