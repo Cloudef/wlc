@@ -1,28 +1,21 @@
-#include "internal.h"
-#include "gles2.h"
-#include "render.h"
-
-#include "platform/context/egl.h"
-#include "platform/context/context.h"
-
-#include "compositor/view.h"
-
-#include "xwayland/xwm.h"
-
-#include "resources/types/surface.h"
-#include "resources/types/xdg-surface.h"
-#include "resources/types/buffer.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <dlfcn.h>
-
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-
 #include <wayland-server.h>
 #include <chck/string/string.h>
+#include "internal.h"
+#include "gles2.h"
+#include "render.h"
+#include "platform/context/egl.h"
+#include "platform/context/context.h"
+#include "compositor/view.h"
+#include "xwayland/xwm.h"
+#include "resources/types/surface.h"
+#include "resources/types/xdg-surface.h"
+#include "resources/types/buffer.h"
 
 static GLfloat DIM = 0.5f;
 
@@ -850,7 +843,7 @@ unload_egl(void)
 }
 
 void*
-wlc_gles2(struct wlc_context *context, struct wlc_render_api *api)
+wlc_gles2(struct wlc_render_api *api)
 {
    assert(api);
 
@@ -858,9 +851,6 @@ wlc_gles2(struct wlc_context *context, struct wlc_render_api *api)
       unload_egl();
       return NULL;
    }
-
-   if (!wlc_context_bind(context))
-      return NULL;
 
    struct ctx *gl;
    if (!(gl = create_context()))

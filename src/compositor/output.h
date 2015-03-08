@@ -60,7 +60,7 @@ struct wlc_output {
          void *arg;
          bool (*cb)(const struct wlc_size *size, uint8_t *rgba, void *userdata);
       } pixels;
-      struct wlc_backend_surface *bsurface;
+      struct wlc_backend_surface bsurface;
       bool terminate;
       bool sleep;
    } task;

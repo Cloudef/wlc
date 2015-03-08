@@ -281,6 +281,16 @@ output_for_window(struct chck_pool *outputs, xcb_window_t window)
    return NULL;
 }
 
+static size_t
+outputs_with_window(struct chck_pool *outputs)
+{
+   size_t count = 0;
+   struct wlc_output *o;
+   chck_pool_for_each(outputs, o)
+      count += (o->bsurface.window ? 1 : 0);
+   return count;
+}
+
 static double
 pointer_abs_x(void *internal, uint32_t width)
 {
@@ -322,7 +332,7 @@ x11_event(int fd, uint32_t mask, void *data)
                if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
                   struct wlc_output *output;
                   if ((output = output_for_window(&compositor->outputs.pool, ev->window))) {
-                     if (compositor->outputs.pool.items.count <= 1) {
+                     if (outputs_with_window(&compositor->outputs.pool) <= 1) {
                         wlc_terminate();
                      } else {
                         wlc_output_terminate(output);
@@ -601,11 +611,8 @@ terminate(void)
    if (x11.cursor)
       x11.api.xcb_free_cursor(x11.connection, x11.cursor);
 
-   // XXX: Seems to race with eglDestroySurface
-#if 0
    if (x11.display)
       x11.api.XCloseDisplay(x11.display);
-#endif
 
    if (x11.event_source)
       wl_event_source_remove(x11.event_source);

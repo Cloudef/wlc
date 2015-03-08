@@ -303,11 +303,11 @@ udev_set_event_loop(struct wl_event_loop *loop)
 }
 
 static void
-activated(struct wl_listener *listener, void *data)
+activate_event(struct wl_listener *listener, void *data)
 {
    (void)listener;
-   bool activated = *(bool*)data;
 
+   bool activated = (bool)data;
    if (input.handle) {
       if (!activated) {
          libinput_suspend(input.handle);
@@ -317,8 +317,8 @@ activated(struct wl_listener *listener, void *data)
    }
 }
 
-static struct wl_listener activated_listener = {
-   .notify = activated,
+static struct wl_listener activate_listener = {
+   .notify = activate_event,
 };
 
 static void
@@ -375,7 +375,7 @@ void
 wlc_udev_terminate(void)
 {
    if (udev.handle)
-      wl_list_remove(&activated_listener.link);
+      wl_list_remove(&activate_listener.link);
 
    udev_set_event_loop(NULL);
    udev_monitor_unref(udev.monitor);
@@ -404,7 +404,7 @@ wlc_udev_init(void)
    if (!udev_set_event_loop(wlc_event_loop()))
       goto fail;
 
-   wl_signal_add(&wlc_system_signals()->activated, &activated_listener);
+   wl_signal_add(&wlc_system_signals()->activate, &activate_listener);
    return true;
 
 monitor_fail:

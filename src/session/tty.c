@@ -172,8 +172,6 @@ wlc_tty_terminate(void)
 
    memset(&wlc, 0, sizeof(wlc));
    wlc.tty = -1;
-
-   wlc_log(WLC_LOG_INFO, "Cleanup wlc");
 }
 
 void

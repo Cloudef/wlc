@@ -146,9 +146,9 @@ finish_frame_tasks(struct wlc_output *output)
 {
    assert(output);
 
-   if (output->task.bsurface) {
-      wlc_output_set_backend_surface(output, output->task.bsurface - 1);
-      output->task.bsurface = NULL;
+   if (output->task.bsurface.display) {
+      wlc_output_set_backend_surface(output, &output->task.bsurface);
+      memset(&output->task.bsurface, 0, sizeof(output->task.bsurface));
    }
 
    if (output->task.sleep) {
@@ -411,15 +411,14 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
 {
    assert(output);
 
-   if (bsurface && !memcmp(&output->bsurface, bsurface, sizeof(output->bsurface)))
+   if (output->bsurface.display == (bsurface ? bsurface->display : 0))
       return true;
 
-#if 0
-   if (output->pending) {
-      output->task.bsurface = bsurface + 1;
+   if (output->state.pending) {
+      wlc_log(WLC_LOG_INFO, "Pending bsurface set for output (%zu)", convert_to_wlc_handle(output));
+      memcpy(&output->task.bsurface, bsurface, sizeof(output->task.bsurface));
       return true;
    }
-#endif
 
    {
       wlc_resource *r;
@@ -460,8 +459,14 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
             wlc_surface_attach_to_output(s, output, wlc_surface_get_buffer(s));
          }
       }
+
+      wlc_log(WLC_LOG_INFO, "Set new bsurface to output (%zu)", convert_to_wlc_handle(output));
+   } else {
+      wlc_log(WLC_LOG_INFO, "Removed bsurface from output (%zu)", convert_to_wlc_handle(output));
    }
 
+   struct wlc_output_event ev = { .surface = { .output = output }, .type = WLC_OUTPUT_EVENT_SURFACE };
+   wl_signal_emit(&wlc_system_signals()->output, &ev);
    return true;
 
 fail:
@@ -558,21 +563,6 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
 
    wlc_output_view_attach(output, view);
    wlc_output_schedule_repaint(output);
-}
-
-void
-wlc_output_terminate(struct wlc_output *output)
-{
-   assert(output);
-
-   if (output->state.pending) {
-      output->task.terminate = true;
-      wlc_output_schedule_repaint(output);
-      return;
-   }
-
-   struct wlc_output_event ev = { .remove = { output }, .type = WLC_OUTPUT_EVENT_REMOVE };
-   wl_signal_emit(&wlc_system_signals()->output, &ev);
 }
 
 void
@@ -766,6 +756,23 @@ WLC_API void
 wlc_output_focus(wlc_handle output)
 {
    wlc_output_focus_ptr(convert_from_wlc_handle(output, "output"));
+}
+
+void
+wlc_output_terminate(struct wlc_output *output)
+{
+   assert(output);
+
+   if (output->state.pending) {
+      output->task.terminate = true;
+      wlc_log(WLC_LOG_INFO, "Terminating output (%zu)...", convert_to_wlc_handle(output));
+      wlc_output_schedule_repaint(output);
+      return;
+   }
+
+   wlc_log(WLC_LOG_INFO, "Output (%zu) terminated...", convert_to_wlc_handle(output));
+   struct wlc_output_event ev = { .remove = { .output = output }, .type = WLC_OUTPUT_EVENT_REMOVE };
+   wl_signal_emit(&wlc_system_signals()->output, &ev);
 }
 
 void

@@ -135,6 +135,5 @@ main(int argc, char *argv[])
       return EXIT_FAILURE;
 
    wlc_run();
-   wlc_terminate();
    return EXIT_SUCCESS;
 }

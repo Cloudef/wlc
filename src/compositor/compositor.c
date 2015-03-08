@@ -157,13 +157,15 @@ wl_compositor_bind(struct wl_client *client, void *data, uint32_t version, uint3
 }
 
 static void
-activated(struct wl_listener *listener, void *data)
 {
-   bool activated = *(bool*)data;
 
+static void
+activate_event(struct wl_listener *listener, void *data)
+{
    struct wlc_compositor *compositor;
-   except(compositor = wl_container_of(listener, compositor, listener.activated));
+   except(compositor = wl_container_of(listener, compositor, listener.activate));
 
+   bool activated = (bool)data;
    if (!activated) {
       chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_set_backend_surface, NULL);
    } else {
@@ -172,26 +174,16 @@ activated(struct wl_listener *listener, void *data)
 }
 
 static void
-terminated(struct wl_listener *listener, void *data)
+terminate_event(struct wl_listener *listener, void *data)
 {
    (void)data;
-
    struct wlc_compositor *compositor;
-   except(compositor = wl_container_of(listener, compositor, listener.terminated));
-
-   compositor->terminating = true;
-
-#if 0
-   if (!compositor->outputs.pool.items.count) {
-      wlc_compositor_release(compositor);
-   } else {
-      chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_terminate);
-   }
-#endif
+   except(compositor = wl_container_of(listener, compositor, listener.terminate));
+   wlc_compositor_terminate(compositor);
 }
 
 static void
-xwayland(struct wl_listener *listener, void *data)
+xwayland_event(struct wl_listener *listener, void *data)
 {
    bool activated = *(bool*)data;
 
@@ -345,7 +337,7 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
 
    struct wlc_output *o, *alive = NULL;
    chck_pool_for_each(&compositor->outputs.pool, o) {
-      if (!o->bsurface.display)
+      if (!o->bsurface.display || o == output)
          continue;
 
       alive = o;
@@ -360,10 +352,10 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    WLC_INTERFACE_EMIT(output.destroyed, convert_to_wlc_handle(output));
    wlc_output_set_backend_surface(output, NULL);
 
-   if (compositor->terminating && !alive)
-      wlc_compositor_release(compositor);
+   wlc_log(WLC_LOG_INFO, "Removed output (%zu)", convert_to_wlc_handle(output));
 
-   wlc_log(WLC_LOG_INFO, "Removed output (%p)", output);
+   if (compositor->state.terminating && !alive)
+      wlc_compositor_terminate(compositor);
 }
 
 static void
@@ -467,13 +459,33 @@ wlc_get_focused_output(void)
 }
 
 void
+wlc_compositor_terminate(struct wlc_compositor *compositor)
+{
+   if (!compositor || !_g_compositor)
+      return;
+
+   if (!compositor->state.terminating) {
+      wlc_log(WLC_LOG_INFO, "Terminating compositor...");
+      compositor->state.terminating = true;
+
+      if (compositor->outputs.pool.items.count > 0) {
+         chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_terminate);
+         return;
+      }
+   }
+
+   wlc_log(WLC_LOG_INFO, "Compositor terminated...");
+   wl_signal_emit(&wlc_system_signals()->compositor, NULL);
+}
+
+void
 wlc_compositor_release(struct wlc_compositor *compositor)
 {
    if (!compositor || !_g_compositor)
       return;
 
-   wl_list_remove(&compositor->listener.activated.link);
-   wl_list_remove(&compositor->listener.terminated.link);
+   wl_list_remove(&compositor->listener.activate.link);
+   wl_list_remove(&compositor->listener.terminate.link);
    wl_list_remove(&compositor->listener.xwayland.link);
    wl_list_remove(&compositor->listener.surface.link);
    wl_list_remove(&compositor->listener.output.link);
@@ -513,14 +525,14 @@ wlc_compositor(struct wlc_compositor *compositor)
 
    _g_compositor = compositor;
 
-   compositor->listener.activated.notify = activated;
-   compositor->listener.terminated.notify = terminated;
-   compositor->listener.xwayland.notify = xwayland;
+   compositor->listener.activate.notify = activate_event;
+   compositor->listener.terminate.notify = terminate_event;
+   compositor->listener.xwayland.notify = xwayland_event;
    compositor->listener.surface.notify = surface_event;
    compositor->listener.output.notify = output_event;
    compositor->listener.focus.notify = focus_event;
-   wl_signal_add(&wlc_system_signals()->activated, &compositor->listener.activated);
-   wl_signal_add(&wlc_system_signals()->terminated, &compositor->listener.terminated);
+   wl_signal_add(&wlc_system_signals()->activate, &compositor->listener.activate);
+   wl_signal_add(&wlc_system_signals()->terminate, &compositor->listener.terminate);
    wl_signal_add(&wlc_system_signals()->xwayland, &compositor->listener.xwayland);
    wl_signal_add(&wlc_system_signals()->surface, &compositor->listener.surface);
    wl_signal_add(&wlc_system_signals()->output, &compositor->listener.output);

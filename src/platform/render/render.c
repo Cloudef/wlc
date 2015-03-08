@@ -129,11 +129,12 @@ wlc_render_release(struct wlc_render *render, struct wlc_context *bound)
 {
    assert(render);
 
-   if (!wlc_context_bind(bound))
-      return;
+   if (render->api.terminate) {
+      if (!wlc_context_bind(bound))
+         return;
 
-   if (render->api.terminate)
       render->api.terminate(render->render);
+   }
 
    memset(render, 0, sizeof(struct wlc_render));
 }
@@ -144,13 +145,16 @@ wlc_render(struct wlc_render *render, struct wlc_context *context)
    assert(render && context);
    memset(render, 0, sizeof(struct wlc_render));
 
-   void* (*constructor[])(struct wlc_context*, struct wlc_render_api*) = {
+   if (!wlc_context_bind(context))
+      return NULL;
+
+   void* (*constructor[])(struct wlc_render_api*) = {
       wlc_gles2,
       NULL
    };
 
    for (uint32_t i = 0; constructor[i]; ++i) {
-      if ((render->render = constructor[i](context, &render->api)))
+      if ((render->render = constructor[i](&render->api)))
          return true;
    }
 

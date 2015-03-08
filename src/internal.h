@@ -117,6 +117,7 @@ enum wlc_output_event_type {
    WLC_OUTPUT_EVENT_REMOVE,
    WLC_OUTPUT_EVENT_ACTIVE,
    WLC_OUTPUT_EVENT_UPDATE,
+   WLC_OUTPUT_EVENT_SURFACE,
 };
 
 struct wlc_output_event {
@@ -139,6 +140,12 @@ struct wlc_output_event {
 
       // WLC_OUTPUT_EVENT_UPDATE
       // No data, compositor just tells backend to update outputs.
+
+      // WLC_OUTPUT_EVENT_SURFACE
+      // Used for TTY switching mainly, outputs send this even whenever their backend surface is set.
+      struct wlc_output_event_surface {
+         struct wlc_output *output;
+      } surface;
    };
 
    enum wlc_output_event_type type;
@@ -154,8 +161,9 @@ struct wlc_render_event {
 };
 
 struct wlc_system_signals {
-   struct wl_signal terminated;// data: none
-   struct wl_signal activated; // data: bool <false/true> (wlc_set_active)
+   struct wl_signal terminate; // data: null (wlc.c)
+   struct wl_signal activate;  // data: bool <false/true> (wlc_set_active)
+   struct wl_signal compositor;// data: null (compositor.c)
    struct wl_signal focus;     // data: struct wlc_focus_event (view/view.c, output/output.c)
    struct wl_signal surface;   // data: struct wlc_surface_event (compositor/compositor.c, shell/shell.c, shell/xdg-shell.c, resources/types/surface.c)
    struct wl_signal input;     // data: struct wlc_input_event (session/udev.c, backend/x11.c)

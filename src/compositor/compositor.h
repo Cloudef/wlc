@@ -33,8 +33,8 @@ struct wlc_compositor {
    } wl;
 
    struct {
-      struct wl_listener activated;
-      struct wl_listener terminated;
+      struct wl_listener activate;
+      struct wl_listener terminate;
       struct wl_listener xwayland;
       struct wl_listener surface;
       struct wl_listener output;
@@ -45,10 +45,13 @@ struct wlc_compositor {
       wlc_handle *outputs;
    } tmp;
 
-   bool terminating;
+   struct {
+      bool terminating;
+   } state;
 };
 
 struct wlc_view* wlc_compositor_view_for_surface(struct wlc_compositor *compositor, struct wlc_surface *surface);
+void wlc_compositor_terminate(struct wlc_compositor *compositor);
 void wlc_compositor_release(struct wlc_compositor *compositor);
 bool wlc_compositor(struct wlc_compositor *compositor);
 

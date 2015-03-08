@@ -37,11 +37,9 @@ static struct {
    struct wlc_interface interface;
    struct wlc_system_signals signals;
    struct wl_display *display;
-   struct wl_event_source *terminate_timer;
    FILE *log_file;
    int cached_tm_mday;
    bool active;
-   bool init;
 } wlc;
 
 #ifndef NDEBUG
@@ -210,7 +208,7 @@ wlc_set_active(bool active)
       return;
 
    wlc.active = active;
-   wl_signal_emit(&wlc.signals.activated, &wlc.active);
+   wl_signal_emit(&wlc.signals.activate, (void*)wlc.active);
    wlc_log(WLC_LOG_INFO, (wlc.active ? "become active" : "deactive"));
 }
 
@@ -244,16 +242,27 @@ wlc_display(void)
    return wlc.display;
 }
 
+static void
+compositor_event(struct wl_listener *listener, void *data)
+{
+   (void)listener, (void)data;
+   // this event is currently only used for knowing when compositor died
+   wl_display_terminate(wlc.display);
+}
+
+static struct wl_listener compositor_listener = {
+   .notify = compositor_event,
+};
+
 void
 wlc_cleanup(void)
 {
-   if (wlc.terminate_timer)
-      wl_event_source_remove(wlc.terminate_timer);
+   wlc_log(WLC_LOG_INFO, "Cleanup wlc");
 
    if (wlc.display) {
-      wlc_compositor_release(&wlc.compositor);
-
       // fd process never allocates display
+      wlc_compositor_release(&wlc.compositor);
+      wl_list_remove(&compositor_listener.link);
       wlc_xwayland_terminate();
       wlc_input_terminate();
       wlc_udev_terminate();
@@ -265,17 +274,9 @@ wlc_cleanup(void)
    wlc_tty_terminate();
 
    if (wlc.display)
-      wl_display_terminate(wlc.display);
+      wl_display_destroy(wlc.display);
 
    memset(&wlc, 0, sizeof(wlc));
-}
-
-static int
-cb_terminate_timer(void *data)
-{
-   (void)data;
-   wlc_cleanup();
-   return 0;
 }
 
 WLC_API void
@@ -336,18 +337,17 @@ wlc_run(void)
       return;
 
    wl_display_run(wlc.display);
+   wlc_cleanup();
 }
 
 WLC_API void
 wlc_terminate(void)
 {
-   if (!wlc.display || wlc.terminate_timer)
+   if (!wlc.display)
       return;
 
-   wlc.terminate_timer = wl_event_loop_add_timer(wlc_event_loop(), cb_terminate_timer, NULL);
-   wl_signal_emit(&wlc.signals.terminated, NULL);
-   wl_event_source_timer_update(wlc.terminate_timer, 100);
-   wlc_log(WLC_LOG_INFO, "Terminating...");
+   wlc_log(WLC_LOG_INFO, "Terminating wlc...");
+   wl_signal_emit(&wlc.signals.terminate, NULL);
 }
 
 WLC_API bool
@@ -356,7 +356,7 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    assert(interface);
 
    if (!interface)
-      return false;
+      die("no wlc_interface was given");
 
    if (wlc.display)
       return true;
@@ -411,17 +411,19 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
 
    // -- permissions are now dropped
 
-   wl_signal_init(&wlc.signals.terminated);
-   wl_signal_init(&wlc.signals.activated);
+   wl_signal_init(&wlc.signals.terminate);
+   wl_signal_init(&wlc.signals.activate);
+   wl_signal_init(&wlc.signals.compositor);
    wl_signal_init(&wlc.signals.focus);
    wl_signal_init(&wlc.signals.surface);
    wl_signal_init(&wlc.signals.input);
    wl_signal_init(&wlc.signals.output);
    wl_signal_init(&wlc.signals.render);
    wl_signal_init(&wlc.signals.xwayland);
+   wl_signal_add(&wlc.signals.compositor, &compositor_listener);
 
    if (!wlc_resources_init())
-      die("Failed to initialize resource manager");
+      die("Failed to init resource manager");
 
    if (!(wlc.display = wl_display_create()))
       die("Failed to create wayland display");
@@ -437,25 +439,25 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
       die("Failed to init shm");
 
    if (!wlc_udev_init())
-      return false;
+      die("Failed to init udev");
 
    const char *libinput = getenv("WLC_LIBINPUT");
    if (!display || chck_cstreq(libinput, "1")) {
       if (!wlc_input_init())
-         return false;
+         die("Failed to init input");
    }
 
    const char *xwayland = getenv("WLC_XWAYLAND");
    if (!xwayland || chck_cstreq(xwayland, "0")) {
       if (!(wlc_xwayland_init()))
-         return false;
+         die("Failed to init xwayland");
    }
 
    memcpy(&wlc.interface, interface, sizeof(wlc.interface));
 
    if (!wlc_compositor(&wlc.compositor))
-      return false;
+      die("Failed to init compositor");
 
    wlc_set_active(true);
-   return (wlc.init = true);
+   return true;
 }
