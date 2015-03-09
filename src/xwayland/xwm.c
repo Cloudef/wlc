@@ -121,6 +121,8 @@ xcb_load(void)
 
    if (!load(xcb_connect_to_fd))
       goto function_pointer_exception;
+   if (!load(xcb_disconnect))
+      goto function_pointer_exception;
    if (!load(xcb_prefetch_extension_data))
       goto function_pointer_exception;
    if (!load(xcb_flush))
@@ -845,7 +847,6 @@ surface_notify(struct wl_listener *listener, void *data)
    }
 }
 
-// XXX: call this after all xwm are dead
 static void
 x11_terminate(void)
 {
@@ -1045,13 +1046,17 @@ wlc_xwm_release(struct wlc_xwm *xwm)
    if (!xwm)
       return;
 
+   if (xwm->event_source) {
+      wl_event_source_remove(xwm->event_source);
+      wl_list_remove(&xwm->listener.surface.link);
+   }
+
    chck_hash_table_release(&xwm->unpaired);
    chck_hash_table_release(&xwm->paired);
 
-   if (xwm->event_source) {
-      wl_list_remove(&xwm->listener.surface.link);
-      wl_event_source_remove(xwm->event_source);
-   }
+   // XXX: We currently allow only single compositor && xwm
+   //      but this will not work if we ever allow multiple.
+   x11_terminate();
 
    memset(xwm, 0, sizeof(struct wlc_xwm));
 }

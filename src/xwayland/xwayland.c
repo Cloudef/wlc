@@ -22,13 +22,13 @@ static const char *socket_dir = "/tmp/.X11-unix";
 static const char *socket_fmt = "/tmp/.X11-unix/X%d";
 
 static struct {
+   time_t start_time;
    struct sigaction old_sigusr1;
    char display_name[16];
    struct wl_client *client;
    int display;
    int wl[2], wm[2], socks[2];
    pid_t pid;
-   bool fds_set[3];
 } xserver;
 
 static int
@@ -191,30 +191,44 @@ wlc_xwayland_get_fd(void)
    return xserver.wm[0];
 }
 
+static void
+destroy_event(struct wl_listener *listener, void *data)
+{
+   (void)listener, (void)data;
+   time_t diff = time(NULL) - xserver.start_time;
+   xserver.client = NULL;
+   wlc_xwayland_terminate();
+
+   // Will not start if delay less or equal to 5 seconds
+   if (diff > 5) {
+      wlc_log(WLC_LOG_INFO, "Xwayland crashed, restarting");
+      wlc_xwayland_init();
+   }
+}
+
+static struct wl_listener destroy_listener = {
+   .notify = destroy_event,
+};
+
 void
 wlc_xwayland_terminate(void)
 {
-   if (xserver.pid > 0) {
-      wlc_log(WLC_LOG_INFO, "Closing Xwayland");
-      kill(xserver.pid, SIGTERM);
-   }
+   wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){false});
 
    if (xserver.client) {
-      wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){false});
+      wlc_log(WLC_LOG_INFO, "Closing Xwayland");
+      wl_list_remove(&destroy_listener.link);
       wl_client_destroy(xserver.client);
    }
 
-   if (xserver.fds_set[0]) {
-      close(xserver.socks[0]);
-      close(xserver.socks[1]);
-      close_display();
+   const int fds[] = { xserver.socks[0], xserver.socks[1], xserver.wl[0], xserver.wl[1], xserver.wm[0], xserver.wm[1] };
+   for (uint32_t i = 0; i < sizeof(fds) / sizeof(int); ++i) {
+      if (fds[i] >= 0)
+         close(fds[i]);
    }
 
-   if (xserver.fds_set[1])
-      close(xserver.wl[0]);
-
-   if (xserver.fds_set[2])
-      close(xserver.wm[0]);
+   if (xserver.socks[0] >= 0 || xserver.socks[1] >= 0)
+      close_display();
 
    memset(&xserver, 0, sizeof(xserver));
 }
@@ -222,29 +236,27 @@ wlc_xwayland_terminate(void)
 bool
 wlc_xwayland_init(void)
 {
+   memset(xserver.socks, -1, sizeof(xserver.socks));
+   memset(xserver.wl, -1, sizeof(xserver.wl));
+   memset(xserver.wm, -1, sizeof(xserver.wm));
+
    if (!open_display(xserver.socks))
       goto display_open_fail;
-
-   xserver.fds_set[0] = true;
 
    /* Open a socket for the Wayland connection from Xwayland. */
    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, xserver.wl) != 0)
       goto socketpair_fail;
 
-   xserver.fds_set[1] = true;
-
    /* Open a socket for the X connection to Xwayland. */
    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, xserver.wm) != 0)
       goto socketpair_fail;
 
-   xserver.fds_set[2] = true;
-
+   const int fds[] = { xserver.wl[1], xserver.wm[1], xserver.socks[0], xserver.socks[1] };
    if ((xserver.pid = fork()) == 0) {
-      int fds[] = { xserver.wl[1], xserver.wm[1], xserver.socks[0], xserver.socks[1] };
       char strings[sizeof(fds) / sizeof(int)][16];
 
       /* Unset the FD_CLOEXEC flag on the FDs that will get passed to Xwayland. */
-      for (unsigned int i = 0; i < sizeof(fds) / sizeof(int); ++i) {
+      for (uint32_t i = 0; i < sizeof(fds) / sizeof(int); ++i) {
          if (fcntl(fds[i], F_SETFD, 0) != 0) {
             wlc_log(WLC_LOG_WARN, "fcntl() failed: %m");
             _exit(EXIT_FAILURE);
@@ -266,6 +278,10 @@ wlc_xwayland_init(void)
       }
 
       const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
+      if (!xdg_runtime) {
+         wlc_log(WLC_LOG_WARN, "No XDG_RUNTIME_DIR set");
+         _exit(EXIT_FAILURE);
+      }
 
       if (clearenv() != 0) {
          wlc_log(WLC_LOG_WARN, "Failed to clear environment");
@@ -281,6 +297,9 @@ wlc_xwayland_init(void)
       if (wlc_get_log_file() != stderr)
          dup2(fileno(wlc_get_log_file()), STDERR_FILENO);
 
+      wlc_log(WLC_LOG_INFO, "Xwayland %s -rootless -terminate -listen %s -listen %s -wm %s",
+            xserver.display_name, strings[2], strings[3], strings[1]);
+
       execlp("Xwayland", "Xwayland",
             xserver.display_name,
             "-rootless",
@@ -294,11 +313,17 @@ wlc_xwayland_init(void)
       goto fork_fail;
    }
 
-   close(xserver.wl[1]);
-   close(xserver.wm[1]);
+   /* Close fds that went to child */
+   for (uint32_t i = 0; i < sizeof(fds) / sizeof(int); ++i)
+      close(fds[i]);
+   xserver.wm[1] = xserver.wl[1] = -1;
+   memset(xserver.socks, -1, sizeof(xserver.socks));
 
    if (!(xserver.client = wl_client_create(wlc_display(), xserver.wl[0])))
       goto client_create_fail;
+
+   xserver.start_time = time(NULL);
+   wl_client_add_destroy_listener(xserver.client, &destroy_listener);
 
    struct sigaction action;
    memset(&action, 0, sizeof(action));
