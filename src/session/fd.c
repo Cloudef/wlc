@@ -178,7 +178,7 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
       return -1;
    }
 
-   pfd->fd = open(path, flags);
+   pfd->fd = open(path, flags | O_CLOEXEC);
    pfd->type = type;
 
    if (pfd->type == WLC_FD_DRM && drm.api.drmSetMaster)
@@ -457,14 +457,8 @@ void
 wlc_fd_init(int argc, char *argv[])
 {
    int sock[2];
-   if (socketpair(AF_LOCAL, SOCK_SEQPACKET, 0, sock) != 0)
+   if (socketpair(AF_LOCAL, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sock) != 0)
       die("Failed to create fd passing unix domain socket pair: %m");
-
-   if (fcntl(sock[0], F_SETFD, FD_CLOEXEC | O_NONBLOCK) != 0)
-      die("Could not set CLOEXEC and NONBLOCK on socket: %m");
-
-   if (fcntl(sock[1], F_SETFL, fcntl(sock[1], F_GETFL) & ~O_NONBLOCK) != 0)
-      die("Could not reset NONBLOCK on socket: %m");
 
    if ((wlc.child = fork()) == 0) {
       close(sock[0]);

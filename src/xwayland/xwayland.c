@@ -81,7 +81,7 @@ retry:
       if ((lock_fd = open(lock_name, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0444)) >= 0)
          break;
 
-      if ((lock_fd = open(lock_name, O_RDONLY)) < 0)
+      if ((lock_fd = open(lock_name, O_RDONLY | O_CLOEXEC)) < 0)
          continue;
 
       char pid[12];

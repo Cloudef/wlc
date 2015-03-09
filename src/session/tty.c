@@ -38,7 +38,7 @@ find_vt(const char *vt_string)
    }
 
    int tty0_fd;
-   if ((tty0_fd = open("/dev/tty0", O_RDWR)) < 0)
+   if ((tty0_fd = open("/dev/tty0", O_RDWR | O_CLOEXEC)) < 0)
       die("Could not open /dev/tty0 to find unused VT");
 
    int vt;
@@ -60,7 +60,7 @@ open_tty(int vt)
       return STDIN_FILENO;
 
    int fd;
-   if ((fd = open(tty_name, O_RDWR | O_NOCTTY)) < 0)
+   if ((fd = open(tty_name, O_RDWR | O_NOCTTY | O_CLOEXEC)) < 0)
       die("Could not open %s", tty_name);
 
    wlc_log(WLC_LOG_INFO, "Running on VT %d", vt);
