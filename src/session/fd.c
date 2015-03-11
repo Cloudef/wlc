@@ -5,10 +5,12 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <linux/major.h>
 #include "internal.h"
 #include "macros.h"
 #include "fd.h"
@@ -16,6 +18,8 @@
 #ifndef EVIOCREVOKE
 #  define EVIOCREVOKE _IOW('E', 0x91, int)
 #endif
+
+#define DRM_MAJOR 226
 
 static struct {
    struct {
@@ -31,6 +35,11 @@ struct msg_request_fd_open {
    enum wlc_fd_type type;
 };
 
+struct msg_request_fd_close {
+   dev_t st_dev;
+   ino_t st_ino;
+};
+
 enum msg_type {
    TYPE_CHECK,
    TYPE_FD_OPEN,
@@ -43,6 +52,7 @@ struct msg_request {
    enum msg_type type;
    union {
       struct msg_request_fd_open fd_open;
+      struct msg_request_fd_close fd_close;
    };
 };
 
@@ -51,12 +61,13 @@ struct msg_response {
    union {
       bool activate;
       bool deactivate;
-      bool open;
    };
 };
 
 static struct {
    struct wlc_fd {
+      dev_t st_dev;
+      ino_t st_ino;
       int fd;
       enum wlc_fd_type type;
    } fds[32];
@@ -103,15 +114,20 @@ write_fd(int sock, int fd, const void *buffer, ssize_t buffer_size)
          .iov_len = buffer_size
       },
       .msg_iovlen = 1,
+      .msg_control = control,
+      .msg_controllen = sizeof(control),
    };
 
-   message.msg_control = control;
-   message.msg_controllen = sizeof(control);
    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&message);
-   cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
-   cmsg->cmsg_level = SOL_SOCKET;
-   cmsg->cmsg_type = SCM_RIGHTS;
-   memcpy(CMSG_DATA(cmsg), &fd, sizeof(fd));
+   if (fd >= 0) {
+      cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
+      cmsg->cmsg_level = SOL_SOCKET;
+      cmsg->cmsg_type = SCM_RIGHTS;
+      memcpy(CMSG_DATA(cmsg), &fd, sizeof(fd));
+   } else {
+      cmsg->cmsg_len = CMSG_LEN(0);
+   }
+
    return sendmsg(sock, &message, 0);
 }
 
@@ -119,6 +135,7 @@ static ssize_t
 recv_fd(int sock, int *out_fd, void *out_buffer, ssize_t buffer_size)
 {
    assert(out_fd && out_buffer);
+   *out_fd = -1;
 
    char control[CMSG_SPACE(sizeof(int))];
    struct msghdr message = {
@@ -138,10 +155,18 @@ recv_fd(int sock, int *out_fd, void *out_buffer, ssize_t buffer_size)
    if ((read = recvmsg(sock, &message, 0)) < 0)
       return read;
 
-   if (!(cmsg = CMSG_FIRSTHDR(&message)) || cmsg->cmsg_len != CMSG_LEN(sizeof(int)) || cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
+   if (!(cmsg = CMSG_FIRSTHDR(&message)))
       return read;
 
-   memcpy(out_fd, CMSG_DATA(cmsg), sizeof(int));
+   if (cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+      if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
+         return read;
+
+      memcpy(out_fd, CMSG_DATA(cmsg), sizeof(int));
+   } else if (cmsg->cmsg_len == CMSG_LEN(0)) {
+      *out_fd = -1;
+   }
+
    return read;
 }
 
@@ -164,13 +189,14 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
    }
 
    /* we will only open allowed paths */
-#define FILTER(x) { x, (sizeof(x) > 32 ? 32 : sizeof(x)) - 1 }
+#define FILTER(x, m) { x, (sizeof(x) > 32 ? 32 : sizeof(x)) - 1, m }
    static struct {
       const char *base;
       const size_t size;
-   } allow[] = {
-      FILTER("/dev/input/"),   // WLC_FD_INPUT
-      FILTER("/dev/dri/card"), // WLC_FD_DRM
+      uint32_t major;
+   } allow[WLC_FD_LAST] = {
+      FILTER("/dev/input/", INPUT_MAJOR), // WLC_FD_INPUT
+      FILTER("/dev/dri/card", DRM_MAJOR), // WLC_FD_DRM
    };
 #undef FILTER
 
@@ -179,8 +205,18 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
       return -1;
    }
 
-   pfd->fd = open(path, flags | O_CLOEXEC);
+   struct stat st;
+   if (stat(path, &st) < 0 || major(st.st_rdev) != allow[type].major)
+      return -1;
+
+   int fd;
+   if ((fd = open(path, flags | O_CLOEXEC)) < 0)
+      return fd;
+
+   pfd->fd = fd;
    pfd->type = type;
+   pfd->st_dev = st.st_dev;
+   pfd->st_ino = st.st_ino;
 
    if (pfd->type == WLC_FD_DRM && drm.api.drmSetMaster)
       drm.api.drmSetMaster(pfd->fd);
@@ -192,11 +228,8 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
 }
 
 static void
-fd_close(int fd)
+fd_close(dev_t st_dev, ino_t st_ino)
 {
-   if (fd < 0)
-      return;
-
    struct wlc_fd *pfd = NULL;
    for (uint32_t i = 0; i < LENGTH(wlc.fds); ++i) {
       if (wlc.fds[i].st_dev == st_dev && wlc.fds[i].st_ino == st_ino) {
@@ -205,8 +238,10 @@ fd_close(int fd)
       }
    }
 
-   if (!pfd)
+   if (!pfd) {
+      wlc_log(WLC_LOG_WARN, "Tried to close fd that we did not open: (%zu, %zu)", st_dev, st_ino);
       return;
+   }
 
    if (pfd->type == WLC_FD_DRM && drm.api.drmDropMaster)
       drm.api.drmDropMaster(pfd->fd);
@@ -284,24 +319,23 @@ handle_request(int sock, int fd, const struct msg_request *request)
 
    switch (request->type) {
       case TYPE_CHECK:
-         write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
+         write_fd(sock, fd, &response, sizeof(response));
          break;
       case TYPE_FD_OPEN:
          fd = fd_open(request->fd_open.path, request->fd_open.flags, request->fd_open.type);
-         response.open = (fd != -1);
-         write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
+         write_fd(sock, fd, &response, sizeof(response));
          break;
       case TYPE_FD_CLOSE:
          /* we will only close file descriptors opened by us. */
-         fd_close(fd);
+         fd_close(request->fd_close.st_dev, request->fd_close.st_ino);
          break;
       case TYPE_ACTIVATE:
          response.activate = activate();
-         write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
+         write_fd(sock, fd, &response, sizeof(response));
          break;
       case TYPE_DEACTIVATE:
          response.deactivate = deactivate();
-         write_fd(sock, (fd >= 0 ? fd : 0), &response, sizeof(response));
+         write_fd(sock, fd, &response, sizeof(response));
          break;
    }
 }
@@ -367,8 +401,9 @@ read_response(int sock, int *out_fd, struct msg_response *response, enum msg_typ
 static void
 write_or_die(int sock, int fd, const void *buffer, ssize_t size)
 {
-   if (write_fd(sock, (fd >= 0 ? fd : 0), buffer, size) != size)
-      die("Failed to write %zu bytes to socket", size);
+   ssize_t wrt;
+   if ((wrt = write_fd(sock, fd, buffer, size)) != size)
+      die("Failed to write %zu bytes to socket (wrote %zu)", size, wrt);
 }
 
 static bool
@@ -401,7 +436,7 @@ wlc_fd_open(const char *path, int flags, enum wlc_fd_type type)
 
    int fd = -1;
    struct msg_response response;
-   if (!read_response(wlc.socket, &fd, &response, TYPE_FD_OPEN) || !response.open)
+   if (!read_response(wlc.socket, &fd, &response, TYPE_FD_OPEN))
       return -1;
 
    return fd;
@@ -410,10 +445,16 @@ wlc_fd_open(const char *path, int flags, enum wlc_fd_type type)
 void
 wlc_fd_close(int fd)
 {
-   struct msg_request request;
-   memset(&request, 0, sizeof(request));
-   request.type = TYPE_FD_CLOSE;
-   write_or_die(wlc.socket, fd, &request, sizeof(request));
+   struct stat st;
+   if (fstat(fd, &st) == 0) {
+      struct msg_request request;
+      memset(&request, 0, sizeof(request));
+      request.type = TYPE_FD_CLOSE;
+      request.fd_close.st_dev = st.st_dev;
+      request.fd_close.st_ino = st.st_ino;
+      write_or_die(wlc.socket, -1, &request, sizeof(request));
+   }
+   close(fd);
 }
 
 bool
@@ -499,4 +540,3 @@ wlc_fd_init(int argc, char *argv[])
       wlc.socket = sock[0];
    }
 }
-
