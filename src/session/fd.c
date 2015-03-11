@@ -14,6 +14,7 @@
 #include "internal.h"
 #include "macros.h"
 #include "fd.h"
+#include "logind.h"
 
 #ifndef EVIOCREVOKE
 #  define EVIOCREVOKE _IOW('E', 0x91, int)
@@ -73,6 +74,7 @@ static struct {
    } fds[32];
    int socket;
    pid_t child;
+   bool has_logind;
 } wlc;
 
 static bool
@@ -426,6 +428,11 @@ signal_handler(int signal)
 int
 wlc_fd_open(const char *path, int flags, enum wlc_fd_type type)
 {
+#ifdef HAS_LOGIND
+   if (wlc.has_logind)
+      return wlc_logind_open(path, flags);
+#endif
+
    struct msg_request request;
    memset(&request, 0, sizeof(request));
    request.type = TYPE_FD_OPEN;
@@ -445,6 +452,13 @@ wlc_fd_open(const char *path, int flags, enum wlc_fd_type type)
 void
 wlc_fd_close(int fd)
 {
+#ifdef HAS_LOGIND
+   if (wlc.has_logind) {
+      wlc_logind_close(fd);
+      return;
+   }
+#endif
+
    struct stat st;
    if (fstat(fd, &st) == 0) {
       struct msg_request request;
@@ -496,8 +510,10 @@ wlc_fd_terminate(void)
 }
 
 void
-wlc_fd_init(int argc, char *argv[])
+wlc_fd_init(int argc, char *argv[], bool has_logind)
 {
+   wlc.has_logind = has_logind;
+
    int sock[2];
    if (socketpair(AF_LOCAL, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sock) != 0)
       die("Failed to create fd passing unix domain socket pair: %m");

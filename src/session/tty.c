@@ -69,11 +69,10 @@ open_tty(int vt)
 }
 
 static int
-setup_tty(const char *xdg_vtnr)
+setup_tty(int fd)
 {
-   int fd;
-   if ((fd = open_tty(find_vt(xdg_vtnr)) < 0))
-      die("Could not open TTY");
+   if (fd < 0)
+      return fd;
 
    struct stat st;
    if (fstat(fd, &st) == -1)
@@ -195,12 +194,16 @@ wlc_tty_terminate(void)
 }
 
 void
-wlc_tty_init(void)
+wlc_tty_init(int vt)
 {
    if (wlc.tty >= 0)
       return;
 
-   wlc.tty = setup_tty(getenv("XDG_VTNR"));
+   if (!vt && !(vt = find_vt(getenv("XDG_VTNR"))))
+      die("Could not find vt");
+
+   if ((wlc.tty = setup_tty(open_tty(vt))) < 0)
+      die("Could not open TTY");
 
    struct sigaction action;
    memset(&action, 0, sizeof(action));

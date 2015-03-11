@@ -62,6 +62,10 @@ find_package(DRM REQUIRED)
 find_package(UDEV REQUIRED)
 find_package(libinput REQUIRED)
 
+# For logind support
+find_package(Dbus)
+find_package(Systemd)
+
 # Protocols
 include(Wayland)
 wayland_add_protocol_server(proto-xdg-shell "${wlc_SOURCE_DIR}/protos/xdg-shell.xml" xdg-shell)
@@ -84,6 +88,13 @@ include_directories(
    ${LIBINPUT_INCLUDE_DIR}
    ${X11_INCLUDE_DIR}
    )
+
+if (DBUS_FOUND AND SYSTEMD_FOUND)
+   message("Building with logind support")
+   include_directories(${DBUS_INCLUDE_DIR} ${SYSTEMD_INCLUDE_DIR})
+   add_definitions(-DHAS_LOGIND -DDBUS_DISABLE_DEPRECATED)
+   list(APPEND sources session/logind.c session/dbus.c)
+endif ()
 
 if (WLC_BUILD_STATIC)
    add_library(wlc STATIC ${sources})

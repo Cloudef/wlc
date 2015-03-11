@@ -11,6 +11,7 @@
 #include "session/tty.h"
 #include "session/fd.h"
 #include "session/udev.h"
+#include "session/logind.h"
 #include "xwayland/xwayland.h"
 #include "resources/resources.h"
 
@@ -375,14 +376,17 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    }
 
    unsetenv("TERM");
-   const char *display = getenv("DISPLAY");
+   const char *x11display = getenv("DISPLAY");
+   bool privilidged = false;
+   const bool has_logind  = wlc_logind_available();
 
    if (getuid() != geteuid() || getgid() != getegid()) {
       wlc_log(WLC_LOG_INFO, "Doing work on SUID/SGID side and dropping permissions");
+      privilidged = true;
    } else if (getuid() == 0) {
       die("Do not run wlc compositor as root");
-   } else if (!display && access("/dev/input/event0", R_OK | W_OK) != 0) {
-      die("Not running from X11 and no access to /dev/input/event0");
+   } else if (!x11display && !has_logind && access("/dev/input/event0", R_OK | W_OK) != 0) {
+      die("Not running from X11 and no access to /dev/input/event0 or logind available");
    }
 
 #ifndef NDEBUG
@@ -402,13 +406,35 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    }
 #endif
 
-   if (!display)
-      wlc_tty_init();
+   int vt = 0;
+
+#ifdef HAS_LOGIND
+   // Init logind if we are not running as SUID.
+   // We need event loop for logind to work, and thus we won't allow it on SUID process.
+   if (!privilidged && !x11display && has_logind) {
+      if (!(wlc.display = wl_display_create()))
+         die("Failed to create wayland display");
+      if (!(vt = wlc_logind_init("seat0")))
+         die("Failed to init logind");
+   }
+#else
+   (void)privilidged;
+#endif
+
+   if (!x11display)
+      wlc_tty_init(vt);
 
    // -- we open tty before dropping permissions
    //    so the fd process can also handle cleanup in case of crash
+   //    if logind initialized correctly, fd process does nothing but handle crash.
 
-   wlc_fd_init(argc, argv);
+   {
+      struct wl_display *display = wlc.display;
+      wlc.display = NULL;
+      wlc_fd_init(argc, argv, (vt != 0));
+      wlc.display = display;
+   }
+
 
    // -- permissions are now dropped
 
@@ -426,7 +452,7 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    if (!wlc_resources_init())
       die("Failed to init resource manager");
 
-   if (!(wlc.display = wl_display_create()))
+   if (!wlc.display && !(wlc.display = wl_display_create()))
       die("Failed to create wayland display");
 
    const char *socket_name;
@@ -443,7 +469,7 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
       die("Failed to init udev");
 
    const char *libinput = getenv("WLC_LIBINPUT");
-   if (!display || (libinput && !chck_cstreq(libinput, "0"))) {
+   if (!x11display || (libinput && !chck_cstreq(libinput, "0"))) {
       if (!wlc_input_init())
          die("Failed to init input");
    }
