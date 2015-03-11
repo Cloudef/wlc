@@ -10,11 +10,10 @@ wlc_render_resolution(struct wlc_render *render, struct wlc_context *bound, cons
 {
    assert(render && bound && resolution);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.resolution || !wlc_context_bind(bound))
       return;
 
-   if (render->api.resolution)
-      render->api.resolution(render->render, resolution);
+   render->api.resolution(render->render, resolution);
 }
 
 void
@@ -22,11 +21,10 @@ wlc_render_surface_destroy(struct wlc_render *render, struct wlc_context *bound,
 {
    assert(render && bound && surface);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.surface_destroy || !wlc_context_bind(bound))
       return;
 
-   if (render->api.surface_destroy)
-      render->api.surface_destroy(render->render, bound, surface);
+   render->api.surface_destroy(render->render, bound, surface);
 }
 
 bool
@@ -34,7 +32,7 @@ wlc_render_surface_attach(struct wlc_render *render, struct wlc_context *bound, 
 {
    assert(render && bound && surface);
 
-   if (!wlc_context_bind(bound) || !render->api.surface_attach)
+   if (!render->api.surface_attach || !wlc_context_bind(bound))
       return false;
 
    return render->api.surface_attach(render->render, bound, surface, buffer);
@@ -45,11 +43,10 @@ wlc_render_view_paint(struct wlc_render *render, struct wlc_context *bound, stru
 {
    assert(render && view);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.view_paint || !wlc_context_bind(bound))
       return;
 
-   if (render->api.view_paint)
-      render->api.view_paint(render->render, view);
+   render->api.view_paint(render->render, view);
 }
 
 void
@@ -57,11 +54,10 @@ wlc_render_surface_paint(struct wlc_render *render, struct wlc_context *bound, s
 {
    assert(render);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.surface_paint || !wlc_context_bind(bound))
       return;
 
-   if (render->api.surface_paint)
-      render->api.surface_paint(render->render, surface, pos);
+   render->api.surface_paint(render->render, surface, pos);
 }
 
 void
@@ -69,11 +65,10 @@ wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, s
 {
    assert(render);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.pointer_paint || !wlc_context_bind(bound))
       return;
 
-   if (render->api.pointer_paint)
-      render->api.pointer_paint(render->render, pos);
+   render->api.pointer_paint(render->render, pos);
 }
 
 void
@@ -81,11 +76,10 @@ wlc_render_read_pixels(struct wlc_render *render, struct wlc_context *bound, str
 {
    assert(render);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.read_pixels || !wlc_context_bind(bound))
       return;
 
-   if (render->api.read_pixels)
-      render->api.read_pixels(render->render, geometry, out_data);
+   render->api.read_pixels(render->render, geometry, out_data);
 }
 
 void
@@ -93,11 +87,10 @@ wlc_render_background(struct wlc_render *render, struct wlc_context *bound)
 {
    assert(render);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.background || !wlc_context_bind(bound))
       return;
 
-   if (render->api.background)
-      render->api.background(render->render);
+   render->api.background(render->render);
 }
 
 void
@@ -105,11 +98,10 @@ wlc_render_clear(struct wlc_render *render, struct wlc_context *bound)
 {
    assert(render);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.clear || !wlc_context_bind(bound))
       return;
 
-   if (render->api.clear)
-      render->api.clear(render->render);
+   render->api.clear(render->render);
 }
 
 void
@@ -117,11 +109,10 @@ wlc_render_time(struct wlc_render *render, struct wlc_context *bound, uint32_t t
 {
    assert(render);
 
-   if (!wlc_context_bind(bound))
+   if (!render->api.time || !wlc_context_bind(bound))
       return;
 
-   if (render->api.time)
-      render->api.time(render->render, time);
+   render->api.time(render->render, time);
 }
 
 void
