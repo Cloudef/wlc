@@ -10,6 +10,9 @@
 /** non-fatal stub implementation of wayland interface method. */
 #define STUBL(x) wlc_log(WLC_LOG_WARN, "%s @ line %d is not implemented", __PRETTY_FUNCTION__, __LINE__)
 
+/** length macro for statically initialized data. */
+#define LENGTH(x) (sizeof(x) / sizeof(x)[0])
+
 #ifndef static_assert
 #  define static_assert_x(x, y) typedef char static_assertion_##y[(x) ? 1 : -1]
 #else

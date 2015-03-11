@@ -14,8 +14,6 @@
 #include "compositor/view.h"
 #include "resources/types/surface.h"
 
-#define LENGTH(x) (sizeof(x) / sizeof(x)[0])
-
 enum atom_name {
    WL_SURFACE_ID,
    WM_DELETE_WINDOW,

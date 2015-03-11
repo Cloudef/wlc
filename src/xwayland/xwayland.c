@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <wayland-server.h>
 #include "internal.h"
+#include "macros.h"
 #include "xwayland.h"
 #include "xwm.h"
 #include "compositor/compositor.h"
@@ -222,7 +223,7 @@ wlc_xwayland_terminate(void)
    }
 
    const int fds[] = { xserver.socks[0], xserver.socks[1], xserver.wl[0], xserver.wl[1], xserver.wm[0], xserver.wm[1] };
-   for (uint32_t i = 0; i < sizeof(fds) / sizeof(int); ++i) {
+   for (uint32_t i = 0; i < LENGTH(fds); ++i) {
       if (fds[i] >= 0)
          close(fds[i]);
    }
@@ -253,10 +254,10 @@ wlc_xwayland_init(void)
 
    const int fds[] = { xserver.wl[1], xserver.wm[1], xserver.socks[0], xserver.socks[1] };
    if ((xserver.pid = fork()) == 0) {
-      char strings[sizeof(fds) / sizeof(int)][16];
+      char strings[LENGTH(fds)][16];
 
       /* Unset the FD_CLOEXEC flag on the FDs that will get passed to Xwayland. */
-      for (uint32_t i = 0; i < sizeof(fds) / sizeof(int); ++i) {
+      for (uint32_t i = 0; i < LENGTH(fds); ++i) {
          if (fcntl(fds[i], F_SETFD, 0) != 0) {
             wlc_log(WLC_LOG_WARN, "fcntl() failed: %m");
             _exit(EXIT_FAILURE);
@@ -314,7 +315,7 @@ wlc_xwayland_init(void)
    }
 
    /* Close fds that went to child */
-   for (uint32_t i = 0; i < sizeof(fds) / sizeof(int); ++i)
+   for (uint32_t i = 0; i < LENGTH(fds); ++i)
       close(fds[i]);
    xserver.wm[1] = xserver.wl[1] = -1;
    memset(xserver.socks, -1, sizeof(xserver.socks));

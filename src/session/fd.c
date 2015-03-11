@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include "internal.h"
+#include "macros.h"
 #include "fd.h"
 
 #ifndef EVIOCREVOKE
@@ -150,7 +151,7 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
    assert(path);
 
    struct wlc_fd *pfd = NULL;
-   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < LENGTH(wlc.fds); ++i) {
       if (wlc.fds[i].fd < 0) {
          pfd = &wlc.fds[i];
          break;
@@ -197,8 +198,8 @@ fd_close(int fd)
       return;
 
    struct wlc_fd *pfd = NULL;
-   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
-      if (wlc.fds[i].fd == fd) {
+   for (uint32_t i = 0; i < LENGTH(wlc.fds); ++i) {
+      if (wlc.fds[i].st_dev == st_dev && wlc.fds[i].st_ino == st_ino) {
          pfd = &wlc.fds[i];
          break;
       }
@@ -217,7 +218,7 @@ fd_close(int fd)
 static bool
 activate(void)
 {
-   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < LENGTH(wlc.fds); ++i) {
       if (wlc.fds[i].fd < 0)
          continue;
 
@@ -241,7 +242,7 @@ static bool
 deactivate(void)
 {
    // try drop drm fds first before we kill input
-   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < LENGTH(wlc.fds); ++i) {
       if (wlc.fds[i].fd < 0 || wlc.fds[i].type != WLC_FD_DRM)
          continue;
 
@@ -251,7 +252,7 @@ deactivate(void)
       }
    }
 
-   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < LENGTH(wlc.fds); ++i) {
       if (wlc.fds[i].fd < 0)
          continue;
 
@@ -318,7 +319,7 @@ communicate(int sock, pid_t parent)
    } while (kill(parent, 0) == 0);
 
    // Close all open fds
-   for (uint32_t i = 0; i < sizeof(wlc.fds) / sizeof(struct wlc_fd); ++i) {
+   for (uint32_t i = 0; i < LENGTH(wlc.fds); ++i) {
       if (wlc.fds[i].fd < 0)
          continue;
 
