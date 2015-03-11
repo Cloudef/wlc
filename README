@@ -16,7 +16,7 @@ legend: x = works, v = works, but major features still missing
 [v] udev / hotplugging
 [v] Clipboard
 [ ] Drag and drop
-[ ] logind support
+[x] logind support
 
 MayTODO:
 [ ] Pixman backend
