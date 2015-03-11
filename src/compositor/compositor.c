@@ -158,6 +158,16 @@ wl_compositor_bind(struct wl_client *client, void *data, uint32_t version, uint3
 }
 
 static void
+cb_idle_vt_switch(void *data)
+{
+   struct wlc_compositor *compositor = data;
+   wlc_tty_activate_vt(compositor->state.vt);
+   compositor->state.vt = 0;
+   wl_event_source_remove(compositor->state.idle);
+   compositor->state.idle = NULL;
+}
+
+static void
 activate_tty(struct wlc_compositor *compositor)
 {
    if (compositor->state.tty != ACTIVATING)
@@ -183,8 +193,7 @@ deactivate_tty(struct wlc_compositor *compositor)
    compositor->state.tty = IDLE;
 
    if (compositor->state.vt != 0) {
-      wlc_tty_activate_vt(compositor->state.vt);
-      compositor->state.vt = 0;
+      compositor->state.idle = wl_event_loop_add_idle(wlc_event_loop(), cb_idle_vt_switch, compositor);
    } else {
       wlc_tty_deactivate();
    }

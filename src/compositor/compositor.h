@@ -46,6 +46,7 @@ struct wlc_compositor {
    } tmp;
 
    struct {
+      struct wl_event_source *idle;
       enum {
          IDLE,
          ACTIVATING,
