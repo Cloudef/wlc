@@ -248,7 +248,7 @@ page_flip(struct wlc_backend_surface *bsurface)
 }
 
 static void
-surface_free(struct wlc_backend_surface *bsurface)
+surface_release(struct wlc_backend_surface *bsurface)
 {
    if (x11.api.xcb_destroy_window)
       x11.api.xcb_destroy_window(x11.connection, bsurface->window);
@@ -258,7 +258,7 @@ static bool
 add_output(xcb_window_t window, struct wlc_output_information *info)
 {
    struct wlc_backend_surface bsurface;
-   if (!wlc_backend_surface(&bsurface, surface_free, 0))
+   if (!wlc_backend_surface(&bsurface, surface_release, 0))
       return false;
 
    bsurface.window = window;

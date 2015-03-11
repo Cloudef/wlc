@@ -317,7 +317,7 @@ surface_sleep(struct wlc_backend_surface *bsurface, bool sleep)
 }
 
 static void
-surface_free(struct wlc_backend_surface *bsurface)
+surface_release(struct wlc_backend_surface *bsurface)
 {
    struct drm_surface *dsurface = bsurface->internal;
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
@@ -344,7 +344,7 @@ static bool
 add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_output_information *info)
 {
    struct wlc_backend_surface bsurface;
-   if (!wlc_backend_surface(&bsurface, surface_free, sizeof(struct drm_surface)))
+   if (!wlc_backend_surface(&bsurface, surface_release, sizeof(struct drm_surface)))
       return false;
 
    struct drm_surface *dsurface = bsurface.internal;
