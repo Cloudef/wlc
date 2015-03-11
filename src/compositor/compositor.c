@@ -226,6 +226,7 @@ activate_event(struct wl_listener *listener, void *data)
       compositor->state.vt = 0;
       activate_tty(compositor);
       wlc_backend_update_outputs(&compositor->backend, &compositor->outputs.pool);
+      chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_set_sleep_ptr, false);
    }
 }
 
