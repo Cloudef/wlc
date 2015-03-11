@@ -21,10 +21,11 @@ static struct {
       int vt;
       bool altered;
    } old_state;
-   int tty;
+   int tty, vt;
 } wlc = {
    .old_state = {0},
    .tty = -1,
+   .vt = 0,
 };
 
 static int
@@ -70,27 +71,20 @@ open_tty(int vt)
 static int
 setup_tty(const char *xdg_vtnr)
 {
-   struct stat st;
-   int vt;
-   struct vt_stat state;
-   struct vt_mode mode = {
-      .mode = VT_PROCESS,
-      .relsig = SIGUSR1,
-      .acqsig = SIGUSR2
-   };
-
    int fd;
    if ((fd = open_tty(find_vt(xdg_vtnr)) < 0))
       die("Could not open TTY");
 
+   struct stat st;
    if (fstat(fd, &st) == -1)
       die("Could not stat TTY fd");
 
-   vt = minor(st.st_rdev);
+   wlc.vt = minor(st.st_rdev);
 
-   if (major(st.st_rdev) != TTY_MAJOR || vt == 0)
+   if (major(st.st_rdev) != TTY_MAJOR || wlc.vt == 0)
       die("Not a valid VT");
 
+   struct vt_stat state;
    if (ioctl(fd, VT_GETSTATE, &state) == -1)
       die("Could not get the current VT state");
 
@@ -108,13 +102,19 @@ setup_tty(const char *xdg_vtnr)
    if (ioctl(fd, KDSETMODE, KD_GRAPHICS) == -1)
       die("Could not set console mode to KD_GRAPHICS");
 
+   struct vt_mode mode = {
+      .mode = VT_PROCESS,
+      .relsig = SIGUSR1,
+      .acqsig = SIGUSR2
+   };
+
    if (ioctl(fd, VT_SETMODE, &mode) == -1)
       die("Could not set VT mode");
 
-   if (ioctl(fd, VT_ACTIVATE, vt) == -1)
+   if (ioctl(fd, VT_ACTIVATE, wlc.vt) == -1)
       die("Could not activate VT");
 
-   if (ioctl(fd, VT_WAITACTIVE, vt) == -1)
+   if (ioctl(fd, VT_WAITACTIVE, wlc.vt) == -1)
       die("Could not wait for VT to become active");
 
    wlc.old_state.altered = true;
@@ -163,11 +163,17 @@ wlc_tty_deactivate(void)
 bool
 wlc_tty_activate_vt(int vt)
 {
-   if (wlc.tty < 0)
+   if (wlc.tty < 0 || vt == wlc.vt)
       return false;
 
    wlc_log(WLC_LOG_INFO, "Activate VT: %d", vt);
    return (ioctl(wlc.tty, VT_ACTIVATE, vt) != -1);
+}
+
+int
+wlc_tty_get_vt(void)
+{
+   return wlc.vt;
 }
 
 void
