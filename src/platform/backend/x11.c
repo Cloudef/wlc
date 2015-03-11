@@ -624,7 +624,7 @@ terminate(void)
       dlclose(x11.api.x11_xcb_handle);
 
    if (x11.api.xcb_xkb_handle)
-      dlclose(x11.api.x11_xcb_handle);
+      dlclose(x11.api.xcb_xkb_handle);
 
    if (x11.api.xcb_handle)
       dlclose(x11.api.xcb_handle);
