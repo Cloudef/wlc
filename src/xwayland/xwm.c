@@ -430,6 +430,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
             xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
             for (uint32_t i = 0; i < reply->value_len; ++i) {
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP]  ||
+                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_UTILITY]  ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DND] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_MENU] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DROPDOWN_MENU] ||
