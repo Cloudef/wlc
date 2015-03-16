@@ -177,7 +177,8 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
           (surface = wl_resource_from_wlc_resource(v->surface, "surface")) &&
           (focus = wl_resource_from_wlc_resource(keyboard->focused.resource, "keyboard"))) {
          uint32_t serial = wl_display_next_serial(wlc_display());
-         wlc_x11_window_set_active(&v->x11, false);
+         if (!view->x11.id)
+            wlc_x11_window_set_active(&v->x11, false);
          wl_keyboard_send_leave(focus, serial, surface);
 
          if (v->xdg_popup)
