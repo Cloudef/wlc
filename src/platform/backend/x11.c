@@ -469,7 +469,7 @@ fake_information(struct wlc_output_information *info)
    info->scale = 1;
 
    struct wlc_output_mode mode = {0};
-   mode.refresh = 60;
+   mode.refresh = 60 * 1000; // mHz
    mode.width = x11.screen->width_in_pixels;
    mode.height = x11.screen->height_in_pixels;
    mode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
