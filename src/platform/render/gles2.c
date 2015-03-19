@@ -34,6 +34,9 @@ enum program_type {
 };
 
 enum {
+   UNIFORM_TEXTURE0,
+   UNIFORM_TEXTURE1,
+   UNIFORM_TEXTURE2,
    UNIFORM_RESOLUTION,
    UNIFORM_TIME,
    UNIFORM_DIM,
@@ -47,6 +50,9 @@ enum {
 };
 
 static const char *uniform_names[UNIFORM_LAST] = {
+   "texture0",
+   "texture1",
+   "texture2",
    "resolution",
    "time",
    "dim",
@@ -108,6 +114,7 @@ static struct {
       void (*glGetProgramInfoLog)(GLuint, GLsizei, GLsizei*, GLchar*);
       void (*glBindAttribLocation)(GLuint, GLuint, const GLchar*);
       GLint (*glGetUniformLocation)(GLuint, const GLchar *name);
+      void (*glUniform1i)(GLint, GLint);
       void (*glUniform1fv)(GLint, GLsizei count, GLfloat*);
       void (*glUniform2fv)(GLint, GLsizei count, GLfloat*);
       void (*glEnableVertexAttribArray)(GLuint);
@@ -183,6 +190,8 @@ gles2_load(void)
    if (!(load(glBindAttribLocation)))
       goto function_pointer_exception;
    if (!(load(glGetUniformLocation)))
+      goto function_pointer_exception;
+   if (!(load(glUniform1i)))
       goto function_pointer_exception;
    if (!(load(glUniform1fv)))
       goto function_pointer_exception;
@@ -495,6 +504,10 @@ create_context(void)
       for (int u = 0; u < UNIFORM_LAST; ++u) {
          context->programs[i].uniforms[u] = GL_CALL(gl.api.glGetUniformLocation(context->programs[i].obj, uniform_names[u]));
       }
+
+      GL_CALL(gl.api.glUniform1i(context->programs[i].uniforms[UNIFORM_TEXTURE0], 0));
+      GL_CALL(gl.api.glUniform1i(context->programs[i].uniforms[UNIFORM_TEXTURE1], 1));
+      GL_CALL(gl.api.glUniform1i(context->programs[i].uniforms[UNIFORM_TEXTURE2], 2));
    }
 
    if (has_extension(context, "GL_OES_EGL_image_external"))
