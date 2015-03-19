@@ -86,6 +86,7 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
 static bool
 should_render(struct wlc_output *output)
 {
+   assert(output);
    return (wlc_get_active() && !output->state.pending && output->bsurface.display);
 }
 
@@ -113,6 +114,7 @@ is_transparent_top_of_background(struct wlc_output *output, struct wlc_view *vie
 static bool
 is_visible(struct wlc_output *output)
 {
+   assert(output);
    struct wlc_geometry g = { { INT_MAX, INT_MAX }, { 0, 0 } }, root = { { 0, 0 }, output->resolution };
 
    wlc_handle *h;
