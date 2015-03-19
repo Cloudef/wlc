@@ -37,7 +37,7 @@ wl_cb_subsurface_set_sync(struct wl_client *client, struct wl_resource *resource
    (void)client;
 
    struct wlc_surface *surface;
-   if (!(surface = convert_from_wl_resource(resource, "surface")))
+   if (!(surface = convert_from_wlc_resource((wlc_resource)wl_resource_get_user_data(resource), "surface")))
       return;
 
    if (surface)
@@ -50,7 +50,7 @@ wl_cb_subsurface_set_desync(struct wl_client *client, struct wl_resource *resour
    (void)client;
 
    struct wlc_surface *surface;
-   if (!(surface = convert_from_wl_resource(resource, "surface")))
+   if (!(surface = convert_from_wlc_resource((wlc_resource)wl_resource_get_user_data(resource), "surface")))
       return;
 
    if (surface)
@@ -85,7 +85,7 @@ wl_cb_subcompositor_get_subsurface(struct wl_client *client, struct wl_resource 
    if (!(r = wlc_resource_create(&compositor->subsurfaces, client, &wl_subsurface_interface, wl_resource_get_version(resource), 1, id)))
       return;
 
-   wlc_resource_implement(r, &wl_subsurface_implementation, compositor);
+   wlc_resource_implement(r, &wl_subsurface_implementation, (void*)surface);
    wlc_surface_set_parent(convert_from_wlc_resource(surface, "surface"), convert_from_wlc_resource(parent, "surface"));
 }
 
@@ -567,6 +567,7 @@ wlc_compositor_release(struct wlc_compositor *compositor)
    wlc_source_release(&compositor->outputs);
    wlc_source_release(&compositor->views);
    wlc_source_release(&compositor->surfaces);
+   wlc_source_release(&compositor->subsurfaces);
    wlc_source_release(&compositor->regions);
 
    memset(compositor, 0, sizeof(struct wlc_compositor));
@@ -602,6 +603,7 @@ wlc_compositor(struct wlc_compositor *compositor)
    if (!wlc_source(&compositor->outputs, "output", wlc_output, wlc_output_release, 4, sizeof(struct wlc_output)) ||
        !wlc_source(&compositor->views, "view", wlc_view, wlc_view_release, 32, sizeof(struct wlc_view)) ||
        !wlc_source(&compositor->surfaces, "surface", wlc_surface, wlc_surface_release, 32, sizeof(struct wlc_surface)) ||
+       !wlc_source(&compositor->subsurfaces, "subsurface", NULL, NULL, 32, sizeof(struct wlc_resource)) ||
        !wlc_source(&compositor->regions, "region", NULL, wlc_region_release, 32, sizeof(struct wlc_region)))
       goto fail;
 
