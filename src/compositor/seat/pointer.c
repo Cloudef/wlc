@@ -18,12 +18,12 @@ wl_cb_pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
    (void)serial;
 
    struct wlc_pointer *pointer;
-   struct wlc_surface *surface;
    struct wl_resource *focus;
-   if (!(surface = convert_from_wl_resource(surface_resource, "surface")) ||
-       !(pointer = wl_resource_get_user_data(resource)) ||
+   if (!(pointer = wl_resource_get_user_data(resource)) ||
        !(focus = wl_resource_from_wlc_resource(pointer->focused.resource, "pointer")))
       return;
+
+   struct wlc_surface *surface = convert_from_wl_resource(surface_resource, "surface");
 
    // Only accept request if we happen to have focus on the client.
    if (wl_resource_get_client(focus) == client)
