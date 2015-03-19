@@ -222,6 +222,30 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    }
 }
 
+void
+wlc_view_get_opaque(struct wlc_view *view, struct wlc_geometry *out_opaque)
+{
+   assert(view && out_opaque);
+   memcpy(out_opaque, &wlc_geometry_zero, sizeof(struct wlc_geometry));
+
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return;
+
+   struct wlc_geometry b, v;
+   wlc_view_get_bounds(view, &b, &v);
+
+   if (wlc_size_equals(&surface->size, &b.size) || !wlc_geometry_equals(&v, &b)) {
+      // Only ran when we don't draw black borders behind the view
+      b.origin.x += surface->pending.opaque.extents.x1 * (float)surface->size.w / b.size.w;
+      b.origin.y += surface->pending.opaque.extents.y1 * (float)surface->size.h / b.size.h;
+      b.size.w = surface->pending.opaque.extents.x2 * (float)surface->size.w / b.size.w;
+      b.size.h = surface->pending.opaque.extents.y2 * (float)surface->size.h / b.size.h;
+   }
+
+   memcpy(out_opaque, &b, sizeof(b));
+}
+
 bool
 wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
 {

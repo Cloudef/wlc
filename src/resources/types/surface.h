@@ -55,7 +55,6 @@ struct wlc_surface {
       SURFACE_RGBA,
    } format;
 
-   bool opaque;
    bool synchronized;
 };
 

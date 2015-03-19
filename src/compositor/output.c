@@ -91,27 +91,6 @@ should_render(struct wlc_output *output)
 }
 
 static bool
-is_transparent_top_of_background(struct wlc_output *output, struct wlc_view *view)
-{
-   wlc_handle *h;
-   chck_iter_pool_for_each(&output->views, h) {
-      struct wlc_view *v;
-      struct wlc_surface *s;
-      if (!(v = convert_from_wlc_handle(*h, "view")) ||
-          !(s = convert_from_wlc_resource(v->surface, "surface")) || !s->opaque)
-         continue;
-
-      if (v == view || !(v->mask & output->active.mask))
-         continue;
-
-      if (wlc_geometry_contains(&v->commit.geometry, &view->commit.geometry))
-         return false;
-   }
-
-   return true;
-}
-
-static bool
 is_visible(struct wlc_output *output)
 {
    assert(output);
@@ -128,22 +107,28 @@ is_visible(struct wlc_output *output)
       if (!(v->mask & output->active.mask))
          continue;
 
-      if (!s->opaque) {
-         if (is_transparent_top_of_background(output, v))
-            return true;
-         continue;
-      }
+      struct wlc_geometry vg;
+      wlc_view_get_opaque(v, &vg);
 
       struct wlc_size size = {
-         v->commit.geometry.origin.x + v->commit.geometry.size.w,
-         v->commit.geometry.origin.y + v->commit.geometry.size.h
+         vg.origin.x + vg.size.w,
+         vg.origin.y + vg.size.h
       };
 
-      wlc_origin_min(&g.origin, &v->commit.geometry.origin, &g.origin);
+      wlc_origin_min(&g.origin, &vg.origin, &g.origin);
       wlc_size_max(&g.size, &size, &g.size);
    }
 
    return !wlc_geometry_contains(&g, &root);
+}
+
+static bool
+view_contains_output(struct wlc_view *view, struct wlc_output *output)
+{
+   assert(view && output);
+   struct wlc_geometry vg, root = { { 0, 0 }, output->resolution };
+   wlc_view_get_opaque(view, &vg);
+   return wlc_geometry_contains(&vg, &root);
 }
 
 static void
@@ -165,6 +150,30 @@ finish_frame_tasks(struct wlc_output *output)
       wlc_output_terminate(output);
       output->task.terminate = false;
    }
+}
+
+static void
+render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_pool *callbacks)
+{
+   assert(output && callbacks);
+
+   if (!view)
+      return;
+
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return;
+
+   if (!surface->commit.attached || !(view->mask & output->active.mask))
+      return;
+
+   wlc_view_commit_state(view, &view->pending, &view->commit);
+   wlc_render_view_paint(&output->render, &output->context, view);
+
+   wlc_resource *r;
+   chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
+      chck_iter_pool_push_back(callbacks, r);
+   chck_iter_pool_release(&surface->commit.frame_cbs);
 }
 
 static bool
@@ -192,9 +201,22 @@ repaint(struct wlc_output *output)
       return true;
    }
 
-   if (output->options.enable_bg && !output->state.background_visible && is_visible(output)) {
-      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background visible");
-      output->state.background_visible = true;
+   wlc_handle *last;
+   if ((last = chck_iter_pool_get_last(&output->views)) && !view_contains_output(convert_from_wlc_handle(*last, "view"), output))
+      last = NULL;
+
+   // if last contains output, we already know background is not visible
+   // otherwise do the more expensive check.
+   const bool visible = (!last && is_visible(output));
+
+   if (output->options.enable_bg && visible) {
+      if (!output->state.background_visible) {
+         wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background visible");
+         output->state.background_visible = true;
+      }
+   } else if (output->state.background_visible) {
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background not visible");
+      output->state.background_visible = false;
    }
 
    if (output->state.background_visible) {
@@ -206,24 +228,12 @@ repaint(struct wlc_output *output)
    struct chck_iter_pool callbacks;
    chck_iter_pool(&callbacks, 32, 0, sizeof(wlc_resource));
 
-   wlc_handle *h;
-   chck_iter_pool_for_each(&output->views, h) {
-      struct wlc_view *view;
-      struct wlc_surface *surface;
-      if (!(view = convert_from_wlc_handle(*h, "view")) ||
-          !(surface = convert_from_wlc_resource(view->surface, "surface")))
-         continue;
-
-      if (!surface->commit.attached || !(view->mask & output->active.mask))
-         continue;
-
-      wlc_view_commit_state(view, &view->pending, &view->commit);
-      wlc_render_view_paint(&output->render, &output->context, view);
-
-      wlc_resource *r;
-      chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
-         chck_iter_pool_push_back(&callbacks, r);
-      chck_iter_pool_release(&surface->commit.frame_cbs);
+   if (last) {
+      render_view(output, convert_from_wlc_handle(*last, "view"), &callbacks);
+   } else {
+      wlc_handle *h;
+      chck_iter_pool_for_each(&output->views, h)
+         render_view(output, convert_from_wlc_handle(*h, "view"), &callbacks);
    }
 
    struct wlc_render_event ev = { .output = output, .type = WLC_RENDER_EVENT_POINTER };
@@ -291,11 +301,6 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    const uint32_t ms = output->state.frame_time - last;
 
    // TODO: handle presentation feedback here
-
-   if (output->options.enable_bg && output->state.background_visible && !is_visible(output)) {
-      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background not visible");
-      output->state.background_visible = false;
-   }
 
    if ((output->state.background_visible || output->state.activity) && !output->task.terminate) {
       output->state.ims = chck_clampf(output->state.ims * (output->state.activity ? 0.9 : 1.1), 1, 41);
