@@ -817,7 +817,9 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
          settings->filter = true;
       } else {
          // black borders are requested
-         texture_paint(context, &context->textures[TEXTURE_BLACK], 1, geometry, settings);
+         struct paint settings2 = *settings;
+         settings2.program = (settings2.program == PROGRAM_RGBA || settings2.program == PROGRAM_RGB ? settings2.program : PROGRAM_RGB);
+         texture_paint(context, &context->textures[TEXTURE_BLACK], 1, geometry, &settings2);
          memcpy(geometry, &settings->visible, sizeof(struct wlc_geometry));
       }
    }
