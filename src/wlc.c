@@ -172,6 +172,7 @@ wlc_dlog(enum wlc_debug dbg, const char *fmt, ...)
    } channels[WLC_DBG_LAST] = {
       { "handle", false, false },
       { "render", false, false },
+      { "render-loop", false, false },
       { "focus", false, false },
       { "xwm", false, false },
    };

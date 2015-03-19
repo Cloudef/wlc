@@ -257,6 +257,7 @@ wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface)
    view->surface = convert_to_wlc_resource(surface);
    wlc_surface_attach_to_view(convert_from_wlc_resource(old, "surface"), NULL);
    wlc_surface_attach_to_view(surface, view);
+   wlc_dlog(WLC_DBG_RENDER, "-> Linked surface (%zu) to view (%zu)", convert_to_wlc_resource(surface), convert_to_wlc_handle(view));
 }
 
 struct wl_client*

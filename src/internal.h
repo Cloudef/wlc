@@ -184,6 +184,7 @@ struct wlc_system_signals* wlc_system_signals(void);
 enum wlc_debug {
    WLC_DBG_HANDLE,
    WLC_DBG_RENDER,
+   WLC_DBG_RENDER_LOOP,
    WLC_DBG_FOCUS,
    WLC_DBG_XWM,
    WLC_DBG_LAST,

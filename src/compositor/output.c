@@ -172,7 +172,7 @@ repaint(struct wlc_output *output)
       return false;
 
    if (!should_render(output)) {
-      wlc_dlog(WLC_DBG_RENDER, "-> Skipped repaint");
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Skipped repaint");
       output->state.activity = output->state.scheduled = false;
       finish_frame_tasks(output);
       return false;
@@ -186,12 +186,12 @@ repaint(struct wlc_output *output)
       wlc_render_clear(&output->render, &output->context);
       output->state.pending = true;
       wlc_context_swap(&output->context, &output->bsurface);
-      wlc_dlog(WLC_DBG_RENDER, "-> Repaint");
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Repaint");
       return true;
    }
 
    if (output->options.enable_bg && !output->state.background_visible && is_visible(output)) {
-      wlc_dlog(WLC_DBG_RENDER, "-> Background visible");
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background visible");
       output->state.background_visible = true;
    }
 
@@ -252,7 +252,7 @@ repaint(struct wlc_output *output)
       chck_iter_pool_release(&callbacks);
    }
 
-   wlc_dlog(WLC_DBG_RENDER, "-> Repaint");
+   wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Repaint");
    return true;
 }
 
@@ -291,13 +291,13 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
    // TODO: handle presentation feedback here
 
    if (output->options.enable_bg && output->state.background_visible && !is_visible(output)) {
-      wlc_dlog(WLC_DBG_RENDER, "-> Background not visible");
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background not visible");
       output->state.background_visible = false;
    }
 
    if ((output->state.background_visible || output->state.activity) && !output->task.terminate) {
       output->state.ims = chck_clampf(output->state.ims * (output->state.activity ? 0.9 : 1.1), 1, 41);
-      wlc_dlog(WLC_DBG_RENDER, "-> Interpolated idle time %f (%u : %d)", output->state.ims, ms, output->state.activity);
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Interpolated idle time %f (%u : %d)", output->state.ims, ms, output->state.activity);
       wl_event_source_timer_update(output->timer.idle, output->state.ims);
       output->state.scheduled = true;
       output->state.activity = false;
@@ -305,7 +305,7 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
       output->state.scheduled = false;
    }
 
-   wlc_dlog(WLC_DBG_RENDER, "-> Finished frame");
+   wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Finished frame");
    finish_frame_tasks(output);
 }
 
@@ -385,7 +385,7 @@ wlc_output_schedule_repaint(struct wlc_output *output)
       return;
 
    if (!output->state.activity)
-      wlc_dlog(WLC_DBG_RENDER, "-> Activity marked");
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Activity marked");
 
    output->state.activity = true;
 
@@ -406,7 +406,7 @@ wlc_output_schedule_repaint(struct wlc_output *output)
 
    output->state.scheduled = true;
    wl_event_source_timer_update(output->timer.idle, 1);
-   wlc_dlog(WLC_DBG_RENDER, "-> Repaint scheduled");
+   wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Repaint scheduled");
 }
 
 bool
