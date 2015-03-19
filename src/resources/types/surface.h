@@ -53,6 +53,10 @@ struct wlc_surface {
    enum wlc_surface_format {
       SURFACE_RGB,
       SURFACE_RGBA,
+      SURFACE_EGL,
+      SURFACE_Y_UV,
+      SURFACE_Y_U_V,
+      SURFACE_Y_XUXV,
    } format;
 
    bool synchronized;

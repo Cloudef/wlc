@@ -24,6 +24,10 @@ static GLubyte cursor_palette[];
 enum program_type {
    PROGRAM_RGB,
    PROGRAM_RGBA,
+   PROGRAM_EGL,
+   PROGRAM_Y_UV,
+   PROGRAM_Y_U_V,
+   PROGRAM_Y_XUXV,
    PROGRAM_CURSOR,
    PROGRAM_BG,
    PROGRAM_LAST,
@@ -311,7 +315,7 @@ create_shader(const char *source, GLenum shader_type)
 static struct ctx*
 create_context(void)
 {
-   static const char *vert_shader_text =
+   static const char *vert_shader =
       "precision mediump float;\n"
       "uniform vec2 resolution;\n"
       "mat4 ortho = mat4("
@@ -329,7 +333,7 @@ create_context(void)
       "}\n";
 
    // TODO: Implement different shaders for different textures
-   static const char *frag_shader_cursor_text =
+   static const char *frag_shader_cursor =
       "precision highp float;\n"
       "uniform sampler2D texture0;\n"
       "varying vec2 v_uv;\n"
@@ -341,7 +345,7 @@ create_context(void)
       "  gl_FragColor = palette[int(texture2D(texture0, v_uv).r * 256.0)];\n"
       "}\n";
 
-   static const char *frag_shader_bg_text =
+   static const char *frag_shader_bg =
       "precision mediump float;\n"
       "uniform float time;\n"
       "uniform vec2 resolution;\n"
@@ -364,7 +368,7 @@ create_context(void)
       "  gl_FragColor = vec4(color, 1.0);\n"
       "}\n";
 
-   static const char *frag_shader_rgb_text =
+   static const char *frag_shader_rgb =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform float dim;\n"
@@ -373,7 +377,7 @@ create_context(void)
       "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb * dim, 1.0);\n"
       "}\n";
 
-   static const char *frag_shader_rgba_text =
+   static const char *frag_shader_rgba =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform float dim;\n"
@@ -383,14 +387,79 @@ create_context(void)
       "  gl_FragColor = vec4(col.rgb * dim, col.a);\n"
       "}\n";
 
+   static const char *frag_shader_egl =
+      "#extension GL_OES_EGL_image_external : require\n"
+      "precision mediump float;\n"
+      "uniform samplerExternalOES texture0;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main()\n"
+      "{\n"
+      "  vec4 col = texture2D(texture0, v_uv);\n"
+      "  gl_FragColor = vec4(col.rgb * dim, col.a)\n;"
+      "}\n";
+
+#define FRAGMENT_CONVERT_YUV                                        \
+      "  y *= dim;\n"                                               \
+      "  u *= dim;\n"                                               \
+      "  v *= dim;\n"                                               \
+      "  gl_FragColor.r = y + 1.59602678 * v;\n"                    \
+      "  gl_FragColor.g = y - 0.39176229 * u - 0.81296764 * v;\n"   \
+      "  gl_FragColor.b = y + 2.01723214 * u;\n"                    \
+      "  gl_FragColor.a = 1.0;\n"
+
+   static const char *frag_shader_y_uv =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform sampler2D texture1;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
+      "  float u = texture2D(texture1, v_uv).r - 0.5;\n"
+      "  float v = texture2D(texture1, v_uv).g - 0.5;\n"
+      FRAGMENT_CONVERT_YUV
+      "}\n";
+
+   static const char *frag_shader_y_u_v =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform sampler2D texture1;\n"
+      "uniform sampler2D texture2;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
+      "  float u = texture2D(texture1, v_uv).x - 0.5;\n"
+      "  float v = texture2D(texture2, v_uv).x - 0.5;\n"
+      FRAGMENT_CONVERT_YUV
+      "}\n";
+
+   static const char *frag_shader_y_xuxv =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform sampler2D texture1;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
+      "  float u = texture2D(texture1, v_uv).g - 0.5;\n"
+      "  float v = texture2D(texture1, v_uv).a - 0.5;\n"
+      FRAGMENT_CONVERT_YUV
+      "}\n";
+
    const struct {
       const char *vert;
       const char *frag;
    } map[PROGRAM_LAST] = {
-      { vert_shader_text, frag_shader_rgb_text }, // PROGRAM_RGB
-      { vert_shader_text, frag_shader_rgba_text }, // PROGRAM_RGBA
-      { vert_shader_text, frag_shader_cursor_text }, // PROGRAM_CURSOR
-      { vert_shader_text, frag_shader_bg_text }, // PROGRAM_BG
+      { vert_shader, frag_shader_rgb }, // PROGRAM_RGB
+      { vert_shader, frag_shader_rgba }, // PROGRAM_RGBA
+      { vert_shader, frag_shader_egl }, // PROGRAM_EGL
+      { vert_shader, frag_shader_y_uv }, // PROGRAM_Y_UV
+      { vert_shader, frag_shader_y_u_v }, // PROGRAM_Y_U_V
+      { vert_shader, frag_shader_y_xuxv }, // PROGRAM_Y_XUXV
+      { vert_shader, frag_shader_cursor }, // PROGRAM_CURSOR
+      { vert_shader, frag_shader_bg }, // PROGRAM_BG
    };
 
    struct ctx *context;
@@ -544,21 +613,18 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    GLenum gl_format, gl_pixel_type;
    switch (wl_shm_buffer_get_format(shm_buffer)) {
       case WL_SHM_FORMAT_XRGB8888:
-         // gs->shader = &gr->texture_shader_rgbx;
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
          gl_format = GL_BGRA_EXT;
          gl_pixel_type = GL_UNSIGNED_BYTE;
-         surface->format = SURFACE_RGBA;
+         surface->format = SURFACE_RGB;
          break;
       case WL_SHM_FORMAT_ARGB8888:
-         // gs->shader = &gr->texture_shader_rgba;
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
          gl_format = GL_BGRA_EXT;
          gl_pixel_type = GL_UNSIGNED_BYTE;
          surface->format = SURFACE_RGBA;
          break;
       case WL_SHM_FORMAT_RGB565:
-         // gs->shader = &gr->texture_shader_rgbx;
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
          gl_format = GL_RGB;
          gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
@@ -606,20 +672,20 @@ egl_attach(struct ctx *context, struct wlc_context *ectx, struct wlc_surface *su
          break;
       case 0x31DA:
          num_planes = 1;
-         // gs->target = GL_TEXTURE_EXTERNAL_OES;
-         // gs->shader = &gr->texture_shader_egl_external;
+         surface->format = SURFACE_EGL;
+         target = GL_TEXTURE_EXTERNAL_OES;
          break;
       case EGL_TEXTURE_Y_UV_WL:
          num_planes = 2;
-         // gs->shader = &gr->texture_shader_y_uv;
+         surface->format = SURFACE_Y_UV;
          break;
       case EGL_TEXTURE_Y_U_V_WL:
          num_planes = 3;
-         // gs->shader = &gr->texture_shader_y_u_v;
+         surface->format = SURFACE_Y_U_V;
          break;
       case EGL_TEXTURE_Y_XUXV_WL:
          num_planes = 2;
-         // gs->shader = &gr->texture_shader_y_xuxv;
+         surface->format = SURFACE_Y_XUXV;
          break;
    }
 
