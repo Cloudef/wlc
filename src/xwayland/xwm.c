@@ -58,6 +58,7 @@ static struct {
    const xcb_query_extension_reply_t *xfixes;
    xcb_atom_t atoms[ATOM_LAST];
    xcb_window_t window, focus;
+   xcb_cursor_t cursor;
 
    struct {
       void *xcb_handle;
@@ -94,6 +95,14 @@ static struct {
       xcb_generic_error_t* (*xcb_request_check)(xcb_connection_t*, xcb_void_cookie_t);
       xcb_generic_event_t* (*xcb_poll_for_event)(xcb_connection_t*);
       xcb_query_extension_reply_t* (*xcb_get_extension_data)(xcb_connection_t*, xcb_extension_t*);
+
+      xcb_void_cookie_t (*xcb_create_pixmap)(xcb_connection_t*, uint8_t, xcb_pixmap_t, xcb_drawable_t, uint16_t, uint16_t);
+      xcb_void_cookie_t (*xcb_create_gc)(xcb_connection_t*, xcb_gcontext_t, xcb_drawable_t, uint32_t, const uint32_t*);
+      xcb_void_cookie_t (*xcb_free_pixmap)(xcb_connection_t*, xcb_pixmap_t pixmap);
+      xcb_void_cookie_t (*xcb_free_gc)(xcb_connection_t*, xcb_gcontext_t);
+      xcb_void_cookie_t (*xcb_put_image)(xcb_connection_t*, uint8_t, xcb_drawable_t, xcb_gcontext_t, uint16_t, uint16_t, int16_t, int16_t, uint8_t, uint8_t, uint32_t, const uint8_t*);
+      xcb_void_cookie_t (*xcb_create_cursor)(xcb_connection_t*, xcb_cursor_t, xcb_pixmap_t, xcb_pixmap_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t);
+      xcb_void_cookie_t (*xcb_free_cursor)(xcb_connection_t*, xcb_cursor_t);
 
       xcb_void_cookie_t (*xcb_composite_redirect_subwindows_checked)(xcb_connection_t*, xcb_window_t, uint8_t);
       xcb_extension_t *xcb_composite_id;
@@ -176,6 +185,21 @@ xcb_load(void)
    if (!load(xcb_poll_for_event))
       goto function_pointer_exception;
    if (!load(xcb_get_extension_data))
+      goto function_pointer_exception;
+
+   if (!load(xcb_create_pixmap))
+      goto function_pointer_exception;
+   if (!load(xcb_create_gc))
+      goto function_pointer_exception;
+   if (!load(xcb_free_pixmap))
+      goto function_pointer_exception;
+   if (!load(xcb_free_gc))
+      goto function_pointer_exception;
+   if (!load(xcb_put_image))
+      goto function_pointer_exception;
+   if (!load(xcb_create_cursor))
+      goto function_pointer_exception;
+   if (!load(xcb_free_cursor))
       goto function_pointer_exception;
 
 #undef load
@@ -849,6 +873,9 @@ surface_notify(struct wl_listener *listener, void *data)
 static void
 x11_terminate(void)
 {
+   if (x11.cursor)
+      x11.api.xcb_free_cursor(x11.connection, x11.cursor);
+
    if (x11.window)
       XCB_CALL(x11.api.xcb_destroy_window_checked(x11.connection, x11.window));
 
@@ -930,8 +957,22 @@ x11_init(void)
    xcb_screen_iterator_t screen_iterator = x11.api.xcb_setup_roots_iterator(setup);
    x11.screen = screen_iterator.data;
 
-   uint32_t value = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_PROPERTY_CHANGE;
-   if (!XCB_CALL(x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, &value)))
+   xcb_gc_t gc = x11.api.xcb_generate_id(x11.connection);
+   xcb_pixmap_t pixmap = x11.api.xcb_generate_id(x11.connection);
+
+   if (!(x11.cursor = x11.api.xcb_generate_id(x11.connection)))
+      goto cursor_fail;
+
+   uint8_t data[] = { 0, 0, 0, 0 };
+   x11.api.xcb_create_pixmap(x11.connection, 1, pixmap, x11.screen->root, 1, 1);
+   x11.api.xcb_create_gc(x11.connection, gc, pixmap, 0, NULL);
+   x11.api.xcb_put_image(x11.connection, XCB_IMAGE_FORMAT_XY_PIXMAP, pixmap, gc, 1, 1, 0, 0, 0, 32, sizeof(data), data);
+   x11.api.xcb_create_cursor(x11.connection, x11.cursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 1, 1);
+   x11.api.xcb_free_gc(x11.connection, gc);
+   x11.api.xcb_free_pixmap(x11.connection, pixmap);
+
+   uint32_t values[] = { XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_PROPERTY_CHANGE, x11.cursor };
+   if (!XCB_CALL(x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK | XCB_CW_CURSOR, values)))
       goto change_attributes_fail;
 
    if (!(x11.xfixes = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_xfixes_id)) || !x11.xfixes->present)
@@ -1022,6 +1063,9 @@ xfixes_extension_fail:
 composite_extension_fail:
    wlc_log(WLC_LOG_WARN, "Failed to get composite extension");
    goto fail;
+cursor_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to create empty X11 cursor");
+   goto fail;
 change_attributes_fail:
    wlc_log(WLC_LOG_WARN, "Failed to change root window attributes");
    goto fail;
@@ -1033,7 +1077,6 @@ window_fail:
    goto fail;
 atom_get_fail:
    wlc_log(WLC_LOG_WARN, "Failed to get atom");
-   goto fail;
 fail:
    x11_terminate();
    return false;

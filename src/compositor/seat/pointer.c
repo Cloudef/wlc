@@ -112,13 +112,13 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
    struct wlc_surface *surface;
    if ((surface = convert_from_wlc_resource(pointer->surface, "surface"))) {
       if (surface->output != convert_to_wlc_handle(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface))) {
+         // Fallback
          wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_origin){ pointer->pos.x, pointer->pos.y });
       } else {
          wlc_render_surface_paint(&output->render, &output->context, surface, &(struct wlc_origin){ pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y });
       }
-   } else if (!focused || focused->x11.id) {
-      // Show default cursor when no focus and no surface, or if the focused window is x11_window.
-      // In x11 you hide cursor with surface that has transparent pixels.
+   } else if (!focused) {
+      // Show default cursor when no focus and no surface.
       wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_origin){ pointer->pos.x, pointer->pos.y });
    }
 }
