@@ -105,7 +105,8 @@ wl_cb_data_device_set_selection(struct wl_client *client, struct wl_resource *re
 
 static struct wl_data_device_interface wl_data_device_implementation = {
    .start_drag = wl_cb_data_device_start_drag,
-   .set_selection = wl_cb_data_device_set_selection
+   .set_selection = wl_cb_data_device_set_selection,
+   .release = wlc_cb_resource_destructor
 };
 
 static void
