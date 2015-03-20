@@ -121,4 +121,4 @@ set(WLC_LIBRARIES ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LI
 
 # Install rules
 install(TARGETS wlc DESTINATION lib)
-install(DIRECTORY "${wlc_SOURCE_DIR}/include" DESTINATION include)
+install(DIRECTORY "${wlc_SOURCE_DIR}/include/wlc" DESTINATION include)
