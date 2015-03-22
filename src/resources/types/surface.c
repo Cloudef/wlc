@@ -108,7 +108,7 @@ wl_cb_surface_attach(struct wl_client *client, struct wl_resource *resource, str
    }
 
    surface->pending.offset = (struct wlc_origin){ x, y };
-   surface->pending.attached = true;
+   surface->pending.attached = (buffer ? true : false);
 
    wlc_dlog(WLC_DBG_RENDER, "-> Attach request");
 }
@@ -278,7 +278,8 @@ wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *out
    }
 
    surface->size = size;
-   return (surface->commit.attached = true);
+   surface->commit.attached = (buffer ? true : false);
+   return true;
 }
 
 void

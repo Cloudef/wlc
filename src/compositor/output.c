@@ -84,10 +84,12 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
 }
 
 static bool
-should_render(struct wlc_output *output)
+view_visible(struct wlc_view *view, struct wlc_surface *surface, uint32_t mask)
 {
-   assert(output);
-   return (wlc_get_active() && !output->state.pending && output->bsurface.display);
+   if (!view || !surface)
+      return false;
+
+   return (surface->commit.attached && (view->mask & mask));
 }
 
 static bool
@@ -104,7 +106,7 @@ is_visible(struct wlc_output *output)
           !(s = convert_from_wlc_resource(v->surface, "surface")))
          continue;
 
-      if (!(v->mask & output->active.mask))
+      if (!view_visible(v, s, output->active.mask))
          continue;
 
       struct wlc_geometry vg;
@@ -126,6 +128,10 @@ static bool
 view_contains_output(struct wlc_view *view, struct wlc_output *output)
 {
    assert(view && output);
+
+   if (!view_visible(view, convert_from_wlc_resource(view->surface, "surface"), output->active.mask))
+      return false;
+
    struct wlc_geometry vg, root = { { 0, 0 }, output->resolution };
    wlc_view_get_opaque(view, &vg);
    return wlc_geometry_contains(&vg, &root);
@@ -164,7 +170,7 @@ render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_p
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   if (!surface->commit.attached || !(view->mask & output->active.mask))
+   if (!view_visible(view, surface, output->active.mask))
       return;
 
    wlc_view_commit_state(view, &view->pending, &view->commit);
@@ -174,6 +180,13 @@ render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_p
    chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
       chck_iter_pool_push_back(callbacks, r);
    chck_iter_pool_release(&surface->commit.frame_cbs);
+}
+
+static bool
+should_render(struct wlc_output *output)
+{
+   assert(output);
+   return (wlc_get_active() && !output->state.pending && output->bsurface.display);
 }
 
 static bool
