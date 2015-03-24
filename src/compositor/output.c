@@ -179,7 +179,7 @@ render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_p
    wlc_resource *r;
    chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
       chck_iter_pool_push_back(callbacks, r);
-   chck_iter_pool_release(&surface->commit.frame_cbs);
+   chck_iter_pool_flush(&surface->commit.frame_cbs);
 }
 
 static bool

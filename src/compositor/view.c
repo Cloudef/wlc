@@ -59,7 +59,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
          { 0, 0 },
       };
 
-      chck_iter_pool_release(&view->wl_state);
+      chck_iter_pool_flush(&view->wl_state);
 
       for (uint32_t i = 0; map[i].state != 0; ++i) {
          if (pending->state & map[i].bit)

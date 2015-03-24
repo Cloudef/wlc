@@ -57,7 +57,7 @@ commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, str
    wlc_resource *r;
    chck_iter_pool_for_each(&pending->frame_cbs, r)
       chck_iter_pool_push_back(&out->frame_cbs, r);
-   chck_iter_pool_release(&pending->frame_cbs);
+   chck_iter_pool_flush(&pending->frame_cbs);
 
    pixman_region32_union(&out->damage, &out->damage, &pending->damage);
    pixman_region32_intersect_rect(&out->damage, &out->damage, 0, 0, surface->size.w, surface->size.h);

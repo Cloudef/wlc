@@ -110,7 +110,7 @@ cb_repeat(void *data)
 {
    struct wlc_keyboard *keyboard;
    except((keyboard = data));
-   chck_iter_pool_release(&keyboard->keys);
+   chck_iter_pool_flush(&keyboard->keys);
    wl_event_source_timer_update(keyboard->timer.repeat, 0);
    keyboard->state.repeat = false;
    return 1;
