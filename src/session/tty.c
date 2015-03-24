@@ -179,11 +179,11 @@ void
 wlc_tty_terminate(void)
 {
    if (wlc.tty >= 0) {
-      wlc_log(WLC_LOG_INFO, "Restoring tty %d", wlc.tty);
-      struct vt_mode mode = { .mode = VT_AUTO };
-      ioctl(wlc.tty, VT_SETMODE, &mode);
+      wlc_log(WLC_LOG_INFO, "Restoring tty %d (0x%lx, 0x%lx)", wlc.tty, wlc.old_state.console_mode, wlc.old_state.kb_mode);
       ioctl(wlc.tty, KDSETMODE, wlc.old_state.console_mode);
       ioctl(wlc.tty, KDSKBMODE, wlc.old_state.kb_mode);
+      struct vt_mode mode = { .mode = VT_AUTO };
+      ioctl(wlc.tty, VT_SETMODE, &mode);
       ioctl(wlc.tty, VT_ACTIVATE, wlc.old_state.vt);
       close(wlc.tty);
    }
