@@ -3,6 +3,7 @@
 #include <wayland-server.h>
 #include <chck/string/string.h>
 #include <chck/math/math.h>
+#include <chck/overflow/overflow.h>
 #include "internal.h"
 #include "visibility.h"
 #include "macros.h"
@@ -253,9 +254,10 @@ repaint(struct wlc_output *output)
    wl_signal_emit(&wlc_system_signals()->render, &ev);
 
    {
+      size_t sz;
       void *rgba;
       struct wlc_geometry g = { { 0, 0 }, output->resolution };
-      if (output->task.pixels.cb && (rgba = calloc(1, g.size.w * g.size.h * 4))) {
+      if (output->task.pixels.cb && !chck_mul_ofsz(g.size.w, g.size.h, &sz) && (rgba = chck_calloc_of(4, sz))) {
          wlc_render_read_pixels(&output->render, &output->context, &g, rgba);
          if (!output->task.pixels.cb(&g.size, rgba, output->task.pixels.arg))
             free(rgba);

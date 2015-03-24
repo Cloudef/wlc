@@ -6,6 +6,7 @@
 #include <xcb/xfixes.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
+#include <chck/overflow/overflow.h>
 #include "internal.h"
 #include "macros.h"
 #include "xwm.h"
@@ -414,7 +415,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
    };
 
    xcb_get_property_cookie_t *cookies;
-   if (!(cookies = calloc(LENGTH(props), sizeof(xcb_get_property_cookie_t))))
+   if (!(cookies = chck_calloc_of(LENGTH(props), sizeof(xcb_get_property_cookie_t))))
       return;
 
    for (uint32_t i = 0; i < LENGTH(props); ++i)

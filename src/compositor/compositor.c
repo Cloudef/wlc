@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <chck/overflow/overflow.h>
 #include "internal.h"
 #include "macros.h"
 #include "visibility.h"
@@ -496,7 +497,7 @@ wlc_get_outputs(size_t *out_memb)
 
    // Allocate linear array which we then return
    free(_g_compositor->tmp.outputs);
-   if (!(_g_compositor->tmp.outputs = malloc(_g_compositor->outputs.pool.items.count * sizeof(wlc_handle))))
+   if (!(_g_compositor->tmp.outputs = chck_malloc_mul_of(_g_compositor->outputs.pool.items.count, sizeof(wlc_handle))))
       return NULL;
 
    {
