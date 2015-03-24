@@ -182,7 +182,6 @@ wlc_tty_terminate(void)
       wlc_log(WLC_LOG_INFO, "Restoring tty %d", wlc.tty);
       struct vt_mode mode = { .mode = VT_AUTO };
       ioctl(wlc.tty, VT_SETMODE, &mode);
-      ioctl(wlc.tty, KDSETMODE, KD_GRAPHICS);
       ioctl(wlc.tty, KDSETMODE, wlc.old_state.console_mode);
       ioctl(wlc.tty, KDSKBMODE, wlc.old_state.kb_mode);
       ioctl(wlc.tty, VT_ACTIVATE, wlc.old_state.vt);
