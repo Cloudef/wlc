@@ -43,6 +43,7 @@ static struct {
       EGLBoolean (*eglTerminate)(EGLDisplay);
       const char* (*eglQueryString)(EGLDisplay, EGLint name);
       EGLBoolean (*eglChooseConfig)(EGLDisplay, EGLint const*, EGLConfig*, EGLint, EGLint*);
+      EGLBoolean (*eglGetConfigAttrib)(EGLDisplay, EGLConfig, EGLint, EGLint*);
       EGLBoolean (*eglBindAPI)(EGLenum);
       EGLBoolean (*eglQueryContext)(EGLDisplay, EGLContext, EGLint, EGLint*);
       EGLContext (*eglCreateContext)(EGLDisplay, EGLConfig, EGLContext, EGLint const*);
@@ -86,6 +87,8 @@ egl_load(void)
    if (!load(eglQueryString))
       goto function_pointer_exception;
    if (!load(eglChooseConfig))
+      goto function_pointer_exception;
+   if (!load(eglGetConfigAttrib))
       goto function_pointer_exception;
    if (!load(eglBindAPI))
       goto function_pointer_exception;
@@ -305,6 +308,24 @@ create_context(struct wlc_backend_surface *bsurface)
    wlc_log(WLC_LOG_INFO, "EGL vendor: %s", str ? str : "(null)");
    str = EGL_CALL(egl.api.eglQueryString(context->display, EGL_CLIENT_APIS));
    wlc_log(WLC_LOG_INFO, "EGL client APIs: %s", str ? str : "(null)");
+
+   {
+      struct {
+         EGLint d, r, g, b, a;
+      } config;
+
+      EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_RED_SIZE, &config.r));
+      EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_GREEN_SIZE, &config.g));
+      EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_BLUE_SIZE, &config.b));
+      EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_ALPHA_SIZE, &config.a));
+      EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_DEPTH_SIZE, &config.d));
+
+      if (config.a > 0) {
+         wlc_log(WLC_LOG_INFO, "EGL context (RGBA%d%d%d%d %dbit)", config.r, config.g, config.b, config.a, config.d);
+      } else {
+         wlc_log(WLC_LOG_INFO, "EGL context (RGB%d%d%d %dbit)", config.r, config.g, config.b, config.d);
+      }
+   }
 
    context->extensions = EGL_CALL(egl.api.eglQueryString(context->display, EGL_EXTENSIONS));
 
