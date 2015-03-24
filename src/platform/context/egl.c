@@ -8,6 +8,7 @@
 #include <wayland-server.h>
 #include <chck/string/string.h>
 #include "internal.h"
+#include "macros.h"
 #include "egl.h"
 #include "context.h"
 #include "compositor/compositor.h"
@@ -258,19 +259,32 @@ create_context(struct wlc_backend_surface *bsurface)
    if (!egl.api.eglBindAPI(EGL_OPENGL_ES_API))
       goto egl_fail;
 
-   static const EGLint config_attribs[] = {
-      EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-      EGL_RED_SIZE, 1,
-      EGL_GREEN_SIZE, 1,
-      EGL_BLUE_SIZE, 1,
-      EGL_ALPHA_SIZE, 0,
-      EGL_DEPTH_SIZE, 1,
-      EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-      EGL_NONE
+   const struct {
+      const EGLint *attribs;
+   } configs[] = {
+      {
+         (const EGLint[]){
+            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+            EGL_RED_SIZE, 1,
+            EGL_GREEN_SIZE, 1,
+            EGL_BLUE_SIZE, 1,
+            EGL_ALPHA_SIZE, 0,
+            EGL_DEPTH_SIZE, 0,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+            EGL_NONE
+         }
+      }
    };
 
-   EGLint n;
-   if (!egl.api.eglChooseConfig(context->display, config_attribs, &context->config, 1, &n) || n < 1)
+   for (uint32_t i = 0; i < LENGTH(configs); ++i) {
+      EGLint n;
+      if (egl.api.eglChooseConfig(context->display, configs[i].attribs, &context->config, 1, &n) && n > 0)
+         break;
+
+      context->config = NULL;
+   }
+
+   if (!context->config)
       goto egl_fail;
 
    static const EGLint context_attribs[] = {
