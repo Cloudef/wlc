@@ -325,19 +325,18 @@ create_context(struct wlc_backend_surface *bsurface)
 
    {
       struct {
-         EGLint d, r, g, b, a;
+         EGLint r, g, b, a;
       } config;
 
       EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_RED_SIZE, &config.r));
       EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_GREEN_SIZE, &config.g));
       EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_BLUE_SIZE, &config.b));
       EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_ALPHA_SIZE, &config.a));
-      EGL_CALL(egl.api.eglGetConfigAttrib(context->display, context->config, EGL_DEPTH_SIZE, &config.d));
 
       if (config.a > 0) {
-         wlc_log(WLC_LOG_INFO, "EGL context (RGBA%d%d%d%d %dbit)", config.r, config.g, config.b, config.a, config.d);
+         wlc_log(WLC_LOG_INFO, "EGL context (RGBA%d%d%d%d)", config.r, config.g, config.b, config.a);
       } else {
-         wlc_log(WLC_LOG_INFO, "EGL context (RGB%d%d%d %dbit)", config.r, config.g, config.b, config.d);
+         wlc_log(WLC_LOG_INFO, "EGL context (RGB%d%d%d)", config.r, config.g, config.b);
       }
    }
 
@@ -483,7 +482,6 @@ wlc_egl(struct wlc_backend_surface *bsurface, struct wlc_context_api *api)
    api->destroy_image = destroy_image;
    api->create_image = create_image;
    api->query_buffer = query_buffer;
-   wlc_log(WLC_LOG_INFO, "EGL context created");
    return context;
 }
 
