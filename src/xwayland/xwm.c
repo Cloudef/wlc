@@ -626,7 +626,7 @@ wlc_x11_window_position(struct wlc_x11_window *win, int32_t x, int32_t y)
    if (!win->id)
       return;
 
-   static const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y;
+   const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y;
    const uint32_t values[] = { x, y };
    XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, win->id, mask, (uint32_t*)&values));
    x11.api.xcb_flush(x11.connection);
@@ -640,7 +640,7 @@ wlc_x11_window_resize(struct wlc_x11_window *win, uint32_t width, uint32_t heigh
    if (!win->id)
       return;
 
-   static const uint32_t mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+   const uint32_t mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
    const uint32_t values[] = { width, height };
    XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, win->id, mask, (uint32_t*)&values));
    x11.api.xcb_flush(x11.connection);
@@ -786,7 +786,7 @@ x11_event(int fd, uint32_t mask, void *data)
                struct wlc_geometry r = { { ev->x, ev->y }, { ev->width, ev->height } };
 
                // Some windows freeze unless they get what they want.
-               static const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+               const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
                const uint32_t values[] = { r.origin.x, r.origin.y, r.size.w, r.size.h };
                XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, ev->window, mask, (uint32_t*)&values));
 

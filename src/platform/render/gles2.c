@@ -324,7 +324,7 @@ create_shader(const char *source, GLenum shader_type)
 static struct ctx*
 create_context(void)
 {
-   static const char *vert_shader =
+   const char *vert_shader =
       "precision mediump float;\n"
       "uniform vec2 resolution;\n"
       "mat4 ortho = mat4("
@@ -342,7 +342,7 @@ create_context(void)
       "}\n";
 
    // TODO: Implement different shaders for different textures
-   static const char *frag_shader_cursor =
+   const char *frag_shader_cursor =
       "precision highp float;\n"
       "uniform sampler2D texture0;\n"
       "varying vec2 v_uv;\n"
@@ -354,7 +354,7 @@ create_context(void)
       "  gl_FragColor = palette[int(texture2D(texture0, v_uv).r * 256.0)];\n"
       "}\n";
 
-   static const char *frag_shader_bg =
+   const char *frag_shader_bg =
       "precision mediump float;\n"
       "uniform float time;\n"
       "uniform vec2 resolution;\n"
@@ -377,7 +377,7 @@ create_context(void)
       "  gl_FragColor = vec4(color, 1.0);\n"
       "}\n";
 
-   static const char *frag_shader_rgb =
+   const char *frag_shader_rgb =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform float dim;\n"
@@ -386,7 +386,7 @@ create_context(void)
       "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb * dim, 1.0);\n"
       "}\n";
 
-   static const char *frag_shader_rgba =
+   const char *frag_shader_rgba =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform float dim;\n"
@@ -396,7 +396,7 @@ create_context(void)
       "  gl_FragColor = vec4(col.rgb * dim, col.a);\n"
       "}\n";
 
-   static const char *frag_shader_egl =
+   const char *frag_shader_egl =
       "#extension GL_OES_EGL_image_external : require\n"
       "precision mediump float;\n"
       "uniform samplerExternalOES texture0;\n"
@@ -417,7 +417,7 @@ create_context(void)
       "  gl_FragColor.b = y + 2.01723214 * u;\n"                    \
       "  gl_FragColor.a = 1.0;\n"
 
-   static const char *frag_shader_y_uv =
+   const char *frag_shader_y_uv =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"
@@ -430,7 +430,7 @@ create_context(void)
       FRAGMENT_CONVERT_YUV
       "}\n";
 
-   static const char *frag_shader_y_u_v =
+   const char *frag_shader_y_u_v =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"
@@ -444,7 +444,7 @@ create_context(void)
       FRAGMENT_CONVERT_YUV
       "}\n";
 
-   static const char *frag_shader_y_xuxv =
+   const char *frag_shader_y_xuxv =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"

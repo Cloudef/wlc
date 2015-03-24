@@ -287,7 +287,7 @@ create_context(struct wlc_backend_surface *bsurface)
    if (!context->config)
       goto egl_fail;
 
-   static const EGLint context_attribs[] = {
+   const EGLint context_attribs[] = {
       EGL_CONTEXT_CLIENT_VERSION, 2,
       EGL_NONE
    };

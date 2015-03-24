@@ -180,7 +180,7 @@ main(void)
       assert(wlc_source(&source, "test", constructor, destructor, 1024, sizeof(struct container)));
 
       wlc_handle first = 0;
-      static const uint32_t iters = 0xFFFFF;
+      const uint32_t iters = 0xFFFFF;
       for (uint32_t i = 0; i < iters; ++i) {
          struct container *ptr = wlc_handle_create(&source);
          ptr->self = convert_to_wlc_handle(ptr);
