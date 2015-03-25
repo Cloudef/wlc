@@ -289,6 +289,19 @@ wlc_cleanup(void)
    wlc.cached_tm_mday = cached_tm_mday;
 }
 
+WLC_API struct wlc_event_source*
+wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *arg), void *arg)
+{
+   assert(wlc_event_loop());
+   return (struct wlc_event_source*)wl_event_loop_add_fd(wlc_event_loop(), fd, mask, cb, arg);
+}
+
+void wlc_event_source_remove(struct wlc_event_source *source)
+{
+   assert(source);
+   wl_event_source_remove((struct wl_event_source*)source);
+}
+
 WLC_API void
 wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
 {
