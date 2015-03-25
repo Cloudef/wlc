@@ -3,8 +3,6 @@
 
 #include <stdbool.h>
 
-struct wlc_compositor;
-
 struct wl_client* wlc_xwayland_get_client(void);
 int wlc_xwayland_get_fd(void);
 bool wlc_xwayland_init(void);

@@ -1,41 +1,42 @@
-#include "internal.h"
-#include "gles2.h"
-#include "render.h"
-
-#include "platform/context/egl.h"
-#include "platform/context/context.h"
-
-#include "compositor/view.h"
-#include "compositor/surface.h"
-#include "compositor/buffer.h"
-#include "compositor/output.h"
-
-#include "compositor/shell/xdg-surface.h"
-#include "xwayland/xwm.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <dlfcn.h>
-
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-
 #include <wayland-server.h>
+#include <chck/string/string.h>
+#include "internal.h"
+#include "gles2.h"
+#include "render.h"
+#include "platform/context/egl.h"
+#include "platform/context/context.h"
+#include "compositor/view.h"
+#include "xwayland/xwm.h"
+#include "resources/types/surface.h"
+#include "resources/types/xdg-surface.h"
+#include "resources/types/buffer.h"
 
-static float DIM = 0.5f;
+static GLfloat DIM = 0.5f;
 
 static GLubyte cursor_palette[];
 
 enum program_type {
    PROGRAM_RGB,
    PROGRAM_RGBA,
+   PROGRAM_EGL,
+   PROGRAM_Y_UV,
+   PROGRAM_Y_U_V,
+   PROGRAM_Y_XUXV,
    PROGRAM_CURSOR,
    PROGRAM_BG,
    PROGRAM_LAST,
 };
 
 enum {
+   UNIFORM_TEXTURE0,
+   UNIFORM_TEXTURE1,
+   UNIFORM_TEXTURE2,
    UNIFORM_RESOLUTION,
    UNIFORM_TIME,
    UNIFORM_DIM,
@@ -49,13 +50,15 @@ enum {
 };
 
 static const char *uniform_names[UNIFORM_LAST] = {
+   "texture0",
+   "texture1",
+   "texture2",
    "resolution",
    "time",
    "dim",
 };
 
 struct ctx {
-   struct wlc_context *context;
    const char *extensions;
 
    struct ctx_program *program;
@@ -80,7 +83,7 @@ struct ctx {
 
 struct paint {
    struct wlc_geometry visible;
-   float dim;
+   GLfloat dim;
    enum program_type program;
    bool filter;
 };
@@ -99,16 +102,19 @@ static struct {
       GLuint (*glCreateShader)(GLenum);
       void (*glShaderSource)(GLuint, GLsizei count, const GLchar **string, const GLint *length);
       void (*glCompileShader)(GLuint);
+      void (*glDeleteShader)(GLuint);
       void (*glGetShaderiv)(GLuint, GLenum, GLint*);
       void (*glGetShaderInfoLog)(GLuint, GLsizei, GLsizei*, GLchar*);
       GLuint (*glCreateProgram)(void);
       void (*glAttachShader)(GLuint, GLuint);
       void (*glLinkProgram)(GLuint);
       void (*glUseProgram)(GLuint);
+      void (*glDeleteProgram)(GLuint);
       void (*glGetProgramiv)(GLuint, GLenum, GLint*);
       void (*glGetProgramInfoLog)(GLuint, GLsizei, GLsizei*, GLchar*);
       void (*glBindAttribLocation)(GLuint, GLuint, const GLchar*);
       GLint (*glGetUniformLocation)(GLuint, const GLchar *name);
+      void (*glUniform1i)(GLint, GLint);
       void (*glUniform1fv)(GLint, GLsizei count, GLfloat*);
       void (*glUniform2fv)(GLint, GLsizei count, GLfloat*);
       void (*glEnableVertexAttribArray)(GLuint);
@@ -159,6 +165,8 @@ gles2_load(void)
       goto function_pointer_exception;
    if (!(load(glCompileShader)))
       goto function_pointer_exception;
+   if (!(load(glDeleteShader)))
+      goto function_pointer_exception;
    if (!(load(glGetShaderiv)))
       goto function_pointer_exception;
    if (!(load(glGetShaderInfoLog)))
@@ -171,6 +179,8 @@ gles2_load(void)
       goto function_pointer_exception;
    if (!(load(glUseProgram)))
       goto function_pointer_exception;
+   if (!(load(glDeleteProgram)))
+      goto function_pointer_exception;
    if (!(load(glGetProgramiv)))
       goto function_pointer_exception;
    if (!(load(glGetProgramInfoLog)))
@@ -180,6 +190,8 @@ gles2_load(void)
    if (!(load(glBindAttribLocation)))
       goto function_pointer_exception;
    if (!(load(glGetUniformLocation)))
+      goto function_pointer_exception;
+   if (!(load(glUniform1i)))
       goto function_pointer_exception;
    if (!(load(glUniform1fv)))
       goto function_pointer_exception;
@@ -264,7 +276,7 @@ has_extension(const struct ctx *context, const char *extension)
    while ((pos = strcspn(s, " ")) != 0) {
       size_t next = pos + (s[pos] != 0);
 
-      if (!strncmp(s, extension, len))
+      if (chck_cstrneq(s, extension, len))
          return true;
 
       s += next;
@@ -274,9 +286,9 @@ has_extension(const struct ctx *context, const char *extension)
 }
 
 static void
-set_program(struct ctx *context, const enum program_type type)
+set_program(struct ctx *context, enum program_type type)
 {
-   assert(context);
+   assert(context && type >= 0 && type < PROGRAM_LAST);
 
    if (&context->programs[type] == context->program)
       return;
@@ -312,7 +324,7 @@ create_shader(const char *source, GLenum shader_type)
 static struct ctx*
 create_context(void)
 {
-   static const char *vert_shader_text =
+   const char *vert_shader =
       "precision mediump float;\n"
       "uniform vec2 resolution;\n"
       "mat4 ortho = mat4("
@@ -330,7 +342,7 @@ create_context(void)
       "}\n";
 
    // TODO: Implement different shaders for different textures
-   static const char *frag_shader_cursor_text =
+   const char *frag_shader_cursor =
       "precision highp float;\n"
       "uniform sampler2D texture0;\n"
       "varying vec2 v_uv;\n"
@@ -342,7 +354,7 @@ create_context(void)
       "  gl_FragColor = palette[int(texture2D(texture0, v_uv).r * 256.0)];\n"
       "}\n";
 
-   static const char *frag_shader_bg_text =
+   const char *frag_shader_bg =
       "precision mediump float;\n"
       "uniform float time;\n"
       "uniform vec2 resolution;\n"
@@ -354,7 +366,7 @@ create_context(void)
       "}\n"
       "void main() {\n"
       "  vec3 color = vec3(0.0);\n"
-      "  vec2 pos = (v_uv * 2.0 - 1.0) * resolution.x / resolution.y;\n"
+      "  vec2 pos = (v_uv * 4.0 - 2.0);\n"
       "  float frame = time * M_PI * 10.0;\n"
       "  float f = impulse(0.01, sin(frame) + 1.0) + 0.25;\n"
       "  color += vec3(0.15, 0.3, 0.35) * (1.0 / distance(vec2(1.0, 0.0), pos) * f);\n"
@@ -365,7 +377,7 @@ create_context(void)
       "  gl_FragColor = vec4(color, 1.0);\n"
       "}\n";
 
-   static const char *frag_shader_rgb_text =
+   const char *frag_shader_rgb =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform float dim;\n"
@@ -374,7 +386,7 @@ create_context(void)
       "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb * dim, 1.0);\n"
       "}\n";
 
-   static const char *frag_shader_rgba_text =
+   const char *frag_shader_rgba =
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform float dim;\n"
@@ -384,14 +396,79 @@ create_context(void)
       "  gl_FragColor = vec4(col.rgb * dim, col.a);\n"
       "}\n";
 
+   const char *frag_shader_egl =
+      "#extension GL_OES_EGL_image_external : require\n"
+      "precision mediump float;\n"
+      "uniform samplerExternalOES texture0;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main()\n"
+      "{\n"
+      "  vec4 col = texture2D(texture0, v_uv);\n"
+      "  gl_FragColor = vec4(col.rgb * dim, col.a)\n;"
+      "}\n";
+
+#define FRAGMENT_CONVERT_YUV                                        \
+      "  y *= dim;\n"                                               \
+      "  u *= dim;\n"                                               \
+      "  v *= dim;\n"                                               \
+      "  gl_FragColor.r = y + 1.59602678 * v;\n"                    \
+      "  gl_FragColor.g = y - 0.39176229 * u - 0.81296764 * v;\n"   \
+      "  gl_FragColor.b = y + 2.01723214 * u;\n"                    \
+      "  gl_FragColor.a = 1.0;\n"
+
+   const char *frag_shader_y_uv =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform sampler2D texture1;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
+      "  float u = texture2D(texture1, v_uv).r - 0.5;\n"
+      "  float v = texture2D(texture1, v_uv).g - 0.5;\n"
+      FRAGMENT_CONVERT_YUV
+      "}\n";
+
+   const char *frag_shader_y_u_v =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform sampler2D texture1;\n"
+      "uniform sampler2D texture2;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
+      "  float u = texture2D(texture1, v_uv).x - 0.5;\n"
+      "  float v = texture2D(texture2, v_uv).x - 0.5;\n"
+      FRAGMENT_CONVERT_YUV
+      "}\n";
+
+   const char *frag_shader_y_xuxv =
+      "precision mediump float;\n"
+      "uniform sampler2D texture0;\n"
+      "uniform sampler2D texture1;\n"
+      "uniform float dim;\n"
+      "varying vec2 v_uv;\n"
+      "void main() {\n"
+      "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
+      "  float u = texture2D(texture1, v_uv).g - 0.5;\n"
+      "  float v = texture2D(texture1, v_uv).a - 0.5;\n"
+      FRAGMENT_CONVERT_YUV
+      "}\n";
+
    const struct {
       const char *vert;
       const char *frag;
    } map[PROGRAM_LAST] = {
-      { vert_shader_text, frag_shader_rgb_text }, // PROGRAM_RGB
-      { vert_shader_text, frag_shader_rgba_text }, // PROGRAM_RGBA
-      { vert_shader_text, frag_shader_cursor_text }, // PROGRAM_CURSOR
-      { vert_shader_text, frag_shader_bg_text }, // PROGRAM_BG
+      { vert_shader, frag_shader_rgb }, // PROGRAM_RGB
+      { vert_shader, frag_shader_rgba }, // PROGRAM_RGBA
+      { vert_shader, frag_shader_egl }, // PROGRAM_EGL
+      { vert_shader, frag_shader_y_uv }, // PROGRAM_Y_UV
+      { vert_shader, frag_shader_y_u_v }, // PROGRAM_Y_U_V
+      { vert_shader, frag_shader_y_xuxv }, // PROGRAM_Y_XUXV
+      { vert_shader, frag_shader_cursor }, // PROGRAM_CURSOR
+      { vert_shader, frag_shader_bg }, // PROGRAM_BG
    };
 
    struct ctx *context;
@@ -400,13 +477,15 @@ create_context(void)
 
    context->extensions = (const char*)GL_CALL(gl.api.glGetString(GL_EXTENSIONS));
 
-   for (int i = 0; i < PROGRAM_LAST; ++i) {
+   for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
       GLuint vert = create_shader(map[i].vert, GL_VERTEX_SHADER);
       GLuint frag = create_shader(map[i].frag, GL_FRAGMENT_SHADER);
       context->programs[i].obj = gl.api.glCreateProgram();
       GL_CALL(gl.api.glAttachShader(context->programs[i].obj, vert));
       GL_CALL(gl.api.glAttachShader(context->programs[i].obj, frag));
       GL_CALL(gl.api.glLinkProgram(context->programs[i].obj));
+      GL_CALL(gl.api.glDeleteShader(vert));
+      GL_CALL(gl.api.glDeleteShader(frag));
 
       GLint status;
       GL_CALL(gl.api.glGetProgramiv(context->programs[i].obj, GL_LINK_STATUS, &status));
@@ -425,6 +504,10 @@ create_context(void)
       for (int u = 0; u < UNIFORM_LAST; ++u) {
          context->programs[i].uniforms[u] = GL_CALL(gl.api.glGetUniformLocation(context->programs[i].obj, uniform_names[u]));
       }
+
+      GL_CALL(gl.api.glUniform1i(context->programs[i].uniforms[UNIFORM_TEXTURE0], 0));
+      GL_CALL(gl.api.glUniform1i(context->programs[i].uniforms[UNIFORM_TEXTURE1], 1));
+      GL_CALL(gl.api.glUniform1i(context->programs[i].uniforms[UNIFORM_TEXTURE2], 2));
    }
 
    if (has_extension(context, "GL_OES_EGL_image_external"))
@@ -443,7 +526,7 @@ create_context(void)
    GL_CALL(gl.api.glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
    GL_CALL(gl.api.glGenTextures(TEXTURE_LAST, context->textures));
 
-   for (uint32_t i = 0; i < TEXTURE_LAST; ++i) {
+   for (GLuint i = 0; i < TEXTURE_LAST; ++i) {
       GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, context->textures[i]));
       GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
       GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
@@ -455,39 +538,34 @@ create_context(void)
 
    GL_CALL(gl.api.glEnable(GL_BLEND));
    GL_CALL(gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-   GL_CALL(gl.api.glClearColor(0.2, 0.2, 0.2, 1));
+   GL_CALL(gl.api.glClearColor(0.0, 0.0, 0.0, 1));
 
    context->programs[PROGRAM_BG].frames = 4096 * 2;
    return context;
 }
 
-static bool
-bind(struct ctx *context, struct wlc_output *output)
+static void
+resolution(struct ctx *context, const struct wlc_size *resolution)
 {
-   assert(context && output);
+   assert(context && resolution);
 
-   if (!wlc_context_bind(output->context))
-      return false;
-
-   if (!wlc_size_equals(&context->resolution, &output->resolution)) {
-      for (int i = 0; i < PROGRAM_LAST; ++i) {
+   if (!wlc_size_equals(&context->resolution, resolution)) {
+      for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
          set_program(context, i);
-         GL_CALL(gl.api.glUniform2fv(context->program->uniforms[UNIFORM_RESOLUTION], 1, (GLfloat[]){ output->resolution.w, output->resolution.h }));
+         GL_CALL(gl.api.glUniform2fv(context->program->uniforms[UNIFORM_RESOLUTION], 1, (GLfloat[]){ resolution->w, resolution->h }));
       }
 
-      GL_CALL(gl.api.glViewport(0, 0, output->resolution.w, output->resolution.h));
-      context->resolution = output->resolution;
+      GL_CALL(gl.api.glViewport(0, 0, resolution->w, resolution->h));
+      context->resolution = *resolution;
    }
-
-   return true;
 }
 
 static void
-surface_gen_textures(struct wlc_surface *surface, const int num_textures)
+surface_gen_textures(struct wlc_surface *surface, const GLuint num_textures)
 {
    assert(surface);
 
-   for (int i = 0; i < num_textures; ++i) {
+   for (GLuint i = 0; i < num_textures; ++i) {
       if (surface->textures[i])
          continue;
 
@@ -503,7 +581,7 @@ surface_flush_textures(struct wlc_surface *surface)
 {
    assert(surface);
 
-   for (int i = 0; i < 3; ++i) {
+   for (GLuint i = 0; i < 3; ++i) {
       if (surface->textures[i]) {
          GL_CALL(gl.api.glDeleteTextures(1, &surface->textures[i]));
       }
@@ -517,7 +595,7 @@ surface_flush_images(struct wlc_context *context, struct wlc_surface *surface)
 {
    assert(surface);
 
-   for (int i = 0; i < 3; ++i) {
+   for (GLuint i = 0; i < 3; ++i) {
       if (surface->images[i])
          wlc_context_destroy_image(context, surface->images[i]);
    }
@@ -526,22 +604,13 @@ surface_flush_images(struct wlc_context *context, struct wlc_surface *surface)
 }
 
 static void
-surface_destroy(struct ctx *context, struct wlc_surface *surface)
+surface_destroy(struct ctx *context, struct wlc_context *bound, struct wlc_surface *surface)
 {
-   assert(context && surface);
-
-   if (!surface->output)
-      return;
-
-   if (!wlc_context_bind(surface->output->context))
-      return;
-
+   (void)context;
+   assert(context && bound && surface);
    surface_flush_textures(surface);
-   surface_flush_images(surface->output->context, surface);
+   surface_flush_images(bound, surface);
    wlc_dlog(WLC_DBG_RENDER, "-> Destroyed surface");
-
-   if (surface->output->context != context->context)
-      wlc_context_bind(context->context);
 }
 
 static bool
@@ -553,25 +622,22 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    buffer->size.w = wl_shm_buffer_get_width(shm_buffer);
    buffer->size.h = wl_shm_buffer_get_height(shm_buffer);
 
-   int pitch;
+   GLint pitch;
    GLenum gl_format, gl_pixel_type;
    switch (wl_shm_buffer_get_format(shm_buffer)) {
       case WL_SHM_FORMAT_XRGB8888:
-         // gs->shader = &gr->texture_shader_rgbx;
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
          gl_format = GL_BGRA_EXT;
          gl_pixel_type = GL_UNSIGNED_BYTE;
-         surface->format = SURFACE_RGBA;
+         surface->format = SURFACE_RGB;
          break;
       case WL_SHM_FORMAT_ARGB8888:
-         // gs->shader = &gr->texture_shader_rgba;
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
          gl_format = GL_BGRA_EXT;
          gl_pixel_type = GL_UNSIGNED_BYTE;
          surface->format = SURFACE_RGBA;
          break;
       case WL_SHM_FORMAT_RGB565:
-         // gs->shader = &gr->texture_shader_rgbx;
          pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
          gl_format = GL_RGB;
          gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
@@ -582,8 +648,9 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
          return false;
    }
 
-   if (surface->view && surface->view->x11_window)
-      surface->format = wlc_x11_window_get_surface_format(surface->view->x11_window);
+   struct wlc_view *view;
+   if ((view = convert_from_wlc_handle(surface->view, "view")) && view->x11.id)
+      surface->format = wlc_x11_window_get_surface_format(&view->x11);
 
    surface_gen_textures(surface, 1);
    GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, surface->textures[0]));
@@ -598,16 +665,16 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
 }
 
 static bool
-egl_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *buffer, uint32_t format)
+egl_attach(struct ctx *context, struct wlc_context *ectx, struct wlc_surface *surface, struct wlc_buffer *buffer, EGLint format)
 {
    assert(context && surface && buffer);
 
-   buffer->legacy_buffer = (struct wlc_buffer*)buffer->resource;
-   wlc_context_query_buffer(context->context, buffer->legacy_buffer, EGL_WIDTH, (EGLint*)&buffer->size.w);
-   wlc_context_query_buffer(context->context, buffer->legacy_buffer, EGL_HEIGHT, (EGLint*)&buffer->size.h);
-   wlc_context_query_buffer(context->context, buffer->legacy_buffer, EGL_WAYLAND_Y_INVERTED_WL, (EGLint*)&buffer->y_inverted);
+   buffer->legacy_buffer = convert_to_wl_resource(buffer, "buffer");
+   wlc_context_query_buffer(ectx, buffer->legacy_buffer, EGL_WIDTH, (EGLint*)&buffer->size.w);
+   wlc_context_query_buffer(ectx, buffer->legacy_buffer, EGL_HEIGHT, (EGLint*)&buffer->size.h);
+   wlc_context_query_buffer(ectx, buffer->legacy_buffer, EGL_WAYLAND_Y_INVERTED_WL, (EGLint*)&buffer->y_inverted);
 
-   int num_planes;
+   GLuint num_planes;
    GLenum target = GL_TEXTURE_2D;
    switch (format) {
       case EGL_TEXTURE_RGB:
@@ -618,37 +685,38 @@ egl_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *
          break;
       case 0x31DA:
          num_planes = 1;
-         // gs->target = GL_TEXTURE_EXTERNAL_OES;
-         // gs->shader = &gr->texture_shader_egl_external;
+         surface->format = SURFACE_EGL;
+         target = GL_TEXTURE_EXTERNAL_OES;
          break;
       case EGL_TEXTURE_Y_UV_WL:
          num_planes = 2;
-         // gs->shader = &gr->texture_shader_y_uv;
+         surface->format = SURFACE_Y_UV;
          break;
       case EGL_TEXTURE_Y_U_V_WL:
          num_planes = 3;
-         // gs->shader = &gr->texture_shader_y_u_v;
+         surface->format = SURFACE_Y_U_V;
          break;
       case EGL_TEXTURE_Y_XUXV_WL:
          num_planes = 2;
-         // gs->shader = &gr->texture_shader_y_xuxv;
+         surface->format = SURFACE_Y_XUXV;
          break;
    }
 
-   if (surface->view && surface->view->x11_window)
-      surface->format = wlc_x11_window_get_surface_format(surface->view->x11_window);
+   struct wlc_view *view;
+   if ((view = convert_from_wlc_handle(surface->view, "view")) && view->x11.id)
+      surface->format = wlc_x11_window_get_surface_format(&view->x11);
 
    if (num_planes > 3) {
       wlc_log(WLC_LOG_WARN, "planes > 3 in egl surfaces not supported, nor should be possible");
       return false;
    }
 
-   surface_flush_images(context->context, surface);
+   surface_flush_images(ectx, surface);
    surface_gen_textures(surface, num_planes);
 
-   for (int i = 0; i < num_planes; ++i) {
+   for (GLuint i = 0; i < num_planes; ++i) {
       EGLint attribs[] = { EGL_WAYLAND_PLANE_WL, i, EGL_NONE };
-      if (!(surface->images[i] = wlc_context_create_image(context->context, EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
+      if (!(surface->images[i] = wlc_context_create_image(ectx, EGL_WAYLAND_BUFFER_WL, buffer->legacy_buffer, attribs)))
          return false;
 
       GL_CALL(gl.api.glActiveTexture(GL_TEXTURE0 + i));
@@ -660,32 +728,31 @@ egl_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *
 }
 
 static bool
-surface_attach(struct ctx *context, struct wlc_surface *surface, struct wlc_buffer *buffer)
+surface_attach(struct ctx *context, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_buffer *buffer)
 {
-   assert(context && surface);
+   assert(context && bound && surface);
 
-   if (!buffer || !buffer->resource) {
-      surface_destroy(context, surface);
+   struct wl_resource *wl_buffer;
+   if (!buffer || !(wl_buffer = convert_to_wl_resource(buffer, "buffer"))) {
+      surface_destroy(context, bound, surface);
       return true;
    }
 
-   if (!wlc_context_bind(context->context))
-      return false;
-
-   int format;
+   EGLint format;
    bool attached = false;
-   struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(buffer->resource);
+
+   struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(wl_buffer);
    if (shm_buffer) {
       attached = shm_attach(surface, buffer, shm_buffer);
-   } else if (context->api.glEGLImageTargetTexture2DOES && wlc_context_query_buffer(context->context, (void*)buffer->resource, EGL_TEXTURE_FORMAT, &format)) {
-      attached = egl_attach(context, surface, buffer, format);
+   } else if (context->api.glEGLImageTargetTexture2DOES && wlc_context_query_buffer(bound, (void*)wl_buffer, EGL_TEXTURE_FORMAT, &format)) {
+      attached = egl_attach(context, bound, surface, buffer, format);
    } else {
       /* unknown buffer */
       wlc_log(WLC_LOG_WARN, "Unknown buffer");
    }
 
    if (attached)
-      wlc_dlog(WLC_DBG_RENDER, "-> Attached surface with buffer of size (%ux%u)", buffer->size.w, buffer->size.h);
+      wlc_dlog(WLC_DBG_RENDER, "-> Attached surface (%zu) with buffer of size (%ux%u)", convert_to_wlc_resource(surface), buffer->size.w, buffer->size.h);
 
    return attached;
 }
@@ -745,17 +812,14 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
 {
    assert(context && surface && geometry && settings);
 
-   if (!surface->output || surface->output->context != context->context) {
-      wlc_log(WLC_LOG_ERROR, "Trying to paint surface with wrong context or none (%p != %p)", context->context, (surface->output ? surface->output->context : NULL));
-      return;
-   }
-
    if (!wlc_size_equals(&surface->size, &geometry->size)) {
       if (wlc_geometry_equals(&settings->visible, geometry)) {
          settings->filter = true;
       } else {
          // black borders are requested
-         texture_paint(context, &context->textures[TEXTURE_BLACK], 1, geometry, settings);
+         struct paint settings2 = *settings;
+         settings2.program = (settings2.program == PROGRAM_RGBA || settings2.program == PROGRAM_RGB ? settings2.program : PROGRAM_RGB);
+         texture_paint(context, &context->textures[TEXTURE_BLACK], 1, geometry, &settings2);
          memcpy(geometry, &settings->visible, sizeof(struct wlc_geometry));
       }
    }
@@ -778,15 +842,18 @@ view_paint(struct ctx *context, struct wlc_view *view)
 {
    assert(context && view);
 
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return;
+
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
-
    settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : DIM);
-   settings.program = (enum program_type)view->surface->format;
+   settings.program = (enum program_type)surface->format;
 
    struct wlc_geometry geometry;
    wlc_view_get_bounds(view, &geometry, &settings.visible);
-   surface_paint_internal(context, view->surface, &geometry, &settings);
+   surface_paint_internal(context, surface, &geometry, &settings);
 }
 
 static void
@@ -803,6 +870,7 @@ pointer_paint(struct ctx *context, struct wlc_origin *pos)
 static void
 read_pixels(struct ctx *context, struct wlc_geometry *geometry, void *out_data)
 {
+   (void)context;
    assert(context && geometry && out_data);
    GL_CALL(gl.api.glReadPixels(geometry->origin.x, geometry->origin.y, geometry->size.w, geometry->size.h, GL_RGBA, GL_UNSIGNED_BYTE, out_data));
 }
@@ -812,13 +880,6 @@ frame_time(struct ctx *context, GLuint time)
 {
    assert(context);
    context->time = time;
-}
-
-static void
-swap(struct ctx *context)
-{
-   assert(context);
-   wlc_context_swap(context->context);
 }
 
 static void
@@ -835,6 +896,7 @@ background(struct ctx *context)
 static void
 clear(struct ctx *context)
 {
+   (void)context;
    assert(context);
    GL_CALL(gl.api.glClear(GL_COLOR_BUFFER_BIT));
 }
@@ -844,8 +906,11 @@ terminate(struct ctx *context)
 {
    assert(context);
 
-   // FIXME: Free gl resources here
+   for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
+      GL_CALL(gl.api.glDeleteProgram(context->programs[i].obj));
+   }
 
+   GL_CALL(gl.api.glDeleteTextures(TEXTURE_LAST, context->textures));
    free(context);
 }
 
@@ -859,7 +924,7 @@ unload_egl(void)
 }
 
 void*
-wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
+wlc_gles2(struct wlc_render_api *api)
 {
    assert(api);
 
@@ -868,17 +933,12 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
       return NULL;
    }
 
-   if (!wlc_context_bind(context))
-      return NULL;
-
    struct ctx *gl;
    if (!(gl = create_context()))
       return NULL;
 
-   gl->context = context;
-
    api->terminate = terminate;
-   api->bind = bind;
+   api->resolution = resolution;
    api->surface_destroy = surface_destroy;
    api->surface_attach = surface_attach;
    api->view_paint = view_paint;
@@ -888,7 +948,6 @@ wlc_gles2_new(struct wlc_context *context, struct wlc_render_api *api)
    api->background = background;
    api->clear = clear;
    api->time = frame_time;
-   api->swap = swap;
 
    const char *dimenv;
    if ((dimenv = getenv("WLC_DIM")))

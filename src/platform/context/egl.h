@@ -4,6 +4,6 @@
 struct wlc_context_api;
 struct wlc_backend_surface;
 
-void* wlc_egl_new(struct wlc_backend_surface *surface, struct wlc_context_api *api);
+void* wlc_egl(struct wlc_backend_surface *bsurface, struct wlc_context_api *api);
 
 #endif /* _WLC_EGL_H_ */

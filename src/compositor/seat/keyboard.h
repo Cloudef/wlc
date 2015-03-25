@@ -1,8 +1,10 @@
 #ifndef _WLC_KEYBOARD_H_
 #define _WLC_KEYBOARD_H_
 
+#include <stdint.h>
 #include <stdbool.h>
 #include <wayland-util.h>
+#include "resources/resources.h"
 
 enum wl_keyboard_key_state;
 
@@ -15,10 +17,18 @@ struct wlc_client;
 struct wlc_modifiers;
 
 struct wlc_keyboard {
-   struct wlc_compositor *compositor;
-   struct xkb_state *state;
-   struct wlc_view *focus;
-   struct wl_array keys;
+   struct wlc_source resources;
+   struct chck_iter_pool keys;
+
+   struct {
+      struct wl_event_source *focus;
+      struct wl_event_source *repeat;
+   } timer;
+
+   struct {
+      wlc_handle view;
+      wlc_resource resource;
+   } focused;
 
    struct {
       uint32_t depressed;
@@ -26,6 +36,11 @@ struct wlc_keyboard {
       uint32_t locked;
       uint32_t group;
    } mods;
+
+   struct {
+      struct xkb_state *xkb;
+      bool locked, repeat;
+   } state;
 };
 
 bool wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state);
@@ -34,7 +49,7 @@ void wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key
 void wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view);
 void wlc_keyboard_remove_client_for_resource(struct wlc_keyboard *keyboard, struct wl_resource *resource);
 bool wlc_keyboard_set_keymap(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap);
-void wlc_keyboard_free(struct wlc_keyboard *keyboard);
-struct wlc_keyboard* wlc_keyboard_new(struct wlc_keymap *keymap, struct wlc_compositor *compositor);
+void wlc_keyboard_release(struct wlc_keyboard *keyboard);
+bool wlc_keyboard(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap);
 
 #endif /* _WLC_KEYBOARD_H_ */

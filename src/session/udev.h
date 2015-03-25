@@ -1,5 +1,6 @@
 #ifndef _WLC_UDEV_H_
 #define _WLC_UDEV_H_
+
 #include <stdbool.h>
 
 bool wlc_input_has_init(void);

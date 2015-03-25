@@ -1,155 +1,80 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include <wayland-server.h>
+#include <chck/math/math.h>
 #include "internal.h"
 #include "session/tty.h"
 #include "seat.h"
 #include "pointer.h"
 #include "keyboard.h"
+#include "touch.h"
 #include "keymap.h"
 #include "macros.h"
-
 #include "compositor/compositor.h"
 #include "compositor/output.h"
-#include "compositor/surface.h"
-#include "compositor/client.h"
 #include "compositor/view.h"
-#include "compositor/data.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
-
-#include <wayland-server.h>
+#include "resources/types/surface.h"
+#include "resources/resources.h"
 
 static void
-wl_cb_pointer_set_cursor(struct wl_client *wl_client, struct wl_resource *resource, uint32_t serial, struct wl_resource *surface_resource, int32_t hotspot_x, int32_t hotspot_y)
+wl_cb_seat_get_pointer(struct wl_client *client, struct wl_resource *resource, uint32_t id)
 {
-   (void)serial;
-   struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
-   struct wlc_surface *surface = (surface_resource ? wl_resource_get_user_data(surface_resource) : NULL);
-
-   // Only accept request if we happen to have focus on the client.
-   if (pointer->focus && pointer->focus->client->wl_client == wl_client)
-      wlc_pointer_set_surface(pointer, surface, &(struct wlc_origin){ hotspot_x, hotspot_y });
-}
-
-static void
-wl_cb_input_resource_release(struct wl_client *wl_client, struct wl_resource *resource)
-{
-   (void)wl_client;
-   wl_resource_destroy(resource);
-}
-
-static const struct wl_pointer_interface wl_pointer_implementation = {
-   .set_cursor = wl_cb_pointer_set_cursor,
-   .release = wl_cb_input_resource_release
-};
-
-static void
-wl_cb_pointer_client_destructor(struct wl_resource *resource)
-{
-   assert(resource);
-   struct wlc_pointer *pointer = wl_resource_get_user_data(resource);
-   wlc_pointer_remove_client_for_resource(pointer, resource);
-}
-
-static void
-wl_cb_seat_get_pointer(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id)
-{
-   struct wlc_seat *seat = wl_resource_get_user_data(resource);
-
-   if (!seat->pointer)
+   struct wlc_seat *seat;
+   if (!(seat = wl_resource_get_user_data(resource)))
       return;
 
-   struct wlc_client *client;
-   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &seat->compositor->clients))) {
-      wl_resource_post_error(resource, 1, "client was not found (out of memory?)");
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&seat->pointer.resources, client, &wl_pointer_interface, wl_resource_get_version(resource), 4, id)))
       return;
-   }
 
-   struct wl_resource *pointer_resource;
-   if (!(pointer_resource = wl_resource_create(wl_client, &wl_pointer_interface, wl_resource_get_version(resource), id))) {
-      wl_client_post_no_memory(wl_client);
-      return;
-   }
-
-   client->input[WLC_POINTER] = pointer_resource;
-   wl_resource_set_implementation(pointer_resource, &wl_pointer_implementation, seat->pointer, wl_cb_pointer_client_destructor);
+   wlc_resource_implement(r, &wl_pointer_implementation, &seat->pointer);
 }
 
 static const struct wl_keyboard_interface wl_keyboard_implementation = {
-   .release = wl_cb_input_resource_release,
+   .release = wlc_cb_resource_destructor
 };
 
 static void
-wl_cb_keyboard_client_destructor(struct wl_resource *resource)
+wl_cb_seat_get_keyboard(struct wl_client *client, struct wl_resource *resource, uint32_t id)
 {
-   assert(resource);
-   struct wlc_keyboard *keyboard = wl_resource_get_user_data(resource);
-   wlc_keyboard_remove_client_for_resource(keyboard, resource);
-}
-
-static void
-wl_cb_seat_get_keyboard(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id)
-{
-   (void)wl_client;
-   struct wlc_seat *seat = wl_resource_get_user_data(resource);
-
-   if (!seat->keyboard)
+   struct wlc_seat *seat;
+   if (!(seat = wl_resource_get_user_data(resource)))
       return;
 
-   struct wlc_client *client;
-   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &seat->compositor->clients))) {
-      wl_resource_post_error(resource, 1, "client was not found (out of memory?)");
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&seat->keyboard.resources, client, &wl_keyboard_interface, wl_resource_get_version(resource), 4, id)))
       return;
-   }
 
-   struct wl_resource *keyboard_resource;
-   if (!(keyboard_resource = wl_resource_create(wl_client, &wl_keyboard_interface, wl_resource_get_version(resource), id))) {
-      wl_client_post_no_memory(wl_client);
-      return;
-   }
+   wlc_resource_implement(r, &wl_keyboard_implementation, &seat->keyboard);
+   wl_keyboard_send_keymap(wl_resource_from_wlc_resource(r, "keyboard"), seat->keymap.format, seat->keymap.fd, seat->keymap.size);
 
-   client->input[WLC_KEYBOARD] = keyboard_resource;
-   wl_resource_set_implementation(keyboard_resource, &wl_keyboard_implementation, seat->keyboard, wl_cb_keyboard_client_destructor);
-
-   if (seat->keymap)
-      wl_keyboard_send_keymap(keyboard_resource, seat->keymap->format, seat->keymap->fd, seat->keymap->size);
-
-   if (seat->keyboard->focus && seat->keyboard->focus->client == client) {
+   struct wlc_view *focused = convert_from_wlc_handle(seat->keyboard.focused.view, "view");
+   if (focused && wlc_view_get_client(focused) == client) {
       // We refocus the client here so it gets input correctly.
       // This way we avoid the ugly keyboard.init public interface hack.
-      struct wlc_view *focused_view_without_input_resource = seat->keyboard->focus;
-      seat->keyboard->focus = NULL;
-      seat->notify.keyboard_focus(seat, focused_view_without_input_resource);
+      seat->keyboard.focused.view = 0;
+      wlc_view_focus_ptr(focused);
    }
 }
 
 static const struct wl_touch_interface wl_touch_implementation = {
-   .release = wl_cb_input_resource_release
+   .release = wlc_cb_resource_destructor
 };
 
 static void
-wl_cb_seat_get_touch(struct wl_client *wl_client, struct wl_resource *resource, uint32_t id)
+wl_cb_seat_get_touch(struct wl_client *client, struct wl_resource *resource, uint32_t id)
 {
-   struct wlc_seat *seat = wl_resource_get_user_data(resource);
-
-   if (!seat->pointer)
+   struct wlc_seat *seat;
+   if (!(seat = wl_resource_get_user_data(resource)))
       return;
 
-   struct wlc_client *client;
-   if (!(client = wlc_client_for_client_with_wl_client_in_list(wl_client, &seat->compositor->clients))) {
-      wl_resource_post_error(resource, 1, "client was not found (out of memory?)");
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&seat->keyboard.resources, client, &wl_touch_interface, wl_resource_get_version(resource), 4, id)))
       return;
-   }
 
-   struct wl_resource *touch_resource;
-   if (!(touch_resource = wl_resource_create(wl_client, &wl_touch_interface, wl_resource_get_version(resource), id))) {
-      wl_client_post_no_memory(wl_client);
-      return;
-   }
-
-   client->input[WLC_TOUCH] = touch_resource;
-   wl_resource_set_implementation(touch_resource, &wl_touch_implementation, seat->pointer, wl_cb_pointer_client_destructor);
+   wlc_resource_implement(r, &wl_touch_implementation, &seat->touch);
 }
 
 static const struct wl_seat_interface wl_seat_implementation = {
@@ -159,26 +84,16 @@ static const struct wl_seat_interface wl_seat_implementation = {
 };
 
 static void
-wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsigned int id)
+wl_seat_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create(wl_client, &wl_seat_interface, fmin(version, 4), id))) {
-      wl_client_post_no_memory(wl_client);
-      wlc_log(WLC_LOG_WARN, "Failed create resource or bad version (%u > %u)", version, 4);
+   if (!(resource = wl_resource_create_checked(client, &wl_seat_interface, version, 4, id)))
       return;
-   }
 
    wl_resource_set_implementation(resource, &wl_seat_implementation, data, NULL);
 
-   struct wlc_seat *seat = data;
-   enum wl_seat_capability caps = 0;
-
-   if (seat->pointer)
-      caps |= WL_SEAT_CAPABILITY_POINTER | WL_SEAT_CAPABILITY_TOUCH;
-
-   if (seat->keyboard)
-      caps |= WL_SEAT_CAPABILITY_KEYBOARD;
-
+   // FIXME: need to check if this is supposed to be availability of device or that the seat can handle all the devices if plugged.
+   const enum wl_seat_capability caps = WL_SEAT_CAPABILITY_POINTER | WL_SEAT_CAPABILITY_TOUCH | WL_SEAT_CAPABILITY_KEYBOARD;
    wl_seat_send_capabilities(resource, caps);
 
    if (version >= 2) {
@@ -190,7 +105,7 @@ wl_seat_bind(struct wl_client *wl_client, void *data, unsigned int version, unsi
 static void
 seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
 {
-   if (!seat->keyboard || !wlc_keyboard_update(seat->keyboard, ev->key.code, ev->key.state))
+   if (!wlc_keyboard_update(&seat->keyboard, ev->key.code, ev->key.state))
       return;
 
    static enum wlc_modifier_bit mod_bits[WLC_MOD_LAST] = {
@@ -210,15 +125,15 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
       WLC_BIT_LED_SCROLL,
    };
 
-   uint32_t mods = 0, lookup = seat->keyboard->mods.depressed | seat->keyboard->mods.latched;
-   for (int i = 0; i < WLC_MOD_LAST; ++i) {
-      if (lookup & (1 << seat->keymap->mods[i]))
+   uint32_t mods = 0, lookup = seat->keyboard.mods.depressed | seat->keyboard.mods.latched;
+   for (uint32_t i = 0; i < WLC_MOD_LAST; ++i) {
+      if (lookup & (1 << seat->keymap.mods[i]))
          mods |= mod_bits[i];
    }
 
    uint32_t leds = 0;
-   for (int i = 0; i < WLC_LED_LAST; ++i) {
-      if (xkb_state_led_index_is_active(seat->keyboard->state, seat->keymap->leds[i]))
+   for (uint32_t i = 0; i < WLC_LED_LAST; ++i) {
+      if (xkb_state_led_index_is_active(seat->keyboard.state.xkb, seat->keymap.leds[i]))
          leds |= led_bits[i];
    }
 
@@ -226,81 +141,85 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
    seat->modifiers.mods = mods;
 
    if (mods == (WLC_BIT_MOD_CTRL | WLC_BIT_MOD_ALT) && ev->key.code >= 59 && ev->key.code <= 88) {
-      if (ev->key.state == WL_KEYBOARD_KEY_STATE_PRESSED)
-         wlc_tty_activate_vt((ev->key.code - 59) + 1);
+      const int vt = (ev->key.code - 59) + 1;
+      if (ev->key.state == WL_KEYBOARD_KEY_STATE_PRESSED && wlc_tty_get_vt() != vt) {
+         struct wlc_activate_event aev = { .active = false, .vt = vt };
+         wl_signal_emit(&wlc_system_signals()->activate, &aev);
+      }
       return;
    }
 
-   if (!wlc_keyboard_request_key(seat->keyboard, ev->time, &seat->modifiers, ev->key.code, ev->key.state))
+   if (!wlc_keyboard_request_key(&seat->keyboard, ev->time, &seat->modifiers, ev->key.code, ev->key.state))
       return;
 
-   wlc_keyboard_key(seat->keyboard, ev->time, ev->key.code, ev->key.state);
+   wlc_keyboard_key(&seat->keyboard, ev->time, ev->key.code, ev->key.state);
 }
 
 static void
 input_event(struct wl_listener *listener, void *data)
 {
-   struct wlc_input_event *ev = data;
    struct wlc_seat *seat;
+   struct wlc_compositor *compositor;
+   except((seat = wl_container_of(listener, seat, listener.input)) && (compositor = wl_container_of(seat, compositor, seat)));
 
-   if (!(seat = wl_container_of(listener, seat, listener.input)))
-      return;
+   struct wlc_output *output = convert_from_wlc_handle(compositor->active.output, "output");
 
    // Wake up output
-   if (seat->compositor->output) {
-      bool was_asleep = seat->compositor->output->sleeping;
-      wlc_output_set_sleep(seat->compositor->output, false);
+   if (output) {
+      bool was_asleep = output->state.sleeping;
+      wlc_output_set_sleep_ptr(output, false);
 
       // Skip input event
       if (was_asleep)
          return;
    }
 
+   struct wlc_input_event *ev = data;
    switch (ev->type) {
       case WLC_INPUT_EVENT_MOTION:
          {
-            struct wlc_size resolution = (seat->compositor->output ? seat->compositor->output->resolution : wlc_size_zero);
+            struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
             struct wlc_pointer_origin pos = {
-               fmin(fmax(seat->pointer->pos.x + ev->motion.dx, 0), resolution.w),
-               fmin(fmax(seat->pointer->pos.y + ev->motion.dy, 0), resolution.h),
+               chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w),
+               chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
             };
 
-            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->compositor, seat->pointer->focus, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
+            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
                return;
 
-            wlc_pointer_motion(seat->pointer, ev->time, &pos);
+            wlc_pointer_motion(&seat->pointer, ev->time, &pos);
          }
          break;
 
       case WLC_INPUT_EVENT_MOTION_ABSOLUTE:
          {
-            struct wlc_size resolution = (seat->compositor->output ? seat->compositor->output->resolution : wlc_size_zero);
+            struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
             struct wlc_pointer_origin pos = {
                ev->motion_abs.x(ev->motion_abs.internal, resolution.w),
                ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
             };
 
-            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->compositor, seat->pointer->focus, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
+            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
                return;
 
-            wlc_pointer_motion(seat->pointer, ev->time, &pos);
+            wlc_pointer_motion(&seat->pointer, ev->time, &pos);
          }
          break;
 
       case WLC_INPUT_EVENT_SCROLL:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->compositor, seat->pointer->focus, ev->time, &seat->modifiers, ev->scroll.axis_bits, ev->scroll.amount))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->pointer.focused.view, ev->time, &seat->modifiers, ev->scroll.axis_bits, ev->scroll.amount))
             return;
 
-         wlc_pointer_scroll(seat->pointer, ev->time, ev->scroll.axis_bits, ev->scroll.amount);
+         wlc_pointer_scroll(&seat->pointer, ev->time, ev->scroll.axis_bits, ev->scroll.amount);
          break;
 
       case WLC_INPUT_EVENT_BUTTON:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, false, seat->compositor, seat->pointer->focus, ev->time, &seat->modifiers,  ev->button.code, (enum wlc_button_state)ev->button.state))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, false, seat->pointer.focused.view, ev->time, &seat->modifiers,  ev->button.code, (enum wlc_button_state)ev->button.state))
             return;
 
-         wlc_pointer_button(seat->pointer, ev->time, ev->button.code, ev->button.state);
+         wlc_pointer_button(&seat->pointer, ev->time, ev->button.code, ev->button.state);
          break;
 
       case WLC_INPUT_EVENT_KEY:
@@ -309,82 +228,100 @@ input_event(struct wl_listener *listener, void *data)
 
       case WLC_INPUT_EVENT_TOUCH:
          {
-            struct wlc_size resolution = (seat->compositor->output ? seat->compositor->output->resolution : wlc_size_zero);
+            struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
             struct wlc_origin pos = {
                ev->touch.x(ev->touch.internal, resolution.w),
                ev->touch.y(ev->touch.internal, resolution.h)
             };
 
-            // FIXME: interface callback
+            if (WLC_INTERFACE_EMIT_EXCEPT(touch.touch, false, seat->pointer.focused.view, ev->time, &seat->modifiers,  ev->touch.type, ev->touch.slot, &pos))
+               return;
 
-            wlc_pointer_touch(seat->pointer, ev->time, ev->touch.type, ev->touch.slot, &pos);
+            if (ev->touch.type == WLC_TOUCH_MOTION || ev->touch.type == WLC_TOUCH_DOWN)
+               wlc_pointer_motion(&seat->pointer, ev->time, &(struct wlc_pointer_origin){ pos.x, pos.y });
+
+            wlc_touch_touch(&seat->touch, ev->time, ev->touch.type, ev->touch.slot, &pos);
          }
          break;
    }
 }
 
 static void
-seat_keyboard_focus(struct wlc_seat *seat, struct wlc_view *view)
+focus_event(struct wl_listener *listener, void *data)
 {
-   if (!seat->keyboard)
-      return;
+   struct wlc_seat *seat;
+   except((seat = wl_container_of(listener, seat, listener.focus)));
 
-   wlc_keyboard_focus(seat->keyboard, view);
+   struct wlc_focus_event *ev = data;
+   switch (ev->type) {
+      case WLC_FOCUS_EVENT_VIEW:
+         wlc_keyboard_focus(&seat->keyboard, ev->view);
+         wlc_data_device_manager_offer(&seat->manager, wlc_view_get_client(ev->view));
+      break;
 
-   if (view && view->client)
-      wlc_data_device_offer(seat->device, view->client->wl_client);
+      default:break;
+   }
 }
 
-static void
-seat_view_unfocus(struct wlc_seat *seat, struct wlc_view *view)
+   static void
+surface_event(struct wl_listener *listener, void *data)
 {
-   if (seat->keyboard && seat->keyboard->focus == view)
-      wlc_keyboard_focus(seat->keyboard, NULL);
+   struct wlc_seat *seat;
+   except((seat = wl_container_of(listener, seat, listener.surface)));
 
-   if (seat->pointer && seat->pointer->focus == view)
-      wlc_pointer_focus(seat->pointer, NULL, NULL);
+   struct wlc_surface_event *ev = data;
+   switch (ev->type) {
+      case WLC_SURFACE_EVENT_DESTROYED:
+         if (ev->surface->view == seat->keyboard.focused.view)
+            wlc_keyboard_focus(&seat->keyboard, NULL);
+         if (ev->surface->view == seat->pointer.focused.view)
+            wlc_pointer_focus(&seat->pointer, NULL, NULL);
+      break;
+
+      default:
+      break;
+   }
 }
 
 void
-wlc_seat_free(struct wlc_seat *seat)
+wlc_seat_release(struct wlc_seat *seat)
 {
-   assert(seat);
+   if (!seat)
+      return;
 
    wl_list_remove(&seat->listener.input.link);
+   wl_list_remove(&seat->listener.focus.link);
+   wl_list_remove(&seat->listener.surface.link);
 
-   if (seat->global)
-      wl_global_destroy(seat->global);
+   if (seat->wl.seat)
+      wl_global_destroy(seat->wl.seat);
 
-   if (seat->keyboard)
-      wlc_keyboard_free(seat->keyboard);
+   wlc_data_device_manager_release(&seat->manager);
 
-   if (seat->pointer)
-      wlc_pointer_free(seat->pointer);
+   wlc_keyboard_release(&seat->keyboard);
+   wlc_keymap_release(&seat->keymap);
+   wlc_pointer_release(&seat->pointer);
+   wlc_touch_release(&seat->touch);
 
-   if (seat->keymap)
-      wlc_keymap_free(seat->keymap);
-
-   if (seat->device)
-      wlc_data_device_free(seat->device);
-
-   free(seat);
+   memset(seat, 0, sizeof(struct wlc_seat));
 }
 
-struct wlc_seat*
-wlc_seat_new(struct wlc_compositor *compositor)
+bool
+wlc_seat(struct wlc_seat *seat)
 {
-   struct wlc_seat *seat;
-   if (!(seat = calloc(1, sizeof(struct wlc_seat))))
-      goto out_of_memory;
+   assert(seat);
+   memset(seat, 0, sizeof(struct wlc_seat));
 
-   if (!(seat->device = wlc_data_device_new()))
-      goto out_of_memory;
+   if (!wlc_data_device_manager(&seat->manager))
+      goto fail;
 
    seat->listener.input.notify = input_event;
+   seat->listener.focus.notify = focus_event;
+   seat->listener.surface.notify = surface_event;
    wl_signal_add(&wlc_system_signals()->input, &seat->listener.input);
-
-   seat->pointer = wlc_pointer_new(compositor);
+   wl_signal_add(&wlc_system_signals()->focus, &seat->listener.focus);
+   wl_signal_add(&wlc_system_signals()->surface, &seat->listener.surface);
 
    /* we need to do this since libxkbcommon uses secure_getenv,
     * and we advice compositors to sgid to input group for now. */
@@ -396,25 +333,20 @@ wlc_seat_new(struct wlc_compositor *compositor)
    rules.variant = getenv("XKB_DEFAULT_VARIANT");
    rules.options = getenv("XKB_DEFAULT_OPTIONS");
 
-   if ((seat->keymap = wlc_keymap_new(&rules, XKB_KEYMAP_COMPILE_NO_FLAGS)))
-      seat->keyboard = wlc_keyboard_new(seat->keymap, compositor);
+   if (!wlc_keymap(&seat->keymap, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS) ||
+       !wlc_keyboard(&seat->keyboard, &seat->keymap) ||
+       !wlc_pointer(&seat->pointer) ||
+       !wlc_touch(&seat->touch))
+      goto fail;
 
-   if (!(seat->global = wl_global_create(wlc_display(), &wl_seat_interface, 4, seat, wl_seat_bind)))
+   if (!(seat->wl.seat = wl_global_create(wlc_display(), &wl_seat_interface, 4, seat, wl_seat_bind)))
       goto shell_interface_fail;
 
-   seat->compositor = compositor;
-
-   seat->notify.keyboard_focus = seat_keyboard_focus;
-   seat->notify.view_unfocus = seat_view_unfocus;
    return seat;
 
-out_of_memory:
-   wlc_log(WLC_LOG_WARN, "Out of memory");
-   goto fail;
 shell_interface_fail:
    wlc_log(WLC_LOG_WARN, "Failed to bind shell interface");
 fail:
-   if (seat)
-      wlc_seat_free(seat);
-   return NULL;
+   wlc_seat_release(seat);
+   return false;
 }

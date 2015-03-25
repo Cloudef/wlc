@@ -1,34 +1,30 @@
-#include "wlc.h"
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <wlc/wlc.h>
 #include "backend.h"
 #include "x11.h"
 #include "drm.h"
 
-#include <stdlib.h>
-#include <assert.h>
-
-struct wlc_backend_surface*
-wlc_backend_surface_new(void (*destructor)(struct wlc_backend_surface*), size_t internal_size)
+bool
+wlc_backend_surface(struct wlc_backend_surface *surface, void (*destructor)(struct wlc_backend_surface*), size_t internal_size)
 {
-   struct wlc_backend_surface *surface;
-   if (!(surface = calloc(1, sizeof(struct wlc_backend_surface))))
-      return NULL;
+   assert(surface);
+   memset(surface, 0, sizeof(struct wlc_backend_surface));
 
    if (internal_size > 0 && !(surface->internal = calloc(1, internal_size)))
-      goto fail;
+      return false;
 
    surface->api.terminate = destructor;
    surface->internal_size = internal_size;
-   return surface;
-
-fail:
-   free(surface);
-   return NULL;
+   return true;
 }
 
 void
-wlc_backend_surface_free(struct wlc_backend_surface *surface)
+wlc_backend_surface_release(struct wlc_backend_surface *surface)
 {
-   assert(surface);
+   if (!surface)
+      return;
 
    if (surface->api.terminate)
       surface->api.terminate(surface);
@@ -36,47 +32,48 @@ wlc_backend_surface_free(struct wlc_backend_surface *surface)
    if (surface->internal_size > 0 && surface->internal)
       free(surface->internal);
 
-   free(surface);
+   memset(surface, 0, sizeof(struct wlc_backend_surface));
 }
 
 uint32_t
-wlc_backend_update_outputs(struct wlc_backend *backend, struct wl_list *outputs)
+wlc_backend_update_outputs(struct wlc_backend *backend, struct chck_pool *outputs)
 {
    assert(backend);
+
+   if (!backend->api.update_outputs)
+      return 0;
+
    return backend->api.update_outputs(outputs);
 }
 
 void
-wlc_backend_terminate(struct wlc_backend *backend)
+wlc_backend_release(struct wlc_backend *backend)
 {
-   assert(backend);
-   backend->api.terminate();
-   free(backend);
+   if (!backend)
+      return;
+
+   if (backend->api.terminate)
+      backend->api.terminate();
+
+   memset(backend, 0, sizeof(struct wlc_backend));
 }
 
-struct wlc_backend*
-wlc_backend_init(struct wlc_compositor *compositor)
+bool
+wlc_backend(struct wlc_backend *backend)
 {
-   struct wlc_backend *backend;
+   assert(backend);
+   memset(backend, 0, sizeof(struct wlc_backend));
 
-   if (!(backend = calloc(1, sizeof(struct wlc_backend))))
-      goto out_of_memory;
-
-   bool (*init[])(struct wlc_backend*, struct wlc_compositor*) = {
-      wlc_x11_init,
-      wlc_drm_init,
+   bool (*init[])(struct wlc_backend*) = {
+      wlc_x11,
+      wlc_drm,
       NULL
    };
 
-   for (int i = 0; init[i]; ++i)
-      if (init[i](backend, compositor))
-         return backend;
+   for (uint32_t i = 0; init[i]; ++i)
+      if (init[i](backend))
+         return true;
 
    wlc_log(WLC_LOG_WARN, "Could not initialize any backend");
-   free(backend);
-   return NULL;
-
-out_of_memory:
-   wlc_log(WLC_LOG_WARN, "Out of memory");
-   return NULL;
+   return false;
 }

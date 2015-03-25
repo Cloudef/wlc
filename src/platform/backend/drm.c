@@ -1,12 +1,3 @@
-#include "internal.h"
-#include "drm.h"
-#include "backend.h"
-
-#include "compositor/compositor.h"
-#include "compositor/output.h"
-
-#include "session/fd.h"
-
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,11 +9,17 @@
 #include <drm_fourcc.h>
 #include <gbm.h>
 #include <dlfcn.h>
-
 #include <wayland-server.h>
 #include <wayland-util.h>
+#include "internal.h"
+#include "macros.h"
+#include "drm.h"
+#include "backend.h"
+#include "compositor/compositor.h"
+#include "compositor/output.h"
+#include "session/fd.h"
 
-// FIXME: contains global state (event_source && fd)
+// FIXME: Contains global state (event_source && fd)
 
 #define NUM_FBS 2
 
@@ -217,7 +214,9 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
    struct timespec ts;
    ts.tv_sec = sec;
    ts.tv_nsec = usec * 1000;
-   wlc_output_finish_frame(bsurface->output, &ts);
+
+   struct wlc_output *o;
+   wlc_output_finish_frame(wl_container_of(bsurface, o, bsurface), &ts);
    dsurface->flipping = false;
 }
 
@@ -263,7 +262,6 @@ failed_to_lock:
    goto fail;
 failed_to_create_fb:
    wlc_log(WLC_LOG_WARN, "Failed to create fb");
-   goto fail;
 fail:
    release_fb(surface, fb);
    return false;
@@ -278,11 +276,14 @@ page_flip(struct wlc_backend_surface *bsurface)
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
    release_fb(dsurface->surface, fb);
 
+   struct wlc_output *o;
+   except((o = wl_container_of(bsurface, o, bsurface)));
+
    if (!create_fb(dsurface->surface, fb))
       return false;
 
    if (fb->stride != dsurface->stride) {
-      if (drm.api.drmModeSetCrtc(drm.fd, dsurface->encoder->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[bsurface->output->mode]))
+      if (drm.api.drmModeSetCrtc(drm.fd, dsurface->encoder->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[o->active.mode]))
          goto set_crtc_fail;
 
       dsurface->stride = fb->stride;
@@ -316,7 +317,7 @@ surface_sleep(struct wlc_backend_surface *bsurface, bool sleep)
 }
 
 static void
-surface_free(struct wlc_backend_surface *bsurface)
+surface_release(struct wlc_backend_surface *bsurface)
 {
    struct drm_surface *dsurface = bsurface->internal;
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
@@ -342,29 +343,29 @@ surface_free(struct wlc_backend_surface *bsurface)
 static bool
 add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_output_information *info)
 {
-   struct wlc_backend_surface *bsurface = NULL;
-   if (!(bsurface = wlc_backend_surface_new(surface_free, sizeof(struct drm_surface))))
+   struct wlc_backend_surface bsurface;
+   if (!wlc_backend_surface(&bsurface, surface_release, sizeof(struct drm_surface)))
       return false;
 
-   struct drm_surface *dsurface = bsurface->internal;
+   struct drm_surface *dsurface = bsurface.internal;
    dsurface->connector = info->connector;
    dsurface->encoder = info->encoder;
    dsurface->crtc = info->crtc;
    dsurface->surface = surface;
    dsurface->device = device;
 
-   bsurface->display = (EGLNativeDisplayType)device;
-   bsurface->window = (EGLNativeWindowType)surface;
-   bsurface->api.sleep = surface_sleep;
-   bsurface->api.page_flip = page_flip;
+   bsurface.display = (EGLNativeDisplayType)device;
+   bsurface.window = (EGLNativeWindowType)surface;
+   bsurface.api.sleep = surface_sleep;
+   bsurface.api.page_flip = page_flip;
 
-   struct wlc_output_event ev = { .add = { bsurface, &info->info }, .type = WLC_OUTPUT_EVENT_ADD };
+   struct wlc_output_event ev = { .add = { &bsurface, &info->info }, .type = WLC_OUTPUT_EVENT_ADD };
    wl_signal_emit(&wlc_system_signals()->output, &ev);
    return true;
 }
 
 static drmModeEncoder*
-find_encoder_for_connector(const int fd, drmModeRes *resources, drmModeConnector *connector)
+find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *connector)
 {
    for (int i = 0; i < resources->count_encoders; i++) {
       drmModeEncoder *encoder;
@@ -381,7 +382,7 @@ find_encoder_for_connector(const int fd, drmModeRes *resources, drmModeConnector
 }
 
 static bool
-query_drm(int fd, struct wl_array *out_infos)
+query_drm(int fd, struct chck_iter_pool *out_infos)
 {
    drmModeRes *resources;
    if (!(resources = drm.api.drmModeGetResources(fd)))
@@ -411,25 +412,24 @@ query_drm(int fd, struct wl_array *out_infos)
       }
 
       struct drm_output_information *info;
-      if (!(info = wl_array_add(out_infos, sizeof(struct drm_output_information)))) {
+      if (!(info = chck_iter_pool_push_back(out_infos, NULL))) {
          drm.api.drmModeFreeCrtc(crtc);
          drm.api.drmModeFreeEncoder(encoder);
          drm.api.drmModeFreeConnector(connector);
          continue;
       }
 
-      memset(info, 0, sizeof(struct drm_output_information));
-      wlc_string_set(&info->info.make, "drm", false); // we can use colord for real info
-      wlc_string_set(&info->info.model, "unknown", false); // ^
+      wlc_output_information(&info->info);
+      chck_string_set_cstr(&info->info.make, "drm", false); // we can use colord for real info
+      chck_string_set_cstr(&info->info.model, "unknown", false); // ^
       info->info.physical_width = connector->mmWidth;
       info->info.physical_height = connector->mmHeight;
       info->info.subpixel = connector->subpixel;
       info->info.scale = 1; // weston gets this from config?
 
       for (int i = 0; i < connector->count_modes; ++i) {
-         struct wlc_output_mode mode;
-         memset(&mode, 0, sizeof(mode));
-         mode.refresh = connector->modes[i].vrefresh;
+         struct wlc_output_mode mode = {0};
+         mode.refresh = connector->modes[i].vrefresh * 1000; // mHz
          mode.width = connector->modes[i].hdisplay;
          mode.height = connector->modes[i].vdisplay;
 
@@ -460,8 +460,6 @@ query_drm(int fd, struct wl_array *out_infos)
 
 resources_fail:
    wlc_log(WLC_LOG_WARN, "drmModeGetResources failed");
-   goto fail;
-fail:
    memset(&drm, 0, sizeof(drm));
    return false;
 }
@@ -490,12 +488,12 @@ terminate(void)
 }
 
 static bool
-output_exists_for_connector(struct wl_list *outputs, drmModeConnector *connector)
+output_exists_for_connector(struct chck_pool *outputs, drmModeConnector *connector)
 {
    assert(outputs && connector);
    struct wlc_output *o;
-   wl_list_for_each(o, outputs, link) {
-      struct drm_surface *dsurface = (o->bsurface ? o->bsurface->internal : NULL);
+   chck_pool_for_each(outputs, o) {
+      struct drm_surface *dsurface = o->bsurface.internal;
       if (dsurface && dsurface->connector->connector_id == connector->connector_id)
          return true;
    }
@@ -503,11 +501,11 @@ output_exists_for_connector(struct wl_list *outputs, drmModeConnector *connector
 }
 
 static bool
-info_exists_for_drm_surface(struct wl_array *infos, struct drm_surface *dsurface)
+info_exists_for_drm_surface(struct chck_iter_pool *infos, struct drm_surface *dsurface)
 {
    assert(infos && dsurface);
    struct drm_output_information *info;
-   wl_array_for_each(info, infos) {
+   chck_iter_pool_for_each(infos, info) {
       if (dsurface->connector->connector_id == info->connector->connector_id)
          return true;
    }
@@ -515,18 +513,17 @@ info_exists_for_drm_surface(struct wl_array *infos, struct drm_surface *dsurface
 }
 
 static uint32_t
-update_outputs(struct wl_list *outputs)
+update_outputs(struct chck_pool *outputs)
 {
-   struct wl_array infos;
-   wl_array_init(&infos);
-   if (!query_drm(drm.fd, &infos))
+   struct chck_iter_pool infos;
+   if (!chck_iter_pool(&infos, 4, 0, sizeof(struct drm_output_information)) || !query_drm(drm.fd, &infos))
       return 0;
 
    if (outputs) {
-      struct wlc_output *o, *on;
-      wl_list_for_each_safe(o, on, outputs, link) {
-         struct drm_surface *dsurface = (o->bsurface ? o->bsurface->internal : NULL);
-         if (!dsurface)
+      struct wlc_output *o;
+      chck_pool_for_each(outputs, o) {
+         struct drm_surface *dsurface;
+         if (!(dsurface = o->bsurface.internal))
             continue;
 
          if (!info_exists_for_drm_surface(&infos, dsurface))
@@ -536,7 +533,7 @@ update_outputs(struct wl_list *outputs)
 
    uint32_t count = 0;
    struct drm_output_information *info;
-   wl_array_for_each(info, &infos) {
+   chck_iter_pool_for_each(&infos, info) {
       if (outputs && output_exists_for_connector(outputs, info->connector))
          continue;
 
@@ -547,15 +544,13 @@ update_outputs(struct wl_list *outputs)
       count += (add_output(gbm.device, surface, info) ? 1 : 0);
    }
 
-   wl_array_release(&infos);
+   chck_iter_pool_release(&infos);
    return count;
 }
 
 bool
-wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
+wlc_drm(struct wlc_backend *backend)
 {
-   (void)compositor;
-
    if (!gbm_load() || !drm_load())
       goto fail;
 
@@ -578,8 +573,8 @@ wlc_drm_init(struct wlc_backend *out_backend, struct wlc_compositor *compositor)
    if (!(drm.event_source = wl_event_loop_add_fd(wlc_event_loop(), drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
       goto fail;
 
-   out_backend->api.update_outputs = update_outputs;
-   out_backend->api.terminate = terminate;
+   backend->api.update_outputs = update_outputs;
+   backend->api.terminate = terminate;
    return true;
 
 card_open_fail:

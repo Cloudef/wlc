@@ -1,19 +1,17 @@
-#include "internal.h"
-#include "session/fd.h"
-#include "udev.h"
-
-#include "compositor/compositor.h"
-#include "compositor/output.h"
-
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-
 #include <libudev.h>
 #include <libinput.h>
 #include <wayland-server.h>
+#include <chck/string/string.h>
+#include "internal.h"
+#include "session/fd.h"
+#include "udev.h"
+#include "compositor/compositor.h"
+#include "compositor/output.h"
 
 static struct input {
    struct libinput *handle;
@@ -159,18 +157,19 @@ input_event(int fd, uint32_t mask, void *data)
             {
                struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
                struct wlc_input_event ev;
+               memset(&ev.scroll, 0, sizeof(ev));
                ev.type = WLC_INPUT_EVENT_SCROLL;
                ev.time = libinput_event_pointer_get_time(pev);
 
-               ev.scroll.amount[0] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL);
-               ev.scroll.amount[1] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL);
-
-               ev.scroll.axis_bits = 0;
-               if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL))
+               if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL)) {
+                  ev.scroll.amount[0] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL);
                   ev.scroll.axis_bits |= WLC_SCROLL_AXIS_VERTICAL;
+               }
 
-               if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL))
+               if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL)) {
+                  ev.scroll.amount[1] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL);
                   ev.scroll.axis_bits |= WLC_SCROLL_AXIS_HORIZONTAL;
+               }
 
                // We should get other axis information from libinput as well, like source (finger, wheel) (v0.8)
                wl_signal_emit(&wlc_system_signals()->input, &ev);
@@ -245,7 +244,7 @@ is_hotplug(uint32_t drm_id, struct udev_device *device)
    if (!(val = udev_device_get_property_value(device, "HOTPLUG")))
       return false;
 
-   return (strcmp(val, "1") == 0);
+   return chck_cstreq(val, "1");
 }
 
 static int
@@ -272,13 +271,13 @@ udev_event(int fd, uint32_t mask, void *data)
    if (!(action = udev_device_get_action(device)))
       goto out;
 
-   if (!strncmp("event", udev_device_get_sysname(device), sizeof("event")) != 0)
+   if (!chck_cstrneq("event", udev_device_get_sysname(device), sizeof("event")))
       goto out;
 
    // XXX: Free event loop for any other stuff. We probably should expose this to api.
-   if (!strcmp(action, "add"))
+   if (chck_cstreq(action, "add"))
       wlc_log(WLC_LOG_INFO, "udev: device added");
-   else if (!strcmp(action, "remove")) {
+   else if (chck_cstreq(action, "remove")) {
       wlc_log(WLC_LOG_INFO, "udev: device removed");
    }
 
@@ -305,13 +304,13 @@ udev_set_event_loop(struct wl_event_loop *loop)
 }
 
 static void
-activated(struct wl_listener *listener, void *data)
+activate_event(struct wl_listener *listener, void *data)
 {
    (void)listener;
-   bool activated = *(bool*)data;
 
+   struct wlc_activate_event *ev = data;
    if (input.handle) {
-      if (!activated) {
+      if (!ev->active) {
          libinput_suspend(input.handle);
       } else {
          libinput_resume(input.handle);
@@ -319,8 +318,8 @@ activated(struct wl_listener *listener, void *data)
    }
 }
 
-static struct wl_listener activated_listener = {
-   .notify = activated,
+static struct wl_listener activate_listener = {
+   .notify = activate_event,
 };
 
 static void
@@ -340,10 +339,7 @@ void
 wlc_input_terminate(void)
 {
    input_set_event_loop(NULL);
-
-   if (input.handle)
-      libinput_unref(input.handle);
-
+   libinput_unref(input.handle);
    memset(&input, 0, sizeof(input));
 }
 
@@ -355,33 +351,36 @@ wlc_input_init(void)
    if (input.handle)
       return true;
 
-   if (!(input.handle = libinput_udev_create_context(&libinput_implementation, &input, udev.handle))) {
-      wlc_log(WLC_LOG_WARN, "Failed to create libinput udev context");
-      return false;
-   }
+   if (!(input.handle = libinput_udev_create_context(&libinput_implementation, &input, udev.handle)))
+         goto failed_to_create_context;
 
    const char *xdg_seat = getenv("XDG_SEAT");
-   if (libinput_udev_assign_seat(input.handle, (xdg_seat ? xdg_seat : "seat0")) != 0) {
-      wlc_log(WLC_LOG_WARN, "Failed to assign seat to libinput");
-      return false;
-   }
+   if (libinput_udev_assign_seat(input.handle, (xdg_seat ? xdg_seat : "seat0")) != 0)
+      goto failed_to_assign_seat;
 
    libinput_log_set_handler(input.handle, &cb_input_log_handler);
    libinput_log_set_priority(input.handle, LIBINPUT_LOG_PRIORITY_ERROR);
    return input_set_event_loop(wlc_event_loop());
+
+failed_to_create_context:
+   wlc_log(WLC_LOG_WARN, "Failed to create libinput udev context");
+   goto fail;
+failed_to_assign_seat:
+   wlc_log(WLC_LOG_WARN, "Failed to assign seat to libinput");
+fail:
+   wlc_input_terminate();
+   return false;
 }
 
 void
 wlc_udev_terminate(void)
 {
    if (udev.handle)
-      wl_list_remove(&activated_listener.link);
+      wl_list_remove(&activate_listener.link);
 
    udev_set_event_loop(NULL);
-
-   if (udev.handle)
-      udev_unref(udev.handle);
-
+   udev_monitor_unref(udev.monitor);
+   udev_unref(udev.handle);
    memset(&udev, 0, sizeof(udev));
 }
 
@@ -406,7 +405,7 @@ wlc_udev_init(void)
    if (!udev_set_event_loop(wlc_event_loop()))
       goto fail;
 
-   wl_signal_add(&wlc_system_signals()->activated, &activated_listener);
+   wl_signal_add(&wlc_system_signals()->activate, &activate_listener);
    return true;
 
 monitor_fail:
@@ -415,8 +414,6 @@ monitor_fail:
 monitor_receiving_fail:
    wlc_log(WLC_LOG_WARN, "Failed to enable udev-monitor receiving");
 fail:
-   udev_set_event_loop(NULL);
-   if (udev.handle)
-      udev_unref(udev.handle);
+   wlc_udev_terminate();
    return false;
 }

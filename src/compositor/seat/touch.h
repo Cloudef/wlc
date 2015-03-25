@@ -1,0 +1,18 @@
+#ifndef _WLC_TOUCH_H_
+#define _WLC_TOUCH_H_
+
+#include <stdbool.h>
+#include "resources/resources.h"
+
+enum wlc_touch_type;
+struct wlc_origin;
+
+struct wlc_touch {
+   struct wlc_source resources;
+};
+
+void wlc_touch_touch(struct wlc_touch *touch, uint32_t time, enum wlc_touch_type type, int32_t slot, const struct wlc_origin *pos);
+void wlc_touch_release(struct wlc_touch *touch);
+bool wlc_touch(struct wlc_touch *touch);
+
+#endif /* _WLC_TOUCH_H_ */
