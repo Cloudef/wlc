@@ -6,10 +6,8 @@ static wlc_handle
 get_topmost(wlc_handle output, size_t offset)
 {
    size_t memb;
-   const wlc_handle *views;
-   if ((views = wlc_output_get_views(output, &memb)) && memb > offset)
-      return views[memb - (1 + offset)];
-   return 0;
+   const wlc_handle *views = wlc_output_get_views(output, &memb);
+   return (memb > 0 ? views[(memb - 1 + offset) % memb] : 0);
 }
 
 static void
@@ -81,13 +79,18 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
 {
    (void)time, (void)key;
 
-   if (view && state == WLC_KEY_STATE_PRESSED) {
-      if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_q) {
-         wlc_view_close(view);
-         return false;
-      } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Down) {
-         wlc_view_send_to_back(view);
-         wlc_view_focus(get_topmost(wlc_view_get_output(view), 0));
+   if (state == WLC_KEY_STATE_PRESSED) {
+      if (view) {
+         if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_q) {
+            wlc_view_close(view);
+            return false;
+         } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Down) {
+            wlc_view_send_to_back(view);
+            wlc_view_focus(get_topmost(wlc_view_get_output(view), 0));
+            return false;
+         }
+      } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Escape) {
+         wlc_terminate();
          return false;
       }
    }
