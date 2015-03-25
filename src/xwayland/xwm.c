@@ -718,7 +718,7 @@ x11_event(int fd, uint32_t mask, void *data)
       if (!xfixes_event) {
          switch (event->response_type & ~0x80) {
             case 0:
-               wlc_log(WLC_LOG_ERROR, "xwm: Uncatched X11 error occured");
+               wlc_log(WLC_LOG_ERROR, "xwm: Uncaught X11 error occured");
                break;
 
             case XCB_CREATE_NOTIFY: {
