@@ -71,6 +71,15 @@ cb_repeat(void *data)
       ev.type = WLC_INPUT_EVENT_KEY;
       ev.time = wlc_get_time(NULL);
       ev.key.code = *k;
+      ev.key.state = WL_KEYBOARD_KEY_STATE_RELEASED;
+      wl_signal_emit(&wlc_system_signals()->input, &ev);
+   }
+
+   chck_iter_pool_for_each(&moved, k) {
+      struct wlc_input_event ev;
+      ev.type = WLC_INPUT_EVENT_KEY;
+      ev.time = wlc_get_time(NULL);
+      ev.key.code = *k;
       ev.key.state = WL_KEYBOARD_KEY_STATE_PRESSED;
       wl_signal_emit(&wlc_system_signals()->input, &ev);
    }
@@ -125,7 +134,7 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const str
    if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, sym, (enum wlc_key_state)state)) {
       keyboard->state.repeat = true;
       wl_event_source_timer_update(keyboard->timer.repeat, 120);
-      wlc_dlog(WLC_DBG_KEYBOARD, "key %u by-passed wayland", key);
+      wlc_dlog(WLC_DBG_KEYBOARD, "key %u bypassed wayland", key);
       return false;
    }
 
