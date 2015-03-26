@@ -86,24 +86,21 @@ cb_repeat(void *data)
 static void
 begin_repeat(struct wlc_keyboard *keyboard, bool focused)
 {
-   if (keyboard->state.repeat)
-      return;
-
    keyboard->state.repeat = true;
-   keyboard->state.focused = focused;
+   keyboard->state.focused = (keyboard->state.repeat ? keyboard->state.focused : focused);
    wl_event_source_timer_update(keyboard->timer.repeat, 120);
 
-   if (focused)
+   if (keyboard->state.focused)
       wlc_dlog(WLC_DBG_KEYBOARD, "pending focus wlc key repeat");
 }
 
 static void
-reset_repeat(struct wlc_keyboard *keyboard)
+reset_repeat(struct wlc_keyboard *keyboard, bool force)
 {
    if (!keyboard->state.repeat)
       return;
 
-   if (keyboard->state.focused) {
+   if (!force && keyboard->state.focused) {
       cb_repeat(keyboard);
    } else {
       wl_event_source_timer_update(keyboard->timer.repeat, 0);
@@ -172,7 +169,7 @@ wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboar
    const bool ret = update_keys(&keyboard->keys, key, state);
 
    if (ret)
-      reset_repeat(keyboard);
+      reset_repeat(keyboard, false);
 
    return ret;
 }
@@ -199,10 +196,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
 
    wlc_dlog(WLC_DBG_FOCUS, "-> keyboard focus event %zu, %zu", keyboard->focused.view, convert_to_wlc_handle(view));
 
-   // Do not repeat on focus out
-   keyboard->state.focused = false;
-   reset_repeat(keyboard);
-
+   reset_repeat(keyboard, true);
    send_release_for_keys(keyboard->focused.resource, &keyboard->keys);
 
    {
