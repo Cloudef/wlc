@@ -66,14 +66,8 @@ cb_repeat(void *data)
    keyboard->state.focused = keyboard->state.repeat = false;
 
    uint32_t *k;
-   chck_iter_pool_for_each(&moved, k) {
-      struct wlc_input_event ev;
-      ev.type = WLC_INPUT_EVENT_KEY;
-      ev.time = wlc_get_time(NULL);
-      ev.key.code = *k;
-      ev.key.state = WL_KEYBOARD_KEY_STATE_RELEASED;
-      wl_signal_emit(&wlc_system_signals()->input, &ev);
-   }
+   chck_iter_pool_for_each(&moved, k)
+      xkb_state_update_key(keyboard->state.xkb, *k + 8, XKB_KEY_UP);
 
    chck_iter_pool_for_each(&moved, k) {
       struct wlc_input_event ev;
