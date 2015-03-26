@@ -149,15 +149,13 @@ wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboar
    xkb_state_update_key(keyboard->state.xkb, key + 8, (state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP));
    const bool ret = update_keys(&keyboard->keys, key, state);
 
-   if (ret) {
-      if (keyboard->state.repeat) {
-         if (keyboard->state.focused) {
-            cb_repeat(keyboard);
-         } else {
-            wl_event_source_timer_update(keyboard->timer.repeat, 0);
-            keyboard->state.focused = keyboard->state.repeat = false;
-            wlc_dlog(WLC_DBG_KEYBOARD, "canceled wlc key repeat");
-         }
+   if (ret && keyboard->state.repeat) {
+      if (keyboard->state.focused) {
+         cb_repeat(keyboard);
+      } else {
+         wl_event_source_timer_update(keyboard->timer.repeat, 0);
+         keyboard->state.focused = keyboard->state.repeat = false;
+         wlc_dlog(WLC_DBG_KEYBOARD, "canceled wlc key repeat");
       }
    }
 
