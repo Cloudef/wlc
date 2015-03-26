@@ -249,8 +249,7 @@ surface_event(struct wl_listener *listener, void *data)
             wlc_pointer_focus(&seat->pointer, NULL, NULL);
       break;
 
-      default:
-      break;
+      default:break;
    }
 }
 
