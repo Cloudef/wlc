@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <wlc/wlc.h>
 #include <wayland-util.h>
 #include "resources/resources.h"
 
@@ -21,7 +22,6 @@ struct wlc_keyboard {
    struct chck_iter_pool keys;
 
    struct {
-      struct wl_event_source *focus;
       struct wl_event_source *repeat;
    } timer;
 
@@ -37,12 +37,16 @@ struct wlc_keyboard {
       uint32_t group;
    } mods;
 
+   // for interface calls (public)
+   struct wlc_modifiers modifiers;
+
    struct {
       struct xkb_state *xkb;
-      bool locked, repeat;
+      bool repeat, focused;
    } state;
 };
 
+void wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap);
 bool wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state);
 bool wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state);
 void wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key, enum wl_keyboard_key_state state);

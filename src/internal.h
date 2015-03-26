@@ -187,6 +187,7 @@ enum wlc_debug {
    WLC_DBG_RENDER_LOOP,
    WLC_DBG_FOCUS,
    WLC_DBG_XWM,
+   WLC_DBG_KEYBOARD,
    WLC_DBG_LAST,
 };
 

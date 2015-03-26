@@ -16,6 +16,8 @@
 #include "session/udev.h"
 #include "compositor/compositor.h"
 #include "compositor/output.h"
+#include "compositor/seat/keyboard.h"
+#include "compositor/seat/keymap.h"
 
 // FIXME: Contains global state
 
@@ -30,11 +32,14 @@ enum atom_name {
 };
 
 static struct {
+   struct wlc_backend *backend;
+
    Display *display;
    xcb_connection_t *connection;
    xcb_screen_t *screen;
    xcb_cursor_t cursor;
    xcb_atom_t atoms[ATOM_LAST];
+   uint8_t xkb_event_base;
 
    struct wl_event_source *event_source;
 
@@ -305,6 +310,38 @@ pointer_abs_y(void *internal, uint32_t height)
    return chck_clamp(xev->event_y, 0, height);
 }
 
+static struct wlc_keyboard*
+get_keyboard(void)
+{
+   struct wlc_compositor *compositor;
+   except((compositor = wl_container_of(x11.backend, compositor, backend)));
+   return &compositor->seat.keyboard;
+}
+
+static struct wlc_keymap*
+get_keymap(void)
+{
+   struct wlc_compositor *compositor;
+   except((compositor = wl_container_of(x11.backend, compositor, backend)));
+   return &compositor->seat.keymap;
+}
+
+static void
+update_xkb_state(xcb_xkb_state_notify_event_t *ev)
+{
+   assert(ev);
+
+   struct wlc_keymap *keymap = get_keymap();
+   struct wlc_keyboard *keyboard = get_keyboard();
+   xkb_state_update_mask(keyboard->state.xkb,
+         wlc_keymap_get_mod_mask(keymap, ev->baseMods),
+         wlc_keymap_get_mod_mask(keymap, ev->latchedMods),
+         wlc_keymap_get_mod_mask(keymap, ev->lockedMods),
+         0, 0, ev->group);
+
+   wlc_keyboard_update_modifiers(keyboard, keymap);
+}
+
 static int
 x11_event(int fd, uint32_t mask, void *data)
 {
@@ -366,6 +403,12 @@ x11_event(int fd, uint32_t mask, void *data)
 
          default:
             break;
+      }
+
+      if (event->response_type == x11.xkb_event_base) {
+         xcb_xkb_state_notify_event_t *ev = (xcb_xkb_state_notify_event_t*)event;
+         if (ev->xkbType == XCB_XKB_STATE_NOTIFY)
+            update_xkb_state(ev);
       }
 
       if (!wlc_input_has_init()) {
@@ -551,9 +594,7 @@ setup_xkb(void)
    if (!(ext = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_xkb_id)))
       return false;
 
-#if 0 // need this to synchronize xkb state
-   c->xkb_event_base = ext->first_event;
-#endif
+   x11.xkb_event_base = ext->first_event;
 
    xcb_void_cookie_t select = x11.api.xcb_xkb_select_events_checked(x11.connection,
          XCB_XKB_ID_USE_CORE_KBD,
@@ -595,13 +636,7 @@ setup_xkb(void)
 
    const bool has_repeat = (pcf_reply->value & XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT);
    free(pcf_reply);
-
-   if (!has_repeat)
-      return false;
-
-   uint32_t values[1] = { XCB_EVENT_MASK_PROPERTY_CHANGE };
-   x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK, values);
-   return true;
+   return has_repeat;
 }
 
 static void
@@ -634,6 +669,8 @@ terminate(void)
 bool
 wlc_x11(struct wlc_backend *backend)
 {
+   x11.backend = backend;
+
    if (!x11_load() || !x11_xcb_load() || !xcb_load() || !xcb_xkb_load())
       goto fail;
 

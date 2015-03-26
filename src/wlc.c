@@ -175,6 +175,7 @@ wlc_dlog(enum wlc_debug dbg, const char *fmt, ...)
       { "render-loop", false, false },
       { "focus", false, false },
       { "xwm", false, false },
+      { "keyboard", false, false },
    };
 
    if (!channels[dbg].checked) {

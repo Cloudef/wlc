@@ -2,7 +2,6 @@
 #define _WLC_SEAT_H_
 
 #include <stdint.h>
-#include <wlc/wlc.h>
 #include <wayland-server.h>
 #include "data.h"
 #include "keymap.h"
@@ -18,9 +17,6 @@ struct wlc_seat {
    struct wlc_keyboard keyboard;
    struct wlc_pointer pointer;
    struct wlc_touch touch;
-
-   // For interface calls
-   struct wlc_modifiers modifiers;
 
    struct {
       struct wl_global *seat;

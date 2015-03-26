@@ -108,39 +108,9 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
    if (!wlc_keyboard_update(&seat->keyboard, ev->key.code, ev->key.state))
       return;
 
-   static enum wlc_modifier_bit mod_bits[WLC_MOD_LAST] = {
-      WLC_BIT_MOD_SHIFT,
-      WLC_BIT_MOD_CAPS,
-      WLC_BIT_MOD_CTRL,
-      WLC_BIT_MOD_ALT,
-      WLC_BIT_MOD_MOD2,
-      WLC_BIT_MOD_MOD3,
-      WLC_BIT_MOD_LOGO,
-      WLC_BIT_MOD_MOD5,
-   };
+   wlc_keyboard_update_modifiers(&seat->keyboard, &seat->keymap);
 
-   static enum wlc_led_bit led_bits[WLC_LED_LAST] = {
-      WLC_BIT_LED_NUM,
-      WLC_BIT_LED_CAPS,
-      WLC_BIT_LED_SCROLL,
-   };
-
-   uint32_t mods = 0, lookup = seat->keyboard.mods.depressed | seat->keyboard.mods.latched;
-   for (uint32_t i = 0; i < WLC_MOD_LAST; ++i) {
-      if (lookup & (1 << seat->keymap.mods[i]))
-         mods |= mod_bits[i];
-   }
-
-   uint32_t leds = 0;
-   for (uint32_t i = 0; i < WLC_LED_LAST; ++i) {
-      if (xkb_state_led_index_is_active(seat->keyboard.state.xkb, seat->keymap.leds[i]))
-         leds |= led_bits[i];
-   }
-
-   seat->modifiers.leds = leds;
-   seat->modifiers.mods = mods;
-
-   if (mods == (WLC_BIT_MOD_CTRL | WLC_BIT_MOD_ALT) && ev->key.code >= 59 && ev->key.code <= 88) {
+   if (seat->keyboard.modifiers.mods == (WLC_BIT_MOD_CTRL | WLC_BIT_MOD_ALT) && ev->key.code >= 59 && ev->key.code <= 88) {
       const int vt = (ev->key.code - 59) + 1;
       if (ev->key.state == WL_KEYBOARD_KEY_STATE_PRESSED && wlc_tty_get_vt() != vt) {
          struct wlc_activate_event aev = { .active = false, .vt = vt };
@@ -149,7 +119,7 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
       return;
    }
 
-   if (!wlc_keyboard_request_key(&seat->keyboard, ev->time, &seat->modifiers, ev->key.code, ev->key.state))
+   if (!wlc_keyboard_request_key(&seat->keyboard, ev->time, &seat->keyboard.modifiers, ev->key.code, ev->key.state))
       return;
 
    wlc_keyboard_key(&seat->keyboard, ev->time, ev->key.code, ev->key.state);
@@ -209,14 +179,14 @@ input_event(struct wl_listener *listener, void *data)
          break;
 
       case WLC_INPUT_EVENT_SCROLL:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->pointer.focused.view, ev->time, &seat->modifiers, ev->scroll.axis_bits, ev->scroll.amount))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->scroll.axis_bits, ev->scroll.amount))
             return;
 
          wlc_pointer_scroll(&seat->pointer, ev->time, ev->scroll.axis_bits, ev->scroll.amount);
          break;
 
       case WLC_INPUT_EVENT_BUTTON:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, false, seat->pointer.focused.view, ev->time, &seat->modifiers,  ev->button.code, (enum wlc_button_state)ev->button.state))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers,  ev->button.code, (enum wlc_button_state)ev->button.state))
             return;
 
          wlc_pointer_button(&seat->pointer, ev->time, ev->button.code, ev->button.state);
@@ -235,7 +205,7 @@ input_event(struct wl_listener *listener, void *data)
                ev->touch.y(ev->touch.internal, resolution.h)
             };
 
-            if (WLC_INTERFACE_EMIT_EXCEPT(touch.touch, false, seat->pointer.focused.view, ev->time, &seat->modifiers,  ev->touch.type, ev->touch.slot, &pos))
+            if (WLC_INTERFACE_EMIT_EXCEPT(touch.touch, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers,  ev->touch.type, ev->touch.slot, &pos))
                return;
 
             if (ev->touch.type == WLC_TOUCH_MOTION || ev->touch.type == WLC_TOUCH_DOWN)
