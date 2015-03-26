@@ -87,26 +87,21 @@ static void
 begin_repeat(struct wlc_keyboard *keyboard, bool focused)
 {
    keyboard->state.repeat = true;
-   keyboard->state.focused = (keyboard->state.repeat ? keyboard->state.focused : focused);
+   keyboard->state.focused = focused;
    wl_event_source_timer_update(keyboard->timer.repeat, 120);
 
-   if (keyboard->state.focused)
-      wlc_dlog(WLC_DBG_KEYBOARD, "pending focus wlc key repeat");
+   wlc_dlog(WLC_DBG_KEYBOARD, "begin wlc key repeat (%d)", focused);
 }
 
 static void
-reset_repeat(struct wlc_keyboard *keyboard, bool force)
+reset_repeat(struct wlc_keyboard *keyboard)
 {
    if (!keyboard->state.repeat)
       return;
 
-   if (!force && keyboard->state.focused) {
-      cb_repeat(keyboard);
-   } else {
-      wl_event_source_timer_update(keyboard->timer.repeat, 0);
-      keyboard->state.focused = keyboard->state.repeat = false;
-      wlc_dlog(WLC_DBG_KEYBOARD, "canceled wlc key repeat");
-   }
+   wl_event_source_timer_update(keyboard->timer.repeat, 0);
+   keyboard->state.focused = keyboard->state.repeat = false;
+   wlc_dlog(WLC_DBG_KEYBOARD, "canceled wlc key repeat");
 }
 
 void
@@ -153,7 +148,6 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const str
 
    if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, sym, (enum wlc_key_state)state)) {
       begin_repeat(keyboard, false);
-      wlc_dlog(WLC_DBG_KEYBOARD, "key %u bypassed wayland", key);
       return false;
    }
 
@@ -169,7 +163,7 @@ wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboar
    const bool ret = update_keys(&keyboard->keys, key, state);
 
    if (ret)
-      reset_repeat(keyboard, false);
+      reset_repeat(keyboard);
 
    return ret;
 }
@@ -196,7 +190,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
 
    wlc_dlog(WLC_DBG_FOCUS, "-> keyboard focus event %zu, %zu", keyboard->focused.view, convert_to_wlc_handle(view));
 
-   reset_repeat(keyboard, true);
+   reset_repeat(keyboard);
    send_release_for_keys(keyboard->focused.resource, &keyboard->keys);
 
    {
