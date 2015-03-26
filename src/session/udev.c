@@ -224,12 +224,8 @@ input_set_event_loop(struct wl_event_loop *loop)
       input.event_source = NULL;
    }
 
-   if (input.handle && loop) {
-      if (!(input.event_source = wl_event_loop_add_fd(loop, libinput_get_fd(input.handle), WL_EVENT_READABLE, input_event, &input)))
-         return false;
-
-      wl_event_source_check(input.event_source);
-   }
+   if (input.handle && loop && !(input.event_source = wl_event_loop_add_fd(loop, libinput_get_fd(input.handle), WL_EVENT_READABLE, input_event, &input)))
+      return false;
    return true;
 }
 
@@ -294,12 +290,9 @@ udev_set_event_loop(struct wl_event_loop *loop)
       udev.event_source = NULL;
    }
 
-   if (udev.handle && udev.monitor && loop) {
-      if (!(udev.event_source = wl_event_loop_add_fd(loop, udev_monitor_get_fd(udev.monitor), WL_EVENT_READABLE, udev_event, &udev)))
-         return false;
+   if (udev.handle && udev.monitor && loop && !(udev.event_source = wl_event_loop_add_fd(loop, udev_monitor_get_fd(udev.monitor), WL_EVENT_READABLE, udev_event, &udev)))
+      return false;
 
-      wl_event_source_check(udev.event_source);
-   }
    return true;
 }
 

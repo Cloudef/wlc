@@ -1120,6 +1120,8 @@ wlc_xwm(struct wlc_xwm *xwm)
    if (!(xwm->event_source = wl_event_loop_add_fd(wlc_event_loop(), wlc_xwayland_get_fd(), WL_EVENT_READABLE, &x11_event, xwm)))
       goto event_source_fail;
 
+   wl_event_source_check(xwm->event_source);
+
    xwm->listener.surface.notify = surface_notify;
    wl_signal_add(&wlc_system_signals()->surface, &xwm->listener.surface);
    return true;
