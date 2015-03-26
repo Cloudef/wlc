@@ -65,17 +65,29 @@ cb_repeat(void *data)
    wl_event_source_timer_update(keyboard->timer.repeat, 0);
    keyboard->state.focused = keyboard->state.repeat = false;
 
-   uint32_t *k;
-   chck_iter_pool_for_each(&moved, k)
-      xkb_state_update_key(keyboard->state.xkb, *k + 8, XKB_KEY_UP);
+   if (keyboard->keymap) {
+      // Repeat the repeating keys only
 
-   chck_iter_pool_for_each(&moved, k) {
-      struct wlc_input_event ev;
-      ev.type = WLC_INPUT_EVENT_KEY;
-      ev.time = wlc_get_time(NULL);
-      ev.key.code = *k;
-      ev.key.state = WL_KEYBOARD_KEY_STATE_PRESSED;
-      wl_signal_emit(&wlc_system_signals()->input, &ev);
+      uint32_t *k;
+      chck_iter_pool_for_each(&moved, k) {
+         if (xkb_keymap_key_repeats(keyboard->keymap->keymap, *k + 8)) {
+            xkb_state_update_key(keyboard->state.xkb, *k + 8, XKB_KEY_UP);
+         } else {
+            update_keys(&keyboard->keys, *k, WL_KEYBOARD_KEY_STATE_PRESSED);
+         }
+      }
+
+      chck_iter_pool_for_each(&moved, k) {
+         if (!xkb_keymap_key_repeats(keyboard->keymap->keymap, *k + 8))
+            continue;
+
+         struct wlc_input_event ev;
+         ev.type = WLC_INPUT_EVENT_KEY;
+         ev.time = wlc_get_time(NULL);
+         ev.key.code = *k;
+         ev.key.state = WL_KEYBOARD_KEY_STATE_PRESSED;
+         wl_signal_emit(&wlc_system_signals()->input, &ev);
+      }
    }
 
    chck_iter_pool_release(&moved);
@@ -89,7 +101,6 @@ begin_repeat(struct wlc_keyboard *keyboard, bool focused)
    keyboard->state.repeat = true;
    keyboard->state.focused = focused;
    wl_event_source_timer_update(keyboard->timer.repeat, 120);
-
    wlc_dlog(WLC_DBG_KEYBOARD, "begin wlc key repeat (%d)", focused);
 }
 
@@ -105,9 +116,9 @@ reset_repeat(struct wlc_keyboard *keyboard)
 }
 
 void
-wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap)
+wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard)
 {
-   assert(keyboard && keymap);
+   assert(keyboard);
 
    uint32_t depressed = xkb_state_serialize_mods(keyboard->state.xkb, XKB_STATE_DEPRESSED);
    uint32_t latched = xkb_state_serialize_mods(keyboard->state.xkb, XKB_STATE_LATCHED);
@@ -135,8 +146,10 @@ wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard, struct wlc_keymap *
       wl_keyboard_send_modifiers(resource, serial, keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
    }
 
-   keyboard->modifiers.mods = wlc_keymap_get_mod_mask(keymap, depressed | latched);
-   keyboard->modifiers.leds = wlc_keymap_get_led_mask(keymap, keyboard->state.xkb);
+   if (keyboard->keymap) {
+      keyboard->modifiers.mods = wlc_keymap_get_mod_mask(keyboard->keymap, depressed | latched);
+      keyboard->modifiers.leds = wlc_keymap_get_led_mask(keyboard->keymap, keyboard->state.xkb);
+   }
 
    wlc_dlog(WLC_DBG_KEYBOARD, "updated modifiers");
 }
@@ -229,12 +242,31 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
             struct wl_array keys;
             wl_array_init(&keys);
 
+            if (keyboard->keymap) {
+               // Send the non-repeating keys (usually modifiers) on focus.
+
+               uint32_t *k;
+               chck_iter_pool_for_each(&keyboard->keys, k) {
+                  if (xkb_keymap_key_repeats(keyboard->keymap->keymap, *k + 8))
+                     continue;
+
+                  uint32_t *tmp;
+                  if ((tmp = wl_array_add(&keys, sizeof(uint32_t))))
+                     *tmp = *k;
+
+                  wlc_dlog(WLC_DBG_KEYBOARD, "focus key: %u", *k);
+               }
+            }
+
             uint32_t serial = wl_display_next_serial(wlc_display());
             wl_keyboard_send_enter(focus, serial, surface, &keys);
+            wl_array_release(&keys);
 
-            // Send the actual keys later to the view.
+            // Send the repeating keys later to the view.
             // This is because, we don't want to leak input when for example you close something and the focus switches.
             // It also avoids input spamming.
+            //
+            // This send is canceled if anything is pressed before timeout.
             begin_repeat(keyboard, true);
          }
       }
@@ -258,6 +290,7 @@ wlc_keyboard_set_keymap(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap
    if (keymap && (!(keyboard->state.xkb = xkb_state_new(keymap->keymap))))
       return false;
 
+   keyboard->keymap = keymap;
    return true;
 }
 

@@ -18,6 +18,7 @@ struct wlc_client;
 struct wlc_modifiers;
 
 struct wlc_keyboard {
+   struct wlc_keymap *keymap;
    struct wlc_source resources;
    struct chck_iter_pool keys;
 
@@ -46,7 +47,7 @@ struct wlc_keyboard {
    } state;
 };
 
-void wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap);
+void wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard);
 bool wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state);
 bool wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state);
 void wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key, enum wl_keyboard_key_state state);

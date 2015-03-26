@@ -318,28 +318,23 @@ get_keyboard(void)
    return &compositor->seat.keyboard;
 }
 
-static struct wlc_keymap*
-get_keymap(void)
-{
-   struct wlc_compositor *compositor;
-   except((compositor = wl_container_of(x11.backend, compositor, backend)));
-   return &compositor->seat.keymap;
-}
-
 static void
 update_xkb_state(xcb_xkb_state_notify_event_t *ev)
 {
    assert(ev);
 
-   struct wlc_keymap *keymap = get_keymap();
    struct wlc_keyboard *keyboard = get_keyboard();
+
+   if (!keyboard->keymap)
+      return;
+
    xkb_state_update_mask(keyboard->state.xkb,
-         wlc_keymap_get_mod_mask(keymap, ev->baseMods),
-         wlc_keymap_get_mod_mask(keymap, ev->latchedMods),
-         wlc_keymap_get_mod_mask(keymap, ev->lockedMods),
+         wlc_keymap_get_mod_mask(keyboard->keymap, ev->baseMods),
+         wlc_keymap_get_mod_mask(keyboard->keymap, ev->latchedMods),
+         wlc_keymap_get_mod_mask(keyboard->keymap, ev->lockedMods),
          0, 0, ev->group);
 
-   wlc_keyboard_update_modifiers(keyboard, keymap);
+   wlc_keyboard_update_modifiers(keyboard);
 }
 
 static int
