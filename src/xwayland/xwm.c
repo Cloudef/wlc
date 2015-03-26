@@ -564,6 +564,7 @@ focus_window(xcb_window_t window, bool force)
 
    if (window == 0) {
       XCB_CALL(x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_CURRENT_TIME));
+      x11.api.xcb_flush(x11.connection);
       x11.focus = 0;
       return;
    }
