@@ -238,7 +238,7 @@ wlc_view_get_opaque(struct wlc_view *view, struct wlc_geometry *out_opaque)
    if (wlc_size_equals(&surface->size, &b.size) || wlc_geometry_equals(&v, &b)) {
       // Only ran when we don't draw black borders behind the view
       float miw = chck_minf(surface->size.w, b.size.w), maw = chck_maxf(surface->size.w, b.size.w);
-      float mih = chck_minf(surface->size.h, b.size.h), mah = chck_maxf(surface->size.w, b.size.h);
+      float mih = chck_minf(surface->size.h, b.size.h), mah = chck_maxf(surface->size.h, b.size.h);
       b.origin.x += surface->pending.opaque.extents.x1 * miw / maw;
       b.origin.y += surface->pending.opaque.extents.y1 * mih / mah;
       b.size.w = surface->pending.opaque.extents.x2 * miw / maw;
