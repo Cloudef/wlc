@@ -223,17 +223,15 @@ repaint(struct wlc_output *output)
    // otherwise do the more expensive check.
    const bool visible = (!last && is_visible(output));
 
-   if (output->options.enable_bg && visible) {
-      if (!output->state.background_visible) {
-         wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background visible");
-         output->state.background_visible = true;
-      }
-   } else if (output->state.background_visible) {
+   if (!output->state.background_visible && visible) {
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background visible");
+      output->state.background_visible = true;
+   } else if (output->state.background_visible && !visible) {
       wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background not visible");
       output->state.background_visible = false;
    }
 
-   if (output->state.background_visible) {
+   if (output->options.enable_bg && output->state.background_visible) {
       wlc_render_background(&output->render, &output->context);
    } else if (!output->options.enable_bg) {
       wlc_render_clear(&output->render, &output->context);
@@ -317,7 +315,7 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 
    // TODO: handle presentation feedback here
 
-   if ((output->state.background_visible || output->state.activity) && !output->task.terminate) {
+   if (((output->options.enable_bg && output->state.background_visible) || output->state.activity) && !output->task.terminate) {
       output->state.ims = chck_clampf(output->state.ims * (output->state.activity ? 0.9 : 1.1), 1, 41);
       wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Interpolated idle time %f (%u : %d)", output->state.ims, ms, output->state.activity);
       wl_event_source_timer_update(output->timer.idle, output->state.ims);
