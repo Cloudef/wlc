@@ -176,7 +176,7 @@ BINDINGS
 SOFTWARE USING WLC
 ------------------
 
-- `Orbment <https://github.com/Cloudef/loliwm>`_ - Modular Wayland compositor
+- `orbment <https://github.com/Cloudef/orbment>`_ - Modular Wayland compositor
 - `ocaml-loliwm <https://github.com/Armael/ocaml-loliwm>`_ - Translation of loliwm to OCaml
 
 SIMILAR SOFTWARE
