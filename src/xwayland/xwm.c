@@ -65,6 +65,7 @@ static struct {
       void *xcb_handle;
       void *xcb_composite_handle;
       void *xcb_xfixes_handle;
+      void *xcb_image_handle;
 
       xcb_connection_t* (*xcb_connect_to_fd)(int, xcb_auth_info_t*);
       void (*xcb_disconnect)(xcb_connection_t*);
@@ -97,11 +98,8 @@ static struct {
       xcb_generic_event_t* (*xcb_poll_for_event)(xcb_connection_t*);
       xcb_query_extension_reply_t* (*xcb_get_extension_data)(xcb_connection_t*, xcb_extension_t*);
 
-      xcb_void_cookie_t (*xcb_create_pixmap)(xcb_connection_t*, uint8_t, xcb_pixmap_t, xcb_drawable_t, uint16_t, uint16_t);
-      xcb_void_cookie_t (*xcb_create_gc)(xcb_connection_t*, xcb_gcontext_t, xcb_drawable_t, uint32_t, const uint32_t*);
+      xcb_pixmap_t (*xcb_create_pixmap_from_bitmap_data)(xcb_connection_t*, xcb_drawable_t, uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, xcb_gcontext_t*);
       xcb_void_cookie_t (*xcb_free_pixmap)(xcb_connection_t*, xcb_pixmap_t pixmap);
-      xcb_void_cookie_t (*xcb_free_gc)(xcb_connection_t*, xcb_gcontext_t);
-      xcb_void_cookie_t (*xcb_put_image)(xcb_connection_t*, uint8_t, xcb_drawable_t, xcb_gcontext_t, uint16_t, uint16_t, int16_t, int16_t, uint8_t, uint8_t, uint32_t, const uint8_t*);
       xcb_void_cookie_t (*xcb_create_cursor)(xcb_connection_t*, xcb_cursor_t, xcb_pixmap_t, xcb_pixmap_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t);
       xcb_void_cookie_t (*xcb_free_cursor)(xcb_connection_t*, xcb_cursor_t);
 
@@ -188,15 +186,7 @@ xcb_load(void)
    if (!load(xcb_get_extension_data))
       goto function_pointer_exception;
 
-   if (!load(xcb_create_pixmap))
-      goto function_pointer_exception;
-   if (!load(xcb_create_gc))
-      goto function_pointer_exception;
    if (!load(xcb_free_pixmap))
-      goto function_pointer_exception;
-   if (!load(xcb_free_gc))
-      goto function_pointer_exception;
-   if (!load(xcb_put_image))
       goto function_pointer_exception;
    if (!load(xcb_create_cursor))
       goto function_pointer_exception;
@@ -257,6 +247,30 @@ xcb_xfixes_load(void)
    if (!load(xcb_xfixes_select_selection_input_checked))
       goto function_pointer_exception;
    if (!load(xcb_xfixes_id))
+      goto function_pointer_exception;
+
+#undef load
+
+   return true;
+
+function_pointer_exception:
+   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
+   return false;
+}
+
+static bool
+xcb_image_load(void)
+{
+   const char *lib = "libxcb-image.so", *func = NULL;
+
+   if (!(x11.api.xcb_image_handle = dlopen(lib, RTLD_LAZY))) {
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
+      return false;
+   }
+
+#define load(x) (x11.api.x = dlsym(x11.api.xcb_image_handle, (func = #x)))
+
+   if (!load(xcb_create_pixmap_from_bitmap_data))
       goto function_pointer_exception;
 
 #undef load
@@ -901,6 +915,9 @@ x11_terminate(void)
    if (x11.api.xcb_xfixes_handle)
       dlclose(x11.api.xcb_xfixes_handle);
 
+   if (x11.api.xcb_image_handle)
+      dlclose(x11.api.xcb_image_handle);
+
    memset(&x11, 0, sizeof(x11));
 }
 
@@ -910,7 +927,7 @@ x11_init(void)
    if (x11.connection)
       return true;
 
-   if (!x11.api.xcb_handle && (!xcb_load() || !xcb_composite_load() || !xcb_xfixes_load()))
+   if (!x11.api.xcb_handle && (!xcb_load() || !xcb_composite_load() || !xcb_xfixes_load() || !xcb_image_load()))
       goto fail;
 
    x11.connection = x11.api.xcb_connect_to_fd(wlc_xwayland_get_fd(), NULL);
@@ -967,19 +984,31 @@ x11_init(void)
    xcb_screen_iterator_t screen_iterator = x11.api.xcb_setup_roots_iterator(setup);
    x11.screen = screen_iterator.data;
 
-   xcb_gc_t gc = x11.api.xcb_generate_id(x11.connection);
-   xcb_pixmap_t pixmap = x11.api.xcb_generate_id(x11.connection);
-
    if (!(x11.cursor = x11.api.xcb_generate_id(x11.connection)))
       goto cursor_fail;
 
-   uint8_t data[] = { 0, 0, 0, 0 };
-   x11.api.xcb_create_pixmap(x11.connection, 1, pixmap, x11.screen->root, 1, 1);
-   x11.api.xcb_create_gc(x11.connection, gc, pixmap, 0, NULL);
-   x11.api.xcb_put_image(x11.connection, XCB_IMAGE_FORMAT_XY_PIXMAP, pixmap, gc, 1, 1, 0, 0, 0, 32, sizeof(data), data);
-   x11.api.xcb_create_cursor(x11.connection, x11.cursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 1, 1);
-   x11.api.xcb_free_gc(x11.connection, gc);
-   x11.api.xcb_free_pixmap(x11.connection, pixmap);
+   {
+      // Create root cursor
+      // XXX: This is same as in gles2.c maybe we need cursor.h
+
+      uint8_t data[] = {
+         0x00, 0x00, 0xfe, 0x07, 0xfe, 0x03, 0xfe, 0x01, 0xfe, 0x01, 0xfe, 0x03,
+         0xfe, 0x07, 0xfe, 0x0f, 0xfe, 0x1f, 0xe6, 0x0f, 0xc2, 0x07, 0x80, 0x03,
+         0x00, 0x01, 0x00, 0x00
+      };
+
+      uint8_t mask[] = {
+         0xff, 0x3f, 0xff, 0x1f, 0xff, 0x07, 0xff, 0x03, 0xff, 0x03, 0xff, 0x07,
+         0xff, 0x0f, 0xff, 0x1f, 0xff, 0x3f, 0xff, 0x1f, 0xe7, 0x0f, 0xc3, 0x07,
+         0x83, 0x03, 0x01, 0x01
+      };
+
+      xcb_pixmap_t cp = x11.api.xcb_create_pixmap_from_bitmap_data(x11.connection, x11.screen->root, data, 14, 14, 1, 0, 0, 0);
+      xcb_pixmap_t mp = x11.api.xcb_create_pixmap_from_bitmap_data(x11.connection, x11.screen->root, mask, 14, 14, 1, 0, 0, 0);
+      x11.api.xcb_create_cursor(x11.connection, x11.cursor, cp, mp, 0, 0, 0, 0xFFFF, 0xFFFF, 0xFFFF, 14, 14);
+      x11.api.xcb_free_pixmap(x11.connection, cp);
+      x11.api.xcb_free_pixmap(x11.connection, mp);
+   }
 
    uint32_t values[] = { XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_PROPERTY_CHANGE, x11.cursor };
    if (!XCB_CALL(x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK | XCB_CW_CURSOR, values)))
