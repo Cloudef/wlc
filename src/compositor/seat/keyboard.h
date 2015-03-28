@@ -42,6 +42,10 @@ struct wlc_keyboard {
    struct wlc_modifiers modifiers;
 
    struct {
+      uint32_t delay, rate;
+   } repeat;
+
+   struct {
       struct xkb_state *xkb;
       bool repeat, repeating, focused;
    } state;

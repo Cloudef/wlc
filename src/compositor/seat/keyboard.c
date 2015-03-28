@@ -103,7 +103,7 @@ begin_repeat(struct wlc_keyboard *keyboard, bool focused)
 {
    keyboard->state.repeat = true;
    keyboard->state.focused = focused;
-   const uint32_t delay = (keyboard->state.repeating ? 25 : 660);
+   const uint32_t delay = (keyboard->state.repeating ? keyboard->repeat.rate : keyboard->repeat.delay);
    wl_event_source_timer_update(keyboard->timer.repeat, delay);
    wlc_dlog(WLC_DBG_KEYBOARD, "begin wlc key repeat (%d : %d)", focused, keyboard->state.repeating);
 }
@@ -342,6 +342,9 @@ wlc_keyboard(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap)
    if (!(keyboard->timer.repeat = wl_event_loop_add_timer(wlc_event_loop(), cb_repeat, keyboard)))
       goto fail;
 
+   const char *delay = getenv("WLC_REPEAT_DELAY"), *rate = getenv("WLC_REPEAT_RATE");
+   keyboard->repeat.delay = (chck_cstr_is_empty(delay) ? 660 : strtol(delay, NULL, 10));
+   keyboard->repeat.rate = (chck_cstr_is_empty(rate) ? 25 : strtol(rate, NULL, 10));
    return true;
 
 fail:
