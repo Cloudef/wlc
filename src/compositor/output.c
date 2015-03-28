@@ -128,7 +128,7 @@ is_visible(struct wlc_output *output)
 static bool
 view_contains_output(struct wlc_view *view, struct wlc_output *output)
 {
-   assert(view && output);
+   assert(output);
 
    if (!view_visible(view, convert_from_wlc_resource(view->surface, "surface"), output->active.mask))
       return false;
