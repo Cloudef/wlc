@@ -243,13 +243,16 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
             struct wl_array keys;
             wl_array_init(&keys);
 
+            uint32_t repeating = 0;
             if (keyboard->keymap) {
                // Send the non-repeating keys (usually modifiers) on focus.
 
                uint32_t *k;
                chck_iter_pool_for_each(&keyboard->keys, k) {
-                  if (xkb_keymap_key_repeats(keyboard->keymap->keymap, *k + 8))
+                  if (xkb_keymap_key_repeats(keyboard->keymap->keymap, *k + 8)) {
+                     ++repeating;
                      continue;
+                  }
 
                   uint32_t *tmp;
                   if ((tmp = wl_array_add(&keys, sizeof(uint32_t))))
@@ -263,12 +266,15 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
             wl_keyboard_send_enter(focus, serial, surface, &keys);
             wl_array_release(&keys);
 
-            // Send the repeating keys later to the view.
-            // This is because, we don't want to leak input when for example you close something and the focus switches.
-            // It also avoids input spamming.
-            //
-            // This send is canceled if anything is pressed before timeout.
-            begin_repeat(keyboard, true);
+            if (repeating > 0) {
+               // Send the repeating keys later to the view.
+               // This is because, we don't want to leak input when for example you close something and the focus switches.
+               // It also avoids input spamming.
+               //
+               // This send is canceled if anything is pressed before timeout.
+               wlc_dlog(WLC_DBG_KEYBOARD, "seding repeating keys to focus (%u)", repeating);
+               begin_repeat(keyboard, true);
+            }
          }
       }
 
