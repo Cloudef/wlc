@@ -65,6 +65,9 @@ cb_repeat(void *data)
    wl_event_source_timer_update(keyboard->timer.repeat, 0);
    keyboard->state.focused = keyboard->state.repeat = false;
 
+   // If we cause yet another repeat, we use repeat rate instead of delay.
+   keyboard->state.repeating = true;
+
    if (keyboard->keymap) {
       // Repeat the repeating keys only
 
@@ -100,8 +103,9 @@ begin_repeat(struct wlc_keyboard *keyboard, bool focused)
 {
    keyboard->state.repeat = true;
    keyboard->state.focused = focused;
-   wl_event_source_timer_update(keyboard->timer.repeat, 120);
-   wlc_dlog(WLC_DBG_KEYBOARD, "begin wlc key repeat (%d)", focused);
+   const uint32_t delay = (keyboard->state.repeating ? 25 : 660);
+   wl_event_source_timer_update(keyboard->timer.repeat, delay);
+   wlc_dlog(WLC_DBG_KEYBOARD, "begin wlc key repeat (%d : %d)", focused, keyboard->state.repeating);
 }
 
 static void
@@ -111,7 +115,7 @@ reset_repeat(struct wlc_keyboard *keyboard)
       return;
 
    wl_event_source_timer_update(keyboard->timer.repeat, 0);
-   keyboard->state.focused = keyboard->state.repeat = false;
+   keyboard->state.repeating = keyboard->state.focused = keyboard->state.repeat = false;
    wlc_dlog(WLC_DBG_KEYBOARD, "canceled wlc key repeat");
 }
 
@@ -204,7 +208,9 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
 
    wlc_dlog(WLC_DBG_FOCUS, "-> keyboard focus event %zu, %zu", keyboard->focused.view, convert_to_wlc_handle(view));
 
-   reset_repeat(keyboard);
+   if (!keyboard->state.repeating)
+      reset_repeat(keyboard);
+
    send_release_for_keys(keyboard->focused.resource, &keyboard->keys);
 
    {

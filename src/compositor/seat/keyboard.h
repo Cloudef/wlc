@@ -43,7 +43,7 @@ struct wlc_keyboard {
 
    struct {
       struct xkb_state *xkb;
-      bool repeat, focused;
+      bool repeat, repeating, focused;
    } state;
 };
 
