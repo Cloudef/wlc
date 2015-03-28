@@ -194,7 +194,7 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
       pointer->focused.resource = wlc_resource_from_wl_resource(focus);
    }
 
-   if (!view)
+   if (!view && !view_under_pointer(pointer, active_output(pointer)))
       wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
 
    degrab(pointer);
