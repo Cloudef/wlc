@@ -301,7 +301,6 @@ void
 wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_origin *tip)
 {
    assert(pointer);
-
    memcpy(&pointer->tip, tip, sizeof(pointer->tip));
    wlc_surface_invalidate(convert_from_wlc_resource(pointer->surface, "surface"));
    pointer->surface = convert_to_wlc_handle(surface);
