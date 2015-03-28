@@ -160,7 +160,8 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const str
    uint32_t sym = xkb_state_key_get_one_sym(keyboard->state.xkb, key + 8);
 
    if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, sym, (enum wlc_key_state)state)) {
-      begin_repeat(keyboard, false);
+      if (state == WL_KEYBOARD_KEY_STATE_PRESSED && keyboard->keymap && xkb_keymap_key_repeats(keyboard->keymap->keymap, key + 8))
+         begin_repeat(keyboard, false);
       return false;
    }
 
