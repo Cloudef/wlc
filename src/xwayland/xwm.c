@@ -1005,7 +1005,7 @@ x11_init(void)
 
       xcb_pixmap_t cp = x11.api.xcb_create_pixmap_from_bitmap_data(x11.connection, x11.screen->root, data, 14, 14, 1, 0, 0, 0);
       xcb_pixmap_t mp = x11.api.xcb_create_pixmap_from_bitmap_data(x11.connection, x11.screen->root, mask, 14, 14, 1, 0, 0, 0);
-      x11.api.xcb_create_cursor(x11.connection, x11.cursor, cp, mp, 0, 0, 0, 0xFFFF, 0xFFFF, 0xFFFF, 14, 14);
+      x11.api.xcb_create_cursor(x11.connection, x11.cursor, cp, mp, 0, 0, 0, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0);
       x11.api.xcb_free_pixmap(x11.connection, cp);
       x11.api.xcb_free_pixmap(x11.connection, mp);
    }
