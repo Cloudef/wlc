@@ -326,8 +326,7 @@ surface_event(struct wl_listener *listener, void *data)
          }
       break;
 
-      default:
-      break;
+      default:break;
    }
 }
 

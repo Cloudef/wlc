@@ -396,8 +396,7 @@ x11_event(int fd, uint32_t mask, void *data)
             }
             break;
 
-         default:
-            break;
+         default:break;
       }
 
       if (event->response_type == x11.xkb_event_base) {

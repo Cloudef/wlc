@@ -301,8 +301,8 @@ wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
       case WLC_LOG_ERROR:
          fprintf(out, "(ERROR) ");
          break;
-      default:
-         break;
+
+      default:break;
    }
 
    vfprintf(out, fmt, args);

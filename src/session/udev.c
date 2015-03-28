@@ -206,8 +206,7 @@ input_event(int fd, uint32_t mask, void *data)
             }
             break;
 
-         default:
-            break;
+         default:break;
       }
 
       libinput_event_destroy(event);

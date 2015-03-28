@@ -135,8 +135,7 @@ render_event(struct wl_listener *listener, void *data)
          pointer_paint(pointer, ev->output);
       break;
 
-      default:
-      break;
+      default:break;
    }
 }
 
