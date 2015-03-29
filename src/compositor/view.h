@@ -48,6 +48,7 @@ struct wlc_view {
    uint32_t mask;
 
    struct {
+      struct wlc_size resize;
       uint32_t resizing;
       enum wlc_view_ack ack;
       bool created;

@@ -95,6 +95,9 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       }
    }
 
+   if (size_changed)
+      memcpy(&view->state.resize, &pending->geometry.size, sizeof(view->state.resize));
+
    if (view->state.ack == ACK_NONE) {
       // Commit immediately if no ack requested
       // XXX: We may need to detect frozen client
@@ -108,6 +111,8 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, 
 {
    assert(view && surface && old_surface_size);
 
+   if (view->x11.id && wlc_size_equals(&surface->size, old_surface_size))
+      return;
 
    if (!view->state.resizing && !wlc_size_equals(&surface->size, old_surface_size) && !wlc_size_equals(&view->pending.geometry.size, &surface->size)) {
       struct wlc_geometry r = { view->pending.geometry.origin, surface->size };
@@ -134,6 +139,10 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, 
       // Request resize
       if (!wlc_view_request_geometry(view, &r))
          reconfigure = true;
+   } else if (!wlc_size_equals(&view->pending.geometry.size, &view->state.resize)) {
+      reconfigure = !wlc_size_equals(&view->pending.geometry.size, &surface->size);
+      wlc_dlog(WLC_DBG_COMMIT, "=> recommit %zu (%ux%u != %ux%u)", convert_to_wlc_handle(view), view->pending.geometry.size.w, view->pending.geometry.size.h, view->state.resize.w, view->state.resize.h);
+      memcpy(&view->commit, &view->pending, sizeof(view->commit));
    }
 
    if (reconfigure) {
