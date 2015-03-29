@@ -27,8 +27,8 @@ struct wlc_keyboard {
    } timer;
 
    struct {
+      struct chck_iter_pool resources;
       wlc_handle view;
-      wlc_resource resource;
    } focused;
 
    struct {

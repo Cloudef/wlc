@@ -34,21 +34,24 @@ update_keys(struct chck_iter_pool *keys, uint32_t key, enum wl_keyboard_key_stat
 }
 
 static void
-send_release_for_keys(wlc_resource resource, struct chck_iter_pool *keys)
+send_release_for_keys(struct chck_iter_pool *resources, struct chck_iter_pool *keys)
 {
    assert(keys);
 
-   struct wl_resource *focus;
-   if (!(focus = wl_resource_from_wlc_resource(resource, "keyboard")))
-      return;
-
-   wlc_dlog(WLC_DBG_KEYBOARD, "release keys for resource %zu", resource);
+   wlc_dlog(WLC_DBG_KEYBOARD, "release keys");
 
    uint32_t *k;
    uint32_t time = wlc_get_time(NULL);
    chck_iter_pool_for_each(keys, k) {
-      uint32_t serial = wl_display_next_serial(wlc_display());
-      wl_keyboard_send_key(focus, serial, time, *k, WL_KEYBOARD_KEY_STATE_RELEASED);
+      wlc_resource *r;
+      chck_iter_pool_for_each(resources, r) {
+         struct wl_resource *wr;
+         if (!(wr = wl_resource_from_wlc_resource(*r, "keyboard")))
+            continue;
+
+         uint32_t serial = wl_display_next_serial(wlc_display());
+         wl_keyboard_send_key(wr, serial, time, *k, WL_KEYBOARD_KEY_STATE_RELEASED);
+      }
    }
 }
 
@@ -119,6 +122,114 @@ reset_repeat(struct wlc_keyboard *keyboard)
    wlc_dlog(WLC_DBG_KEYBOARD, "canceled wlc key repeat");
 }
 
+static void
+defocus(struct wlc_keyboard *keyboard)
+{
+   assert(keyboard);
+
+   struct wlc_view *view;
+   if (!(view = convert_from_wlc_handle(keyboard->focused.view, "view")))
+      goto out;
+
+   struct wl_resource *surface;
+   if (!(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
+      goto out;
+
+   send_release_for_keys(&keyboard->focused.resources, &keyboard->keys);
+
+   if (view->x11.id)
+      wlc_x11_window_set_active(&view->x11, false);
+
+   wlc_resource *r;
+   chck_iter_pool_for_each(&keyboard->focused.resources, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "keyboard")))
+         continue;
+
+      uint32_t serial = wl_display_next_serial(wlc_display());
+      wl_keyboard_send_leave(wr, serial, surface);
+   }
+
+   if (keyboard->focused.view)
+      WLC_INTERFACE_EMIT(view.focus, keyboard->focused.view, false);
+
+   if (view->xdg_popup)
+         wlc_view_close_ptr(view);
+
+out:
+   chck_iter_pool_flush(&keyboard->focused.resources);
+   keyboard->focused.view = 0;
+}
+
+static void
+focus_view(struct wlc_keyboard *keyboard, struct wlc_view *view)
+{
+   assert(keyboard);
+
+   struct wl_resource *surface;
+   if (!view || !(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
+      return;
+
+   wlc_resource *r;
+   struct wl_client *client = wl_resource_get_client(surface);
+   chck_pool_for_each(&keyboard->resources.pool, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "keyboard")) || wl_resource_get_client(wr) != client)
+         continue;
+
+      if (!chck_iter_pool_push_back(&keyboard->focused.resources, r))
+         wlc_log(WLC_LOG_WARN, "Failed to push focused keyboard resource to pool (out of memory?)");
+
+      {
+         uint32_t serial = wl_display_next_serial(wlc_display());
+         wl_keyboard_send_modifiers(wr, serial, keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
+      }
+
+      {
+         struct wl_array keys;
+         wl_array_init(&keys);
+
+         uint32_t repeating = 0;
+         if (keyboard->keymap) {
+            // Send the non-repeating keys (usually modifiers) on focus.
+
+            uint32_t *k;
+            chck_iter_pool_for_each(&keyboard->keys, k) {
+               if (xkb_keymap_key_repeats(keyboard->keymap->keymap, *k + 8)) {
+                  ++repeating;
+                  continue;
+               }
+
+               uint32_t *tmp;
+               if ((tmp = wl_array_add(&keys, sizeof(uint32_t))))
+                  *tmp = *k;
+
+               wlc_dlog(WLC_DBG_KEYBOARD, "focus key: %u", *k);
+            }
+         }
+
+         uint32_t serial = wl_display_next_serial(wlc_display());
+         wl_keyboard_send_enter(wr, serial, surface, &keys);
+         wl_array_release(&keys);
+
+         if (repeating > 0) {
+            // Send the repeating keys later to the view.
+            // This is because, we don't want to leak input when for example you close something and the focus switches.
+            // It also avoids input spamming.
+            //
+            // This send is canceled if anything is pressed before timeout.
+            wlc_dlog(WLC_DBG_KEYBOARD, "seding repeating keys to focus (%u)", repeating);
+            begin_repeat(keyboard, true);
+         }
+      }
+   }
+
+   keyboard->focused.view = convert_to_wlc_handle(view);
+
+   if (keyboard->focused.view)
+      WLC_INTERFACE_EMIT(view.focus, keyboard->focused.view, true);
+}
+
 void
 wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard)
 {
@@ -141,7 +252,7 @@ wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard)
    keyboard->mods.group = group;
 
    struct wlc_resource *r;
-   chck_pool_for_each(&keyboard->resources.pool, r) {
+   chck_iter_pool_for_each(&keyboard->focused.resources, r) {
       struct wl_resource *resource;
       if (!(resource = convert_to_wl_resource(r, "keyboard")))
          continue;
@@ -190,12 +301,16 @@ void
 wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key, enum wl_keyboard_key_state state)
 {
    assert(keyboard);
-   struct wl_resource *focus;
-   if (!(focus = wl_resource_from_wlc_resource(keyboard->focused.resource, "keyboard")))
-      return;
 
-   uint32_t serial = wl_display_next_serial(wlc_display());
-   wl_keyboard_send_key(focus, serial, time, key, state);
+   wlc_resource *r;
+   chck_iter_pool_for_each(&keyboard->focused.resources, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "keyboard")))
+         continue;
+
+      uint32_t serial = wl_display_next_serial(wlc_display());
+      wl_keyboard_send_key(wr, serial, time, key, state);
+   }
 }
 
 void
@@ -211,85 +326,8 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
    if (!keyboard->state.repeating)
       reset_repeat(keyboard);
 
-   send_release_for_keys(keyboard->focused.resource, &keyboard->keys);
-
-   {
-      struct wlc_view *v;
-      struct wl_resource *surface, *focus;
-      if ((v = convert_from_wlc_handle(keyboard->focused.view, "view")) &&
-          (surface = wl_resource_from_wlc_resource(v->surface, "surface")) &&
-          (focus = wl_resource_from_wlc_resource(keyboard->focused.resource, "keyboard"))) {
-         if ((!view || !view->x11.id) && v->x11.id)
-            wlc_x11_window_set_active(&v->x11, false);
-
-         uint32_t serial = wl_display_next_serial(wlc_display());
-         wl_keyboard_send_leave(focus, serial, surface);
-
-         if (v->xdg_popup)
-            wlc_view_close_ptr(v);
-      }
-   }
-
-   if (keyboard->focused.view)
-      WLC_INTERFACE_EMIT(view.focus, keyboard->focused.view, false);
-
-   {
-      struct wl_client *client;
-      struct wl_resource *surface, *focus = NULL;
-      if (view && (surface = wl_resource_from_wlc_resource(view->surface, "surface")) &&
-          (client = wl_resource_get_client(surface)) &&
-          (focus = wl_resource_for_client(&keyboard->resources, client))) {
-
-         {
-            uint32_t serial = wl_display_next_serial(wlc_display());
-            wl_keyboard_send_modifiers(focus, serial, keyboard->mods.depressed, keyboard->mods.latched, keyboard->mods.locked, keyboard->mods.group);
-         }
-
-         {
-            struct wl_array keys;
-            wl_array_init(&keys);
-
-            uint32_t repeating = 0;
-            if (keyboard->keymap) {
-               // Send the non-repeating keys (usually modifiers) on focus.
-
-               uint32_t *k;
-               chck_iter_pool_for_each(&keyboard->keys, k) {
-                  if (xkb_keymap_key_repeats(keyboard->keymap->keymap, *k + 8)) {
-                     ++repeating;
-                     continue;
-                  }
-
-                  uint32_t *tmp;
-                  if ((tmp = wl_array_add(&keys, sizeof(uint32_t))))
-                     *tmp = *k;
-
-                  wlc_dlog(WLC_DBG_KEYBOARD, "focus key: %u", *k);
-               }
-            }
-
-            uint32_t serial = wl_display_next_serial(wlc_display());
-            wl_keyboard_send_enter(focus, serial, surface, &keys);
-            wl_array_release(&keys);
-
-            if (repeating > 0) {
-               // Send the repeating keys later to the view.
-               // This is because, we don't want to leak input when for example you close something and the focus switches.
-               // It also avoids input spamming.
-               //
-               // This send is canceled if anything is pressed before timeout.
-               wlc_dlog(WLC_DBG_KEYBOARD, "seding repeating keys to focus (%u)", repeating);
-               begin_repeat(keyboard, true);
-            }
-         }
-      }
-
-      keyboard->focused.view = convert_to_wlc_handle(view);
-      keyboard->focused.resource = wlc_resource_from_wl_resource(focus);
-   }
-
-   if (keyboard->focused.view)
-      WLC_INTERFACE_EMIT(view.focus, keyboard->focused.view, true);
+   defocus(keyboard);
+   focus_view(keyboard, view);
 }
 
 bool
@@ -320,6 +358,7 @@ wlc_keyboard_release(struct wlc_keyboard *keyboard)
       wl_event_source_remove(keyboard->timer.repeat);
 
    chck_iter_pool_release(&keyboard->keys);
+   chck_iter_pool_release(&keyboard->focused.resources);
    wlc_source_release(&keyboard->resources);
    memset(keyboard, 0, sizeof(struct wlc_keyboard));
 }
@@ -333,7 +372,8 @@ wlc_keyboard(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap)
    if (!wlc_keyboard_set_keymap(keyboard, keymap))
       goto fail;
 
-   if (!chck_iter_pool(&keyboard->keys, 32, 0, sizeof(uint32_t)))
+   if (!chck_iter_pool(&keyboard->keys, 32, 0, sizeof(uint32_t)) ||
+       !chck_iter_pool(&keyboard->focused.resources, 4, 0, sizeof(wlc_resource)))
       goto fail;
 
    if (!wlc_source(&keyboard->resources, "keyboard", NULL, NULL, 32, sizeof(struct wlc_resource)))

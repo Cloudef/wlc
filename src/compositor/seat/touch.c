@@ -52,38 +52,43 @@ wlc_touch_touch(struct wlc_touch *touch, uint32_t time, enum wlc_touch_type type
       return;
 
    struct wl_client *client;
-   struct wl_resource *focus, *surface;
-   if (!(surface = wl_resource_from_wlc_resource(focused->surface, "surface")) ||
-       !(client = wl_resource_get_client(surface)) ||
-       !(focus = wl_resource_for_client(&touch->resources, client)))
+   struct wl_resource *surface;
+   if (!(surface = wl_resource_from_wlc_resource(focused->surface, "surface")) || !(client = wl_resource_get_client(surface)))
       return;
 
-   switch (type) {
-      case WLC_TOUCH_DOWN:
-         {
-            uint32_t serial = wl_display_next_serial(wlc_display());
-            wl_touch_send_down(focus, serial, time, surface, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
-         }
-         break;
+   wlc_resource *r;
+   chck_pool_for_each(&touch->resources.pool, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "touch")) || wl_resource_get_client(wr) != client)
+         continue;
 
-      case WLC_TOUCH_UP:
-         {
-            uint32_t serial = wl_display_next_serial(wlc_display());
-            wl_touch_send_up(focus, serial, time, slot);
-         }
-         break;
+      switch (type) {
+         case WLC_TOUCH_DOWN:
+            {
+               uint32_t serial = wl_display_next_serial(wlc_display());
+               wl_touch_send_down(wr, serial, time, surface, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
+            }
+            break;
 
-      case WLC_TOUCH_MOTION:
-         wl_touch_send_motion(focus, time, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
-         break;
+         case WLC_TOUCH_UP:
+            {
+               uint32_t serial = wl_display_next_serial(wlc_display());
+               wl_touch_send_up(wr, serial, time, slot);
+            }
+            break;
 
-      case WLC_TOUCH_FRAME:
-         wl_touch_send_frame(focus);
-         break;
+         case WLC_TOUCH_MOTION:
+            wl_touch_send_motion(wr, time, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
+            break;
 
-      case WLC_TOUCH_CANCEL:
-         wl_touch_send_cancel(focus);
-         break;
+         case WLC_TOUCH_FRAME:
+            wl_touch_send_frame(wr);
+            break;
+
+         case WLC_TOUCH_CANCEL:
+            wl_touch_send_cancel(wr);
+            break;
+      }
    }
 }
 

@@ -25,7 +25,7 @@ wl_cb_shell_surface_move(struct wl_client *client, struct wl_resource *resource,
    if (!(seat = wl_resource_get_user_data(seat_resource)))
       return;
 
-   if (!seat->pointer.focused.resource)
+   if (!seat->pointer.focused.view)
       return;
 
    seat->pointer.state.action = WLC_GRAB_ACTION_MOVE;
@@ -40,7 +40,7 @@ wl_cb_shell_surface_resize(struct wl_client *client, struct wl_resource *resourc
    if (!(seat = wl_resource_get_user_data(seat_resource)))
       return;
 
-   if (!seat->pointer.focused.resource)
+   if (!seat->pointer.focused.view)
       return;
 
    seat->pointer.state.action = WLC_GRAB_ACTION_RESIZE;

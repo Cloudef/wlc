@@ -12,22 +12,37 @@
 #include "compositor/output.h"
 #include "resources/types/surface.h"
 
+static struct wl_client*
+focused_client(struct wlc_pointer *pointer)
+{
+   assert(pointer);
+
+   struct wlc_view *view;
+   if (!(view = convert_from_wlc_handle(pointer->focused.view, "view")))
+      return NULL;
+
+   struct wl_resource *surface;
+   if (!(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
+      return NULL;
+
+   return wl_resource_get_client(surface);
+}
+
 static void
 wl_cb_pointer_set_cursor(struct wl_client *client, struct wl_resource *resource, uint32_t serial, struct wl_resource *surface_resource, int32_t hotspot_x, int32_t hotspot_y)
 {
    (void)serial;
 
    struct wlc_pointer *pointer;
-   struct wl_resource *focus;
-   if (!(pointer = wl_resource_get_user_data(resource)) ||
-       !(focus = wl_resource_from_wlc_resource(pointer->focused.resource, "pointer")))
+   if (!(pointer = wl_resource_get_user_data(resource)))
+      return;
+
+   // Only accept request if we happen to have focus on the client.
+   if (focused_client(pointer) != client)
       return;
 
    struct wlc_surface *surface = convert_from_wl_resource(surface_resource, "surface");
-
-   // Only accept request if we happen to have focus on the client.
-   if (wl_resource_get_client(focus) == client)
-      wlc_pointer_set_surface(pointer, surface, &(struct wlc_origin){ hotspot_x, hotspot_y });
+   wlc_pointer_set_surface(pointer, surface, &(struct wlc_origin){ hotspot_x, hotspot_y });
 }
 
 const struct wl_pointer_interface wl_pointer_implementation = {
@@ -139,6 +154,63 @@ render_event(struct wl_listener *listener, void *data)
    }
 }
 
+static void
+defocus(struct wlc_pointer *pointer)
+{
+   assert(pointer);
+
+   struct wlc_view *view;
+   if (!(view = convert_from_wlc_handle(pointer->focused.view, "view")))
+      goto out;
+
+   struct wl_resource *surface;
+   if (!(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
+      goto out;
+
+   wlc_resource *r;
+   chck_iter_pool_for_each(&pointer->focused.resources, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
+         continue;
+
+      uint32_t serial = wl_display_next_serial(wlc_display());
+      wl_pointer_send_leave(wr, serial, surface);
+   }
+
+out:
+   chck_iter_pool_flush(&pointer->focused.resources);
+   pointer->focused.view = 0;
+
+   if (!view_under_pointer(pointer, active_output(pointer)))
+      wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
+}
+
+static void
+focus_view(struct wlc_pointer *pointer, struct wlc_view *view, const struct wlc_pointer_origin *pos)
+{
+   assert(pointer);
+
+   struct wl_resource *surface;
+   if (!view || !(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
+      return;
+
+   struct wl_client *client = wl_resource_get_client(surface);
+   wlc_resource *r;
+   chck_pool_for_each(&pointer->resources.pool, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")) || wl_resource_get_client(wr) != client)
+         continue;
+
+      if (!chck_iter_pool_push_back(&pointer->focused.resources, r))
+         wlc_log(WLC_LOG_WARN, "Failed to push focused pointer resource to pool (out of memory?)");
+
+      uint32_t serial = wl_display_next_serial(wlc_display());
+      wl_pointer_send_enter(wr, serial, surface, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
+   }
+
+   pointer->focused.view = convert_to_wlc_handle(view);
+}
+
 void
 wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_pointer_origin *out_pos)
 {
@@ -169,34 +241,8 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
 
    wlc_dlog(WLC_DBG_FOCUS, "-> pointer focus event %zu, %zu", pointer->focused.view, convert_to_wlc_handle(view));
 
-   {
-      struct wlc_view *v;
-      struct wl_resource *surface, *focus;
-      if ((v = convert_from_wlc_handle(pointer->focused.view, "view")) &&
-          (surface = wl_resource_from_wlc_resource(v->surface, "surface")) &&
-          (focus = wl_resource_from_wlc_resource(pointer->focused.resource, "pointer"))) {
-         uint32_t serial = wl_display_next_serial(wlc_display());
-         wl_pointer_send_leave(focus, serial, surface);
-      }
-   }
-
-   {
-      struct wl_client *client;
-      struct wl_resource *surface, *focus = NULL;
-      if (view && (surface = wl_resource_from_wlc_resource(view->surface, "surface")) &&
-          (client = wl_resource_get_client(surface)) &&
-          (focus = wl_resource_for_client(&pointer->resources, client))) {
-         uint32_t serial = wl_display_next_serial(wlc_display());
-         wl_pointer_send_enter(focus, serial, surface, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
-      }
-
-      pointer->focused.view = convert_to_wlc_handle(view);
-      pointer->focused.resource = wlc_resource_from_wl_resource(focus);
-   }
-
-   if (!view && !view_under_pointer(pointer, active_output(pointer)))
-      wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
-
+   defocus(pointer);
+   focus_view(pointer, view, &d);
    degrab(pointer);
 }
 
@@ -212,12 +258,15 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, 
       degrab(pointer);
    }
 
-   struct wl_resource *focus;
-   if (!(focus = wl_resource_from_wlc_resource(pointer->focused.resource, "pointer")))
-      return;
+   wlc_resource *r;
+   chck_iter_pool_for_each(&pointer->focused.resources, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
+         continue;
 
-   uint32_t serial = wl_display_next_serial(wlc_display());
-   wl_pointer_send_button(focus, serial, time, button, state);
+      uint32_t serial = wl_display_next_serial(wlc_display());
+      wl_pointer_send_button(wr, serial, time, button, state);
+   }
 }
 
 void
@@ -225,15 +274,18 @@ wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, uint8_t axis_bits
 {
    assert(pointer);
 
-   struct wl_resource *focus;
-   if (!(focus = wl_resource_from_wlc_resource(pointer->focused.resource, "pointer")))
-      return;
+   wlc_resource *r;
+   chck_iter_pool_for_each(&pointer->focused.resources, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
+         continue;
 
-   if (axis_bits & WLC_SCROLL_AXIS_VERTICAL)
-      wl_pointer_send_axis(focus, time, WL_POINTER_AXIS_VERTICAL_SCROLL, wl_fixed_from_double(amount[0]));
+      if (axis_bits & WLC_SCROLL_AXIS_VERTICAL)
+         wl_pointer_send_axis(wr, time, WL_POINTER_AXIS_VERTICAL_SCROLL, wl_fixed_from_double(amount[0]));
 
-   if (axis_bits & WLC_SCROLL_AXIS_HORIZONTAL)
-      wl_pointer_send_axis(focus, time, WL_POINTER_AXIS_HORIZONTAL_SCROLL, wl_fixed_from_double(amount[1]));
+      if (axis_bits & WLC_SCROLL_AXIS_HORIZONTAL)
+         wl_pointer_send_axis(wr, time, WL_POINTER_AXIS_HORIZONTAL_SCROLL, wl_fixed_from_double(amount[1]));
+   }
 }
 
 void
@@ -252,11 +304,14 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
    if (!focused)
       return;
 
-   struct wl_resource *focus;
-   if (!(focus = wl_resource_from_wlc_resource(pointer->focused.resource, "pointer")))
-      return;
+   wlc_resource *r;
+   chck_iter_pool_for_each(&pointer->focused.resources, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
+         continue;
 
-   wl_pointer_send_motion(focus, time, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
+      wl_pointer_send_motion(wr, time, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
+   }
 
    if (pointer->state.grabbing) {
       struct wlc_geometry g = focused->pending.geometry;
@@ -313,6 +368,7 @@ wlc_pointer_release(struct wlc_pointer *pointer)
       return;
 
    wl_list_remove(&pointer->listener.render.link);
+   chck_iter_pool_release(&pointer->focused.resources);
    wlc_source_release(&pointer->resources);
    memset(pointer, 0, sizeof(struct wlc_pointer));
 }
@@ -324,5 +380,16 @@ wlc_pointer(struct wlc_pointer *pointer)
    memset(pointer, 0, sizeof(struct wlc_pointer));
    pointer->listener.render.notify = render_event;
    wl_signal_add(&wlc_system_signals()->render, &pointer->listener.render);
-   return wlc_source(&pointer->resources, "pointer", NULL, NULL, 32, sizeof(struct wlc_resource));
+
+   if (!chck_iter_pool(&pointer->focused.resources, 4, 0, sizeof(wlc_resource)))
+      goto fail;
+
+   if (!wlc_source(&pointer->resources, "pointer", NULL, NULL, 32, sizeof(struct wlc_resource)))
+      goto fail;
+
+   return true;
+
+fail:
+   wlc_pointer_release(pointer);
+   return false;
 }

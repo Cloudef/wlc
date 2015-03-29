@@ -36,8 +36,8 @@ struct wlc_pointer {
    wlc_resource surface;
 
    struct {
+      struct chck_iter_pool resources;
       wlc_handle view;
-      wlc_resource resource;
    } focused;
 
    struct {

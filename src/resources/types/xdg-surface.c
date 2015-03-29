@@ -53,7 +53,7 @@ xdg_cb_surface_move(struct wl_client *client, struct wl_resource *resource, stru
    if (!(seat = wl_resource_get_user_data(seat_resource)))
       return;
 
-   if (!seat->pointer.focused.resource)
+   if (!seat->pointer.focused.view)
       return;
 
    seat->pointer.state.action = WLC_GRAB_ACTION_MOVE;
@@ -68,7 +68,7 @@ xdg_cb_surface_resize(struct wl_client *client, struct wl_resource *resource, st
    if (!(seat = wl_resource_get_user_data(seat_resource)))
       return;
 
-   if (!seat->pointer.focused.resource)
+   if (!seat->pointer.focused.view)
       return;
 
    seat->pointer.state.action = WLC_GRAB_ACTION_RESIZE;
