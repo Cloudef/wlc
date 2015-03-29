@@ -218,7 +218,7 @@ focus_view(struct wlc_keyboard *keyboard, struct wlc_view *view)
             // It also avoids input spamming.
             //
             // This send is canceled if anything is pressed before timeout.
-            wlc_dlog(WLC_DBG_KEYBOARD, "seding repeating keys to focus (%u)", repeating);
+            wlc_dlog(WLC_DBG_KEYBOARD, "sending repeating keys to focus (%u)", repeating);
             begin_repeat(keyboard, true);
          }
       }
