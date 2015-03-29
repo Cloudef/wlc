@@ -139,7 +139,7 @@ void
 wlc_tty_activate(void)
 {
    if (!wlc_fd_activate()) {
-      wlc_set_active(false);
+      die("Failed to activate tty");
       return;
    }
 
@@ -151,7 +151,7 @@ void
 wlc_tty_deactivate(void)
 {
    if (!wlc_fd_deactivate()) {
-      wlc_set_active(true);
+      die("Failed to release tty");
       return;
    }
 
