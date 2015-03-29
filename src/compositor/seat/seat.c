@@ -48,7 +48,12 @@ wl_cb_seat_get_keyboard(struct wl_client *client, struct wl_resource *resource, 
       return;
 
    wlc_resource_implement(r, &wl_keyboard_implementation, &seat->keyboard);
-   wl_keyboard_send_keymap(wl_resource_from_wlc_resource(r, "keyboard"), seat->keymap.format, seat->keymap.fd, seat->keymap.size);
+
+   struct wl_resource *wr = wl_resource_from_wlc_resource(r, "keyboard");
+   if (wl_resource_get_version(wr) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION)
+      wl_keyboard_send_repeat_info(wr, seat->keyboard.repeat.rate, seat->keyboard.repeat.delay);
+
+   wl_keyboard_send_keymap(wr, seat->keymap.format, seat->keymap.fd, seat->keymap.size);
 
    struct wlc_view *focused = convert_from_wlc_handle(seat->keyboard.focused.view, "view");
    if (focused && wlc_view_get_client(focused) == client) {
