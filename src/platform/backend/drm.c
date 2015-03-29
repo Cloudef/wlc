@@ -551,10 +551,23 @@ update_outputs(struct chck_pool *outputs)
 bool
 wlc_drm(struct wlc_backend *backend)
 {
+   drm.fd = -1;
+
    if (!gbm_load() || !drm_load())
       goto fail;
 
-   if ((drm.fd = wlc_fd_open("/dev/dri/card0", O_RDWR, WLC_FD_DRM)) < 0)
+   const char *device = getenv("WLC_DRM_DEVICE");
+   device = (chck_cstr_is_empty(device) ? "card0" : device);
+
+   {
+      struct chck_string path = {0};
+      if (chck_string_set_format(&path, "/dev/dri/%s", device))
+         drm.fd = wlc_fd_open(path.data, O_RDWR, WLC_FD_DRM);
+
+      chck_string_release(&path);
+   }
+
+   if (drm.fd < 0)
       goto card_open_fail;
 
    /* GBM will load a dri driver, but even though they need symbols from
@@ -578,7 +591,7 @@ wlc_drm(struct wlc_backend *backend)
    return true;
 
 card_open_fail:
-   wlc_log(WLC_LOG_WARN, "Failed to open card: /dev/dri/card0");
+   wlc_log(WLC_LOG_WARN, "Failed to open device: /dev/dri/%s", device);
    goto fail;
 gbm_device_fail:
    wlc_log(WLC_LOG_WARN, "gbm_create_device failed");
