@@ -580,9 +580,6 @@ wlc_drm(struct wlc_backend *backend)
    if (!(gbm.device = gbm.api.gbm_create_device(drm.fd)))
       goto gbm_device_fail;
 
-   if (!update_outputs(NULL))
-      goto fail;
-
    if (!(drm.event_source = wl_event_loop_add_fd(wlc_event_loop(), drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
       goto fail;
 

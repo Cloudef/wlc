@@ -717,9 +717,6 @@ wlc_x11(struct wlc_backend *backend)
    if (!setup_xkb())
       goto could_not_use_xkb_extension;
 
-   if (!update_outputs(NULL))
-      goto output_fail;
-
    if (!(x11.event_source = wl_event_loop_add_fd(wlc_event_loop(), x11.api.xcb_get_file_descriptor(x11.connection), WL_EVENT_READABLE, x11_event, backend)))
       goto event_source_fail;
 
