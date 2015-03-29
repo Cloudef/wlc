@@ -68,6 +68,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    }
 
    bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) && !wlc_size_equals(&pending->geometry.size, &surface->size));
+   wlc_dlog(WLC_DBG_COMMIT, "=> pending commit %zu (%d) %ux%u %ux%u %ux%u", convert_to_wlc_handle(view), size_changed, pending->geometry.size.w, pending->geometry.size.h, out->geometry.size.w, out->geometry.size.h, surface->size.w, surface->size.h);
 
    if (pending->state != out->state || size_changed) {
       struct wl_resource *r;
@@ -98,6 +99,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       // Commit immediately if no ack requested
       // XXX: We may need to detect frozen client
       memcpy(out, pending, sizeof(struct wlc_view_state));
+      wlc_dlog(WLC_DBG_COMMIT, "=> commit %zu", convert_to_wlc_handle(view));
    }
 }
 
@@ -154,6 +156,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_size *old_surface_
    } else {
       memcpy(&view->commit, &view->pending, sizeof(view->commit));
       view->state.ack = ACK_NONE;
+      wlc_dlog(WLC_DBG_COMMIT, "=> commit %zu", convert_to_wlc_handle(view));
    }
 }
 
