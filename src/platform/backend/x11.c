@@ -740,9 +740,6 @@ event_source_fail:
    goto fail;
 could_not_use_xkb_extension:
    wlc_log(WLC_LOG_WARN, "Could not disable auto repeat or use xkb extension (seriously get better X11 server)");
-   goto fail;
-output_fail:
-   wlc_log(WLC_LOG_WARN, "Failed to create output");
 fail:
    terminate();
    return false;
