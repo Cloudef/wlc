@@ -42,7 +42,7 @@ err:
    return -1;
 }
 
-   static int
+static int
 create_tmpfile_cloexec(char *tmpname)
 {
    int fd;
@@ -60,7 +60,7 @@ create_tmpfile_cloexec(char *tmpname)
    return fd;
 }
 
-   static int
+static int
 os_create_anonymous_file(off_t size)
 {
    static const char template[] = "/loliwm-shared-XXXXXX";
