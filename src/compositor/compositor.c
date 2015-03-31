@@ -469,14 +469,13 @@ wlc_compositor_view_for_surface(struct wlc_compositor *compositor, struct wlc_su
    if (!(view = convert_from_wlc_handle(surface->view, "view")) && !(view = wlc_handle_create(&compositor->views)))
       return NULL;
 
-   wlc_surface_attach_to_view(surface, view);
-
    struct wlc_output *output;
    if ((output = convert_from_wlc_handle(compositor->active.output, "output"))) {
-      wlc_view_set_output_ptr(view, output);
+      wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface));
       wlc_view_set_mask_ptr(view, output->active.mask);
    }
 
+   wlc_surface_attach_to_view(surface, view);
    return view;
 }
 

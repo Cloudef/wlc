@@ -55,6 +55,8 @@ struct wlc_view {
    } state;
 };
 
+void wlc_view_map(struct wlc_view *view);
+void wlc_view_unmap(struct wlc_view *view);
 void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
 void wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, struct wlc_size *old_surface_size);
 void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible);

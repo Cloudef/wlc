@@ -388,8 +388,8 @@ wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface
    return true;
 }
 
-bool
-wlc_output_view_attach(struct wlc_output *output, struct wlc_view *view)
+static bool
+attach_view(struct wlc_output *output, struct wlc_view *view)
 {
    struct wlc_surface *surface;
    if (!output || !view || !(surface = convert_from_wlc_resource(view->surface, "surface")))
@@ -535,6 +535,17 @@ remove_from_pool(struct chck_iter_pool *pool, wlc_handle handle)
    }
 }
 
+static bool
+exists_in_pool(struct chck_iter_pool *pool, wlc_handle handle)
+{
+   wlc_handle *h;
+   chck_iter_pool_for_each(pool, h) {
+      if (*h == handle)
+         return true;
+   }
+   return false;
+}
+
 void
 wlc_output_unlink_view(struct wlc_output *output, struct wlc_view *view)
 {
@@ -585,16 +596,16 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
       }
    }
 
-   if (old != output) {
+   if (!exists_in_pool(&output->mutable, handle))
       chck_iter_pool_push_back(&output->mutable, &handle);
-      if (view->state.created)
-         WLC_INTERFACE_EMIT(view.move_to_output, convert_to_wlc_handle(view), convert_to_wlc_handle(old), (added ? convert_to_wlc_handle(output) : 0));
-   }
+
+   if (old != output && view->state.created)
+      WLC_INTERFACE_EMIT(view.move_to_output, convert_to_wlc_handle(view), convert_to_wlc_handle(old), (added ? convert_to_wlc_handle(output) : 0));
 
    if (!added)
       return;
 
-   wlc_output_view_attach(output, view);
+   attach_view(output, view);
    wlc_output_schedule_repaint(output);
 }
 
@@ -676,7 +687,7 @@ wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, siz
 
    wlc_handle *h;
    chck_iter_pool_for_each(&output->views, h)
-      wlc_output_view_attach(output, convert_from_wlc_handle(*h, "view"));
+      attach_view(output, convert_from_wlc_handle(*h, "view"));
 
    wlc_output_schedule_repaint(output);
    return true;

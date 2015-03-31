@@ -26,6 +26,30 @@ update(struct wlc_view *view)
 }
 
 void
+wlc_view_map(struct wlc_view *view)
+{
+   assert(view);
+
+   if (view->state.created)
+      return;
+
+   wlc_output_link_view(wlc_view_get_output_ptr(view), view, LINK_ABOVE, NULL);
+}
+
+void
+wlc_view_unmap(struct wlc_view *view)
+{
+   assert(view);
+
+   if (!view->state.created)
+      return;
+
+   wlc_output_unlink_view(wlc_view_get_output_ptr(view), view);
+   WLC_INTERFACE_EMIT(view.destroyed, convert_to_wlc_handle(view));
+   view->state.created = false;
+}
+
+void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
    struct wlc_surface *surface;
@@ -296,6 +320,13 @@ wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface)
    view->surface = convert_to_wlc_resource(surface);
    wlc_surface_attach_to_view(convert_from_wlc_resource(old, "surface"), NULL);
    wlc_surface_attach_to_view(surface, view);
+
+   if (surface && surface->commit.attached) {
+      wlc_view_map(view);
+   } else {
+      wlc_view_unmap(view);
+   }
+
    wlc_dlog(WLC_DBG_RENDER, "-> Linked surface (%zu) to view (%zu)", convert_to_wlc_resource(surface), convert_to_wlc_handle(view));
 }
 
@@ -626,10 +657,7 @@ wlc_view_release(struct wlc_view *view)
    if (!view)
       return;
 
-   wlc_output_unlink_view(wlc_view_get_output_ptr(view), view);
-
-   if (view->state.created)
-      WLC_INTERFACE_EMIT(view.destroyed, convert_to_wlc_handle(view));
+   wlc_view_unmap(view);
 
    wlc_view_set_parent_ptr(view, NULL);
    wlc_resource_release(view->shell_surface);

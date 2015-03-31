@@ -27,8 +27,14 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
       wlc_surface_attach_to_output(surface, output, buffer);
 
    struct wlc_view *view;
-   if ((view = convert_from_wlc_handle(surface->view, "view")))
-      wlc_view_ack_surface_attach(view, surface, &old_size);
+   if ((view = convert_from_wlc_handle(surface->view, "view"))) {
+      if (buffer) {
+         wlc_view_map(view);
+         wlc_view_ack_surface_attach(view, surface, &old_size);
+      } else {
+         wlc_view_unmap(view);
+      }
+   }
 }
 
 static void
