@@ -29,6 +29,8 @@ if (${CMAKE_VERSION} VERSION_LESS 2.8.9)
 endif ()
 
 add_definitions(-std=c99 -D_DEFAULT_SOURCE)
+include_directories(shared)
+
 add_subdirectory(lib)
 add_subdirectory(src)
 add_subdirectory(example)
