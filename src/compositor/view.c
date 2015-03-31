@@ -183,6 +183,8 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, 
          wlc_x11_window_resize(&view->x11, view->pending.geometry.size.w, view->pending.geometry.size.h);
          view->state.ack = ACK_NEXT_COMMIT;
       }
+
+      memcpy(&view->state.resize, &view->pending.geometry.size, sizeof(view->state.resize));
    } else {
       memcpy(&view->commit, &view->pending, sizeof(view->commit));
       view->state.ack = ACK_NONE;
