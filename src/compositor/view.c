@@ -71,6 +71,9 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       view->state.created = true;
    }
 
+   if (!memcmp(pending, out, sizeof(struct wlc_view_state)))
+      return;
+
    if (pending->state != out->state) {
       struct {
          uint32_t bit;
