@@ -374,7 +374,7 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
       if (chck_cstreq(argv[i], "--log")) {
          if (i + 1 >= argc)
             die("--log takes an argument (filename)");
-         wlc_set_log_file(fopen(argv[++i], "w"));
+         wlc_set_log_file(fopen(argv[++i], "a"));
       }
    }
 
