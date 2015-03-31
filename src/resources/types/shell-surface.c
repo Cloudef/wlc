@@ -13,7 +13,15 @@ static void
 wl_cb_shell_surface_pong(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
 {
    (void)client, (void)serial;
-   STUB(resource);
+
+   struct wlc_view *view;
+   struct wlc_surface *surface;
+   if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")) ||
+       !(surface = convert_from_wlc_resource(view->surface, "surface")))
+      return;
+
+   if (view->state.ack != ACK_NONE)
+      wlc_view_ack_surface_attach(view, surface, &surface->size);
 }
 
 static void

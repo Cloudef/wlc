@@ -56,8 +56,14 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   if (view->state.ack != ACK_NONE)
+   if (view->state.ack != ACK_NONE) {
+      struct wl_resource *r;
+      if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface")))
+         wl_shell_surface_send_ping(r, wl_display_next_serial(wlc_display()));
+
+      wlc_dlog(WLC_DBG_COMMIT, "=> ping view %zu", convert_to_wlc_handle(view));
       return;
+   }
 
    if (!view->state.created) {
       // Initial size of the view
