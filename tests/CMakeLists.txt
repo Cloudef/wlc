@@ -7,3 +7,5 @@ foreach (test ${tests})
    target_link_libraries(${test}_test ${WLC_LIBRARY} ${WLC_LIBRARIES})
    add_test_ex(${test}_test)
 endforeach()
+
+add_subdirectory(clients)
