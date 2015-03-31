@@ -616,16 +616,6 @@ wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep)
    if (!output)
       return;
 
-#if 0
-   // XXX: when all outputs sleep on my nouveau setup, they won't wake up...
-   //      bit hard to investigate, but maybe the event loop gets stuck.
-   uint32_t not_sleeping = 0;
-   struct wlc_output *o;
-   wl_list_for_each(o, &output->compositor->outputs, link)
-      if (!output->sleeping)
-         ++not_sleeping;
-#endif
-
    if (!sleep && wlc_get_active())
       wl_event_source_timer_update(output->timer.sleep, 1000 * output->options.idle_time);
 
