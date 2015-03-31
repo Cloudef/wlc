@@ -409,17 +409,23 @@ wlc_output_schedule_repaint(struct wlc_output *output)
 
    output->state.activity = true;
 
-#if 0
-   // XXX: Move sleep logic to public api
-   struct wlc_view *view;
-   wl_list_for_each(view, &output->space->views, link) {
-      if (!view->surface->commit.attached || !(view->commit.state & WLC_BIT_FULLSCREEN))
+   wlc_handle *h;
+   chck_iter_pool_for_each(&output->views, h) {
+      struct wlc_view *v;
+      struct wlc_surface *s;
+      if (!(v = convert_from_wlc_handle(*h, "view")) ||
+          !(s = convert_from_wlc_resource(v->surface, "surface")))
          continue;
 
-      wlc_output_set_sleep(output, false);
+      if (!s->commit.attached || !(v->commit.state & WLC_BIT_FULLSCREEN))
+         continue;
+
+      if (!view_visible(v, s, output->active.mask))
+         continue;
+
+      wlc_output_set_sleep_ptr(output, false);
       break;
    }
-#endif
 
    if (output->state.scheduled)
       return;
