@@ -1,3 +1,4 @@
 [submodule "chck"]
-	path = lib/chck/src
-	url = git://github.com/Cloudef/chck.git
+   path = lib/chck/src
+   url = git://github.com/Cloudef/chck.git
+   branch = master
