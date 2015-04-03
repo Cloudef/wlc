@@ -41,10 +41,11 @@ wlc_view_unmap(struct wlc_view *view)
 {
    assert(view);
 
+   wlc_output_unlink_view(wlc_view_get_output_ptr(view), view);
+
    if (!view->state.created)
       return;
 
-   wlc_output_unlink_view(wlc_view_get_output_ptr(view), view);
    WLC_INTERFACE_EMIT(view.destroyed, convert_to_wlc_handle(view));
    view->state.created = false;
 }
