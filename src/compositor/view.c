@@ -68,13 +68,12 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    if (!view->state.created) {
       // Initial size of the view
       view->pending.geometry.size = surface->size;
+      view->state.created = true;
 
       if (WLC_INTERFACE_EMIT_EXCEPT(view.created, false, convert_to_wlc_handle(view))) {
          wlc_view_close_ptr(view);
          return;
       }
-
-      view->state.created = true;
    }
 
    if (!memcmp(pending, out, sizeof(struct wlc_view_state)))
