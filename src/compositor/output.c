@@ -130,7 +130,7 @@ view_contains_output(struct wlc_view *view, struct wlc_output *output)
 {
    assert(output);
 
-   if (!view_visible(view, convert_from_wlc_resource(view->surface, "surface"), output->active.mask))
+   if (!view || !view_visible(view, convert_from_wlc_resource(view->surface, "surface"), output->active.mask))
       return false;
 
    struct wlc_geometry vg, root = { { 0, 0 }, output->resolution };
