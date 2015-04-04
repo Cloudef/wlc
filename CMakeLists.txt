@@ -9,6 +9,8 @@ include(test)
 
 # Options
 OPTION(WLC_BUILD_STATIC "Build wlc as static library" OFF)
+OPTION(WLC_BUILD_EXAMPLES "Build wlc examples" ON)
+OPTION(WLC_BUILD_TESTS "Build wlc tests" ON)
 
 # Warnings
 # FIXME: Use CMake module made for this
@@ -33,5 +35,11 @@ include_directories(shared)
 
 add_subdirectory(lib)
 add_subdirectory(src)
-add_subdirectory(example)
-add_subdirectory(tests)
+
+if (WLC_BUILD_EXAMPLES)
+   add_subdirectory(example)
+endif ()
+
+if (WLC_BUILD_TESTS)
+   add_subdirectory(tests)
+endif ()
