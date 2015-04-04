@@ -43,6 +43,12 @@ if (UNIX)
    # ADD_DEFINITIONS(-fvisibility=hidden)
 endif (UNIX)
 
+find_library(MATH_LIBRARY m)
+mark_as_advanced(MATH_LIBRARY)
+if (NOT MATH_LIBRARY)
+   message(FATAL_ERROR "libm is needed")
+endif ()
+
 # Parse soversion version
 string(REGEX MATCHALL "[0-9]+" VERSION_COMPONENTS ${WLC_VERSION})
 list(GET VERSION_COMPONENTS 0 SOVERSION)
@@ -117,7 +123,7 @@ target_link_libraries(wlc
 
 set(WLC_LIBRARY wlc CACHE STRING "wlc library" FORCE)
 set(WLC_INCLUDE_DIRS "${wlc_SOURCE_DIR}/include" CACHE STRING "Include directories of wlc" FORCE)
-set(WLC_LIBRARIES ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${DL_LIBRARY} CACHE STRING "Dependencies of wlc" FORCE)
+set(WLC_LIBRARIES ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${DL_LIBRARY} ${MATH_LIBRARY} CACHE STRING "Dependencies of wlc" FORCE)
 
 # Install rules
 install(TARGETS wlc DESTINATION lib)
