@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <unistd.h>
-#include <errno.h>
 #include <dlfcn.h>
 #include <sys/eventfd.h>
 #include <wayland-server.h>
