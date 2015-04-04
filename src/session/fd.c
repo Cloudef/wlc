@@ -153,6 +153,7 @@ recv_fd(int sock, int *out_fd, void *out_buffer, ssize_t buffer_size)
    };
    struct cmsghdr *cmsg;
 
+   errno = 0;
    ssize_t read;
    if ((read = recvmsg(sock, &message, 0)) < 0)
       return read;

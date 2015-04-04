@@ -101,6 +101,7 @@ retry:
        * Check if the pid for existing lock file is not alive by
        * sending kill signal and checking that errno == ESRCH (process not found, in most cases)
        */
+      errno = 0;
       if (end == pid + 10 && kill(owner, 0) != 0 && errno == ESRCH) {
          unlink(lock_name);
          snprintf(lock_name, sizeof(lock_name), socket_fmt, dpy);
