@@ -382,9 +382,12 @@ wlc_keyboard(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap)
    if (!(keyboard->timer.repeat = wl_event_loop_add_timer(wlc_event_loop(), cb_repeat, keyboard)))
       goto fail;
 
-   const char *delay = getenv("WLC_REPEAT_DELAY"), *rate = getenv("WLC_REPEAT_RATE");
-   keyboard->repeat.delay = (chck_cstr_is_empty(delay) ? 660 : strtol(delay, NULL, 10));
-   keyboard->repeat.rate = (chck_cstr_is_empty(rate) ? 25 : strtol(rate, NULL, 10));
+   if (!chck_cstr_to_u32(getenv("WLC_REPEAT_DELAY"), &keyboard->repeat.delay))
+      keyboard->repeat.delay = 660;
+
+   if (!chck_cstr_to_u32(getenv("WLC_REPEAT_RATE"), &keyboard->repeat.rate))
+      keyboard->repeat.rate = 25;
+
    return true;
 
 fail:

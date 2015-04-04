@@ -527,8 +527,10 @@ update_outputs(struct chck_pool *outputs)
 
    const char *env;
    uint32_t fakes = 1;
-   if ((env = getenv("WLC_OUTPUTS")))
-      fakes = chck_maxu32(strtol(env, NULL, 10), 1);
+   if ((env = getenv("WLC_OUTPUTS"))) {
+      chck_cstr_to_u32(env, &fakes);
+      fakes = chck_maxu32(fakes, 1);
+   }
 
    if (alive >= fakes)
       return 0;

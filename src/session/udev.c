@@ -231,8 +231,9 @@ input_set_event_loop(struct wl_event_loop *loop)
 static bool
 is_hotplug(uint32_t drm_id, struct udev_device *device)
 {
+   uint32_t id;
    const char *sysnum;
-   if (!(sysnum = udev_device_get_sysnum(device)) || strtol(sysnum, NULL, 10) != drm_id)
+   if (!(sysnum = udev_device_get_sysnum(device)) || !chck_cstr_to_u32(sysnum, &id) || id != drm_id)
       return false;
 
    const char *val;

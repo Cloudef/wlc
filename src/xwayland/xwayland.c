@@ -12,6 +12,7 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <wayland-server.h>
+#include <chck/string/string.h>
 #include "internal.h"
 #include "macros.h"
 #include "xwayland.h"
@@ -94,15 +95,16 @@ retry:
       if (bytes != sizeof(pid) -1)
          continue;
 
-      char *end;
-      pid_t owner = strtol(pid, &end, 10);
+      pid_t owner;
+      if (!chck_cstr_to_i32(pid, &owner))
+         continue;
 
       /**
        * Check if the pid for existing lock file is not alive by
        * sending kill signal and checking that errno == ESRCH (process not found, in most cases)
        */
       errno = 0;
-      if (end == pid + 10 && kill(owner, 0) != 0 && errno == ESRCH) {
+      if (kill(owner, 0) != 0 && errno == ESRCH) {
          unlink(lock_name);
          snprintf(lock_name, sizeof(lock_name), socket_fmt, dpy);
          unlink(lock_name);
