@@ -40,7 +40,7 @@ static struct {
    struct wl_display *display;
    FILE *log_file;
    int cached_tm_mday;
-   bool active;
+   bool active, set_ready_on_run;
 } wlc;
 
 #ifndef NDEBUG
@@ -341,6 +341,12 @@ wlc_run(void)
    if (!wlc.display)
       return;
 
+   // Called when no xwayland is requested
+   if (wlc.set_ready_on_run) {
+      WLC_INTERFACE_EMIT(compositor.ready);
+      wlc.set_ready_on_run = false;
+   }
+
    wl_display_run(wlc.display);
    wlc_cleanup();
 }
@@ -487,7 +493,7 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
       if (!(wlc_xwayland_init()))
          die("Failed to init xwayland");
    } else {
-      wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){false});
+      wlc.set_ready_on_run = true;
    }
 
    wlc_set_active(true);
