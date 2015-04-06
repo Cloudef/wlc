@@ -148,6 +148,11 @@ struct wlc_interface {
       /** Touch event was triggered, view handle will be zero if there was no focus. */
       bool (*touch)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, enum wlc_touch_type, int32_t slot, const struct wlc_origin*);
    } touch;
+
+   struct {
+      /** Compositor is ready to accept clients. */
+      void (*ready)(void);
+   } compositor;
 };
 
 /** -- Core API */

@@ -486,6 +486,8 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    if (!xwayland || !chck_cstreq(xwayland, "0")) {
       if (!(wlc_xwayland_init()))
          die("Failed to init xwayland");
+   } else {
+      wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){false});
    }
 
    wlc_set_active(true);
