@@ -477,16 +477,16 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
          die("Failed to init input");
    }
 
+   memcpy(&wlc.interface, interface, sizeof(wlc.interface));
+
+   if (!wlc_compositor(&wlc.compositor))
+      die("Failed to init compositor");
+
    const char *xwayland = getenv("WLC_XWAYLAND");
    if (!xwayland || !chck_cstreq(xwayland, "0")) {
       if (!(wlc_xwayland_init()))
          die("Failed to init xwayland");
    }
-
-   memcpy(&wlc.interface, interface, sizeof(wlc.interface));
-
-   if (!wlc_compositor(&wlc.compositor))
-      die("Failed to init compositor");
 
    wlc_set_active(true);
    return true;
