@@ -76,7 +76,7 @@ wl_cb_seat_get_touch(struct wl_client *client, struct wl_resource *resource, uin
       return;
 
    wlc_resource r;
-   if (!(r = wlc_resource_create(&seat->keyboard.resources, client, &wl_touch_interface, wl_resource_get_version(resource), 4, id)))
+   if (!(r = wlc_resource_create(&seat->touch.resources, client, &wl_touch_interface, wl_resource_get_version(resource), 4, id)))
       return;
 
    wlc_resource_implement(r, &wl_touch_implementation, &seat->touch);
