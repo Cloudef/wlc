@@ -6,6 +6,11 @@
 #include "macros.h"
 #include "resources.h"
 
+#undef wl_resource_from_wlc_resource
+#undef convert_from_wl_resource
+#undef convert_from_wlc_resource
+#undef convert_from_wlc_handle
+
 struct handle {
    wlc_resource public;
    wlc_resource private;
@@ -176,13 +181,15 @@ handle_is(struct handle *handle, const char *name)
 }
 
 void*
-handle_get(struct handle *handle, const char *name)
+handle_get(struct handle *handle, const char *name, size_t line, const char *file, const char *function)
 {
+   assert(name && file && function);
+
    if (!handle || !handle->private)
       return NULL;
 
    if (!handle_is(handle, name)) {
-      wlc_log(WLC_LOG_WARN, "Tried to retrieve handle of wrong type (%s != %s)", handle->source->name, name);
+      wlc_log(WLC_LOG_WARN, "%s: %zu @ %s(): Tried to retrieve handle of wrong type (%s != %s)", file, line, function, handle->source->name, name);
       return NULL;
    }
 
@@ -304,12 +311,14 @@ wlc_handle_create(struct wlc_source *source)
 }
 
 void*
-convert_from_wlc_handle(wlc_handle handle, const char *name)
+convert_from_wlc_handle(wlc_handle handle, const char *name, size_t line, const char *file, const char *function)
 {
+   assert(name && file && function);
+
    if (!handle)
       return NULL;
 
-   return handle_get(chck_pool_get(&handles, handle - 1), name);
+   return handle_get(chck_pool_get(&handles, handle - 1), name, line, file, function);
 }
 
 void
@@ -409,13 +418,15 @@ wlc_resource_create_from(struct wlc_source *source, struct wl_resource *resource
 }
 
 void*
-convert_from_wlc_resource(wlc_resource resource, const char *name)
+convert_from_wlc_resource(wlc_resource resource, const char *name, size_t line, const char *file, const char *function)
 {
+   assert(name && file && function);
+
    if (!resource)
       return NULL;
 
    struct resource *r = chck_pool_get(&resources, resource - 1);
-   return (r ? handle_get(&r->handle, name) : NULL);
+   return (r ? handle_get(&r->handle, name, line, file, function) : NULL);
 }
 
 wlc_resource
@@ -436,20 +447,22 @@ wlc_resource_from_wl_resource(struct wl_resource *resource)
 }
 
 void*
-convert_from_wl_resource(struct wl_resource *resource, const char *name)
+convert_from_wl_resource(struct wl_resource *resource, const char *name, size_t line, const char *file, const char *function)
 {
-   return convert_from_wlc_resource(wlc_resource_from_wl_resource(resource), name);
+   return convert_from_wlc_resource(wlc_resource_from_wl_resource(resource), name, line, file, function);
 }
 
 struct wl_resource*
-wl_resource_from_wlc_resource(wlc_resource resource, const char *name)
+wl_resource_from_wlc_resource(wlc_resource resource, const char *name, size_t line, const char *file, const char *function)
 {
+   assert(name && file && function);
+
    struct resource *r;
    if (!resource || !(r = chck_pool_get(&resources, resource - 1)))
       return NULL;
 
    if (!handle_is(&r->handle, name)) {
-      wlc_log(WLC_LOG_WARN, "Tried to retrieve resource of wrong type (%s != %s)", r->handle.source->name, name);
+      wlc_log(WLC_LOG_WARN, "%s: %zu @ %s(): Tried to retrieve resource of wrong type (%s != %s)", file, line, function, r->handle.source->name, name);
       return NULL;
    }
 

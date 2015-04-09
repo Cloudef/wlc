@@ -64,7 +64,8 @@ void* wlc_handle_create(struct wlc_source *source);
  * Convert from wlc_handle back to the pointer.
  * name should be same as the name in source, otherwise NULL is returned.
  */
-void* convert_from_wlc_handle(wlc_handle handle, const char *name);
+void* convert_from_wlc_handle(wlc_handle handle, const char *name, size_t line, const char *file, const char *function);
+#define convert_from_wlc_handle(x, y) convert_from_wlc_handle(x, y, __LINE__, WLC_FILE, __func__)
 
 /**
  * Convert pointer back to wlc_handle.
@@ -97,16 +98,19 @@ void wlc_resource_implement(wlc_resource resource, const void *implementation, v
 wlc_resource wlc_resource_from_wl_resource(struct wl_resource *resource);
 
 /** Convert to wayland resource from wlc_resource. */
-struct wl_resource* wl_resource_from_wlc_resource(wlc_resource resource, const char *name);
+struct wl_resource* wl_resource_from_wlc_resource(wlc_resource resource, const char *name, size_t line, const char *file, const char *function);
+#define wl_resource_from_wlc_resource(x, y) wl_resource_from_wlc_resource(x, y, __LINE__, WLC_FILE, __func__)
 
 /** Get wayland resource for client from source. */
 struct wl_resource* wl_resource_for_client(struct wlc_source *source, struct wl_client *client);
 
 /** Convert to pointer from wlc_resource. */
-void* convert_from_wlc_resource(wlc_resource resource, const char *name);
+void* convert_from_wlc_resource(wlc_resource resource, const char *name, size_t line, const char *file, const char *function);
+#define convert_from_wlc_resource(x, y) convert_from_wlc_resource(x, y, __LINE__, WLC_FILE, __func__)
 
 /** Convert to pointer from wayland resource. */
-void* convert_from_wl_resource(struct wl_resource *resource, const char *name);
+void* convert_from_wl_resource(struct wl_resource *resource, const char *name, size_t line, const char *file, const char *function);
+#define convert_from_wl_resource(x, y) convert_from_wl_resource(x, y, __LINE__, WLC_FILE, __func__)
 
 /**
  * Convert to wlc_resource from pointer.

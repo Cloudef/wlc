@@ -32,6 +32,10 @@ set(sources
    xwayland/xwm.c
    )
 
+foreach (src ${sources})
+   set_source_files_properties(${src} PROPERTIES COMPILE_FLAGS -DWLC_FILE=\\\"${src}\\\")
+endforeach ()
+
 if (UNIX)
    find_library(DL_LIBRARY dl)
    mark_as_advanced(DL_LIBRARY)
