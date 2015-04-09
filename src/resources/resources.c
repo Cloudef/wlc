@@ -171,6 +171,7 @@ handle_release(struct chck_pool *pool, struct handle *handle, void (*preremove)(
 static bool
 handle_is(struct handle *handle, const char *name)
 {
+   assert(name);
    return (handle ? chck_cstreq(handle->source->name, name) : false);
 }
 
@@ -212,6 +213,8 @@ resource_invalidate(struct resource *resource)
 static void
 resource_prerelase(struct resource *resource)
 {
+   assert(resource);
+
    // finally destroy the wayland resource
    // the r may be NULL here, if container called wlc_resource_invalidate
    // wlc_buffer's do this since they need to destroy the resource differently.
