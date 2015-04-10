@@ -163,6 +163,9 @@ bool wlc_init(const struct wlc_interface *interface, int argc, char *argv[]);
 /** Terminate wlc. */
 void wlc_terminate(void);
 
+/** Exec program. */
+void wlc_exec(const char *bin, char *const args[]);
+
 /** Run event loop. */
 void wlc_run(void);
 

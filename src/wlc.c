@@ -336,6 +336,26 @@ wlc_set_log_file(FILE *out)
 }
 
 WLC_API void
+wlc_exec(const char *bin, char *const args[])
+{
+   assert(bin);
+
+   if (chck_cstr_is_empty(bin))
+      return;
+
+   pid_t p;
+   if ((p = fork()) == 0) {
+      setsid();
+      freopen("/dev/null", "w", stdout);
+      freopen("/dev/null", "w", stderr);
+      execvp(bin, args);
+      _exit(EXIT_FAILURE);
+   } else if (p < 0) {
+      wlc_log(WLC_LOG_ERROR, "Failed to fork for '%s'", bin);
+   }
+}
+
+WLC_API void
 wlc_run(void)
 {
    if (!wlc.display)
