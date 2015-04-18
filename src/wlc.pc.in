@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include/wlc
+
+Name: wlc
+Description: Wayland compositor library
+Version: @WLC_VERSION@
+Libs: -L${libdir} -lwlc
+Libs.private: -lpixman -lxkbcommon -lwayland-server -lm -ldl
+Cflags: -I${includedir}

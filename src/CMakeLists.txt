@@ -129,6 +129,10 @@ set(WLC_LIBRARY wlc CACHE STRING "wlc library" FORCE)
 set(WLC_INCLUDE_DIRS "${wlc_SOURCE_DIR}/include" CACHE STRING "Include directories of wlc" FORCE)
 set(WLC_LIBRARIES ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${DL_LIBRARY} ${MATH_LIBRARY} CACHE STRING "Dependencies of wlc" FORCE)
 
+# Add pkgconfig
+configure_file(wlc.pc.in wlc.pc @ONLY)
+
 # Install rules
 install(TARGETS wlc DESTINATION lib)
 install(DIRECTORY "${wlc_SOURCE_DIR}/include/wlc" DESTINATION include)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/wlc.pc" DESTINATION lib/pkgconfig)
