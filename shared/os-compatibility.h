@@ -63,7 +63,7 @@ create_tmpfile_cloexec(char *tmpname)
 static int
 os_create_anonymous_file(off_t size)
 {
-   static const char template[] = "/loliwm-shared-XXXXXX";
+   static const char template[] = "/wlc-shared-XXXXXX";
 
    const char *path = getenv("XDG_RUNTIME_DIR");
    if (chck_cstr_is_empty(path))
