@@ -4,32 +4,22 @@
 #  - To use only a specific component
 #	check the XCB_LIBRARIES_${COMPONENT} variable
 
-# Define search directories depending on system
-if(CMAKE_COMPILER_IS_GNUCC)
-	set(_search_path_inc ENV CPATH)
-	set(_search_path_lib ENV LIBRARY_PATH)
-endif(CMAKE_COMPILER_IS_GNUCC)
+find_package(PkgConfig)
+pkg_check_modules(PC_XCB QUIET xcb ${XCB_FIND_COMPONENTS})
 
-find_path(XCB_INCLUDE_DIR xcb/xcb.h
-	HINTS ${_search_path_inc})
-find_library(XCB_MAIN_LIB xcb
-	HINTS ${_search_path_lib})
+find_library(XCB_LIBRARY xcb HINTS ${PC_XCB_LIBRARY_DIRS})
+find_path(XCB_INCLUDE_DIRS xcb/xcb.h PATH_SUFFIXES xcb HINTS ${PC_XCB_INCLUDE_DIRS})
 
-set(XCB_LIBRARIES ${XCB_MAIN_LIB})
+set(XCB_LIBRARIES ${XCB_LIBRARY})
 foreach(COMPONENT ${XCB_FIND_COMPONENTS})
-	find_library(XCB_LIBRARIES_${COMPONENT} xcb-${COMPONENT}
-		HINTS ${_search_path_lib})
-	set(XCB_LIBRARIES ${XCB_LIBRARIES}
-		${XCB_LIBRARIES_${COMPONENT}})
+	find_library(XCB_LIBRARIES_${COMPONENT} xcb-${COMPONENT} HINTS ${PC_XCB_LIBRARY_DIRS})
+	list(APPEND XCB_LIBRARIES ${XCB_LIBRARIES_${COMPONENT}})
 	mark_as_advanced(XCB_LIBRARIES_${COMPONENT})
 endforeach(COMPONENT ${XCB_FIND_COMPONENTS})
 
-mark_as_advanced(XCB_INCLUDE_DIR)
-mark_as_advanced(XCB_MAIN_LIB)
-set(XCB_LIBRARIES ${XCB_LIBRARIES} CACHE STRING
-	"XCB_LIBRARIES" FORCE)
+set(XCB_DEFINITIONS ${PC_XCB_CFLAGS_OTHER})
 
-INCLUDE(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(XCB DEFAULT_MSG
-	XCB_LIBRARIES XCB_INCLUDE_DIR)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(XCB DEFAULT_MSG XCB_LIBRARIES XCB_INCLUDE_DIRS)
+mark_as_advanced(XCB_INCLUDE_DIRS XCB_LIBRARIES)
 

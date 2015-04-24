@@ -81,28 +81,41 @@ include(Wayland)
 wayland_add_protocol_server(proto-xdg-shell "${wlc_SOURCE_DIR}/protos/xdg-shell.xml" xdg-shell)
 list(APPEND sources ${proto-xdg-shell})
 
-add_definitions(-DWL_HIDE_DEPRECATED)
+set(definitions
+   -DWL_HIDE_DEPRECATED
+   ${WAYLAND_DEFINITIONS}
+   ${PIXMAN_DEFINITIONS}
+   ${GBM_DEFINITIONS}
+   ${DRM_DEFINITIONS}
+   ${XKBCOMMON_DEFINITIONS}
+   ${EGL_DEFINITIONS}
+   ${GLESv2_DEFINITIONS}
+   ${UDEV_DEFINITIONS}
+   ${LIBINPUT_DEFINITIONS}
+   ${XCB_DEFINITIONS}
+   )
 include_directories(
    ${CMAKE_CURRENT_SOURCE_DIR}
    ${CMAKE_CURRENT_BINARY_DIR}
    ${wlc_SOURCE_DIR}/include
    ${wlc_SOURCE_DIR}/lib/chck/src
-   ${WAYLAND_SERVER_INCLUDE_DIR}
+   ${WAYLAND_SERVER_INCLUDE_DIRS}
    ${PIXMAN_INCLUDE_DIRS}
-   ${GBM_INCLUDE_DIR}
-   ${DRM_INCLUDE_DIR}
-   ${XCBCOMMON_INCLUDE_DIR}
-   ${EGL_INCLUDE_DIR}
-   ${GLESv2_INCLUDE_DIR}
-   ${UDEV_INCLUDE_DIR}
-   ${LIBINPUT_INCLUDE_DIR}
+   ${GBM_INCLUDE_DIRS}
+   ${DRM_INCLUDE_DIRS}
+   ${XCBCOMMON_INCLUDE_DIRS}
+   ${EGL_INCLUDE_DIRS}
+   ${GLESv2_INCLUDE_DIRS}
+   ${UDEV_INCLUDE_DIRS}
+   ${LIBINPUT_INCLUDE_DIRS}
+   ${XCB_INCLUDE_DIRS}
    ${X11_INCLUDE_DIR}
    )
 
 if (DBUS_FOUND AND SYSTEMD_FOUND)
    message("Building with logind support")
-   include_directories(${DBUS_INCLUDE_DIR} ${SYSTEMD_INCLUDE_DIR})
-   add_definitions(-DHAS_LOGIND -DDBUS_DISABLE_DEPRECATED)
+   include_directories(${DBUS_INCLUDE_DIRS} ${SYSTEMD_INCLUDE_DIRS})
+   list(APPEND definitions -DHAS_LOGIND -DDBUS_DISABLE_DEPRECATED ${DBUS_DEFINITIONS} ${SYSTEMD_DEFINITIONS})
    list(APPEND sources session/logind.c session/dbus.c)
 endif ()
 
@@ -115,6 +128,7 @@ endif ()
 
 set_target_properties(wlc PROPERTIES VERSION ${WLC_VERSION} SOVERSION ${SOVERSION})
 
+add_definitions(${definitions})
 target_link_libraries(wlc
    chck_wlc
    ${WAYLAND_SERVER_LIBRARIES}
@@ -125,6 +139,8 @@ target_link_libraries(wlc
    ${DL_LIBRARY}
    )
 
+# Set helpful variables for add_subdirectory build
+set(WLC_DEFINITIONS "${definitions}" CACHE STRING "Compile definitions of wlc" FORCE)
 set(WLC_INCLUDE_DIRS "${wlc_SOURCE_DIR}/include" CACHE STRING "Include directories of wlc" FORCE)
 set(WLC_LIBRARIES wlc ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${DL_LIBRARY} ${MATH_LIBRARY} CACHE STRING "Libraries needed for wlc" FORCE)
 

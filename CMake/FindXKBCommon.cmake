@@ -1,4 +1,4 @@
-# - Try to find XKBCommon
+# - Find XKBCommon
 # Once done, this will define
 #
 #   XKBCOMMON_FOUND - System has XKBCommon
@@ -8,27 +8,12 @@
 
 find_package(PkgConfig)
 pkg_check_modules(PC_XKBCOMMON QUIET xkbcommon)
+find_path(XKBCOMMON_INCLUDE_DIRS NAMES xkbcommon/xkbcommon.h HINTS ${PC_XKBCOMMON_INCLUDE_DIRS})
+find_library(XKBCOMMON_LIBRARIES NAMES xkbcommon HINTS ${PC_XKBCOMMON_LIBRARY_DIRS})
+
 set(XKBCOMMON_DEFINITIONS ${PC_XKBCOMMON_CFLAGS_OTHER})
 
-find_path(XKBCOMMON_INCLUDE_DIR
-    NAMES xkbcommon/xkbcommon.h
-    HINTS ${PC_XKBCOMMON_INCLUDE_DIR} ${PC_XKBCOMMON_INCLUDE_DIRS}
-)
-
-find_library(XKBCOMMON_LIBRARY
-    NAMES xkbcommon
-    HINTS ${PC_XKBCOMMON_LIBRARY} ${PC_XKBCOMMON_LIBRARY_DIRS}
-)
-
-set(XKBCOMMON_LIBRARIES ${XKBCOMMON_LIBRARY})
-set(XKBCOMMON_LIBRARY_DIRS ${XKBCOMMON_LIBRARY_DIRS})
-set(XKBCOMMON_INCLUDE_DIRS ${XKBCOMMON_INCLUDE_DIR})
-
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(XKBCommon DEFAULT_MSG
-    XKBCOMMON_LIBRARY
-    XKBCOMMON_INCLUDE_DIR
-)
-
-mark_as_advanced(XKBCOMMON_LIBRARY XKBCOMMON_INCLUDE_DIR)
+find_package_handle_standard_args(XKBCOMMON DEFAULT_MSG XKBCOMMON_LIBRARIES XKBCOMMON_INCLUDE_DIRS)
+mark_as_advanced(XKBCOMMON_LIBRARIES XKBCOMMON_INCLUDE_DIRS)
 

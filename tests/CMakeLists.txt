@@ -1,6 +1,7 @@
 set(tests
    resources)
 
+add_definitions(${WLC_DEFINITIONS})
 include_directories(${wlc_SOURCE_DIR}/src ${WLC_INCLUDE_DIRS} ${wlc_SOURCE_DIR}/lib/chck/src)
 foreach (test ${tests})
    set_source_files_properties(${test}.c PROPERTIES COMPILE_FLAGS -DWLC_FILE="\\\"${test}.c\\\"")
