@@ -325,6 +325,7 @@ static struct ctx*
 create_context(void)
 {
    const char *vert_shader =
+      "#version 100\n"
       "precision mediump float;\n"
       "uniform vec2 resolution;\n"
       "mat4 ortho = mat4("
@@ -342,12 +343,14 @@ create_context(void)
       "}\n";
 
    const char *frag_shader_dummy =
+      "#version 100\n"
       "precision mediump float;\n"
       "void main() {\n"
       "  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
       "}\n";
 
    const char *frag_shader_cursor =
+      "#version 100\n"
       "precision highp float;\n"
       "uniform sampler2D texture0;\n"
       "varying vec2 v_uv;\n"
@@ -360,6 +363,7 @@ create_context(void)
       "}\n";
 
    const char *frag_shader_bg =
+      "#version 100\n"
       "precision mediump float;\n"
       "uniform float time;\n"
       "uniform vec2 resolution;\n"
@@ -383,6 +387,7 @@ create_context(void)
       "}\n";
 
    const char *frag_shader_rgb =
+      "#version 100\n"
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform float dim;\n"
@@ -392,6 +397,7 @@ create_context(void)
       "}\n";
 
    const char *frag_shader_rgba =
+      "#version 100\n"
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform float dim;\n"
@@ -402,6 +408,7 @@ create_context(void)
       "}\n";
 
    const char *frag_shader_egl =
+      "#version 100\n"
       "#extension GL_OES_EGL_image_external : require\n"
       "precision mediump float;\n"
       "uniform samplerExternalOES texture0;\n"
@@ -423,6 +430,7 @@ create_context(void)
       "  gl_FragColor.a = 1.0;\n"
 
    const char *frag_shader_y_uv =
+      "#version 100\n"
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"
@@ -436,6 +444,7 @@ create_context(void)
       "}\n";
 
    const char *frag_shader_y_u_v =
+      "#version 100\n"
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"
@@ -450,6 +459,7 @@ create_context(void)
       "}\n";
 
    const char *frag_shader_y_xuxv =
+      "#version 100\n"
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"
