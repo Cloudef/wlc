@@ -341,7 +341,12 @@ create_context(void)
       "  v_uv = uv;\n"
       "}\n";
 
-   // TODO: Implement different shaders for different textures
+   const char *frag_shader_dummy =
+      "precision mediump float;\n"
+      "void main() {\n"
+      "  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+      "}\n";
+
    const char *frag_shader_cursor =
       "precision highp float;\n"
       "uniform sampler2D texture0;\n"
@@ -457,6 +462,19 @@ create_context(void)
       FRAGMENT_CONVERT_YUV
       "}\n";
 
+   struct ctx *context;
+   if (!(context = calloc(1, sizeof(struct ctx))))
+      return NULL;
+
+   context->extensions = (const char*)GL_CALL(gl.api.glGetString(GL_EXTENSIONS));
+
+   if (has_extension(context, "GL_OES_EGL_image_external")) {
+      context->api.glEGLImageTargetTexture2DOES = gl.api.glEGLImageTargetTexture2DOES;
+   } else {
+      wlc_log(WLC_LOG_WARN, "gles2: GL_OES_EGL_image_external not available");
+      frag_shader_egl = frag_shader_dummy;
+   }
+
    const struct {
       const char *vert;
       const char *frag;
@@ -470,12 +488,6 @@ create_context(void)
       { vert_shader, frag_shader_cursor }, // PROGRAM_CURSOR
       { vert_shader, frag_shader_bg }, // PROGRAM_BG
    };
-
-   struct ctx *context;
-   if (!(context = calloc(1, sizeof(struct ctx))))
-      return NULL;
-
-   context->extensions = (const char*)GL_CALL(gl.api.glGetString(GL_EXTENSIONS));
 
    for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
       GLuint vert = create_shader(map[i].vert, GL_VERTEX_SHADER);
@@ -509,9 +521,6 @@ create_context(void)
       GL_CALL(gl.api.glUniform1i(context->programs[i].uniforms[UNIFORM_TEXTURE1], 1));
       GL_CALL(gl.api.glUniform1i(context->programs[i].uniforms[UNIFORM_TEXTURE2], 2));
    }
-
-   if (has_extension(context, "GL_OES_EGL_image_external"))
-      context->api.glEGLImageTargetTexture2DOES = gl.api.glEGLImageTargetTexture2DOES;
 
    struct {
       GLenum format;
