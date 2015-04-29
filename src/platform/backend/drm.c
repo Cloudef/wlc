@@ -283,13 +283,13 @@ page_flip(struct wlc_backend_surface *bsurface)
       return false;
 
    if (fb->stride != dsurface->stride) {
-      if (drm.api.drmModeSetCrtc(drm.fd, dsurface->encoder->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[o->active.mode]))
+      if (drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[o->active.mode]))
          goto set_crtc_fail;
 
       dsurface->stride = fb->stride;
    }
 
-   if (drm.api.drmModePageFlip(drm.fd, dsurface->encoder->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, bsurface))
+   if (drm.api.drmModePageFlip(drm.fd, dsurface->crtc->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, bsurface))
       goto failed_to_page_flip;
 
    dsurface->flipping = true;
@@ -365,15 +365,30 @@ add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_ou
 }
 
 static drmModeEncoder*
-find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *connector)
+find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *connector, int32_t *out_crtc_id)
 {
-   for (int i = 0; i < resources->count_encoders; i++) {
-      drmModeEncoder *encoder;
-      if (!(encoder = drm.api.drmModeGetEncoder(fd, resources->encoders[i])))
+   assert(resources && connector && out_crtc_id);
+   drmModeEncoder *encoder = drm.api.drmModeGetEncoder(fd, connector->encoder_id);
+
+   if (encoder) {
+      *out_crtc_id = encoder->crtc_id;
+      return encoder;
+   } else {
+      drm.api.drmModeFreeEncoder(encoder);
+      encoder = NULL;
+   }
+
+   for (int e = 0; e < resources->count_encoders; ++e) {
+      if (!(encoder = drm.api.drmModeGetEncoder(fd, connector->encoder_id)))
          continue;
 
-      if (encoder->encoder_id == connector->encoder_id)
+      for (int c = 0; c < resources->count_crtcs; ++c) {
+         if (!(encoder->possible_crtcs & (1 << c)))
+            continue;
+
+         *out_crtc_id = resources->crtcs[c];
          return encoder;
+      }
 
       drm.api.drmModeFreeEncoder(encoder);
    }
@@ -398,14 +413,15 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
          continue;
       }
 
+      int32_t crtc_id;
       drmModeEncoder *encoder;
-      if (!(encoder = find_encoder_for_connector(fd, resources, connector))) {
+      if (!(encoder = find_encoder_for_connector(fd, resources, connector, &crtc_id))) {
          drm.api.drmModeFreeConnector(connector);
          continue;
       }
 
       drmModeCrtc *crtc;
-      if (!(crtc = drm.api.drmModeGetCrtc(drm.fd, encoder->crtc_id))) {
+      if (!(crtc = drm.api.drmModeGetCrtc(drm.fd, crtc_id))) {
          drm.api.drmModeFreeEncoder(encoder);
          drm.api.drmModeFreeConnector(connector);
          continue;
