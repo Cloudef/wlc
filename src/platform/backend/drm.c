@@ -400,15 +400,20 @@ static bool
 query_drm(int fd, struct chck_iter_pool *out_infos)
 {
    drmModeRes *resources;
-   if (!(resources = drm.api.drmModeGetResources(fd)))
+   if (!(resources = drm.api.drmModeGetResources(fd))) {
+      wlc_log(WLC_LOG_WARN, "Failed to get drm resources");
       goto resources_fail;
+   }
 
    for (int c = 0; c < resources->count_connectors; c++) {
       drmModeConnector *connector;
-      if (!(connector = drm.api.drmModeGetConnector(fd, resources->connectors[c])))
+      if (!(connector = drm.api.drmModeGetConnector(fd, resources->connectors[c]))) {
+         wlc_log(WLC_LOG_WARN, "Failed to get connector %d", c);
          continue;
+      }
 
       if (connector->connection != DRM_MODE_CONNECTED || connector->count_modes <= 0) {
+         wlc_log(WLC_LOG_WARN, "Connector %d is not connected or has no modes", c);
          drm.api.drmModeFreeConnector(connector);
          continue;
       }
@@ -416,12 +421,14 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
       int32_t crtc_id;
       drmModeEncoder *encoder;
       if (!(encoder = find_encoder_for_connector(fd, resources, connector, &crtc_id))) {
+         wlc_log(WLC_LOG_WARN, "Failed to find encoder for connector %d", c);
          drm.api.drmModeFreeConnector(connector);
          continue;
       }
 
       drmModeCrtc *crtc;
       if (!(crtc = drm.api.drmModeGetCrtc(drm.fd, crtc_id))) {
+         wlc_log(WLC_LOG_WARN, "Failed to get crtc for connector %d (with id: %d)", c, crtc_id);
          drm.api.drmModeFreeEncoder(encoder);
          drm.api.drmModeFreeConnector(connector);
          continue;
