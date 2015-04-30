@@ -379,7 +379,7 @@ find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *conn
    }
 
    for (int e = 0; e < resources->count_encoders; ++e) {
-      if (!(encoder = drm.api.drmModeGetEncoder(fd, connector->encoder_id)))
+      if (!(encoder = drm.api.drmModeGetEncoder(fd, resources->encoders[e])))
          continue;
 
       for (int c = 0; c < resources->count_crtcs; ++c) {
