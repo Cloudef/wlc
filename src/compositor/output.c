@@ -67,21 +67,12 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
    if (version >= WL_OUTPUT_SCALE_SINCE_VERSION)
       wl_output_send_scale(resource, output->information.scale);
 
-   output->active.mode = UINT_MAX;
    struct wlc_output_mode *mode;
-   chck_iter_pool_for_each(&output->information.modes, mode) {
+   chck_iter_pool_for_each(&output->information.modes, mode)
       wl_output_send_mode(resource, mode->flags, mode->width, mode->height, mode->refresh);
-
-      if (mode->flags & WL_OUTPUT_MODE_CURRENT || (output->active.mode == UINT_MAX && (mode->flags & WL_OUTPUT_MODE_PREFERRED)))
-         output->active.mode = _I - 1;
-   }
-
-   assert(output->active.mode != UINT_MAX && "output should have at least one current mode!");
 
    if (version >= WL_OUTPUT_DONE_SINCE_VERSION)
       wl_output_send_done(resource);
-
-   return;
 }
 
 static bool
@@ -187,7 +178,7 @@ static bool
 should_render(struct wlc_output *output)
 {
    assert(output);
-   return (wlc_get_active() && !output->state.pending && output->bsurface.display);
+   return (wlc_get_active() && !output->state.pending && output->bsurface.display && output->active.mode != UINT_MAX);
 }
 
 static bool
@@ -510,16 +501,33 @@ fail:
 void
 wlc_output_set_information(struct wlc_output *output, struct wlc_output_information *info)
 {
-   assert(output && info);
+   assert(output);
    wlc_output_information_release(&output->information);
-   memcpy(&output->information, info, sizeof(output->information));
-   memset(info, 0, sizeof(output->information));
 
-   struct wlc_output_mode *mode;
-   if (!(mode = chck_iter_pool_get(&output->information.modes, 0)))
+   if (info) {
+      memcpy(&output->information, info, sizeof(output->information));
+      memset(info, 0, sizeof(output->information));
+   }
+
+   output->active.mode = UINT_MAX;
+
+   if (!info)
       return;
 
-   wlc_output_set_resolution_ptr(output, &(struct wlc_size){ mode->width, mode->height });
+   struct wlc_output_mode *mode;
+   chck_iter_pool_for_each(&output->information.modes, mode) {
+      if (mode->flags & WL_OUTPUT_MODE_CURRENT || (output->active.mode == UINT_MAX && (mode->flags & WL_OUTPUT_MODE_PREFERRED)))
+         output->active.mode = _I - 1;
+   }
+
+   assert(output->active.mode != UINT_MAX && "output should have at least one current mode!");
+
+   {
+      struct wlc_output_mode *mode;
+      except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
+      wlc_log(WLC_LOG_INFO, "Chose mode (%u) %dx%d", output->active.mode, mode->width, mode->height);
+      wlc_output_set_resolution_ptr(output, &(struct wlc_size){ mode->width, mode->height });
+   }
 }
 
 static void
@@ -821,7 +829,7 @@ wlc_output_release(struct wlc_output *output)
    if (output->timer.sleep)
       wl_event_source_remove(output->timer.sleep);
 
-   wlc_output_information_release(&output->information);
+   wlc_output_set_information(output, NULL);
    wlc_output_set_backend_surface(output, NULL);
    chck_iter_pool_release(&output->surfaces);
    chck_iter_pool_release(&output->views);
@@ -855,6 +863,7 @@ wlc_output(struct wlc_output *output)
        !chck_iter_pool(&output->mutable, 4, 0, sizeof(wlc_handle)))
       goto fail;
 
+   output->active.mode = UINT_MAX;
    output->state.ims = 41;
    const char *bg = getenv("WLC_BG");
    output->options.enable_bg = (chck_cstreq(bg, "0") ? false : true);
