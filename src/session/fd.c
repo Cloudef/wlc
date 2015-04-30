@@ -456,7 +456,7 @@ wlc_fd_close(int fd)
 #ifdef HAS_LOGIND
    if (wlc.has_logind) {
       wlc_logind_close(fd);
-      return;
+      goto close;
    }
 #endif
 
@@ -469,6 +469,8 @@ wlc_fd_close(int fd)
       request.fd_close.st_ino = st.st_ino;
       write_or_die(wlc.socket, -1, &request, sizeof(request));
    }
+
+close:
    close(fd);
 }
 

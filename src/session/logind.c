@@ -258,7 +258,6 @@ wlc_logind_close(int fd)
       return;
 
    release_device(major(st.st_rdev), minor(st.st_rdev));
-   close(fd);
 }
 
 static void
