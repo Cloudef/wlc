@@ -190,6 +190,8 @@ take_device(uint32_t major, uint32_t minor, bool *out_paused)
    if (out_paused)
       *out_paused = paused;
 
+   dbus.dbus_message_unref(reply);
+   dbus.dbus_message_unref(m);
    return fd;
 
 error1:
