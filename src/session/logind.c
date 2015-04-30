@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <systemd/sd-login.h>
 #include <chck/string/string.h>
@@ -190,10 +191,16 @@ take_device(uint32_t major, uint32_t minor, bool *out_paused)
    if (out_paused)
       *out_paused = paused;
 
+   int fl;
+   if ((fl = fcntl(fd, F_GETFL)) < 0 || fcntl(fd, F_SETFD, fl | FD_CLOEXEC) < 0)
+      goto error2;
+
    dbus.dbus_message_unref(reply);
    dbus.dbus_message_unref(m);
    return fd;
 
+error2:
+   close(fd);
 error1:
    dbus.dbus_message_unref(reply);
 error0:
