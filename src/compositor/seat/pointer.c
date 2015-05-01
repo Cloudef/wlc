@@ -231,6 +231,8 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
 
       d.x = (pointer->pos.x - v.origin.x) * (float)s->size.w / v.size.w;
       d.y = (pointer->pos.y - v.origin.y) * (float)s->size.h / v.size.h;
+      d.x = chck_clamp(d.x, 0, s->size.w);
+      d.y = chck_clamp(d.y, 0, s->size.h);
 
       if (out_pos)
          memcpy(out_pos, &d, sizeof(d));
