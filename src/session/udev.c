@@ -312,8 +312,10 @@ activate_event(struct wl_listener *listener, void *data)
    struct wlc_activate_event *ev = data;
    if (input.handle) {
       if (!ev->active) {
+         wlc_log(WLC_LOG_INFO, "libinput: suspend");
          libinput_suspend(input.handle);
       } else {
+         wlc_log(WLC_LOG_INFO, "libinput: resume");
          libinput_resume(input.handle);
       }
    }
