@@ -45,11 +45,11 @@ find_vt(const char *vt_string)
 
    int tty0_fd;
    if ((tty0_fd = open("/dev/tty0", O_RDWR | O_CLOEXEC)) < 0)
-      die("Could not open /dev/tty0 to find unused VT");
+      die("Could not open /dev/tty0 to find free vt");
 
    int vt;
    if (ioctl(tty0_fd, VT_OPENQRY, &vt) != 0)
-      die("Could not find unused VT");
+      die("Could not find free vt");
 
    close(tty0_fd);
    return vt;
@@ -61,7 +61,7 @@ open_tty(int vt)
    char tty_name[64];
    snprintf(tty_name, sizeof tty_name, "/dev/tty%d", vt);
 
-   /* check if we are running on the desired VT */
+   /* check if we are running on the desired vt */
    if (ttyname(STDIN_FILENO) && chck_cstreq(tty_name, ttyname(STDIN_FILENO)))
       return STDIN_FILENO;
 
@@ -69,7 +69,7 @@ open_tty(int vt)
    if ((fd = open(tty_name, O_RDWR | O_NOCTTY | O_CLOEXEC)) < 0)
       die("Could not open %s", tty_name);
 
-   wlc_log(WLC_LOG_INFO, "Running on VT %d", vt);
+   wlc_log(WLC_LOG_INFO, "Running on vt %d", vt);
    return fd;
 }
 
@@ -81,12 +81,12 @@ setup_tty(int fd)
 
    struct stat st;
    if (fstat(fd, &st) == -1)
-      die("Could not stat TTY fd");
+      die("Could not stat tty fd");
 
    wlc.vt = minor(st.st_rdev);
 
    if (major(st.st_rdev) != TTY_MAJOR || wlc.vt == 0)
-      die("Not a valid VT");
+      die("Not a valid vt");
 
    int kd_mode;
    if (ioctl(fd, KDGETMODE, &kd_mode) == -1)
@@ -182,7 +182,7 @@ wlc_tty_activate_vt(int vt)
    if (wlc.tty < 0 || vt == wlc.vt)
       return false;
 
-   wlc_log(WLC_LOG_INFO, "Activate VT: %d", vt);
+   wlc_log(WLC_LOG_INFO, "Activate vt: %d", vt);
    return (ioctl(wlc.tty, VT_ACTIVATE, vt) != -1);
 }
 
@@ -220,7 +220,7 @@ wlc_tty_init(int vt)
       die("Could not find vt");
 
    if (!setup_tty(open_tty(vt)))
-      die("Could not open TTY");
+      die("Could not open tty with vt%d", vt);
 
    struct sigaction action;
    memset(&action, 0, sizeof(action));
