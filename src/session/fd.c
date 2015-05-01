@@ -406,7 +406,7 @@ write_or_die(int sock, int fd, const void *buffer, ssize_t size)
 {
    ssize_t wrt;
    if ((wrt = write_fd(sock, fd, buffer, size)) != size)
-      die("Failed to write %zu bytes to socket (wrote %zu)", size, wrt);
+      die("Failed to write %zi bytes to socket (wrote %zi)", size, wrt);
 }
 
 static bool
