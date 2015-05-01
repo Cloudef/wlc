@@ -17,15 +17,14 @@ focused_client(struct wlc_pointer *pointer)
 {
    assert(pointer);
 
-   struct wlc_view *view;
-   if (!(view = convert_from_wlc_handle(pointer->focused.view, "view")))
-      return NULL;
+   wlc_resource *r;
+   struct wl_resource *wr;
+   chck_iter_pool_for_each(&pointer->focused.resources, r) {
+      if ((wr = wl_resource_from_wlc_resource(*r, "pointer")))
+         break;
+   }
 
-   struct wl_resource *surface;
-   if (!(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
-      return NULL;
-
-   return wl_resource_get_client(surface);
+   return (wr ? wl_resource_get_client(wr) : NULL);
 }
 
 static void
