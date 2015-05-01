@@ -62,14 +62,16 @@ open_tty(int vt)
    snprintf(tty_name, sizeof tty_name, "/dev/tty%d", vt);
 
    /* check if we are running on the desired vt */
-   if (ttyname(STDIN_FILENO) && chck_cstreq(tty_name, ttyname(STDIN_FILENO)))
+   if (ttyname(STDIN_FILENO) && chck_cstreq(tty_name, ttyname(STDIN_FILENO))) {
+      wlc_log(WLC_LOG_INFO, "Running on vt %d (fd %d)", vt, STDIN_FILENO);
       return STDIN_FILENO;
+   }
 
    int fd;
    if ((fd = open(tty_name, O_RDWR | O_NOCTTY | O_CLOEXEC)) < 0)
       die("Could not open %s", tty_name);
 
-   wlc_log(WLC_LOG_INFO, "Running on vt %d", vt);
+   wlc_log(WLC_LOG_INFO, "Running on vt %d (fd %d)", vt, fd);
    return fd;
 }
 
