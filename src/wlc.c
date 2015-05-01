@@ -281,7 +281,12 @@ wlc_cleanup(void)
    if (wlc.display)
       wl_display_destroy(wlc.display);
 
+   // reset te struct, but keep the wlc log state
+   FILE *f = wlc.log_file;
+   int cached_tm_mday = wlc.cached_tm_mday;
    memset(&wlc, 0, sizeof(wlc));
+   wlc_set_log_file(f);
+   wlc.cached_tm_mday = cached_tm_mday;
 }
 
 WLC_API void
