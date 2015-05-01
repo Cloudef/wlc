@@ -19,8 +19,8 @@ xdg_cb_surface_set_parent(struct wl_client *client, struct wl_resource *resource
    if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")))
       return;
 
-   struct wlc_surface *surface = convert_from_wl_resource(parent_resource, "surface");
-   wlc_view_set_parent_ptr(view, (surface ? convert_from_wlc_handle(surface->view, "view") : NULL));
+   struct wlc_view *parent = (parent_resource ? convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(parent_resource), "view") : NULL);
+   wlc_view_set_parent_ptr(view, parent);
 }
 
 static void
