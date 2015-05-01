@@ -15,11 +15,14 @@
 #  include <linux/vt.h>
 #endif
 
+#ifndef KDSKBMUTE
+#  define KDSKBMUTE 0x4B51
+#endif
+
 static struct {
    struct {
-      long kb_mode, console_mode;
+      long kb_mode;
       int vt;
-      bool altered;
    } old_state;
    int tty, vt;
 } wlc = {
@@ -68,11 +71,11 @@ open_tty(int vt)
    return fd;
 }
 
-static int
+static bool
 setup_tty(int fd)
 {
    if (fd < 0)
-      return fd;
+      return false;
 
    struct stat st;
    if (fstat(fd, &st) == -1)
@@ -83,23 +86,41 @@ setup_tty(int fd)
    if (major(st.st_rdev) != TTY_MAJOR || wlc.vt == 0)
       die("Not a valid VT");
 
+   int kd_mode;
+   if (ioctl(fd, KDGETMODE, &kd_mode) == -1)
+      die("Could not get vt%d mode", wlc.vt);
+
+   if (kd_mode != KD_TEXT)
+      die("vt%d is already in graphics mode. Is another display server running?", wlc.vt);
+
    struct vt_stat state;
    if (ioctl(fd, VT_GETSTATE, &state) == -1)
-      die("Could not get the current VT state");
+      die("Could not get current vt");
 
    wlc.old_state.vt = state.v_active;
+
+   if (ioctl(fd, VT_ACTIVATE, wlc.vt) == -1)
+      die("Could not activate vt%d", wlc.vt);
+
+   if (ioctl(fd, VT_WAITACTIVE, wlc.vt) == -1)
+      die("Could not wait for vt%d to become active", wlc.vt);
 
    if (ioctl(fd, KDGKBMODE, &wlc.old_state.kb_mode))
       die("Could not get keyboard mode");
 
-   if (ioctl(fd, KDGETMODE, &wlc.old_state.console_mode))
-      die("Could not get console mode");
+   // vt will be restored from now on
+   wlc.tty = fd;
 
-   if (ioctl(fd, KDSKBMODE, K_OFF) == -1)
+   if (ioctl(fd, KDSKBMUTE, 1) == -1 &&
+       ioctl(fd, KDSKBMODE, K_OFF) == -1) {
+      wlc_tty_terminate();
       die("Could not set keyboard mode to K_OFF");
+   }
 
-   if (ioctl(fd, KDSETMODE, KD_GRAPHICS) == -1)
+   if (ioctl(fd, KDSETMODE, KD_GRAPHICS) == -1) {
+      wlc_tty_terminate();
       die("Could not set console mode to KD_GRAPHICS");
+   }
 
    struct vt_mode mode = {
       .mode = VT_PROCESS,
@@ -107,17 +128,12 @@ setup_tty(int fd)
       .acqsig = SIGUSR2
    };
 
-   if (ioctl(fd, VT_SETMODE, &mode) == -1)
-      die("Could not set VT mode");
+   if (ioctl(fd, VT_SETMODE, &mode) == -1) {
+      wlc_tty_terminate();
+      die("Could not set vt%d mode", wlc.vt);
+   }
 
-   if (ioctl(fd, VT_ACTIVATE, wlc.vt) == -1)
-      die("Could not activate VT");
-
-   if (ioctl(fd, VT_WAITACTIVE, wlc.vt) == -1)
-      die("Could not wait for VT to become active");
-
-   wlc.old_state.altered = true;
-   return fd;
+   return true;
 }
 
 static void
@@ -179,9 +195,10 @@ void
 wlc_tty_terminate(void)
 {
    if (wlc.tty >= 0) {
-      wlc_log(WLC_LOG_INFO, "Restoring tty %d (0x%lx, 0x%lx)", wlc.tty, wlc.old_state.console_mode, wlc.old_state.kb_mode);
-      ioctl(wlc.tty, KDSETMODE, wlc.old_state.console_mode);
+      wlc_log(WLC_LOG_INFO, "Restoring tty %d (0x%lx)", wlc.tty, wlc.old_state.kb_mode);
+      ioctl(wlc.tty, KDSKBMUTE, 0);
       ioctl(wlc.tty, KDSKBMODE, wlc.old_state.kb_mode);
+      ioctl(wlc.tty, KDSETMODE, KD_TEXT);
       struct vt_mode mode = { .mode = VT_AUTO };
       ioctl(wlc.tty, VT_SETMODE, &mode);
       ioctl(wlc.tty, VT_ACTIVATE, wlc.old_state.vt);
@@ -201,7 +218,7 @@ wlc_tty_init(int vt)
    if (!vt && !(vt = find_vt(getenv("XDG_VTNR"))))
       die("Could not find vt");
 
-   if ((wlc.tty = setup_tty(open_tty(vt))) < 0)
+   if (!setup_tty(open_tty(vt)))
       die("Could not open TTY");
 
    struct sigaction action;
