@@ -201,6 +201,12 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, 
    }
 }
 
+static bool
+should_be_transformed_by_parent(struct wlc_view *view)
+{
+   return !(view->type & WLC_BIT_OVERRIDE_REDIRECT) && !(view->type & WLC_BIT_UNMANAGED);
+}
+
 void
 wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible)
 {
@@ -211,9 +217,11 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   for (struct wlc_view *parent = convert_from_wlc_handle(view->parent, "view"); !(view->type & WLC_BIT_OVERRIDE_REDIRECT) && parent; parent = convert_from_wlc_handle(parent->parent, "view")) {
-      out_bounds->origin.x += parent->commit.geometry.origin.x;
-      out_bounds->origin.y += parent->commit.geometry.origin.y;
+   if (should_be_transformed_by_parent(view)) {
+      for (struct wlc_view *parent = convert_from_wlc_handle(view->parent, "view"); parent; parent = convert_from_wlc_handle(parent->parent, "view")) {
+         out_bounds->origin.x += parent->commit.geometry.origin.x;
+         out_bounds->origin.y += parent->commit.geometry.origin.y;
+      }
    }
 
    if (view->xdg_surface && view->commit.visible.size.w > 0 && view->commit.visible.size.h > 0) {
