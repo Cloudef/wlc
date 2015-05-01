@@ -231,9 +231,10 @@ wlc_tty_init(int vt)
    if (!setup_tty(open_tty(vt), replace_vt))
       die("Could not open tty with vt%d", vt);
 
-   struct sigaction action;
-   memset(&action, 0, sizeof(action));
-   action.sa_handler = sigusr_handler;
+   struct sigaction action = {
+      .sa_handler = sigusr_handler
+   };
+
    sigaction(SIGUSR1, &action, NULL);
    sigaction(SIGUSR2, &action, NULL);
 }
