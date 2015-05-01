@@ -111,7 +111,7 @@ setup_tty(int fd, bool replace_vt)
    if (ioctl(fd, VT_WAITACTIVE, wlc.vt) == -1)
       die("Could not wait for vt%d to become active", wlc.vt);
 
-   if (ioctl(fd, KDGKBMODE, &wlc.old_state.kb_mode))
+   if (ioctl(fd, KDGKBMODE, &wlc.old_state.kb_mode) == -1)
       die("Could not get keyboard mode");
 
    // vt will be restored from now on
