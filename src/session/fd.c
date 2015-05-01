@@ -538,7 +538,11 @@ void
 wlc_fd_terminate(void)
 {
    if (wlc.child >= 0) {
-      kill(wlc.child, SIGTERM);
+      if (wlc.has_logind) {
+         // XXX: We need fd passer to cleanup sessionless tty
+         kill(wlc.child, SIGTERM);
+      }
+
       wlc.child = 0;
 
       if (drm.api.handle)
