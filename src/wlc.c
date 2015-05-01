@@ -425,9 +425,9 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
 
 #ifndef NDEBUG
    {
-      struct sigaction action;
-      memset(&action, 0, sizeof(action));
-      action.sa_handler = backtrace;
+      struct sigaction action = {
+         .sa_handler = backtrace
+      };
       sigaction(SIGABRT, &action, NULL);
       sigaction(SIGSEGV, &action, NULL);
 
