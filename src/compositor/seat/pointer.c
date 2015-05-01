@@ -131,7 +131,7 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
       } else {
          wlc_render_surface_paint(&output->render, &output->context, surface, &(struct wlc_origin){ pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y });
       }
-   } else if (!focused) {
+   } else if (!focused || focused->x11.id) { // focused->x11.id workarounds bug <https://github.com/Cloudef/wlc/issues/21>
       // Show default cursor when no focus and no surface.
       wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_origin){ pointer->pos.x, pointer->pos.y });
    }
