@@ -433,8 +433,11 @@ check_socket(int sock)
 static void
 signal_handler(int signal)
 {
-   if (signal == SIGTERM)
+   if (wlc.has_logind && (signal == SIGTERM || signal == SIGINT))
       _exit(EXIT_SUCCESS);
+
+   // For non-logind no-op all catched signals
+   // we might need to restore tty
 }
 
 int
@@ -574,6 +577,7 @@ wlc_fd_init(int argc, char *argv[], bool has_logind)
 
       sigaction(SIGUSR1, &action, NULL);
       sigaction(SIGUSR2, &action, NULL);
+      sigaction(SIGINT, &action, NULL);
       sigaction(SIGTERM, &action, NULL);
 
       for (int i = 0; i < argc; ++i)
