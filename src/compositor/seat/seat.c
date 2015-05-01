@@ -252,6 +252,8 @@ surface_event(struct wl_listener *listener, void *data)
             wlc_keyboard_focus(&seat->keyboard, NULL);
          if (ev->surface->view == seat->pointer.focused.view)
             wlc_pointer_focus(&seat->pointer, NULL, NULL);
+         if (seat->pointer.surface == convert_to_wlc_resource(ev->surface))
+            wlc_pointer_set_surface(&seat->pointer, NULL, &wlc_origin_zero);
       break;
 
       default:break;
