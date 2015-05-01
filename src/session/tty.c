@@ -201,17 +201,29 @@ wlc_tty_terminate(void)
 {
    if (wlc.tty >= 0) {
       wlc_log(WLC_LOG_INFO, "Restoring vt %d (0x%lx) (fd %d)", wlc.vt, wlc.old_state.kb_mode, wlc.tty);
+
       // The ACTIVATE / WAITACTIVE may be potentially bad here.
       // However, we need to make sure the vt we initially opened is also active on cleanup.
       // We can't make sure this is synchronized due to unclean exits.
-      ioctl(wlc.tty, VT_ACTIVATE, wlc.vt);
-      ioctl(wlc.tty, VT_WAITACTIVE, wlc.vt);
-      ioctl(wlc.tty, KDSKBMUTE, 0);
-      ioctl(wlc.tty, KDSKBMODE, wlc.old_state.kb_mode);
-      ioctl(wlc.tty, KDSETMODE, KD_TEXT);
-      struct vt_mode mode = { .mode = VT_AUTO };
-      ioctl(wlc.tty, VT_SETMODE, &mode);
-      ioctl(wlc.tty, VT_ACTIVATE, wlc.old_state.vt);
+      if (ioctl(wlc.tty, VT_ACTIVATE, wlc.vt) != -1 && ioctl(wlc.tty, VT_WAITACTIVE, wlc.vt) != -1) {
+         if (ioctl(wlc.tty, KDSKBMUTE, 0) == -1 &&
+             ioctl(wlc.tty, KDSKBMODE, wlc.old_state.kb_mode) == -1 &&
+             ioctl(wlc.tty, KDSKBMODE, K_UNICODE) == -1)
+            wlc_log(WLC_LOG_ERROR, "Failed to restore vt%d KDSKMODE", wlc.vt);
+
+         if (ioctl(wlc.tty, KDSETMODE, KD_TEXT) == -1)
+            wlc_log(WLC_LOG_ERROR, "Failed to restore vt%d mode to VT_AUTO", wlc.vt);
+
+         struct vt_mode mode = { .mode = VT_AUTO };
+         if (ioctl(wlc.tty, VT_SETMODE, &mode) == -1)
+            wlc_log(WLC_LOG_ERROR, "Failed to restore vt%d mode to VT_AUTO", wlc.vt);
+      } else {
+         wlc_log(WLC_LOG_ERROR, "Failed to activate vt%d for restoration", wlc.vt);
+      }
+
+      if (ioctl(wlc.tty, VT_ACTIVATE, wlc.old_state.vt) == -1)
+         wlc_log(WLC_LOG_ERROR, "Failed to switch back to vt%d", wlc.old_state.vt);
+
       close(wlc.tty);
    }
 
