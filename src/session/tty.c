@@ -74,7 +74,7 @@ open_tty(int vt)
 }
 
 static bool
-setup_tty(int fd)
+setup_tty(int fd, bool replace_vt)
 {
    if (fd < 0)
       return false;
@@ -88,12 +88,14 @@ setup_tty(int fd)
    if (major(st.st_rdev) != TTY_MAJOR || wlc.vt == 0)
       die("Not a valid vt");
 
-   int kd_mode;
-   if (ioctl(fd, KDGETMODE, &kd_mode) == -1)
-      die("Could not get vt%d mode", wlc.vt);
+   if (!replace_vt) {
+      int kd_mode;
+      if (ioctl(fd, KDGETMODE, &kd_mode) == -1)
+         die("Could not get vt%d mode", wlc.vt);
 
-   if (kd_mode != KD_TEXT)
-      die("vt%d is already in graphics mode. Is another display server running?", wlc.vt);
+      if (kd_mode != KD_TEXT)
+         die("vt%d is already in graphics mode (%d). Is another display server running?", wlc.vt, kd_mode);
+   }
 
    struct vt_stat state;
    if (ioctl(fd, VT_GETSTATE, &state) == -1)
@@ -221,10 +223,12 @@ wlc_tty_init(int vt)
    if (wlc.tty >= 0)
       return;
 
+   const bool replace_vt = (vt > 0);
+
    if (!vt && !(vt = find_vt(getenv("XDG_VTNR"))))
       die("Could not find vt");
 
-   if (!setup_tty(open_tty(vt)))
+   if (!setup_tty(open_tty(vt), replace_vt))
       die("Could not open tty with vt%d", vt);
 
    struct sigaction action;
