@@ -18,7 +18,7 @@ focused_client(struct wlc_pointer *pointer)
    assert(pointer);
 
    wlc_resource *r;
-   struct wl_resource *wr;
+   struct wl_resource *wr = NULL;
    chck_iter_pool_for_each(&pointer->focused.resources, r) {
       if ((wr = wl_resource_from_wlc_resource(*r, "pointer")))
          break;
