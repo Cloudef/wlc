@@ -213,8 +213,8 @@ wl_cb_surface_set_buffer_scale(struct wl_client *client, struct wl_resource *res
    if (!(surface = convert_from_wl_resource(resource, "surface")))
       return;
 
-   if (scale < 1) {
-      wl_resource_post_error(resource, WL_SURFACE_ERROR_INVALID_SCALE, "scale must be >= 1 (scale: %d)", scale);
+   if (scale < 0) {
+      wl_resource_post_error(resource, WL_SURFACE_ERROR_INVALID_SCALE, "scale must be >= 0 (scale: %d)", scale);
       return;
    }
 
