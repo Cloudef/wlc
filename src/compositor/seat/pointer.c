@@ -179,9 +179,7 @@ defocus(struct wlc_pointer *pointer)
 out:
    chck_iter_pool_flush(&pointer->focused.resources);
    pointer->focused.view = 0;
-
-   if (!view_under_pointer(pointer, active_output(pointer)))
-      wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
+   wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
 }
 
 static void
