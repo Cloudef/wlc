@@ -499,14 +499,13 @@ wlc_fd_deactivate(void)
 void
 wlc_fd_terminate(void)
 {
-   if (wlc.child <= 0)
-      return;
+   if (wlc.child >= 0) {
+      kill(wlc.child, SIGTERM);
+      wlc.child = 0;
 
-   kill(wlc.child, SIGTERM);
-   wlc.child = 0;
-
-   if (drm.api.handle)
-      dlclose(drm.api.handle);
+      if (drm.api.handle)
+         dlclose(drm.api.handle);
+   }
 
    memset(&drm, 0, sizeof(drm));
    memset(&wlc, 0, sizeof(wlc));
