@@ -262,9 +262,9 @@ static struct wl_listener compositor_listener = {
 void
 wlc_cleanup(void)
 {
-   wlc_log(WLC_LOG_INFO, "Cleanup wlc");
-
    if (wlc.display) {
+      wlc_log(WLC_LOG_INFO, "Cleanup wlc");
+
       // fd process never allocates display
       wlc_compositor_release(&wlc.compositor);
       wl_list_remove(&compositor_listener.link);
