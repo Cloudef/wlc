@@ -35,10 +35,12 @@ static int
 find_vt(const char *vt_string)
 {
    if (vt_string) {
-      char *end;
-      int vt = strtoul(vt_string, &end, 10);
-      if (*end == '\0')
+      int vt;
+      if (chck_cstr_to_i32(vt_string, &vt)) {
          return vt;
+      } else {
+         wlc_log(WLC_LOG_WARN, "Invalid vt '%s', trying to find free vt", vt_string);
+      }
    }
 
    int tty0_fd;
