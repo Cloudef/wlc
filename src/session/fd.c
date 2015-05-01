@@ -14,6 +14,7 @@
 #include "internal.h"
 #include "macros.h"
 #include "fd.h"
+#include "tty.h"
 #include "logind.h"
 
 #ifndef EVIOCREVOKE
@@ -41,12 +42,17 @@ struct msg_request_fd_close {
    ino_t st_ino;
 };
 
+struct msg_request_activate_vt {
+   int vt;
+};
+
 enum msg_type {
    TYPE_CHECK,
    TYPE_FD_OPEN,
    TYPE_FD_CLOSE,
    TYPE_ACTIVATE,
-   TYPE_DEACTIVATE
+   TYPE_DEACTIVATE,
+   TYPE_ACTIVATE_VT,
 };
 
 struct msg_request {
@@ -54,6 +60,7 @@ struct msg_request {
    union {
       struct msg_request_fd_open fd_open;
       struct msg_request_fd_close fd_close;
+      struct msg_request_activate_vt vt_activate;
    };
 };
 
@@ -273,7 +280,8 @@ activate(void)
             break;
       }
    }
-   return true;
+
+   return wlc_tty_activate();
 }
 
 static bool
@@ -310,7 +318,7 @@ deactivate(void)
       }
    }
 
-   return true;
+   return wlc_tty_deactivate();
 }
 
 static void
@@ -340,6 +348,9 @@ handle_request(int sock, int fd, const struct msg_request *request)
          response.deactivate = deactivate();
          write_fd(sock, fd, &response, sizeof(response));
          break;
+      case TYPE_ACTIVATE_VT:
+         response.activate = wlc_tty_activate_vt(request->vt_activate.vt);
+         write_fd(sock, fd, &response, sizeof(response));
    }
 }
 
@@ -477,6 +488,11 @@ close:
 bool
 wlc_fd_activate(void)
 {
+#ifdef HAS_LOGIND
+   if (wlc.has_logind)
+      return wlc_tty_activate();
+#endif
+
    struct msg_response response;
    struct msg_request request;
    memset(&request, 0, sizeof(request));
@@ -488,12 +504,34 @@ wlc_fd_activate(void)
 bool
 wlc_fd_deactivate(void)
 {
+#ifdef HAS_LOGIND
+   if (wlc.has_logind)
+      return wlc_tty_deactivate();
+#endif
+
    struct msg_response response;
    struct msg_request request;
    memset(&request, 0, sizeof(request));
    request.type = TYPE_DEACTIVATE;
    write_or_die(wlc.socket, -1, &request, sizeof(request));
    return read_response(wlc.socket, NULL, &response, TYPE_DEACTIVATE) && response.deactivate;
+}
+
+bool
+wlc_fd_activate_vt(int vt)
+{
+#ifdef HAS_LOGIND
+   if (wlc.has_logind)
+      return wlc_tty_activate_vt(vt);
+#endif
+
+   struct msg_response response;
+   struct msg_request request;
+   memset(&request, 0, sizeof(request));
+   request.type = TYPE_ACTIVATE_VT;
+   request.vt_activate.vt = vt;
+   write_or_die(wlc.socket, -1, &request, sizeof(request));
+   return read_response(wlc.socket, NULL, &response, TYPE_ACTIVATE_VT) && response.activate;
 }
 
 void

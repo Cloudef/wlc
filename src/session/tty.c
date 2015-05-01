@@ -7,7 +7,6 @@
 #include <chck/string/string.h>
 #include "internal.h"
 #include "tty.h"
-#include "fd.h"
 
 #if defined(__linux__)
 #  include <linux/kd.h>
@@ -18,6 +17,10 @@
 #ifndef KDSKBMUTE
 #  define KDSKBMUTE 0x4B51
 #endif
+
+/**
+ * XXX: Use pam for session control, when no logind?
+ */
 
 static struct {
    struct {
@@ -156,30 +159,26 @@ sigusr_handler(int signal)
    }
 }
 
-void
+// Do not call this function directly!
+// Use wlc_fd_activate instead.
+bool
 wlc_tty_activate(void)
 {
-   if (!wlc_fd_activate()) {
-      die("Failed to activate tty");
-      return;
-   }
-
    wlc_log(WLC_LOG_INFO, "Activating tty");
-   ioctl(wlc.tty, VT_RELDISP, VT_ACKACQ);
+   return (ioctl(wlc.tty, VT_RELDISP, VT_ACKACQ) != -1);
 }
 
-void
+// Do not call this function directly!
+// Use wlc_fd_deactivate instead.
+bool
 wlc_tty_deactivate(void)
 {
-   if (!wlc_fd_deactivate()) {
-      die("Failed to release tty");
-      return;
-   }
-
    wlc_log(WLC_LOG_INFO, "Releasing tty");
-   ioctl(wlc.tty, VT_RELDISP, 1);
+   return (ioctl(wlc.tty, VT_RELDISP, 1) != -1);
 }
 
+// Do not call this function directly!
+// Use wlc_fd_activate_vt instead.
 bool
 wlc_tty_activate_vt(int vt)
 {

@@ -6,7 +6,7 @@
 #include "compositor.h"
 #include "output.h"
 #include "view.h"
-#include "session/tty.h"
+#include "session/fd.h"
 #include "resources/resources.h"
 #include "resources/types/region.h"
 #include "resources/types/surface.h"
@@ -162,7 +162,7 @@ static void
 cb_idle_vt_switch(void *data)
 {
    struct wlc_compositor *compositor = data;
-   wlc_tty_activate_vt(compositor->state.vt);
+   wlc_fd_activate_vt(compositor->state.vt);
    compositor->state.vt = 0;
    wl_event_source_remove(compositor->state.idle);
    compositor->state.idle = NULL;
@@ -175,7 +175,7 @@ activate_tty(struct wlc_compositor *compositor)
       return;
 
    compositor->state.tty = IDLE;
-   wlc_tty_activate();
+   wlc_fd_activate();
 }
 
 static void
@@ -196,7 +196,7 @@ deactivate_tty(struct wlc_compositor *compositor)
    if (compositor->state.vt != 0) {
       compositor->state.idle = wl_event_loop_add_idle(wlc_event_loop(), cb_idle_vt_switch, compositor);
    } else {
-      wlc_tty_deactivate();
+      wlc_fd_deactivate();
    }
 }
 
