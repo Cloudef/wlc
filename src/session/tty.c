@@ -113,8 +113,7 @@ setup_tty(int fd)
    // vt will be restored from now on
    wlc.tty = fd;
 
-   if (ioctl(fd, KDSKBMUTE, 1) == -1 &&
-       ioctl(fd, KDSKBMODE, K_OFF) == -1) {
+   if (ioctl(fd, KDSKBMUTE, 1) == -1 && ioctl(fd, KDSKBMODE, K_OFF) == -1) {
       wlc_tty_terminate();
       die("Could not set keyboard mode to K_OFF");
    }
