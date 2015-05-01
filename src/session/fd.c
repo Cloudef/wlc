@@ -526,9 +526,10 @@ wlc_fd_init(int argc, char *argv[], bool has_logind)
       if (clearenv() != 0)
          die("Failed to clear environment");
 
-      struct sigaction action;
-      memset(&action, 0, sizeof(action));
-      action.sa_handler = signal_handler;
+      struct sigaction action = {
+         .sa_handler = signal_handler
+      };
+
       sigaction(SIGUSR1, &action, NULL);
       sigaction(SIGUSR2, &action, NULL);
       sigaction(SIGTERM, &action, NULL);
