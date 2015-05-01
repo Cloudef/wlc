@@ -199,12 +199,12 @@ void
 wlc_tty_terminate(void)
 {
    if (wlc.tty >= 0) {
-      wlc_log(WLC_LOG_INFO, "Restoring vt %d (0x%lx) (fd %d)", wlc.vt, wlc.old_state.kb_mode, wlc.tty);
-
       // The ACTIVATE / WAITACTIVE may be potentially bad here.
       // However, we need to make sure the vt we initially opened is also active on cleanup.
       // We can't make sure this is synchronized due to unclean exits.
       if (ioctl(wlc.tty, VT_ACTIVATE, wlc.vt) != -1 && ioctl(wlc.tty, VT_WAITACTIVE, wlc.vt) != -1) {
+         wlc_log(WLC_LOG_INFO, "Restoring vt %d (0x%lx) (fd %d)", wlc.vt, wlc.old_state.kb_mode, wlc.tty);
+
          if (ioctl(wlc.tty, KDSKBMUTE, 0) == -1 &&
              ioctl(wlc.tty, KDSKBMODE, wlc.old_state.kb_mode) == -1 &&
              ioctl(wlc.tty, KDSKBMODE, K_UNICODE) == -1)
