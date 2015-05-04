@@ -522,5 +522,5 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    }
 
    wlc_set_active(true);
-   return true;
+   return wlc_compositor_is_good(&wlc.compositor);
 }

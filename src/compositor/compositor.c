@@ -540,6 +540,23 @@ wlc_compositor_terminate(struct wlc_compositor *compositor)
    wl_signal_emit(&wlc_system_signals()->compositor, NULL);
 }
 
+bool
+wlc_compositor_is_good(struct wlc_compositor *compositor)
+{
+   assert(compositor);
+
+   struct wlc_output *o;
+   chck_pool_for_each(&compositor->outputs.pool, o) {
+      if (o->context.context)
+         return true;
+   }
+
+   // There were no outputs or all outputs failed context creation
+   // wlc.c does this check and will return false in init
+   // XXX: Skip this check when we request headless mode
+   return false;
+}
+
 void
 wlc_compositor_release(struct wlc_compositor *compositor)
 {

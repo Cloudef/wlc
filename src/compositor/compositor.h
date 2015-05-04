@@ -57,6 +57,7 @@ struct wlc_compositor {
    } state;
 };
 
+bool wlc_compositor_is_good(struct wlc_compositor *compositor);
 struct wlc_view* wlc_compositor_view_for_surface(struct wlc_compositor *compositor, struct wlc_surface *surface);
 void wlc_compositor_terminate(struct wlc_compositor *compositor);
 void wlc_compositor_release(struct wlc_compositor *compositor);
