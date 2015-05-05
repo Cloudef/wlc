@@ -87,6 +87,8 @@ view_visible(struct wlc_view *view, struct wlc_surface *surface, uint32_t mask)
 static bool
 is_visible(struct wlc_output *output)
 {
+   // FIXME: Use pixman_region32 for this
+
    assert(output);
    struct wlc_geometry g = { { INT_MAX, INT_MAX }, { 0, 0 } }, root = { { 0, 0 }, output->resolution };
 
