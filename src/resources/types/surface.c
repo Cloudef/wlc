@@ -176,7 +176,7 @@ wl_cb_surface_set_input_region(struct wl_client *client, struct wl_resource *res
 
    struct wlc_region *region;
    if (region_resource && (region = convert_from_wl_resource(region_resource, "region"))) {
-         pixman_region32_copy(&surface->pending.input, &region->region);
+      pixman_region32_copy(&surface->pending.input, &region->region);
    } else {
       pixman_region32_fini(&surface->pending.input);
       pixman_region32_init_rect(&surface->pending.input, INT32_MIN, INT32_MIN, UINT32_MAX, UINT32_MAX);
