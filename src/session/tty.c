@@ -35,11 +35,14 @@ static struct {
 };
 
 static int
-find_vt(const char *vt_string)
+find_vt(const char *vt_string, bool *out_replace_vt)
 {
+   assert(out_replace_vt);
+
    if (vt_string) {
       int vt;
       if (chck_cstr_to_i32(vt_string, &vt)) {
+         *out_replace_vt = true;
          return vt;
       } else {
          wlc_log(WLC_LOG_WARN, "Invalid vt '%s', trying to find free vt", vt_string);
@@ -236,9 +239,11 @@ wlc_tty_init(int vt)
    if (wlc.tty >= 0)
       return;
 
-   const bool replace_vt = (vt > 0);
+   // if vt was forced (logind) or if XDG_VTNR was valid vt (checked by find_vt)
+   // we skip the text mode check for current vt.
+   bool replace_vt = (vt > 0);
 
-   if (!vt && !(vt = find_vt(getenv("XDG_VTNR"))))
+   if (!vt && !(vt = find_vt(getenv("XDG_VTNR"), &replace_vt)))
       die("Could not find vt");
 
    if (!setup_tty(open_tty(vt), replace_vt))
