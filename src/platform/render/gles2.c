@@ -476,6 +476,12 @@ create_context(void)
    if (!(context = calloc(1, sizeof(struct ctx))))
       return NULL;
 
+   const char *str;
+   str = (const char*)GL_CALL(gl.api.glGetString(GL_VERSION));
+   wlc_log(WLC_LOG_INFO, "GL version: %s", str ? str : "(null)");
+   str = (const char*)GL_CALL(gl.api.glGetString(GL_VENDOR));
+   wlc_log(WLC_LOG_INFO, "GL vendor: %s", str ? str : "(null)");
+
    context->extensions = (const char*)GL_CALL(gl.api.glGetString(GL_EXTENSIONS));
 
    if (has_extension(context, "GL_OES_EGL_image_external")) {
