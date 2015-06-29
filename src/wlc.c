@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <chck/string/string.h>
+#include <chck/thread/queue/queue.h>
 #include "internal.h"
 #include "visibility.h"
 #include "compositor/compositor.h"
@@ -38,6 +39,7 @@ static struct {
    struct wlc_interface interface;
    struct wlc_system_signals signals;
    struct wl_display *display;
+   struct chck_tqueue log_queue;
    FILE *log_file;
    int cached_tm_mday;
    bool active, set_ready_on_run;
@@ -287,10 +289,11 @@ wlc_cleanup(void)
    memset(&wlc, 0, sizeof(wlc));
    wlc_set_log_file(f);
    wlc.cached_tm_mday = cached_tm_mday;
+   chck_tqueue_release(&wlc.log_queue);
 }
 
-WLC_API void
-wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
+static void
+cb_log(const struct chck_string *str)
 {
    FILE *out = wlc_get_log_file();
 
@@ -300,20 +303,35 @@ wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
       wlc_log_timestamp(out);
    }
 
+   fputs(str->data, out);
+   fputs("\n", out);
+   fflush(out);
+}
+
+WLC_API void
+wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
+{
+   struct chck_string log = {0};
+   chck_string_set_varg(&log, fmt, args);
+
    switch (type) {
       case WLC_LOG_WARN:
-         fprintf(out, "(WARN) ");
+         chck_string_set_format(&log, "(WARN) %s", log.data);
          break;
       case WLC_LOG_ERROR:
-         fprintf(out, "(ERROR) ");
+         chck_string_set_format(&log, "(ERROR) %s", log.data);
          break;
 
       default:break;
    }
 
-   vfprintf(out, fmt, args);
-   fprintf(out, "\n");
-   fflush(out);
+   if (!wlc.log_queue.threads.t) {
+      chck_tqueue(&wlc.log_queue, 1, 32, sizeof(struct chck_string), cb_log, NULL, chck_string_release);
+      chck_tqueue_set_keep_alive(&wlc.log_queue, true);
+   }
+
+   if (wlc.log_queue.threads.t)
+      chck_tqueue_add_task(&wlc.log_queue, &log, 100);
 }
 
 WLC_API void
@@ -468,7 +486,6 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
       wlc_fd_init(argc, argv, (vt != 0));
       wlc.display = display;
    }
-
 
    // -- permissions are now dropped
 

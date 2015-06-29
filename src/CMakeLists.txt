@@ -119,6 +119,16 @@ if (DBUS_FOUND AND SYSTEMD_FOUND)
    list(APPEND sources session/logind.c session/dbus.c)
 endif ()
 
+set(CMAKE_THREAD_PREFER_PTHREAD 1)
+find_package(Threads)
+if (THREADS_FOUND)
+   if ("${CMAKE_THREAD_LIBS_INIT}" STREQUAL "")
+      find_library(THREAD_LIB NAMES pthread)
+   else ()
+      set(THREAD_LIB ${CMAKE_THREAD_LIBS_INIT})
+   endif ()
+endif (THREADS_FOUND)
+
 if (WLC_BUILD_STATIC)
    add_library(wlc STATIC ${sources})
 else ()
@@ -137,6 +147,7 @@ target_link_libraries(wlc
    ${LIBINPUT_LIBRARIES}
    ${UDEV_LIBRARIES}
    ${DL_LIBRARY}
+   ${THREAD_LIB}
    )
 
 # Set helpful variables for add_subdirectory build
