@@ -219,7 +219,19 @@ gles2_load(void)
       goto function_pointer_exception;
 
    // Needed for EGL hw surfaces
-   load(glEGLImageTargetTexture2DOES);
+   //load(glEGLImageTargetTexture2DOES);
+
+   const char *libegl = "libEGL.so";
+   void *eglhandle = NULL;
+   if (!(eglhandle = dlopen(libegl, RTLD_LAZY))) {
+      wlc_log(WLC_LOG_WARN, "%s", dlerror());
+      return false;
+   }
+
+   __eglMustCastToProperFunctionPointerType (*eglGetProcAddress)(const char *procname) = NULL;
+   eglGetProcAddress = dlsym(eglhandle, "eglGetProcAddress");
+
+   gl.api.glEGLImageTargetTexture2DOES = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)eglGetProcAddress("glEGLImageTargetTexture2DOES");
 
 #undef load
 

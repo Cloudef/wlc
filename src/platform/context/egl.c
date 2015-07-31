@@ -54,6 +54,7 @@ static struct {
       EGLBoolean (*eglMakeCurrent)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
       EGLBoolean (*eglSwapBuffers)(EGLDisplay, EGLSurface);
       EGLBoolean (*eglSwapInterval)(EGLDisplay, EGLint);
+      __eglMustCastToProperFunctionPointerType (*eglGetProcAddress)(const char *procname);
 
       // Needed for EGL hw surfaces
       PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR;
@@ -109,13 +110,15 @@ egl_load(void)
       goto function_pointer_exception;
    if (!load(eglSwapInterval))
       goto function_pointer_exception;
+   if (!load(eglGetProcAddress))
+      goto function_pointer_exception;
 
    // EGL surfaces won't work without these
-   load(eglCreateImageKHR);
-   load(eglDestroyImageKHR);
-   load(eglBindWaylandDisplayWL);
-   load(eglUnbindWaylandDisplayWL);
-   load(eglQueryWaylandBufferWL);
+   // load(eglCreateImageKHR);
+   // load(eglDestroyImageKHR);
+   // load(eglBindWaylandDisplayWL);
+   // load(eglUnbindWaylandDisplayWL);
+   // load(eglQueryWaylandBufferWL);
 
 #undef load
 
@@ -343,11 +346,11 @@ create_context(struct wlc_backend_surface *bsurface)
    context->extensions = EGL_CALL(egl.api.eglQueryString(context->display, EGL_EXTENSIONS));
 
    if (has_extension(context, "EGL_WL_bind_wayland_display") && has_extension(context, "EGL_KHR_image_base")) {
-      context->api.eglCreateImageKHR = egl.api.eglCreateImageKHR;
-      context->api.eglDestroyImageKHR = egl.api.eglDestroyImageKHR;
-      context->api.eglBindWaylandDisplayWL = egl.api.eglBindWaylandDisplayWL;
-      context->api.eglUnbindWaylandDisplayWL = egl.api.eglUnbindWaylandDisplayWL;
-      context->api.eglQueryWaylandBufferWL = egl.api.eglQueryWaylandBufferWL;
+      context->api.eglCreateImageKHR = (PFNEGLCREATEIMAGEKHRPROC)egl.api.eglGetProcAddress("eglCreateImageKHR");
+      context->api.eglDestroyImageKHR = (PFNEGLDESTROYIMAGEKHRPROC)egl.api.eglGetProcAddress("eglDestroyImageKHR");
+      context->api.eglBindWaylandDisplayWL = (PFNEGLBINDWAYLANDDISPLAYWL)egl.api.eglGetProcAddress("eglBindWaylandDisplayWL");
+      context->api.eglUnbindWaylandDisplayWL = (PFNEGLUNBINDWAYLANDDISPLAYWL)egl.api.eglGetProcAddress("eglUnbindWaylandDisplayWL");
+      context->api.eglQueryWaylandBufferWL = (PFNEGLQUERYWAYLANDBUFFERWL)egl.api.eglGetProcAddress("eglQueryWaylandBufferWL");
    }
 
    if (has_extension(context, "EGL_EXT_swap_buffers_with_damage")) {
@@ -484,4 +487,3 @@ wlc_egl(struct wlc_backend_surface *bsurface, struct wlc_context_api *api)
    api->query_buffer = query_buffer;
    return context;
 }
-
