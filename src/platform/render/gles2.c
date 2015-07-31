@@ -76,7 +76,6 @@ struct ctx {
    GLuint textures[TEXTURE_LAST];
 
    struct {
-      // EGL surfaces
       PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES;
    } api;
 };
@@ -128,8 +127,6 @@ static struct {
       void (*glPixelStorei)(GLenum, GLint);
       void (*glTexImage2D)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const GLvoid*);
       void (*glReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLvoid*);
-
-      PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES;
    } api;
 } gl;
 
@@ -217,9 +214,6 @@ gles2_load(void)
       goto function_pointer_exception;
    if (!(load(glReadPixels)))
       goto function_pointer_exception;
-
-   // Needed for EGL hw surfaces
-   load(glEGLImageTargetTexture2DOES);
 
 #undef load
 
@@ -484,9 +478,7 @@ create_context(void)
 
    context->extensions = (const char*)GL_CALL(gl.api.glGetString(GL_EXTENSIONS));
 
-   if (has_extension(context, "GL_OES_EGL_image_external")) {
-      context->api.glEGLImageTargetTexture2DOES = gl.api.glEGLImageTargetTexture2DOES;
-   } else {
+   if (!has_extension(context, "GL_OES_EGL_image_external")) {
       wlc_log(WLC_LOG_WARN, "gles2: GL_OES_EGL_image_external not available");
       frag_shader_egl = frag_shader_dummy;
    }
@@ -694,6 +686,15 @@ egl_attach(struct ctx *context, struct wlc_context *ectx, struct wlc_surface *su
 {
    assert(context && surface && buffer);
 
+   if (!context->api.glEGLImageTargetTexture2DOES) {
+      if (!has_extension(context, "GL_OES_EGL_image_external") ||
+          !(context->api.glEGLImageTargetTexture2DOES = wlc_context_get_proc_address(ectx, "glEGLImageTargetTexture2DOES"))) {
+         wlc_log(WLC_LOG_WARN, "No GL_OES_EGL_image_external available");
+         return false;
+      }
+      assert(context->api.glEGLImageTargetTexture2DOES);
+   }
+
    buffer->legacy_buffer = convert_to_wl_resource(buffer, "buffer");
    wlc_context_query_buffer(ectx, buffer->legacy_buffer, EGL_WIDTH, (EGLint*)&buffer->size.w);
    wlc_context_query_buffer(ectx, buffer->legacy_buffer, EGL_HEIGHT, (EGLint*)&buffer->size.h);
@@ -769,7 +770,7 @@ surface_attach(struct ctx *context, struct wlc_context *bound, struct wlc_surfac
    struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(wl_buffer);
    if (shm_buffer) {
       attached = shm_attach(surface, buffer, shm_buffer);
-   } else if (context->api.glEGLImageTargetTexture2DOES && wlc_context_query_buffer(bound, (void*)wl_buffer, EGL_TEXTURE_FORMAT, &format)) {
+   } else if (wlc_context_query_buffer(bound, (void*)wl_buffer, EGL_TEXTURE_FORMAT, &format)) {
       attached = egl_attach(context, bound, surface, buffer, format);
    } else {
       /* unknown buffer */
