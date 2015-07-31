@@ -14,6 +14,7 @@ struct wlc_context_api {
    bool (*bind)(struct ctx *context);
    bool (*bind_to_wl_display)(struct ctx *context, struct wl_display *display);
    void (*swap)(struct ctx *context, struct wlc_backend_surface *bsurface);
+   void* (*get_proc_address)(struct ctx *context, const char *procname);
 
    // EGL
    EGLBoolean (*query_buffer)(struct ctx *context, struct wl_resource *buffer, EGLint attribute, EGLint *value);
@@ -26,6 +27,7 @@ struct wlc_context {
    struct wlc_context_api api;
 };
 
+void* wlc_context_get_proc_address(struct wlc_context *context, const char *procname);
 EGLBoolean wlc_context_query_buffer(struct wlc_context *context, struct wl_resource *buffer, EGLint attribute, EGLint *value);
 EGLImageKHR wlc_context_create_image(struct wlc_context *context, EGLenum target, EGLClientBuffer buffer, const EGLint *attrib_list);
 EGLBoolean wlc_context_destroy_image(struct wlc_context *context, EGLImageKHR image);

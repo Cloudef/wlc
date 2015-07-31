@@ -54,6 +54,7 @@ static struct {
       EGLBoolean (*eglMakeCurrent)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
       EGLBoolean (*eglSwapBuffers)(EGLDisplay, EGLSurface);
       EGLBoolean (*eglSwapInterval)(EGLDisplay, EGLint);
+      __eglMustCastToProperFunctionPointerType (*eglGetProcAddress)(const char *procname);
 
       // Needed for EGL hw surfaces
       PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR;
@@ -109,6 +110,12 @@ egl_load(void)
       goto function_pointer_exception;
    if (!load(eglSwapInterval))
       goto function_pointer_exception;
+   if (!load(eglGetProcAddress))
+      goto function_pointer_exception;
+
+#undef load
+
+#define load(x) (egl.api.x = (void*)egl.api.eglGetProcAddress((func = #x)))
 
    // EGL surfaces won't work without these
    load(eglCreateImageKHR);
@@ -425,6 +432,13 @@ swap(struct ctx *context, struct wlc_backend_surface *bsurface)
       context->flip_failed = !bsurface->api.page_flip(bsurface);
 }
 
+static void*
+get_proc_address(struct ctx *context, const char *procname)
+{
+   assert(context && procname);
+   return egl.api.eglGetProcAddress(procname);
+}
+
 static EGLBoolean
 query_buffer(struct ctx *context, struct wl_resource *buffer, EGLint attribute, EGLint *value)
 {
@@ -479,6 +493,7 @@ wlc_egl(struct wlc_backend_surface *bsurface, struct wlc_context_api *api)
    api->bind = bind;
    api->bind_to_wl_display = bind_to_wl_display;
    api->swap = swap;
+   api->get_proc_address = get_proc_address;
    api->destroy_image = destroy_image;
    api->create_image = create_image;
    api->query_buffer = query_buffer;
