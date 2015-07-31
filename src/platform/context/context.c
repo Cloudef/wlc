@@ -5,6 +5,17 @@
 #include "context.h"
 #include "egl.h"
 
+void*
+wlc_context_get_proc_address(struct wlc_context *context, const char *procname)
+{
+   assert(context && procname);
+
+   if (!context->api.get_proc_address)
+      return NULL;
+
+   return context->api.get_proc_address(context->context, procname);
+}
+
 EGLBoolean
 wlc_context_query_buffer(struct wlc_context *context, struct wl_resource *buffer, EGLint attribute, EGLint *value)
 {

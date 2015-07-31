@@ -432,6 +432,13 @@ swap(struct ctx *context, struct wlc_backend_surface *bsurface)
       context->flip_failed = !bsurface->api.page_flip(bsurface);
 }
 
+static void*
+get_proc_address(struct ctx *context, const char *procname)
+{
+   assert(context && procname);
+   return egl.api.eglGetProcAddress(procname);
+}
+
 static EGLBoolean
 query_buffer(struct ctx *context, struct wl_resource *buffer, EGLint attribute, EGLint *value)
 {
@@ -486,6 +493,7 @@ wlc_egl(struct wlc_backend_surface *bsurface, struct wlc_context_api *api)
    api->bind = bind;
    api->bind_to_wl_display = bind_to_wl_display;
    api->swap = swap;
+   api->get_proc_address = get_proc_address;
    api->destroy_image = destroy_image;
    api->create_image = create_image;
    api->query_buffer = query_buffer;
