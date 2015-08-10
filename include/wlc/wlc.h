@@ -129,23 +129,23 @@ struct wlc_interface {
    } view;
 
    struct {
-      /** Key event was triggered, view handle will be zero if there was no focus. */
+      /** Key event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
       bool (*key)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, uint32_t sym, enum wlc_key_state);
    } keyboard;
 
    struct {
-      /** Button event was triggered, view handle will be zero if there was no focus. */
+      /** Button event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
       bool (*button)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state);
 
-      /** Scroll event was triggered, view handle will be zero if there was no focus. */
+      /** Scroll event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
       bool (*scroll)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]);
 
-      /** Motion event was triggered, view handle will be zero if there was no focus. */
+      /** Motion event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
       bool (*motion)(wlc_handle view, uint32_t time, const struct wlc_origin*);
    } pointer;
 
    struct {
-      /** Touch event was triggered, view handle will be zero if there was no focus. */
+      /** Touch event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
       bool (*touch)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, enum wlc_touch_type, int32_t slot, const struct wlc_origin*);
    } touch;
 
