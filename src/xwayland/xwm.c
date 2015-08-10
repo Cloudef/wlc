@@ -553,9 +553,11 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
    memcpy(&view->x11, win, sizeof(view->x11));
    chck_hash_table_set(&xwm->paired, win->id, &handle);
    chck_hash_table_set(&xwm->unpaired, win->id, NULL);
+   win = NULL; // no longer valid
+
    wlc_dlog(WLC_DBG_XWM, "-> Paired collisions (%u)", chck_hash_table_collisions(&xwm->paired));
 
-   wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, win->override_redirect);
+   wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, view->x11.override_redirect);
    read_properties(xwm, &view->x11);
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
