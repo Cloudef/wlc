@@ -117,6 +117,8 @@ if (DBUS_FOUND AND SYSTEMD_FOUND)
    include_directories(${DBUS_INCLUDE_DIRS} ${SYSTEMD_INCLUDE_DIRS})
    list(APPEND definitions -DHAS_LOGIND -DDBUS_DISABLE_DEPRECATED ${DBUS_DEFINITIONS} ${SYSTEMD_DEFINITIONS})
    list(APPEND sources session/logind.c session/dbus.c)
+else ()
+   message("Building without logind support")
 endif ()
 
 if (WLC_BUILD_STATIC)
