@@ -174,6 +174,11 @@ PACKAGING
 
 For now you can look at the `AUR recipe <https://aur.archlinux.org/packages/wlc-git/>`_ for a example.
 
+CONTRIBUTING
+------------
+
+See the `CONTRIBUTING <CONTRIBUTING.rst>`_ for more information.
+
 BINDINGS
 --------
 
