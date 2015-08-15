@@ -500,6 +500,7 @@ x11_event(int fd, uint32_t mask, void *data)
 static void
 fake_information(struct wlc_output_information *info)
 {
+   assert(info);
    wlc_output_information(info);
    chck_string_set_cstr(&info->make, "Xorg", false);
    chck_string_set_cstr(&info->model, "X11 Window", false);
