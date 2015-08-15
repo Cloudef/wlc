@@ -189,6 +189,7 @@ SOFTWARE USING WLC
 
 - `orbment <https://github.com/Cloudef/orbment>`_ - Modular Wayland compositor
 - `ocaml-loliwm <https://github.com/Armael/ocaml-loliwm>`_ - Translation of loliwm to OCaml
+- `sway <https://github.com/SirCmpwn/sway>`_ - i3-compatible window manager for Wayland
 
 SIMILAR SOFTWARE
 ----------------
