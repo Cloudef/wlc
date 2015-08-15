@@ -64,18 +64,18 @@ wlc_touch_touch(struct wlc_touch *touch, uint32_t time, enum wlc_touch_type type
 
       switch (type) {
          case WLC_TOUCH_DOWN:
-            {
-               uint32_t serial = wl_display_next_serial(wlc_display());
-               wl_touch_send_down(wr, serial, time, surface, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
-            }
-            break;
+         {
+            uint32_t serial = wl_display_next_serial(wlc_display());
+            wl_touch_send_down(wr, serial, time, surface, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
+         }
+         break;
 
          case WLC_TOUCH_UP:
-            {
-               uint32_t serial = wl_display_next_serial(wlc_display());
-               wl_touch_send_up(wr, serial, time, slot);
-            }
-            break;
+         {
+            uint32_t serial = wl_display_next_serial(wlc_display());
+            wl_touch_send_up(wr, serial, time, slot);
+         }
+         break;
 
          case WLC_TOUCH_MOTION:
             wl_touch_send_motion(wr, time, slot, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));

@@ -27,8 +27,8 @@ enum wlc_led {
    WLC_LED_LAST
 };
 
-const char* WLC_MOD_NAMES[WLC_MOD_LAST];
-const char* WLC_LED_NAMES[WLC_LED_LAST];
+const char *WLC_MOD_NAMES[WLC_MOD_LAST];
+const char *WLC_LED_NAMES[WLC_LED_LAST];
 
 struct wlc_keymap {
    struct xkb_keymap *keymap;

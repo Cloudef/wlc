@@ -107,5 +107,4 @@ void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const s
 bool wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb);
 const wlc_handle* wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb);
 
-
 #endif /* _WLC_OUTPUT_H_ */

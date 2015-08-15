@@ -6,7 +6,7 @@
 #include <chck/string/string.h>
 #include "keymap.h"
 
-const char* WLC_MOD_NAMES[WLC_MOD_LAST] = {
+const char *WLC_MOD_NAMES[WLC_MOD_LAST] = {
    XKB_MOD_NAME_SHIFT,
    XKB_MOD_NAME_CAPS,
    XKB_MOD_NAME_CTRL,
@@ -17,7 +17,7 @@ const char* WLC_MOD_NAMES[WLC_MOD_LAST] = {
    "Mod5",
 };
 
-const char* WLC_LED_NAMES[WLC_LED_LAST] = {
+const char *WLC_LED_NAMES[WLC_LED_LAST] = {
    XKB_LED_NAME_NUM,
    XKB_LED_NAME_CAPS,
    XKB_LED_NAME_SCROLL

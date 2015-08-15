@@ -86,7 +86,7 @@ wlc_touch_type_for_libinput_type(enum libinput_event_type type)
       case LIBINPUT_EVENT_TOUCH_CANCEL:
          return WLC_TOUCH_CANCEL;
 
-      default:break;
+      default: break;
    }
 
    assert(0 && "should not happen");
@@ -117,104 +117,104 @@ input_event(int fd, uint32_t mask, void *data)
             break;
 
          case LIBINPUT_EVENT_POINTER_MOTION:
-            {
-               struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-               struct wlc_input_event ev;
-               ev.type = WLC_INPUT_EVENT_MOTION;
-               ev.time = libinput_event_pointer_get_time(pev);
-               ev.motion.dx = libinput_event_pointer_get_dx(pev);
-               ev.motion.dy = libinput_event_pointer_get_dy(pev);
-               wl_signal_emit(&wlc_system_signals()->input, &ev);
-            }
-            break;
+         {
+            struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_MOTION;
+            ev.time = libinput_event_pointer_get_time(pev);
+            ev.motion.dx = libinput_event_pointer_get_dx(pev);
+            ev.motion.dy = libinput_event_pointer_get_dy(pev);
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
 
          case LIBINPUT_EVENT_POINTER_MOTION_ABSOLUTE:
-            {
-               struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-               struct wlc_input_event ev;
-               ev.type = WLC_INPUT_EVENT_MOTION_ABSOLUTE;
-               ev.time = libinput_event_pointer_get_time(pev);
-               ev.motion_abs.x = pointer_abs_x;
-               ev.motion_abs.y = pointer_abs_y;
-               ev.motion_abs.internal = pev;
-               wl_signal_emit(&wlc_system_signals()->input, &ev);
-            }
-            break;
+         {
+            struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_MOTION_ABSOLUTE;
+            ev.time = libinput_event_pointer_get_time(pev);
+            ev.motion_abs.x = pointer_abs_x;
+            ev.motion_abs.y = pointer_abs_y;
+            ev.motion_abs.internal = pev;
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
 
          case LIBINPUT_EVENT_POINTER_BUTTON:
-            {
-               struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-               struct wlc_input_event ev;
-               ev.type = WLC_INPUT_EVENT_BUTTON;
-               ev.time = libinput_event_pointer_get_time(pev);
-               ev.button.code  = libinput_event_pointer_get_button(pev);
-               ev.button.state = (enum wl_pointer_button_state)libinput_event_pointer_get_button_state(pev);
-               wl_signal_emit(&wlc_system_signals()->input, &ev);
-            }
-            break;
+         {
+            struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_BUTTON;
+            ev.time = libinput_event_pointer_get_time(pev);
+            ev.button.code = libinput_event_pointer_get_button(pev);
+            ev.button.state = (enum wl_pointer_button_state)libinput_event_pointer_get_button_state(pev);
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
 
          case LIBINPUT_EVENT_POINTER_AXIS:
-            {
-               struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-               struct wlc_input_event ev;
-               memset(&ev.scroll, 0, sizeof(ev));
-               ev.type = WLC_INPUT_EVENT_SCROLL;
-               ev.time = libinput_event_pointer_get_time(pev);
+         {
+            struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
+            struct wlc_input_event ev;
+            memset(&ev.scroll, 0, sizeof(ev));
+            ev.type = WLC_INPUT_EVENT_SCROLL;
+            ev.time = libinput_event_pointer_get_time(pev);
 
 #if LIBINPUT_VERSION_MAJOR == 0 && LIBINPUT_VERSION_MINOR < 8
-               /* < libinput 0.8.x (at least to 0.6.x) */
-               const enum wl_pointer_axis axis = libinput_event_pointer_get_axis(pev);
-               ev.scroll.amount[(axis == LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL)] = libinput_event_pointer_get_axis_value(pev);
-               ev.scroll.axis_bits |= (axis == LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL ? WLC_SCROLL_AXIS_HORIZONTAL : WLC_SCROLL_AXIS_VERTICAL);
+            /* < libinput 0.8.x (at least to 0.6.x) */
+            const enum wl_pointer_axis axis = libinput_event_pointer_get_axis(pev);
+            ev.scroll.amount[(axis == LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL)] = libinput_event_pointer_get_axis_value(pev);
+            ev.scroll.axis_bits |= (axis == LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL ? WLC_SCROLL_AXIS_HORIZONTAL : WLC_SCROLL_AXIS_VERTICAL);
 #else
-               /* > libinput 0.8.0 */
-               if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL)) {
-                  ev.scroll.amount[0] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL);
-                  ev.scroll.axis_bits |= WLC_SCROLL_AXIS_VERTICAL;
-               }
+            /* > libinput 0.8.0 */
+            if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL)) {
+               ev.scroll.amount[0] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL);
+               ev.scroll.axis_bits |= WLC_SCROLL_AXIS_VERTICAL;
+            }
 
-               if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL)) {
-                  ev.scroll.amount[1] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL);
-                  ev.scroll.axis_bits |= WLC_SCROLL_AXIS_HORIZONTAL;
-               }
+            if (libinput_event_pointer_has_axis(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL)) {
+               ev.scroll.amount[1] = libinput_event_pointer_get_axis_value(pev, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL);
+               ev.scroll.axis_bits |= WLC_SCROLL_AXIS_HORIZONTAL;
+            }
 #endif
 
-               // We should get other axis information from libinput as well, like source (finger, wheel) (v0.8)
-               wl_signal_emit(&wlc_system_signals()->input, &ev);
-            }
-            break;
+            // We should get other axis information from libinput as well, like source (finger, wheel) (v0.8)
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
 
          case LIBINPUT_EVENT_KEYBOARD_KEY:
-            {
-               struct libinput_event_keyboard *kev = libinput_event_get_keyboard_event(event);
-               struct wlc_input_event ev;
-               ev.type = WLC_INPUT_EVENT_KEY;
-               ev.time = libinput_event_keyboard_get_time(kev);
-               ev.key.code = libinput_event_keyboard_get_key(kev);
-               ev.key.state = (enum wl_keyboard_key_state)libinput_event_keyboard_get_key_state(kev);
-               wl_signal_emit(&wlc_system_signals()->input, &ev);
-            }
-            break;
+         {
+            struct libinput_event_keyboard *kev = libinput_event_get_keyboard_event(event);
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_KEY;
+            ev.time = libinput_event_keyboard_get_time(kev);
+            ev.key.code = libinput_event_keyboard_get_key(kev);
+            ev.key.state = (enum wl_keyboard_key_state)libinput_event_keyboard_get_key_state(kev);
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
 
          case LIBINPUT_EVENT_TOUCH_UP:
          case LIBINPUT_EVENT_TOUCH_DOWN:
          case LIBINPUT_EVENT_TOUCH_MOTION:
          case LIBINPUT_EVENT_TOUCH_FRAME:
          case LIBINPUT_EVENT_TOUCH_CANCEL:
-            {
-               struct libinput_event_touch *tev = libinput_event_get_touch_event(event);
-               struct wlc_input_event ev;
-               ev.type = WLC_INPUT_EVENT_TOUCH;
-               ev.time = libinput_event_touch_get_time(tev);
-               ev.touch.type = wlc_touch_type_for_libinput_type(libinput_event_get_type(event));
-               ev.touch.x = touch_abs_x;
-               ev.touch.y = touch_abs_y;
-               ev.touch.slot = libinput_event_touch_get_seat_slot(tev);
-               wl_signal_emit(&wlc_system_signals()->input, &ev);
-            }
-            break;
+         {
+            struct libinput_event_touch *tev = libinput_event_get_touch_event(event);
+            struct wlc_input_event ev;
+            ev.type = WLC_INPUT_EVENT_TOUCH;
+            ev.time = libinput_event_touch_get_time(tev);
+            ev.touch.type = wlc_touch_type_for_libinput_type(libinput_event_get_type(event));
+            ev.touch.x = touch_abs_x;
+            ev.touch.y = touch_abs_y;
+            ev.touch.slot = libinput_event_touch_get_seat_slot(tev);
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
 
-         default:break;
+         default: break;
       }
 
       libinput_event_destroy(event);
@@ -355,7 +355,7 @@ wlc_input_init(void)
       return true;
 
    if (!(input.handle = libinput_udev_create_context(&libinput_implementation, &input, udev.handle)))
-         goto failed_to_create_context;
+      goto failed_to_create_context;
 
    const char *xdg_seat = getenv("XDG_SEAT");
    if (libinput_udev_assign_seat(input.handle, (xdg_seat ? xdg_seat : "seat0")) != 0)

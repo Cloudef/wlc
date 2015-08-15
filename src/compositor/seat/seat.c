@@ -152,36 +152,36 @@ input_event(struct wl_listener *listener, void *data)
    struct wlc_input_event *ev = data;
    switch (ev->type) {
       case WLC_INPUT_EVENT_MOTION:
-         {
-            struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
+      {
+         struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
-            struct wlc_pointer_origin pos = {
-               chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w),
-               chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
-            };
+         struct wlc_pointer_origin pos = {
+            chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w),
+            chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
+         };
 
-            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
-               return;
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
+            return;
 
-            wlc_pointer_motion(&seat->pointer, ev->time, &pos);
-         }
-         break;
+         wlc_pointer_motion(&seat->pointer, ev->time, &pos);
+      }
+      break;
 
       case WLC_INPUT_EVENT_MOTION_ABSOLUTE:
-         {
-            struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
+      {
+         struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
-            struct wlc_pointer_origin pos = {
-               ev->motion_abs.x(ev->motion_abs.internal, resolution.w),
-               ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
-            };
+         struct wlc_pointer_origin pos = {
+            ev->motion_abs.x(ev->motion_abs.internal, resolution.w),
+            ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
+         };
 
-            if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
-               return;
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
+            return;
 
-            wlc_pointer_motion(&seat->pointer, ev->time, &pos);
-         }
-         break;
+         wlc_pointer_motion(&seat->pointer, ev->time, &pos);
+      }
+      break;
 
       case WLC_INPUT_EVENT_SCROLL:
          if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->scroll.axis_bits, ev->scroll.amount))
@@ -191,7 +191,7 @@ input_event(struct wl_listener *listener, void *data)
          break;
 
       case WLC_INPUT_EVENT_BUTTON:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers,  ev->button.code, (enum wlc_button_state)ev->button.state))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state))
             return;
 
          wlc_pointer_button(&seat->pointer, ev->time, ev->button.code, ev->button.state);
@@ -202,23 +202,23 @@ input_event(struct wl_listener *listener, void *data)
          break;
 
       case WLC_INPUT_EVENT_TOUCH:
-         {
-            struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
+      {
+         struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
-            struct wlc_origin pos = {
-               ev->touch.x(ev->touch.internal, resolution.w),
-               ev->touch.y(ev->touch.internal, resolution.h)
-            };
+         struct wlc_origin pos = {
+            ev->touch.x(ev->touch.internal, resolution.w),
+            ev->touch.y(ev->touch.internal, resolution.h)
+         };
 
-            if (WLC_INTERFACE_EMIT_EXCEPT(touch.touch, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers,  ev->touch.type, ev->touch.slot, &pos))
-               return;
+         if (WLC_INTERFACE_EMIT_EXCEPT(touch.touch, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos))
+            return;
 
-            if (ev->touch.type == WLC_TOUCH_MOTION || ev->touch.type == WLC_TOUCH_DOWN)
-               wlc_pointer_motion(&seat->pointer, ev->time, &(struct wlc_pointer_origin){ pos.x, pos.y });
+         if (ev->touch.type == WLC_TOUCH_MOTION || ev->touch.type == WLC_TOUCH_DOWN)
+            wlc_pointer_motion(&seat->pointer, ev->time, &(struct wlc_pointer_origin){ pos.x, pos.y });
 
-            wlc_touch_touch(&seat->touch, ev->time, ev->touch.type, ev->touch.slot, &pos);
-         }
-         break;
+         wlc_touch_touch(&seat->touch, ev->time, ev->touch.type, ev->touch.slot, &pos);
+      }
+      break;
    }
 }
 
@@ -233,13 +233,13 @@ focus_event(struct wl_listener *listener, void *data)
       case WLC_FOCUS_EVENT_VIEW:
          wlc_keyboard_focus(&seat->keyboard, ev->view);
          wlc_data_device_manager_offer(&seat->manager, wlc_view_get_client(ev->view));
-      break;
+         break;
 
-      default:break;
+      default: break;
    }
 }
 
-   static void
+static void
 surface_event(struct wl_listener *listener, void *data)
 {
    struct wlc_seat *seat;
@@ -254,9 +254,9 @@ surface_event(struct wl_listener *listener, void *data)
             wlc_pointer_focus(&seat->pointer, NULL, NULL);
          if (seat->pointer.surface == convert_to_wlc_resource(ev->surface))
             wlc_pointer_set_surface(&seat->pointer, NULL, &wlc_origin_zero);
-      break;
+         break;
 
-      default:break;
+      default: break;
    }
 }
 

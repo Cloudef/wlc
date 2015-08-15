@@ -329,10 +329,10 @@ update_xkb_state(xcb_xkb_state_notify_event_t *ev)
       return;
 
    xkb_state_update_mask(keyboard->state.xkb,
-         wlc_keymap_get_mod_mask(keyboard->keymap, ev->baseMods),
-         wlc_keymap_get_mod_mask(keyboard->keymap, ev->latchedMods),
-         wlc_keymap_get_mod_mask(keyboard->keymap, ev->lockedMods),
-         0, 0, ev->group);
+                         wlc_keymap_get_mod_mask(keyboard->keymap, ev->baseMods),
+                         wlc_keymap_get_mod_mask(keyboard->keymap, ev->latchedMods),
+                         wlc_keymap_get_mod_mask(keyboard->keymap, ev->lockedMods),
+                         0, 0, ev->group);
 
    wlc_keyboard_update_modifiers(keyboard);
 }
@@ -350,53 +350,53 @@ x11_event(int fd, uint32_t mask, void *data)
    while ((event = x11.api.xcb_poll_for_event(x11.connection))) {
       switch (event->response_type & ~0x80) {
          case XCB_EXPOSE:
-            {
-               xcb_expose_event_t *ev = (xcb_expose_event_t*)event;
-               struct wlc_output *output;
-               if ((output = output_for_window(&compositor->outputs.pool, ev->window)))
-                  wlc_output_schedule_repaint(output);
-            }
-            break;
+         {
+            xcb_expose_event_t *ev = (xcb_expose_event_t*)event;
+            struct wlc_output *output;
+            if ((output = output_for_window(&compositor->outputs.pool, ev->window)))
+               wlc_output_schedule_repaint(output);
+         }
+         break;
 
          case XCB_CLIENT_MESSAGE:
-            {
-               xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
-               if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
-                  struct wlc_output *output;
-                  if ((output = output_for_window(&compositor->outputs.pool, ev->window))) {
-                     if (outputs_with_window(&compositor->outputs.pool) <= 1) {
-                        wlc_terminate();
-                     } else {
-                        wlc_output_terminate(output);
-                     }
-                     free(event);
-                     return 1;
+         {
+            xcb_client_message_event_t *ev = (xcb_client_message_event_t*)event;
+            if (ev->data.data32[0] == x11.atoms[WM_DELETE_WINDOW]) {
+               struct wlc_output *output;
+               if ((output = output_for_window(&compositor->outputs.pool, ev->window))) {
+                  if (outputs_with_window(&compositor->outputs.pool) <= 1) {
+                     wlc_terminate();
+                  } else {
+                     wlc_output_terminate(output);
                   }
+                  free(event);
+                  return 1;
                }
             }
-            break;
+         }
+         break;
 
          case XCB_CONFIGURE_NOTIFY:
-            {
-               xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
-               struct wlc_output *output;
-               if ((output = output_for_window(&compositor->outputs.pool, ev->window)))
-                  wlc_output_set_resolution_ptr(output, &(struct wlc_size){ ev->width, ev->height }); // XXX: make a request?
-            }
-            break;
+         {
+            xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
+            struct wlc_output *output;
+            if ((output = output_for_window(&compositor->outputs.pool, ev->window)))
+               wlc_output_set_resolution_ptr(output, &(struct wlc_size){ ev->width, ev->height });    // XXX: make a request?
+         }
+         break;
 
          case XCB_FOCUS_IN:
-            {
-               xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
-               struct wlc_output *output;
-               if ((output = output_for_window(&compositor->outputs.pool, ev->event))) {
-                  struct wlc_output_event ev = { .active = { output }, .type = WLC_OUTPUT_EVENT_ACTIVE };
-                  wl_signal_emit(&wlc_system_signals()->output, &ev);
-               }
+         {
+            xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
+            struct wlc_output *output;
+            if ((output = output_for_window(&compositor->outputs.pool, ev->event))) {
+               struct wlc_output_event ev = { .active = { output }, .type = WLC_OUTPUT_EVENT_ACTIVE };
+               wl_signal_emit(&wlc_system_signals()->output, &ev);
             }
-            break;
+         }
+         break;
 
-         default:break;
+         default: break;
       }
 
       if (event->response_type == x11.xkb_event_base) {
@@ -574,7 +574,6 @@ update_outputs(struct chck_pool *outputs)
             continue;
          }
 
-
          struct wlc_output_information info;
          fake_information(&info);
          count += (add_output(window, &info) ? 1 : 0);
@@ -598,13 +597,13 @@ setup_xkb(void)
    x11.xkb_event_base = ext->first_event;
 
    xcb_void_cookie_t select = x11.api.xcb_xkb_select_events_checked(x11.connection,
-         XCB_XKB_ID_USE_CORE_KBD,
-         XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
-         0,
-         XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
-         0,
-         0,
-         NULL);
+                                                                    XCB_XKB_ID_USE_CORE_KBD,
+                                                                    XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
+                                                                    0,
+                                                                    XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
+                                                                    0,
+                                                                    0,
+                                                                    NULL);
 
    xcb_generic_error_t *error;
    if ((error = x11.api.xcb_request_check(x11.connection, select))) {
@@ -624,12 +623,12 @@ setup_xkb(void)
       return false;
 
    xcb_xkb_per_client_flags_cookie_t pcf = x11.api.xcb_xkb_per_client_flags(x11.connection,
-         XCB_XKB_ID_USE_CORE_KBD,
-         XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
-         XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
-         0,
-         0,
-         0);
+                                                                            XCB_XKB_ID_USE_CORE_KBD,
+                                                                            XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
+                                                                            XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
+                                                                            0,
+                                                                            0,
+                                                                            0);
 
    xcb_xkb_per_client_flags_reply_t *pcf_reply;
    if (!(pcf_reply = x11.api.xcb_xkb_per_client_flags_reply(x11.connection, pcf, NULL)))

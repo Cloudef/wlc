@@ -58,10 +58,10 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
 
    // FIXME: update on wlc_output_set_information
    wl_output_send_geometry(resource, output->information.x, output->information.y,
-       output->information.physical_width, output->information.physical_height, output->information.subpixel,
-       (output->information.make.data ? output->information.make.data : "unknown"),
-       (output->information.model.data ? output->information.model.data : "model"),
-       output->information.transform);
+                           output->information.physical_width, output->information.physical_height, output->information.subpixel,
+                           (output->information.make.data ? output->information.make.data : "unknown"),
+                           (output->information.model.data ? output->information.model.data : "model"),
+                           output->information.transform);
 
    assert(output->information.scale > 0);
    if (version >= WL_OUTPUT_SCALE_SINCE_VERSION)
@@ -591,7 +591,7 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
          if (*h != otherh)
             continue;
 
-         added = chck_iter_pool_insert(&output->views, (link == LINK_ABOVE ? _I : _I -1), &handle);
+         added = chck_iter_pool_insert(&output->views, (link == LINK_ABOVE ? _I : _I - 1), &handle);
          break;
       }
    } else {

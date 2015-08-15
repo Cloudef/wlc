@@ -306,29 +306,29 @@ surface_event(struct wl_listener *listener, void *data)
    switch (ev->type) {
       case WLC_SURFACE_EVENT_REQUEST_VIEW_ATTACH:
          attach_surface_to_view_or_create(compositor, ev->surface, ev->attach.type, ev->attach.shell_surface);
-      break;
+         break;
 
       case WLC_SURFACE_EVENT_REQUEST_VIEW_POPUP:
          attach_popup_to_view_or_create(compositor, ev->surface, ev->popup.parent, &ev->popup.origin, ev->popup.resource);
-      break;
+         break;
 
       case WLC_SURFACE_EVENT_DESTROYED:
-         {
-            struct wlc_view *v;
-            chck_pool_for_each(&compositor->views.pool, v) {
-               if (v->parent == ev->surface->view)
-                  wlc_view_set_parent_ptr(v, NULL);
-            }
-
-            struct wlc_surface *s;
-            chck_pool_for_each(&compositor->surfaces.pool, s) {
-               if (s->parent == convert_to_wlc_resource(ev->surface))
-                  wlc_surface_set_parent(s, NULL);
-            }
+      {
+         struct wlc_view *v;
+         chck_pool_for_each(&compositor->views.pool, v) {
+            if (v->parent == ev->surface->view)
+               wlc_view_set_parent_ptr(v, NULL);
          }
+
+         struct wlc_surface *s;
+         chck_pool_for_each(&compositor->surfaces.pool, s) {
+            if (s->parent == convert_to_wlc_resource(ev->surface))
+               wlc_surface_set_parent(s, NULL);
+         }
+      }
       break;
 
-      default:break;
+      default: break;
    }
 }
 
@@ -428,23 +428,23 @@ output_event(struct wl_listener *listener, void *data)
    switch (ev->type) {
       case WLC_OUTPUT_EVENT_ADD:
          add_output(compositor, ev->add.bsurface, ev->add.info);
-      break;
+         break;
 
       case WLC_OUTPUT_EVENT_ACTIVE:
          active_output(compositor, ev->active.output);
-      break;
+         break;
 
       case WLC_OUTPUT_EVENT_REMOVE:
          remove_output(compositor, ev->remove.output);
-      break;
+         break;
 
       case WLC_OUTPUT_EVENT_UPDATE:
          wlc_backend_update_outputs(&compositor->backend, &compositor->outputs.pool);
-      break;
+         break;
 
       case WLC_OUTPUT_EVENT_SURFACE:
          respond_tty_activate(compositor);
-      break;
+         break;
    }
 }
 
@@ -458,9 +458,9 @@ focus_event(struct wl_listener *listener, void *data)
    switch (ev->type) {
       case WLC_FOCUS_EVENT_OUTPUT:
          active_output(compositor, ev->output);
-      break;
+         break;
 
-      default:break;
+      default: break;
    }
 }
 

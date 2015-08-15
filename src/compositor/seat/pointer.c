@@ -147,9 +147,9 @@ render_event(struct wl_listener *listener, void *data)
    switch (ev->type) {
       case WLC_RENDER_EVENT_POINTER:
          pointer_paint(pointer, ev->output);
-      break;
+         break;
 
-      default:break;
+      default: break;
    }
 }
 
@@ -213,7 +213,7 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
 {
    assert(pointer);
 
-   struct wlc_pointer_origin d = {0,0};
+   struct wlc_pointer_origin d = {0, 0};
 
    if (out_pos)
       memcpy(out_pos, &d, sizeof(d));

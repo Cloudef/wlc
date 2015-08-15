@@ -18,7 +18,11 @@ int wlc_logind_init(const char *seat_id);
 #else
 
 /** For convenience. */
-static inline bool wlc_logind_available(void) { return false; }
+static inline bool
+wlc_logind_available(void)
+{
+   return false;
+}
 
 #endif
 

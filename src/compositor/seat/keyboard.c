@@ -154,7 +154,7 @@ defocus(struct wlc_keyboard *keyboard)
       WLC_INTERFACE_EMIT(view.focus, keyboard->focused.view, false);
 
    if (view->xdg_popup)
-         wlc_view_close_ptr(view);
+      wlc_view_close_ptr(view);
 
 out:
    chck_iter_pool_flush(&keyboard->focused.resources);

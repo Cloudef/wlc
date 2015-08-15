@@ -17,7 +17,7 @@
 
 #if defined(__linux__)
 #  include <linux/version.h>
-#  if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
+#  if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 #     include <sys/prctl.h> /* for yama */
 #     define HAS_YAMA_PRCTL 1
 #  endif
@@ -308,7 +308,7 @@ wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
          fprintf(out, "(ERROR) ");
          break;
 
-      default:break;
+      default: break;
    }
 
    vfprintf(out, fmt, args);
@@ -412,7 +412,7 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    unsetenv("TERM");
    const char *x11display = getenv("DISPLAY");
    bool privilidged = false;
-   const bool has_logind  = wlc_logind_available();
+   const bool has_logind = wlc_logind_available();
 
    if (getuid() != geteuid() || getgid() != getegid()) {
       wlc_log(WLC_LOG_INFO, "Doing work on SUID/SGID side and dropping permissions");
@@ -468,7 +468,6 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
       wlc_fd_init(argc, argv, (vt != 0));
       wlc.display = display;
    }
-
 
    // -- permissions are now dropped
 

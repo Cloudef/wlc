@@ -92,7 +92,7 @@ retry:
       close(lock_fd);
       lock_fd = -1;
 
-      if (bytes != sizeof(pid) -1)
+      if (bytes != sizeof(pid) - 1)
          continue;
 
       pid_t owner;
@@ -122,7 +122,7 @@ retry:
 
    char pid[12];
    snprintf(pid, sizeof(pid), "%10d", getpid());
-   if (write(lock_fd, pid, sizeof(pid) - 1) != sizeof(pid) -1) {
+   if (write(lock_fd, pid, sizeof(pid) - 1) != sizeof(pid) - 1) {
       unlink(lock_name);
       close(lock_fd);
       goto retry;
@@ -302,16 +302,16 @@ wlc_xwayland_init(void)
          dup2(fileno(wlc_get_log_file()), STDERR_FILENO);
 
       wlc_log(WLC_LOG_INFO, "Xwayland %s -rootless -terminate -listen %s -listen %s -wm %s",
-            xserver.display_name, strings[2], strings[3], strings[1]);
+              xserver.display_name, strings[2], strings[3], strings[1]);
 
       execlp("Xwayland", "Xwayland",
-            xserver.display_name,
-            "-rootless",
-            "-terminate",
-            "-listen", strings[2],
-            "-listen", strings[3],
-            "-wm", strings[1],
-            NULL);
+             xserver.display_name,
+             "-rootless",
+             "-terminate",
+             "-listen", strings[2],
+             "-listen", strings[3],
+             "-wm", strings[1],
+             NULL);
       _exit(EXIT_FAILURE);
    } else if (xserver.pid < 0) {
       goto fork_fail;
@@ -332,7 +332,7 @@ wlc_xwayland_init(void)
    struct sigaction action;
    memset(&action, 0, sizeof(action));
    action.sa_handler = sigusr_handler;
-   sigaction(SIGUSR1, &action,  &xserver.old_sigusr1);
+   sigaction(SIGUSR1, &action, &xserver.old_sigusr1);
    return true;
 
 display_open_fail:

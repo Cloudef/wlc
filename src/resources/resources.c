@@ -513,8 +513,8 @@ wlc_resource_implement(wlc_resource resource, const void *implementation, void *
    wl_resource_set_implementation(r->wl.r, implementation, userdata, NULL);
 }
 
-WLC_API
-void wlc_handle_set_user_data(wlc_handle handle, const void *userdata)
+WLC_API void
+wlc_handle_set_user_data(wlc_handle handle, const void *userdata)
 {
    struct handle_public *h;
    if (!handle || !(h = chck_pool_get(&handles, handle - 1)))
