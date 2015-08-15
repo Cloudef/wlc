@@ -498,13 +498,15 @@ x11_event(int fd, uint32_t mask, void *data)
 }
 
 static void
-fake_information(struct wlc_output_information *info)
+fake_information(struct wlc_output_information *info, uint32_t id)
 {
    assert(info);
    wlc_output_information(info);
    chck_string_set_cstr(&info->make, "Xorg", false);
    chck_string_set_cstr(&info->model, "X11 Window", false);
    info->scale = 1;
+   info->connector = CONNECTOR_DP;
+   info->connector_id = id;
 
    struct wlc_output_mode mode = {0};
    mode.refresh = 60 * 1000; // mHz
@@ -576,12 +578,12 @@ update_outputs(struct chck_pool *outputs)
          }
 
          struct wlc_output_information info;
-         fake_information(&info);
+         fake_information(&info, i);
          count += (add_output(window, &info) ? 1 : 0);
       }
    } else {
       struct wlc_output_information info;
-      fake_information(&info);
+      fake_information(&info, 0);
       count += (add_output(x11.screen->root, &info) ? 1 : 0);
    }
 

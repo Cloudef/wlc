@@ -449,6 +449,8 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
       info->info.physical_height = connector->mmHeight;
       info->info.subpixel = connector->subpixel;
       info->info.scale = 1; // weston gets this from config?
+      info->info.connector_id = connector->connector_type_id;
+      info->info.connector = (enum wlc_output_connector)connector->connector_type;
 
       for (int i = 0; i < connector->count_modes; ++i) {
          struct wlc_output_mode mode = {0};

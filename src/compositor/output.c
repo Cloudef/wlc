@@ -14,6 +14,30 @@
 // FIXME: this is a hack
 static EGLNativeDisplayType INVALID_DISPLAY = (EGLNativeDisplayType)~0;
 
+static const char*
+name_for_connector(enum wlc_output_connector connector)
+{
+   static const char *names[] = {
+      "None",
+      "VGA",
+      "DVI",
+      "DVI",
+      "DVI",
+      "Composite",
+      "TV",
+      "LVDS",
+      "CTV",
+      "DIN",
+      "DP",
+      "HDMI",
+      "HDMI",
+      "TV",
+      "eDP",
+   };
+
+   return (connector < LENGTH(names) ? names[connector] : "UNKNOWN");
+}
+
 bool
 wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode)
 {
@@ -527,7 +551,8 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
    {
       struct wlc_output_mode *mode;
       except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
-      wlc_log(WLC_LOG_INFO, "Chose mode (%u) %dx%d", output->active.mode, mode->width, mode->height);
+      const char *name = name_for_connector(output->information.connector);
+      wlc_log(WLC_LOG_INFO, "%s-%d Chose mode (%u) %dx%d", name, output->information.connector_id, output->active.mode, mode->width, mode->height);
       wlc_output_set_resolution_ptr(output, &(struct wlc_size){ mode->width, mode->height });
    }
 }
@@ -800,6 +825,20 @@ WLC_API void
 wlc_output_focus(wlc_handle output)
 {
    wlc_output_focus_ptr(convert_from_wlc_handle(output, "output"));
+}
+
+WLC_API const char*
+wlc_output_get_connector_name(wlc_handle output)
+{
+   struct wlc_output *o = convert_from_wlc_handle(output, "output");
+   return (o ? name_for_connector(o->information.connector) : NULL);
+}
+
+WLC_API uint32_t
+wlc_output_get_connector_id(wlc_handle output)
+{
+   struct wlc_output *o = convert_from_wlc_handle(output, "output");
+   return (o ? o->information.connector_id : 0);
 }
 
 void

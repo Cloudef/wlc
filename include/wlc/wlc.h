@@ -211,6 +211,12 @@ const wlc_handle* wlc_get_outputs(size_t *out_memb);
 /** Get focused output. */
 wlc_handle wlc_get_focused_output(void);
 
+/** Get connector name. */
+const char* wlc_output_get_connector_name(wlc_handle output);
+
+/** Get connector id. */
+uint32_t wlc_output_get_connector_id(wlc_handle output);
+
 /** Get sleep state. */
 bool wlc_output_get_sleep(wlc_handle output);
 
