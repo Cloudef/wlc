@@ -68,7 +68,7 @@ struct wlc_output {
    struct chck_iter_pool surfaces, views, mutable;
 
    struct {
-      struct wl_event_source *idle, *sleep;
+      struct wl_event_source *idle;
    } timer;
 
    struct {
@@ -99,7 +99,6 @@ struct wlc_output {
    } active;
 
    struct {
-      uint32_t idle_time;
       bool enable_bg;
    } options;
 };

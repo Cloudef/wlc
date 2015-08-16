@@ -306,14 +306,6 @@ cb_idle_timer(void *data)
    return 1;
 }
 
-static int
-cb_sleep_timer(void *data)
-{
-   assert(data);
-   wlc_output_set_sleep_ptr(convert_from_wlc_handle((wlc_handle)data, "output"), true);
-   return 1;
-}
-
 void
 wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 {
@@ -425,24 +417,6 @@ wlc_output_schedule_repaint(struct wlc_output *output)
       wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Activity marked");
 
    output->state.activity = true;
-
-   wlc_handle *h;
-   chck_iter_pool_for_each(&output->views, h) {
-      struct wlc_view *v;
-      struct wlc_surface *s;
-      if (!(v = convert_from_wlc_handle(*h, "view")) ||
-          !(s = convert_from_wlc_resource(v->surface, "surface")))
-         continue;
-
-      if (!s->commit.attached || !(v->commit.state & WLC_BIT_FULLSCREEN))
-         continue;
-
-      if (!view_visible(v, s, output->active.mask))
-         continue;
-
-      wlc_output_set_sleep_ptr(output, false);
-      break;
-   }
 
    if (output->state.scheduled)
       return;
@@ -662,9 +636,6 @@ wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep)
    if (!output)
       return;
 
-   if (!sleep && wlc_get_active())
-      wl_event_source_timer_update(output->timer.sleep, 1000 * output->options.idle_time);
-
    if (output->state.sleeping == sleep)
       return;
 
@@ -682,7 +653,6 @@ wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep)
    } else {
       if (output->bsurface.api.sleep) {
          // we fake sleep otherwise, by just drawing black
-         wl_event_source_timer_update(output->timer.sleep, 0);
          wl_event_source_timer_update(output->timer.idle, 0);
       }
       output->state.scheduled = output->state.activity = false;
@@ -867,9 +837,6 @@ wlc_output_release(struct wlc_output *output)
    if (output->timer.idle)
       wl_event_source_remove(output->timer.idle);
 
-   if (output->timer.sleep)
-      wl_event_source_remove(output->timer.sleep);
-
    wlc_output_set_information(output, NULL);
    wlc_output_set_backend_surface(output, NULL);
    chck_iter_pool_release(&output->surfaces);
@@ -890,9 +857,6 @@ wlc_output(struct wlc_output *output)
    if (!(output->timer.idle = wl_event_loop_add_timer(wlc_event_loop(), cb_idle_timer, (void*)convert_to_wlc_handle(output))))
       goto fail;
 
-   if (!(output->timer.sleep = wl_event_loop_add_timer(wlc_event_loop(), cb_sleep_timer, (void*)convert_to_wlc_handle(output))))
-      goto fail;
-
    if (!(output->wl.output = wl_global_create(wlc_display(), &wl_output_interface, 2, output, wl_output_bind)))
       goto fail;
 
@@ -908,9 +872,6 @@ wlc_output(struct wlc_output *output)
    output->state.ims = 41;
    const char *bg = getenv("WLC_BG");
    output->options.enable_bg = (chck_cstreq(bg, "0") ? false : true);
-
-   if (!chck_cstr_to_u32(getenv("WLC_IDLE_TIME"), &output->options.idle_time))
-      output->options.idle_time = 60 * 5;
 
    wlc_output_set_sleep_ptr(output, false);
    wlc_output_set_mask_ptr(output, (1<<0));
