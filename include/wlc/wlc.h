@@ -38,6 +38,22 @@ enum wlc_event_bit {
    WLC_EVENT_ERROR = 0x08,
 };
 
+/** wlc_output_get_connector_type(); */
+enum wlc_connector_type {
+   WLC_CONNECTOR_UNKNOWN,
+   WLC_CONNECTOR_NONE,
+   WLC_CONNECTOR_VGA,
+   WLC_CONNECTOR_DVI,
+   WLC_CONNECTOR_COMPOSITE,
+   WLC_CONNECTOR_TV,
+   WLC_CONNECTOR_LVDS,
+   WLC_CONNECTOR_CTV,
+   WLC_CONNECTOR_DIN,
+   WLC_CONNECTOR_DP,
+   WLC_CONNECTOR_HDMI,
+   WLC_CONNECTOR_eDP,
+};
+
 /** wlc_view_get_state(); */
 enum wlc_view_state_bit {
    WLC_BIT_MAXIMIZED = 1<<0,
@@ -227,8 +243,11 @@ const wlc_handle* wlc_get_outputs(size_t *out_memb);
 /** Get focused output. */
 wlc_handle wlc_get_focused_output(void);
 
-/** Get connector name. */
-const char* wlc_output_get_connector_name(wlc_handle output);
+/** Get output name. */
+const char* wlc_output_get_name(wlc_handle output);
+
+/** Get connector type. */
+enum wlc_connector_type wlc_output_get_connector_type(wlc_handle output);
 
 /** Get connector id. */
 uint32_t wlc_output_get_connector_id(wlc_handle output);

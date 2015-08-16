@@ -505,7 +505,7 @@ fake_information(struct wlc_output_information *info, uint32_t id)
    chck_string_set_cstr(&info->make, "Xorg", false);
    chck_string_set_cstr(&info->model, "X11 Window", false);
    info->scale = 1;
-   info->connector = CONNECTOR_DP;
+   info->connector = WLC_CONNECTOR_NONE;
    info->connector_id = id;
 
    struct wlc_output_mode mode = {0};

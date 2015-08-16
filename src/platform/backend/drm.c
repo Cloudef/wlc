@@ -396,6 +396,29 @@ find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *conn
    return NULL;
 }
 
+static enum wlc_connector_type
+wlc_connector_for_drm_connector(uint32_t type)
+{
+   enum wlc_connector_type types[] = {
+      WLC_CONNECTOR_NONE,
+      WLC_CONNECTOR_VGA,
+      WLC_CONNECTOR_DVI,
+      WLC_CONNECTOR_DVI,
+      WLC_CONNECTOR_DVI,
+      WLC_CONNECTOR_COMPOSITE,
+      WLC_CONNECTOR_TV,
+      WLC_CONNECTOR_LVDS,
+      WLC_CONNECTOR_CTV,
+      WLC_CONNECTOR_DIN,
+      WLC_CONNECTOR_DP,
+      WLC_CONNECTOR_HDMI,
+      WLC_CONNECTOR_TV,
+      WLC_CONNECTOR_eDP,
+   };
+
+   return (type < LENGTH(types) ? types[type] : WLC_CONNECTOR_UNKNOWN);
+}
+
 static bool
 query_drm(int fd, struct chck_iter_pool *out_infos)
 {
@@ -450,7 +473,7 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
       info->info.subpixel = connector->subpixel;
       info->info.scale = 1; // weston gets this from config?
       info->info.connector_id = connector->connector_type_id;
-      info->info.connector = (enum wlc_output_connector)connector->connector_type;
+      info->info.connector = wlc_connector_for_drm_connector(connector->connector_type);
 
       for (int i = 0; i < connector->count_modes; ++i) {
          struct wlc_output_mode mode = {0};

@@ -20,24 +20,6 @@ enum output_link {
    LINK_ABOVE,
 };
 
-enum wlc_output_connector {
-   CONNECTOR_NONE,
-   CONNECTOR_VGA,
-   CONNECTOR_DVI1,
-   CONNECTOR_DVI2,
-   CONNECTOR_DVI3,
-   CONNECTOR_COMPOSITE,
-   CONNECTOR_TV1,
-   CONNECTOR_LVDS,
-   CONNECTOR_CTV,
-   CONNECTOR_DIN,
-   CONNECTOR_DP,
-   CONNECTOR_HDMI1,
-   CONNECTOR_HDMI2,
-   CONNECTOR_TV2,
-   CONNECTOR_eDP,
-};
-
 struct wlc_output_mode {
    int32_t refresh;
    int32_t width, height;
@@ -46,14 +28,14 @@ struct wlc_output_mode {
 
 struct wlc_output_information {
    struct chck_iter_pool modes;
-   struct chck_string make, model;
+   struct chck_string name, make, model;
    int32_t x, y;
    int32_t physical_width, physical_height;
    int32_t subpixel;
    int32_t scale;
    uint32_t connector_id;
    enum wl_output_transform transform;
-   enum wlc_output_connector connector;
+   enum wlc_connector_type connector;
 };
 
 struct wlc_output {

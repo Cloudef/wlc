@@ -15,27 +15,25 @@
 static EGLNativeDisplayType INVALID_DISPLAY = (EGLNativeDisplayType)~0;
 
 static const char*
-name_for_connector(enum wlc_output_connector connector)
+name_for_connector(enum wlc_connector_type connector)
 {
    static const char *names[] = {
-      "None",
-      "VGA",
-      "DVI",
-      "DVI",
-      "DVI",
-      "Composite",
-      "TV",
-      "LVDS",
-      "CTV",
-      "DIN",
-      "DP",
-      "HDMI",
-      "HDMI",
-      "TV",
-      "eDP",
+      "UNKNOWN", // WLC_CONNECTOR_UNKNOWN
+      "None", // WLC_CONNECTOR_NONE
+      "VGA",  // WLC_CONNECTOR_VGA
+      "DVI",  // WLC_CONNECTOR_DVI
+      "Composite", // WLC_CONNECTOR_COMPOSITE
+      "TV", // WLC_CONNECTOR_TV
+      "LVDS", // WLC_CONNECTOR_LVDS
+      "CTV", // WLC_CONNECTOR_CTV
+      "DIN", // WLC_CONNECTOR_DIN
+      "DP", // WLC_CONNECTOR_DP
+      "HDMI", // WLC_CONNECTOR_HDMI
+      "eDP", // WLC_CONNECTOR_EDP
    };
 
-   return (connector < LENGTH(names) ? names[connector] : "UNKNOWN");
+   assert(connector < LENGTH(names));
+   return names[connector];
 }
 
 bool
@@ -60,6 +58,7 @@ wlc_output_information_release(struct wlc_output_information *info)
       return;
 
    chck_iter_pool_release(&info->modes);
+   chck_string_release(&info->name);
    chck_string_release(&info->make);
    chck_string_release(&info->model);
 }
@@ -505,6 +504,7 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
    wlc_output_information_release(&output->information);
 
    if (info) {
+      assert(!info->name.data && "Do not set name, this function will do that automatically");
       memcpy(&output->information, info, sizeof(output->information));
       memset(info, 0, sizeof(output->information));
    }
@@ -522,11 +522,13 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
 
    assert(output->active.mode != UINT_MAX && "output should have at least one current mode!");
 
+   const char *name = name_for_connector(output->information.connector);
+   chck_string_set_format(&output->information.name, "%s-%u", name, output->information.connector_id);
+
    {
       struct wlc_output_mode *mode;
       except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
-      const char *name = name_for_connector(output->information.connector);
-      wlc_log(WLC_LOG_INFO, "%s-%d Chose mode (%u) %dx%d", name, output->information.connector_id, output->active.mode, mode->width, mode->height);
+      wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
       wlc_output_set_resolution_ptr(output, &(struct wlc_size){ mode->width, mode->height });
    }
 }
@@ -798,10 +800,17 @@ wlc_output_focus(wlc_handle output)
 }
 
 WLC_API const char*
-wlc_output_get_connector_name(wlc_handle output)
+wlc_output_get_name(wlc_handle output)
 {
    struct wlc_output *o = convert_from_wlc_handle(output, "output");
-   return (o ? name_for_connector(o->information.connector) : NULL);
+   return (o ? o->information.name.data : NULL);
+}
+
+WLC_API enum wlc_connector_type
+wlc_output_get_connector_type(wlc_handle output)
+{
+   struct wlc_output *o = convert_from_wlc_handle(output, "output");
+   return (o ? o->information.connector : WLC_CONNECTOR_UNKNOWN);
 }
 
 WLC_API uint32_t
