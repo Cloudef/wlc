@@ -197,7 +197,7 @@ void wlc_handle_set_user_data(wlc_handle handle, const void *userdata);
 /** Get linked custom data from handle. */
 void* wlc_handle_get_user_data(wlc_handle handle);
 
-/** Add fd to event event loop. */
+/** Add fd to event loop. */
 struct wlc_event_source* wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *arg), void *arg);
 
 /** Remove event source from event loop. */
