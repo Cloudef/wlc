@@ -314,7 +314,9 @@ wlc_event_source_timer_update(struct wlc_event_source *source, int32_t ms_delay)
 void wlc_event_source_remove(struct wlc_event_source *source)
 {
    assert(source);
-   wl_event_source_remove((struct wl_event_source*)source);
+
+   if (wlc.display)
+      wl_event_source_remove((struct wl_event_source*)source);
 }
 
 WLC_API void
