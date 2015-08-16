@@ -370,9 +370,10 @@ add_output(struct wlc_compositor *compositor, struct wlc_backend_surface *bsurfa
 {
    assert(compositor && bsurface && info);
 
+   bool created = false;
    struct wlc_output *output;
    if (!(output = get_surfaceless_output(compositor)) && (output = wlc_handle_create(&compositor->outputs)))
-      WLC_INTERFACE_EMIT(output.created, convert_to_wlc_handle(output));
+      created = true;
 
    if (!output) {
       wlc_backend_surface_release(bsurface);
@@ -381,6 +382,9 @@ add_output(struct wlc_compositor *compositor, struct wlc_backend_surface *bsurfa
 
    wlc_output_set_information(output, info);
    wlc_output_set_backend_surface(output, bsurface);
+
+   if (created && WLC_INTERFACE_EMIT_EXCEPT(output.created, false, convert_to_wlc_handle(output)))
+      wlc_output_terminate(output);
 
    if (!compositor->active.output)
       active_output(compositor, output);
