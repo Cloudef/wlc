@@ -223,10 +223,10 @@ void wlc_handle_set_user_data(wlc_handle handle, const void *userdata);
 /** Get linked custom data from handle. */
 void* wlc_handle_get_user_data(wlc_handle handle);
 
-/** Add fd to event loop. */
+/** Add fd to event loop. Return value of callback is unused, you should return 0. */
 struct wlc_event_source* wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *arg), void *arg);
 
-/** Add timer to event loop. */
+/** Add timer to event loop. Return value of callback is unused, you should return 0. */
 struct wlc_event_source* wlc_event_loop_add_timer(int (*cb)(void *arg), void *arg);
 
 /** Update timer to trigger after delay. Returns true on success. */
