@@ -28,7 +28,7 @@ enum wlc_event_bit {
    WLC_EVENT_READABLE = 0x01,
    WLC_EVENT_WRITABLE = 0x02,
    WLC_EVENT_HANGUP = 0x04,
-   WLC_EVENT_ERROR = 0x08
+   WLC_EVENT_ERROR = 0x08,
 };
 
 /** wlc_view_get_state(); */
@@ -71,19 +71,19 @@ enum wlc_led_bit {
 /** State in interface.keyboard.key function. */
 enum wlc_key_state {
    WLC_KEY_STATE_RELEASED = 0,
-   WLC_KEY_STATE_PRESSED = 1
+   WLC_KEY_STATE_PRESSED = 1,
 };
 
 /** State in interface.pointer.button function. */
 enum wlc_button_state {
    WLC_BUTTON_STATE_RELEASED = 0,
-   WLC_BUTTON_STATE_PRESSED = 1
+   WLC_BUTTON_STATE_PRESSED = 1,
 };
 
 /** Axis in interface.pointer.scroll function. */
 enum wlc_scroll_axis_bit {
    WLC_SCROLL_AXIS_VERTICAL = 1<<0,
-   WLC_SCROLL_AXIS_HORIZONTAL = 1<<1
+   WLC_SCROLL_AXIS_HORIZONTAL = 1<<1,
 };
 
 /** Type in interface.touch.touch function */
@@ -92,7 +92,7 @@ enum wlc_touch_type {
    WLC_TOUCH_UP,
    WLC_TOUCH_MOTION,
    WLC_TOUCH_FRAME,
-   WLC_TOUCH_CANCEL
+   WLC_TOUCH_CANCEL,
 };
 
 /** State of keyboard modifiers in various functions. */
