@@ -296,6 +296,21 @@ wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, vo
    return (struct wlc_event_source*)wl_event_loop_add_fd(wlc_event_loop(), fd, mask, cb, arg);
 }
 
+WLC_API struct wlc_event_source*
+wlc_event_loop_add_timer(int (*cb)(void *arg), void *arg)
+{
+   assert(wlc_event_loop());
+   return (struct wlc_event_source*)wl_event_loop_add_timer(wlc_event_loop(), cb, arg);
+}
+
+WLC_API bool
+wlc_event_source_timer_update(struct wlc_event_source *source, int32_t ms_delay)
+{
+   assert(source);
+   assert(wlc_event_loop());
+   return (wl_event_source_timer_update((struct wl_event_source*)source, ms_delay) == 0);
+}
+
 void wlc_event_source_remove(struct wlc_event_source *source)
 {
    assert(source);

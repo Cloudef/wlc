@@ -209,6 +209,12 @@ void* wlc_handle_get_user_data(wlc_handle handle);
 /** Add fd to event loop. */
 struct wlc_event_source* wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *arg), void *arg);
 
+/** Add timer to event loop. */
+struct wlc_event_source* wlc_event_loop_add_timer(int (*cb)(void *arg), void *arg);
+
+/** Update timer to trigger after delay. Returns true on success. */
+bool wlc_event_source_timer_update(struct wlc_event_source *source, int32_t ms_delay);
+
 /** Remove event source from event loop. */
 void wlc_event_source_remove(struct wlc_event_source *source);
 
