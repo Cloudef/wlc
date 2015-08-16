@@ -23,6 +23,7 @@ enum wlc_log_type {
    WLC_LOG_ERROR,
 };
 
+/** wlc_get_backend_type(); */
 enum wlc_backend_type {
    WLC_BACKEND_NONE,
    WLC_BACKEND_DRM,
