@@ -288,28 +288,34 @@ wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, uint8_t axis_bits
 }
 
 void
-wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_pointer_origin *pos)
+wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_pointer_origin *pos, bool pass)
 {
    assert(pointer);
    memcpy(&pointer->pos, pos, sizeof(pointer->pos));
 
    struct wlc_output *output = active_output(pointer);
    struct wlc_view *focused = view_under_pointer(pointer, output);
-
    struct wlc_pointer_origin d;
-   wlc_pointer_focus(pointer, focused, &d);
+
+   // Pass event to client
+   if (pass)
+      wlc_pointer_focus(pointer, focused, &d);
+
    wlc_output_schedule_repaint(output);
 
    if (!focused)
       return;
 
-   wlc_resource *r;
-   chck_iter_pool_for_each(&pointer->focused.resources, r) {
-      struct wl_resource *wr;
-      if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
-         continue;
+   // Pass event to client
+   if (pass) {
+      wlc_resource *r;
+      chck_iter_pool_for_each(&pointer->focused.resources, r) {
+         struct wl_resource *wr;
+         if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
+            continue;
 
-      wl_pointer_send_motion(wr, time, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
+         wl_pointer_send_motion(wr, time, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
+      }
    }
 
    if (pointer->state.grabbing) {
