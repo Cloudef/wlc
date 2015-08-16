@@ -124,7 +124,7 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
       return;
    }
 
-   if (!wlc_keyboard_request_key(&seat->keyboard, ev->time, &seat->keyboard.modifiers, ev->key.code, ev->key.state))
+   if (wlc_keyboard_request_key(&seat->keyboard, ev->time, &seat->keyboard.modifiers, ev->key.code, ev->key.state))
       return;
 
    wlc_keyboard_key(&seat->keyboard, ev->time, ev->key.code, ev->key.state);
@@ -149,7 +149,7 @@ input_event(struct wl_listener *listener, void *data)
             chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
          };
 
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, true, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
             return;
 
          wlc_pointer_motion(&seat->pointer, ev->time, &pos);
@@ -165,7 +165,7 @@ input_event(struct wl_listener *listener, void *data)
             ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
          };
 
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, false, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.motion, true, seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }))
             return;
 
          wlc_pointer_motion(&seat->pointer, ev->time, &pos);
@@ -173,14 +173,14 @@ input_event(struct wl_listener *listener, void *data)
       break;
 
       case WLC_INPUT_EVENT_SCROLL:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->scroll.axis_bits, ev->scroll.amount))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.scroll, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->scroll.axis_bits, ev->scroll.amount))
             return;
 
          wlc_pointer_scroll(&seat->pointer, ev->time, ev->scroll.axis_bits, ev->scroll.amount);
          break;
 
       case WLC_INPUT_EVENT_BUTTON:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state))
             return;
 
          wlc_pointer_button(&seat->pointer, ev->time, ev->button.code, ev->button.state);
@@ -199,7 +199,7 @@ input_event(struct wl_listener *listener, void *data)
             ev->touch.y(ev->touch.internal, resolution.h)
          };
 
-         if (WLC_INTERFACE_EMIT_EXCEPT(touch.touch, false, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos))
+         if (WLC_INTERFACE_EMIT_EXCEPT(touch.touch, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos))
             return;
 
          if (ev->touch.type == WLC_TOUCH_MOTION || ev->touch.type == WLC_TOUCH_DOWN)
