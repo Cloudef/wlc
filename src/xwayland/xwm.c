@@ -679,19 +679,21 @@ wlc_x11_window_set_state(struct wlc_x11_window *win, enum wlc_view_state_bit sta
       XCB_CALL(x11.api.xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, win->id, x11.atoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, (toggle ? 1 : 0), (toggle ? &x11.atoms[NET_WM_STATE_FULLSCREEN] : NULL)));
 }
 
-void
+bool
 wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 {
    assert(win);
 
    if (!win->id || win->override_redirect)
-      return;
+      return false;
 
    if (active) {
       focus_window(win->id, false);
    } else if (win->id == x11.focus) {
       focus_window(0, false);
    }
+
+   return true;
 }
 
 static void

@@ -501,9 +501,11 @@ wlc_view_send_to_other(struct wlc_view *view, enum output_link link, struct wlc_
 void
 wlc_view_focus_ptr(struct wlc_view *view)
 {
-   if (view && view->x11.id) {
-      wlc_x11_window_set_active(&view->x11, true);
-   } else {
+   bool handled = false;
+   if (view && view->x11.id)
+      handled = wlc_x11_window_set_active(&view->x11, true);
+
+   if (!handled) {
       struct wlc_focus_event ev = { .view = view, .type = WLC_FOCUS_EVENT_VIEW };
       wl_signal_emit(&wlc_system_signals()->focus, &ev);
    }
