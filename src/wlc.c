@@ -389,6 +389,12 @@ wlc_run(void)
    wlc_cleanup();
 }
 
+WLC_API enum wlc_backend_type
+wlc_get_backend_type(void)
+{
+   return wlc.compositor.backend.type;
+}
+
 WLC_API void
 wlc_terminate(void)
 {

@@ -1,6 +1,7 @@
 #ifndef _WLC_BACKEND_H_
 #define _WLC_BACKEND_H_
 
+#include <wlc/wlc.h>
 #include <stdbool.h>
 #include "EGL/egl.h"
 
@@ -21,6 +22,8 @@ struct wlc_backend_surface {
 };
 
 struct wlc_backend {
+   enum wlc_backend_type type;
+
    struct {
       uint32_t (*update_outputs)(struct chck_pool *outputs);
       void (*terminate)(void);

@@ -23,6 +23,12 @@ enum wlc_log_type {
    WLC_LOG_ERROR,
 };
 
+enum wlc_backend_type {
+   WLC_BACKEND_NONE,
+   WLC_BACKEND_DRM,
+   WLC_BACKEND_X11,
+};
+
 /** mask in wlc_event_loop_add_fd(); */
 enum wlc_event_bit {
    WLC_EVENT_READABLE = 0x01,
@@ -172,6 +178,9 @@ bool wlc_init(const struct wlc_interface *interface, int argc, char *argv[]);
 
 /** Terminate wlc. */
 void wlc_terminate(void);
+
+/** Query backend wlc is using. */
+enum wlc_backend_type wlc_get_backend_type(void);
 
 /** Exec program. */
 void wlc_exec(const char *bin, char *const args[]);

@@ -70,9 +70,17 @@ wlc_backend(struct wlc_backend *backend)
       NULL
    };
 
-   for (uint32_t i = 0; init[i]; ++i)
-      if (init[i](backend))
+   enum wlc_backend_type types[] = {
+      WLC_BACKEND_X11,
+      WLC_BACKEND_DRM,
+   };
+
+   for (uint32_t i = 0; init[i]; ++i) {
+      if (init[i](backend)) {
+         backend->type = types[i];
          return true;
+      }
+   }
 
    wlc_log(WLC_LOG_WARN, "Could not initialize any backend");
    return false;
