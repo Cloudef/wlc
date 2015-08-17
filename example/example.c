@@ -83,19 +83,19 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
       if (view) {
          if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_q) {
             wlc_view_close(view);
-            return false;
+            return true;
          } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Down) {
             wlc_view_send_to_back(view);
             wlc_view_focus(get_topmost(wlc_view_get_output(view), 0));
-            return false;
+            return true;
          }
       } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Escape) {
          wlc_terminate();
-         return false;
+         return true;
       }
    }
 
-   return true;
+   return false;
 }
 
 static bool
@@ -106,7 +106,7 @@ pointer_button(wlc_handle view, uint32_t time, const struct wlc_modifiers *modif
    if (state == WLC_BUTTON_STATE_PRESSED)
       wlc_view_focus(view);
 
-   return true;
+   return false;
 }
 
 int
