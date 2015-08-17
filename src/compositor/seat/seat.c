@@ -149,7 +149,7 @@ input_event(struct wl_listener *listener, void *data)
             chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
          };
 
-         const bool handled = wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y });
+         const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }) : false);
          wlc_pointer_motion(&seat->pointer, ev->time, &pos, !handled);
       }
       break;
@@ -163,7 +163,7 @@ input_event(struct wl_listener *listener, void *data)
             ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
          };
 
-         const bool handled = wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y });
+         const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }) : false);
          wlc_pointer_motion(&seat->pointer, ev->time, &pos, !handled);
       }
       break;
@@ -195,7 +195,7 @@ input_event(struct wl_listener *listener, void *data)
             ev->touch.y(ev->touch.internal, resolution.h)
          };
 
-         const bool handled = wlc_interface()->touch.touch(seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos);
+         const bool handled = (wlc_interface()->touch.touch ? wlc_interface()->touch.touch(seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos) : false);
 
          if (ev->touch.type == WLC_TOUCH_MOTION || ev->touch.type == WLC_TOUCH_DOWN)
             wlc_pointer_motion(&seat->pointer, ev->time, &(struct wlc_pointer_origin){ pos.x, pos.y }, !handled);
