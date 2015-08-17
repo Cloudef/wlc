@@ -40,7 +40,7 @@ static struct {
    struct wl_display *display;
    FILE *log_file;
    int cached_tm_mday;
-   bool active, set_ready_on_run;
+   bool active;
 } wlc;
 
 #ifndef NDEBUG
@@ -397,13 +397,20 @@ wlc_run(void)
    if (!wlc.display)
       return;
 
-   // Called when no xwayland is requested
-   if (wlc.set_ready_on_run) {
-      WLC_INTERFACE_EMIT(compositor.ready);
-      wlc.set_ready_on_run = false;
-   }
+   bool emit_ready = true;
+   const char *xwayland = getenv("WLC_XWAYLAND");
+   if (!xwayland || !chck_cstreq(xwayland, "0"))
+      emit_ready = !wlc_xwayland_init();
 
-   wl_display_run(wlc.display);
+   // Emit ready immediately when no Xwayland
+   if (emit_ready)
+      WLC_INTERFACE_EMIT(compositor.ready);
+
+   wlc_set_active(true);
+
+   if (wlc_compositor_is_good(&wlc.compositor))
+      wl_display_run(wlc.display);
+
    wlc_cleanup();
 }
 
@@ -544,19 +551,9 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
          die("Failed to init input");
    }
 
-   memcpy(&wlc.interface, interface, sizeof(wlc.interface));
-
    if (!wlc_compositor(&wlc.compositor))
       die("Failed to init compositor");
 
-   const char *xwayland = getenv("WLC_XWAYLAND");
-   if (!xwayland || !chck_cstreq(xwayland, "0")) {
-      if (!(wlc_xwayland_init()))
-         die("Failed to init xwayland");
-   } else {
-      wlc.set_ready_on_run = true;
-   }
-
-   wlc_set_active(true);
-   return wlc_compositor_is_good(&wlc.compositor);
+   memcpy(&wlc.interface, interface, sizeof(wlc.interface));
+   return true;
 }
