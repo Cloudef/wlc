@@ -311,7 +311,8 @@ wlc_event_source_timer_update(struct wlc_event_source *source, int32_t ms_delay)
    return (wl_event_source_timer_update((struct wl_event_source*)source, ms_delay) == 0);
 }
 
-void wlc_event_source_remove(struct wlc_event_source *source)
+WLC_API void
+wlc_event_source_remove(struct wlc_event_source *source)
 {
    assert(source);
 
