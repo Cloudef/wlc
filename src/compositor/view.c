@@ -307,7 +307,7 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
    assert(view && r);
    bool granted = true;
 
-   if (wlc_interface()->view.request.geometry) {
+   if (view->state.created && wlc_interface()->view.request.geometry) {
       WLC_INTERFACE_EMIT(view.request.geometry, convert_to_wlc_handle(view), r);
 
       // User did not follow the request.
@@ -323,7 +323,7 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
 void
 wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle)
 {
-   if (!view || !!(view->pending.state & state) == toggle)
+   if (!view || !view->state.created || !!(view->pending.state & state) == toggle)
       return;
 
    WLC_INTERFACE_EMIT(view.request.state, convert_to_wlc_handle(view), state, toggle);
