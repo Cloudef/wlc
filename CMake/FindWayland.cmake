@@ -20,7 +20,7 @@
 # For details see the accompanying COPYING-CMAKE-SCRIPTS file.
 
 find_package(PkgConfig)
-pkg_check_modules(PC_WAYLAND QUIET wayland-client wayland-server wayland-egl)
+pkg_check_modules(PC_WAYLAND REQUIRED QUIET wayland-client>=1.7 wayland-server>=1.7 wayland-egl)
 
 find_library(WAYLAND_CLIENT_LIBRARIES NAMES wayland-client   HINTS ${PC_WAYLAND_LIBRARY_DIRS})
 find_library(WAYLAND_SERVER_LIBRARIES NAMES wayland-server   HINTS ${PC_WAYLAND_LIBRARY_DIRS})
