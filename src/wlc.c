@@ -455,12 +455,12 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
 
    unsetenv("TERM");
    const char *x11display = getenv("DISPLAY");
-   bool privilidged = false;
+   bool privileged = false;
    const bool has_logind = wlc_logind_available();
 
    if (getuid() != geteuid() || getgid() != getegid()) {
       wlc_log(WLC_LOG_INFO, "Doing work on SUID/SGID side and dropping permissions");
-      privilidged = true;
+      privileged = true;
    } else if (getuid() == 0) {
       die("Do not run wlc compositor as root");
    } else if (!x11display && !has_logind && access("/dev/input/event0", R_OK | W_OK) != 0) {
@@ -489,14 +489,14 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
 #ifdef HAS_LOGIND
    // Init logind if we are not running as SUID.
    // We need event loop for logind to work, and thus we won't allow it on SUID process.
-   if (!privilidged && !x11display && has_logind) {
+   if (!privileged && !x11display && has_logind) {
       if (!(wlc.display = wl_display_create()))
          die("Failed to create wayland display");
       if (!(vt = wlc_logind_init("seat0")))
          die("Failed to init logind");
    }
 #else
-   (void)privilidged;
+   (void)privileged;
 #endif
 
    if (!x11display)
