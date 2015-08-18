@@ -142,9 +142,9 @@ input_event(struct wl_listener *listener, void *data)
    switch (ev->type) {
       case WLC_INPUT_EVENT_MOTION:
       {
-         struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
+         const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
-         struct wlc_pointer_origin pos = {
+         const struct wlc_pointer_origin pos = {
             chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w),
             chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
          };
@@ -156,9 +156,9 @@ input_event(struct wl_listener *listener, void *data)
 
       case WLC_INPUT_EVENT_MOTION_ABSOLUTE:
       {
-         struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
+         const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
-         struct wlc_pointer_origin pos = {
+         const struct wlc_pointer_origin pos = {
             ev->motion_abs.x(ev->motion_abs.internal, resolution.w),
             ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
          };
@@ -176,11 +176,20 @@ input_event(struct wl_listener *listener, void *data)
          break;
 
       case WLC_INPUT_EVENT_BUTTON:
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state))
+      {
+         const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
+
+         const struct wlc_pointer_origin pos = {
+            chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w),
+            chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
+         };
+
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state, &(struct wlc_origin){ pos.x, pos.y }))
             return;
 
          wlc_pointer_button(&seat->pointer, ev->time, ev->button.code, ev->button.state);
-         break;
+      }
+      break;
 
       case WLC_INPUT_EVENT_KEY:
          seat_handle_key(seat, ev);
@@ -188,9 +197,9 @@ input_event(struct wl_listener *listener, void *data)
 
       case WLC_INPUT_EVENT_TOUCH:
       {
-         struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
+         const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
-         struct wlc_origin pos = {
+         const struct wlc_origin pos = {
             ev->touch.x(ev->touch.internal, resolution.w),
             ev->touch.y(ev->touch.internal, resolution.h)
          };

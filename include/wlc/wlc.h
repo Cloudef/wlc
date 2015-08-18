@@ -168,7 +168,7 @@ struct wlc_interface {
 
    struct {
       /** Button event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      bool (*button)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state);
+      bool (*button)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state, const struct wlc_origin*);
 
       /** Scroll event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
       bool (*scroll)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]);
