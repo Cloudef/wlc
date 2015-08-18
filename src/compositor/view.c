@@ -57,14 +57,15 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   if (view->state.ack != ACK_NONE) {
+   // FIXME: handle ping
+#if 0
       struct wl_resource *r;
       if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface")))
          wl_shell_surface_send_ping(r, wl_display_next_serial(wlc_display()));
 
       wlc_dlog(WLC_DBG_COMMIT, "=> ping view %zu", convert_to_wlc_handle(view));
       return;
-   }
+#endif
 
    if (!view->state.created) {
       // Initial size of the view
@@ -81,7 +82,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       return;
 
    if (pending->state != out->state) {
-      struct {
+      const struct {
          uint32_t bit;
          uint32_t state;
       } map[] = {
@@ -100,21 +101,17 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       }
    }
 
-   bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) && !wlc_size_equals(&pending->geometry.size, &surface->size));
+   const bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) && !wlc_size_equals(&pending->geometry.size, &surface->size));
    wlc_dlog(WLC_DBG_COMMIT, "=> pending commit %zu (%d) %ux%u %ux%u %ux%u", convert_to_wlc_handle(view), size_changed, pending->geometry.size.w, pending->geometry.size.h, out->geometry.size.w, out->geometry.size.h, surface->size.w, surface->size.h);
 
    if (pending->state != out->state || size_changed) {
       struct wl_resource *r;
       if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
-         uint32_t serial = wl_display_next_serial(wlc_display());
+         const uint32_t serial = wl_display_next_serial(wlc_display());
          struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
          xdg_surface_send_configure(r, pending->geometry.size.w, pending->geometry.size.h, &states, serial);
-         // XXX: Some clients such simple-damage from weston does not trigger the ack, force next commit.
-         //      Otherwise we could go pending state here and wait for surface reply.
-         view->state.ack = (size_changed ? ACK_NEXT_COMMIT : ACK_NONE);
       } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
-         wl_shell_surface_send_configure(r, view->state.resizing, pending->geometry.size.w, pending->geometry.size.h);
-         view->state.ack = (size_changed ? ACK_NEXT_COMMIT : ACK_NONE);
+         wl_shell_surface_send_configure(r, pending->edges, pending->geometry.size.w, pending->geometry.size.h);
       }
    }
 
@@ -122,21 +119,12 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       if (!wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin))
          wlc_x11_window_position(&view->x11, pending->geometry.origin.x, pending->geometry.origin.y);
 
-      if (size_changed) {
+      if (size_changed)
          wlc_x11_window_resize(&view->x11, pending->geometry.size.w, pending->geometry.size.h);
-         view->state.ack = ACK_NEXT_COMMIT;
-      }
    }
 
-   if (size_changed)
-      memcpy(&view->state.resize, &pending->geometry.size, sizeof(view->state.resize));
-
-   if (view->state.ack == ACK_NONE) {
-      // Commit immediately if no ack requested
-      // XXX: We may need to detect frozen client
-      memcpy(out, pending, sizeof(struct wlc_view_state));
-      wlc_dlog(WLC_DBG_COMMIT, "=> commit %zu", convert_to_wlc_handle(view));
-   }
+   memcpy(out, pending, sizeof(struct wlc_view_state));
+   wlc_dlog(WLC_DBG_COMMIT, "=> commit %zu", convert_to_wlc_handle(view));
 }
 
 void
@@ -144,61 +132,17 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, 
 {
    assert(view && surface && old_surface_size);
 
-   if (view->x11.id && wlc_size_equals(&surface->size, old_surface_size))
-      return;
-
-   if (!view->state.resizing && !wlc_size_equals(&surface->size, old_surface_size) && !wlc_size_equals(&view->pending.geometry.size, &surface->size)) {
-      struct wlc_geometry r = { view->pending.geometry.origin, surface->size };
-      wlc_view_request_geometry(view, &r);
-   }
-
    if (view->x11.id)
       surface->pending.opaque.extents = (pixman_box32_t){ 0, 0, surface->size.w, surface->size.h };
 
-   if (view->state.ack != ACK_NEXT_COMMIT)
-      return;
-
-   bool reconfigure = false;
-   if (view->state.resizing) {
-      struct wlc_geometry r = view->pending.geometry;
-      if (view->state.resizing & WL_SHELL_SURFACE_RESIZE_LEFT)
-         r.origin.x += old_surface_size->w - surface->size.w;
-      if (view->state.resizing & WL_SHELL_SURFACE_RESIZE_TOP)
-         r.origin.y += old_surface_size->h - surface->size.h;
-
-      // Reset to before resize
-      memcpy(&view->pending.geometry, &view->commit.geometry, sizeof(view->pending.geometry));
-
-      // Request resize
-      if (!wlc_view_request_geometry(view, &r))
-         reconfigure = true;
-   } else if (!wlc_size_equals(&view->pending.geometry.size, &view->state.resize)) {
-      reconfigure = !wlc_size_equals(&view->pending.geometry.size, &surface->size);
-      wlc_dlog(WLC_DBG_COMMIT, "=> recommit %zu (%ux%u != %ux%u)", convert_to_wlc_handle(view), view->pending.geometry.size.w, view->pending.geometry.size.h, view->state.resize.w, view->state.resize.h);
-      memcpy(&view->commit, &view->pending, sizeof(view->commit));
+   const bool resizing = (view->pending.state & WLC_BIT_RESIZING);
+   if (resizing) {
+      if (view->pending.edges & WLC_RESIZE_EDGE_LEFT || view->commit.edges & WLC_RESIZE_EDGE_LEFT)
+         view->pending.geometry.origin.x += old_surface_size->w - surface->size.w;
+      if (view->pending.edges & WLC_RESIZE_EDGE_TOP || view->commit.edges & WLC_RESIZE_EDGE_TOP)
+         view->pending.geometry.origin.y += old_surface_size->h - surface->size.h;
    }
 
-   if (reconfigure) {
-      struct wl_resource *r;
-      if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
-         uint32_t serial = wl_display_next_serial(wlc_display());
-         struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
-         xdg_surface_send_configure(r, view->pending.geometry.size.w, view->pending.geometry.size.h, &states, serial);
-         view->state.ack = ACK_NEXT_COMMIT;
-      } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
-         wl_shell_surface_send_configure(r, view->state.resizing, view->pending.geometry.size.w, view->pending.geometry.size.h);
-         view->state.ack = ACK_NEXT_COMMIT;
-      } else if (view->x11.id) {
-         wlc_x11_window_resize(&view->x11, view->pending.geometry.size.w, view->pending.geometry.size.h);
-         view->state.ack = ACK_NEXT_COMMIT;
-      }
-
-      memcpy(&view->state.resize, &view->pending.geometry.size, sizeof(view->state.resize));
-   } else {
-      memcpy(&view->commit, &view->pending, sizeof(view->commit));
-      view->state.ack = ACK_NONE;
-      wlc_dlog(WLC_DBG_COMMIT, "=> commit %zu", convert_to_wlc_handle(view));
-   }
 }
 
 static bool
@@ -386,7 +330,7 @@ wlc_view_set_mask_ptr(struct wlc_view *view, uint32_t mask)
 }
 
 void
-wlc_view_set_geometry_ptr(struct wlc_view *view, const struct wlc_geometry *geometry)
+wlc_view_set_geometry_ptr(struct wlc_view *view, uint32_t edges, const struct wlc_geometry *geometry)
 {
    assert(geometry);
 
@@ -394,6 +338,7 @@ wlc_view_set_geometry_ptr(struct wlc_view *view, const struct wlc_geometry *geom
       return;
 
    view->pending.geometry = *geometry;
+   view->pending.edges = edges;
    update(view);
 }
 
@@ -592,9 +537,9 @@ wlc_view_get_geometry(wlc_handle view)
 }
 
 WLC_API void
-wlc_view_set_geometry(wlc_handle view, const struct wlc_geometry *geometry)
+wlc_view_set_geometry(wlc_handle view, uint32_t edges, const struct wlc_geometry *geometry)
 {
-   wlc_view_set_geometry_ptr(convert_from_wlc_handle(view, "view"), geometry);
+   wlc_view_set_geometry_ptr(convert_from_wlc_handle(view, "view"), edges, geometry);
 }
 
 WLC_API uint32_t

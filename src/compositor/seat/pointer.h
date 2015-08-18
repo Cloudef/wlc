@@ -41,13 +41,6 @@ struct wlc_pointer {
    } focused;
 
    struct {
-      struct wlc_origin grab;
-      uint32_t action_edges;
-      enum grab_action action;
-      bool grabbing;
-   } state;
-
-   struct {
       struct wl_listener render;
    } listener;
 };

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "xdg-surface.h"
+#include "internal.h"
 #include "macros.h"
 #include "compositor/view.h"
 #include "compositor/output.h"
@@ -56,7 +57,8 @@ xdg_cb_surface_move(struct wl_client *client, struct wl_resource *resource, stru
    if (!seat->pointer.focused.view)
       return;
 
-   seat->pointer.state.action = WLC_GRAB_ACTION_MOVE;
+   const struct wlc_origin o = { seat->pointer.pos.x, seat->pointer.pos.y };
+   WLC_INTERFACE_EMIT(view.request.move, seat->pointer.focused.view, &o);
 }
 
 static void
@@ -71,8 +73,8 @@ xdg_cb_surface_resize(struct wl_client *client, struct wl_resource *resource, st
    if (!seat->pointer.focused.view)
       return;
 
-   seat->pointer.state.action = WLC_GRAB_ACTION_RESIZE;
-   seat->pointer.state.action_edges = edges;
+   const struct wlc_origin o = { seat->pointer.pos.x, seat->pointer.pos.y };
+   WLC_INTERFACE_EMIT(view.request.resize, seat->pointer.focused.view, edges, &o);
 }
 
 static void

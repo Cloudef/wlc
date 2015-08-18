@@ -3,6 +3,7 @@
 #include <wayland-server.h>
 #include "shell-surface.h"
 #include "surface.h"
+#include "internal.h"
 #include "macros.h"
 #include "compositor/view.h"
 #include "compositor/output.h"
@@ -20,8 +21,7 @@ wl_cb_shell_surface_pong(struct wl_client *client, struct wl_resource *resource,
        !(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   if (view->state.ack != ACK_NONE)
-      wlc_view_ack_surface_attach(view, surface, &surface->size);
+   STUBL(resource);
 }
 
 static void
@@ -36,7 +36,8 @@ wl_cb_shell_surface_move(struct wl_client *client, struct wl_resource *resource,
    if (!seat->pointer.focused.view)
       return;
 
-   seat->pointer.state.action = WLC_GRAB_ACTION_MOVE;
+   const struct wlc_origin o = { seat->pointer.pos.x, seat->pointer.pos.y };
+   WLC_INTERFACE_EMIT(view.request.move, seat->pointer.focused.view, &o);
 }
 
 static void
@@ -51,8 +52,8 @@ wl_cb_shell_surface_resize(struct wl_client *client, struct wl_resource *resourc
    if (!seat->pointer.focused.view)
       return;
 
-   seat->pointer.state.action = WLC_GRAB_ACTION_RESIZE;
-   seat->pointer.state.action_edges = edges;
+   const struct wlc_origin o = { seat->pointer.pos.x, seat->pointer.pos.y };
+   WLC_INTERFACE_EMIT(view.request.resize, seat->pointer.focused.view, edges, &o);
 }
 
 static void

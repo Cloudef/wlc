@@ -66,12 +66,9 @@ view_under_pointer(struct wlc_pointer *pointer, struct wlc_output *output)
    if (!output)
       return NULL;
 
-   struct wlc_view *view;
-   if ((view = convert_from_wlc_handle(pointer->focused.view, "view")) && pointer->state.grabbing)
-      return view;
-
    wlc_handle *h;
    chck_iter_pool_for_each_reverse(&output->views, h) {
+      struct wlc_view *view;
       if (!(view = convert_from_wlc_handle(*h, "view")))
          continue;
 
@@ -84,27 +81,6 @@ view_under_pointer(struct wlc_pointer *pointer, struct wlc_output *output)
    }
 
    return NULL;
-}
-
-static void
-degrab(struct wlc_pointer *pointer)
-{
-   struct wlc_view *view;
-   if (pointer->state.grabbing && (view = convert_from_wlc_handle(pointer->focused.view, "view"))) {
-      switch (pointer->state.action) {
-         case WLC_GRAB_ACTION_MOVE:
-            wlc_view_set_state_ptr(view, WLC_BIT_MOVING, false);
-            break;
-         case WLC_GRAB_ACTION_RESIZE:
-            wlc_view_set_state_ptr(view, WLC_BIT_RESIZING, false);
-            break;
-         default: break;
-      }
-
-      view->state.resizing = 0;
-   }
-
-   memset(&pointer->state, 0, sizeof(pointer->state));
 }
 
 static void
@@ -242,20 +218,12 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
 
    defocus(pointer);
    focus_view(pointer, view, &d);
-   degrab(pointer);
 }
 
 void
 wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, enum wl_pointer_button_state state)
 {
    assert(pointer);
-
-   if (state == WL_POINTER_BUTTON_STATE_PRESSED && !pointer->state.grabbing) {
-      pointer->state.grabbing = true;
-      pointer->state.grab = (struct wlc_origin){ pointer->pos.x, pointer->pos.y };
-   } else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
-      degrab(pointer);
-   }
 
    wlc_resource *r;
    chck_iter_pool_for_each(&pointer->focused.resources, r) {
@@ -303,57 +271,16 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_
 
    wlc_output_schedule_repaint(output);
 
-   if (!focused)
+   if (!focused || !pass)
       return;
 
-   // Pass event to client
-   if (pass) {
-      wlc_resource *r;
-      chck_iter_pool_for_each(&pointer->focused.resources, r) {
-         struct wl_resource *wr;
-         if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
-            continue;
+   wlc_resource *r;
+   chck_iter_pool_for_each(&pointer->focused.resources, r) {
+      struct wl_resource *wr;
+      if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
+         continue;
 
-         wl_pointer_send_motion(wr, time, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
-      }
-   }
-
-   if (pointer->state.grabbing) {
-      struct wlc_geometry g = focused->pending.geometry;
-      int32_t dx = pos->x - pointer->state.grab.x;
-      int32_t dy = pos->y - pointer->state.grab.y;
-
-      if (pointer->state.action == WLC_GRAB_ACTION_MOVE) {
-         wlc_view_set_state_ptr(focused, WLC_BIT_MOVING, true);
-         g.origin.x += dx;
-         g.origin.y += dy;
-
-         if (wlc_interface()->view.request.geometry) {
-            WLC_INTERFACE_EMIT(view.request.geometry, convert_to_wlc_handle(focused), &g);
-         } else {
-            wlc_view_set_geometry_ptr(focused, &g);
-         }
-      } else if (pointer->state.action == WLC_GRAB_ACTION_RESIZE) {
-         const struct wlc_size min = { 80, 40 };
-
-         if (pointer->state.action_edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
-            g.size.w = chck_maxu32(min.w, g.size.w - dx);
-         } else if (pointer->state.action_edges & WL_SHELL_SURFACE_RESIZE_RIGHT) {
-            g.size.w = chck_maxu32(min.w, g.size.w + dx);
-         }
-
-         if (pointer->state.action_edges & WL_SHELL_SURFACE_RESIZE_TOP) {
-            g.size.h = chck_maxu32(min.h, g.size.h - dy);
-         } else if (pointer->state.action_edges & WL_SHELL_SURFACE_RESIZE_BOTTOM) {
-            g.size.h = chck_maxu32(min.h, g.size.h + dy);
-         }
-
-         wlc_view_set_state_ptr(focused, WLC_BIT_RESIZING, true);
-         focused->state.resizing = pointer->state.action_edges;
-         wlc_view_set_geometry_ptr(focused, &g);
-      }
-
-      pointer->state.grab = (struct wlc_origin){ pointer->pos.x, pointer->pos.y };
+      wl_pointer_send_motion(wr, time, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
    }
 }
 

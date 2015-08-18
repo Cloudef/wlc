@@ -564,7 +564,7 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
    read_properties(xwm, &view->x11);
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
-      wlc_view_set_geometry_ptr(view, &geometry);
+      wlc_view_set_geometry_ptr(view, 0, &geometry);
 
    wlc_dlog(WLC_DBG_XWM, "-> Linked x11 window (%u) to view (%zu) [%ux%u+%d,%d]",
             view->x11.id, handle, geometry.size.w, geometry.size.h, geometry.origin.x, geometry.origin.y);

@@ -72,6 +72,19 @@ enum wlc_view_type_bit {
    WLC_BIT_POPUP = 1<<4, // xdg-shell, wl-shell popups
 };
 
+/** wlc_view_set_geometry(); Edges in interface interface.view.request.resize function. */
+enum wlc_resize_edge {
+   WLC_RESIZE_EDGE_NONE = 0,
+   WLC_RESIZE_EDGE_TOP = 1,
+   WLC_RESIZE_EDGE_BOTTOM = 2,
+   WLC_RESIZE_EDGE_LEFT = 4,
+   WLC_RESIZE_EDGE_TOP_LEFT = 5,
+   WLC_RESIZE_EDGE_BOTTOM_LEFT = 6,
+   WLC_RESIZE_EDGE_RIGHT = 8,
+   WLC_RESIZE_EDGE_TOP_RIGHT = 9,
+   WLC_RESIZE_EDGE_BOTTOM_RIGHT = 10,
+};
+
 /** Mods in interface.keyboard.key function. */
 enum wlc_modifier_bit {
    WLC_BIT_MOD_SHIFT = 1<<0,
@@ -158,6 +171,12 @@ struct wlc_interface {
 
          /** Request to disable or enable the given state for view. Apply using wlc_view_set_state to agree. */
          void (*state)(wlc_handle view, enum wlc_view_state_bit, bool toggle);
+
+         /** Request to move itself. Start a interactive move to agree. */
+         void (*move)(wlc_handle view, const struct wlc_origin *origin);
+
+         /** Request to resize itself with the given edges. Start a interactive resize to agree. */
+         void (*resize)(wlc_handle view, uint32_t edges, const struct wlc_origin *origin);
       } request;
    } view;
 
@@ -334,8 +353,8 @@ void wlc_view_set_mask(wlc_handle view, uint32_t mask);
 /** Get current geometry. */
 const struct wlc_geometry* wlc_view_get_geometry(wlc_handle view);
 
-/** Set geometry. */
-void wlc_view_set_geometry(wlc_handle view, const struct wlc_geometry *geometry);
+/** Set geometry. Set edges if the geometry change is caused by interactive resize. */
+void wlc_view_set_geometry(wlc_handle view, uint32_t edges, const struct wlc_geometry *geometry);
 
 /** Get type bitfield. */
 uint32_t wlc_view_get_type(wlc_handle view);
