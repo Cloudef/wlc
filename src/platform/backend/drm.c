@@ -412,6 +412,7 @@ wlc_connector_for_drm_connector(uint32_t type)
       WLC_CONNECTOR_DIN,
       WLC_CONNECTOR_DP,
       WLC_CONNECTOR_HDMI,
+      WLC_CONNECTOR_HDMI,
       WLC_CONNECTOR_TV,
       WLC_CONNECTOR_eDP,
    };
