@@ -593,7 +593,7 @@ wlc_fd_init(int argc, char *argv[], bool has_logind)
 
       wlc_log(WLC_LOG_INFO, "Work done, dropping permissions and checking communication");
 
-      if (setuid(getuid()) != 0 || setgid(getgid()) != 0)
+      if (setgid(getgid()) != 0 || setuid(getuid()) != 0)
          die("Could not drop permissions: %m");
 
       if (kill(wlc.child, 0) != 0)
