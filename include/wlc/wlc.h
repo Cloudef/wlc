@@ -194,9 +194,9 @@ struct wlc_interface {
  * Initialize wlc. Returns false on failure.
  *
  * Avoid running unverified code before wlc_init as wlc compositor may be run with higher
- * privilidges on non logind systems where compositor binary needs to be suid.
+ * privileges on non logind systems where compositor binary needs to be suid.
  *
- * wlc_init's purpose is to initialize and drop privilidges as soon as possible.
+ * wlc_init's purpose is to initialize and drop privileges as soon as possible.
  *
  * You can pass argc and argv from main(), so wlc can rename the process it forks
  * to cleanup crashed parent process and do FD passing (non-logind).
