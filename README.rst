@@ -137,7 +137,7 @@ You will need following makedepends:
 And the following depends:
 
 - pixman
-- wayland
+- wayland 1.7+
 - libxkbcommon
 - udev
 - libinput
