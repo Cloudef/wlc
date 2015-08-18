@@ -70,12 +70,15 @@ dbus_load(void)
 {
    const char *lib = "libdbus-1.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(dbus.handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (dbus.x = dlsym(dbus.handle, (func = #x)))
+#else
+#define load(x) (dbus.x = &x)
+#endif
 
    if (!load(dbus_connection_add_filter))
       goto function_pointer_exception;
@@ -139,12 +142,15 @@ sd_load(void)
 
    const char *lib = "libsystemd.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(sd.handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (sd.x = dlsym(sd.handle, (func = #x)))
+#else
+#define load(x) (sd.x = &x)
+#endif
 
    if (!load(sd_pid_get_session))
       goto function_pointer_exception;

@@ -97,12 +97,16 @@ gbm_load(void)
 {
    const char *lib = "libgbm.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(gbm.api.handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (gbm.api.x = dlsym(gbm.api.handle, (func = #x)))
+#else
+#define load(x) (gbm.api.x = &x)
+#endif
+
 
    if (!load(gbm_create_device))
       goto function_pointer_exception;
@@ -141,12 +145,15 @@ drm_load(void)
 {
    const char *lib = "libdrm.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(drm.api.handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (drm.api.x = dlsym(drm.api.handle, (func = #x)))
+#else
+#define load(x) (drm.api.x = &x)
+#endif
 
    if (!load(drmIoctl))
       goto function_pointer_exception;
