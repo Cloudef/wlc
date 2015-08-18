@@ -150,6 +150,6 @@ set(WLC_LIBRARIES wlc ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMO
 configure_file(wlc.pc.in wlc.pc @ONLY)
 
 # Install rules
-install(TARGETS wlc DESTINATION lib)
+install(TARGETS wlc DESTINATION lib${LIB_SUFFIX})
 install(DIRECTORY "${wlc_SOURCE_DIR}/include/wlc" DESTINATION include)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/wlc.pc" DESTINATION lib/pkgconfig)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/wlc.pc" DESTINATION lib${LIB_SUFFIX}/pkgconfig)
