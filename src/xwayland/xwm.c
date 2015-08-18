@@ -261,9 +261,18 @@ function_pointer_exception:
 static bool
 xcb_image_load(void)
 {
-   const char *lib = "libxcb-image.so", *func = NULL;
+   const char lib[] = "libxcb-image.so.0";
+   const char lib_so[] = "libxcb-image.so";
+   char *func = NULL;
 
-   if (!(x11.api.xcb_image_handle = dlopen(lib, RTLD_LAZY))) {
+   x11.api.xcb_image_handle = dlopen(lib, RTLD_LAZY);
+
+   if (!x11.api.xcb_image_handle) {
+      wlc_log(WLC_LOG_INFO, "%s", dlerror());
+      x11.api.xcb_image_handle = dlopen(lib_so, RTLD_LAZY);
+   }
+
+   if (!x11.api.xcb_image_handle) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
