@@ -40,7 +40,10 @@ enum wlc_event_bit {
 
 /** wlc_output_get_connector_type(); */
 enum wlc_connector_type {
+   /* used when running wlc with backend (e.g. x11) that does not use real output. */
    WLC_CONNECTOR_WLC,
+
+   /* these are based on xf86drm.h */
    WLC_CONNECTOR_UNKNOWN,
    WLC_CONNECTOR_VGA,
    WLC_CONNECTOR_DVII,
