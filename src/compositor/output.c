@@ -17,23 +17,29 @@ static EGLNativeDisplayType INVALID_DISPLAY = (EGLNativeDisplayType)~0;
 static const char*
 name_for_connector(enum wlc_connector_type connector)
 {
-   static const char *names[] = {
-      "UNKNOWN", // WLC_CONNECTOR_UNKNOWN
-      "None", // WLC_CONNECTOR_NONE
-      "VGA",  // WLC_CONNECTOR_VGA
-      "DVI",  // WLC_CONNECTOR_DVI
-      "Composite", // WLC_CONNECTOR_COMPOSITE
-      "TV", // WLC_CONNECTOR_TV
-      "LVDS", // WLC_CONNECTOR_LVDS
-      "CTV", // WLC_CONNECTOR_CTV
-      "DIN", // WLC_CONNECTOR_DIN
-      "DP", // WLC_CONNECTOR_DP
-      "HDMI", // WLC_CONNECTOR_HDMI
-      "eDP", // WLC_CONNECTOR_EDP
-   };
+   switch (connector) {
+      case WLC_CONNECTOR_WLC: return "WLC";
+      case WLC_CONNECTOR_UNKNOWN: return "Unknown";
+      case WLC_CONNECTOR_VGA: return "VGA";
+      case WLC_CONNECTOR_DVII: return "DVI-I";
+      case WLC_CONNECTOR_DVID: return "DVI-D";
+      case WLC_CONNECTOR_DVIA: return "DVI-A";
+      case WLC_CONNECTOR_COMPOSITE: return "Composite";
+      case WLC_CONNECTOR_SVIDEO: return "SVIDEO";
+      case WLC_CONNECTOR_LVDS: return "LVDS";
+      case WLC_CONNECTOR_COMPONENT: return "Component";
+      case WLC_CONNECTOR_DIN: return "DIN";
+      case WLC_CONNECTOR_DP: return "DP";
+      case WLC_CONNECTOR_HDMIA: return "HDMI-A";
+      case WLC_CONNECTOR_HDMIB: return "HDMI-B";
+      case WLC_CONNECTOR_TV: return "TV";
+      case WLC_CONNECTOR_eDP: return "eDP";
+      case WLC_CONNECTOR_VIRTUAL: return "Virtual";
+      case WLC_CONNECTOR_DSI: return "DSI";
+   }
 
-   assert(connector < LENGTH(names));
-   return names[connector];
+   assert(0 && "something is missing from the list above");
+   return "UNNAMED";
 }
 
 bool

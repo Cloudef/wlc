@@ -399,25 +399,28 @@ find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *conn
 static enum wlc_connector_type
 wlc_connector_for_drm_connector(uint32_t type)
 {
-   enum wlc_connector_type types[] = {
-      WLC_CONNECTOR_NONE,
-      WLC_CONNECTOR_VGA,
-      WLC_CONNECTOR_DVI,
-      WLC_CONNECTOR_DVI,
-      WLC_CONNECTOR_DVI,
-      WLC_CONNECTOR_COMPOSITE,
-      WLC_CONNECTOR_TV,
-      WLC_CONNECTOR_LVDS,
-      WLC_CONNECTOR_CTV,
-      WLC_CONNECTOR_DIN,
-      WLC_CONNECTOR_DP,
-      WLC_CONNECTOR_HDMI,
-      WLC_CONNECTOR_HDMI,
-      WLC_CONNECTOR_TV,
-      WLC_CONNECTOR_eDP,
-   };
+   switch (type) {
+      case DRM_MODE_CONNECTOR_Unknown: return WLC_CONNECTOR_UNKNOWN;
+      case DRM_MODE_CONNECTOR_VGA: return WLC_CONNECTOR_VGA;
+      case DRM_MODE_CONNECTOR_DVII: return WLC_CONNECTOR_DVII;
+      case DRM_MODE_CONNECTOR_DVID: return WLC_CONNECTOR_DVID;
+      case DRM_MODE_CONNECTOR_DVIA: return WLC_CONNECTOR_DVIA;
+      case DRM_MODE_CONNECTOR_Composite: return WLC_CONNECTOR_COMPOSITE;
+      case DRM_MODE_CONNECTOR_SVIDEO: return WLC_CONNECTOR_SVIDEO;
+      case DRM_MODE_CONNECTOR_LVDS: return WLC_CONNECTOR_LVDS;
+      case DRM_MODE_CONNECTOR_Component: return WLC_CONNECTOR_COMPONENT;
+      case DRM_MODE_CONNECTOR_9PinDIN: return WLC_CONNECTOR_DIN;
+      case DRM_MODE_CONNECTOR_DisplayPort: return WLC_CONNECTOR_DP;
+      case DRM_MODE_CONNECTOR_HDMIA: return WLC_CONNECTOR_HDMIA;
+      case DRM_MODE_CONNECTOR_HDMIB: return WLC_CONNECTOR_HDMIB;
+      case DRM_MODE_CONNECTOR_TV: return WLC_CONNECTOR_TV;
+      case DRM_MODE_CONNECTOR_eDP: return WLC_CONNECTOR_eDP;
+      case DRM_MODE_CONNECTOR_VIRTUAL: return WLC_CONNECTOR_VIRTUAL;
+      case DRM_MODE_CONNECTOR_DSI: return WLC_CONNECTOR_DSI;
+   }
 
-   return (type < LENGTH(types) ? types[type] : WLC_CONNECTOR_UNKNOWN);
+   wlc_log(WLC_LOG_WARN, "Failed to resolve drm connector of type %u", type);
+   return WLC_CONNECTOR_UNKNOWN;
 }
 
 static bool
