@@ -145,7 +145,7 @@ struct wlc_modifiers {
 /** Interface struct for communicating with wlc. */
 struct wlc_interface {
    struct {
-      /** Output was created. Return false if you want to destroy the output. (ex. failed to allocate data related to view) */
+      /** Output was created. Return false if you want to destroy the output. (e.g. failed to allocate data related to view) */
       bool (*created)(wlc_handle output);
 
       /** Output was destroyed. */
@@ -159,7 +159,7 @@ struct wlc_interface {
    } output;
 
    struct {
-      /** View was created. Return false if you want to destroy the view. (ex. failed to allocate data related to view) */
+      /** View was created. Return false if you want to destroy the view. (e.g. failed to allocate data related to view) */
       bool (*created)(wlc_handle view);
 
       /** View was destroyed. */
