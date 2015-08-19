@@ -260,7 +260,7 @@ xwayland_event(struct wl_listener *listener, void *data)
 static void
 attach_surface_to_view_or_create(struct wlc_compositor *compositor, struct wlc_surface *surface, enum wlc_shell_surface_type type, wlc_resource shell_surface)
 {
-   assert(compositor && surface && type >= 0 && type < WLC_SHELL_SURFACE_TYPE_LAST);
+   assert(compositor && surface && type < WLC_SHELL_SURFACE_TYPE_LAST);
 
    struct wlc_view *view;
    if (!(view = wlc_compositor_view_for_surface(compositor, surface)))
