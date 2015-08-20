@@ -101,8 +101,8 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       }
    }
 
-   const bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) && !wlc_size_equals(&pending->geometry.size, &surface->size));
-   wlc_dlog(WLC_DBG_COMMIT, "=> pending commit %zu (%d) %ux%u %ux%u %ux%u", convert_to_wlc_handle(view), size_changed, pending->geometry.size.w, pending->geometry.size.h, out->geometry.size.w, out->geometry.size.h, surface->size.w, surface->size.h);
+   const bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) || !wlc_size_equals(&pending->geometry.size, &surface->size));
+   wlc_dlog(WLC_DBG_COMMIT, "=> pending commit %zu (%d) pending: %ux%u commited: %ux%u surface: %ux%u", convert_to_wlc_handle(view), size_changed, pending->geometry.size.w, pending->geometry.size.h, out->geometry.size.w, out->geometry.size.h, surface->size.w, surface->size.h);
 
    if (pending->state != out->state || size_changed) {
       struct wl_resource *r;
