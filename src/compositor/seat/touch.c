@@ -17,6 +17,15 @@ active_output(struct wlc_touch *touch)
    return convert_from_wlc_handle(compositor->active.output, "output");
 }
 
+static bool
+view_visible(struct wlc_view *view, uint32_t mask)
+{
+   if (!view)
+      return false;
+
+   return (view->mask & mask);
+}
+
 static struct wlc_view*
 view_under_touch(const struct wlc_origin *pos, struct wlc_output *output)
 {
@@ -28,7 +37,7 @@ view_under_touch(const struct wlc_origin *pos, struct wlc_output *output)
    wlc_handle *h;
    chck_iter_pool_for_each_reverse(&output->views, h) {
       struct wlc_view *view;
-      if (!(view = convert_from_wlc_handle(*h, "view")))
+      if (!(view = convert_from_wlc_handle(*h, "view")) || !view_visible(view, output->active.mask))
          continue;
 
       struct wlc_geometry b;
