@@ -516,6 +516,37 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
 }
 
 static void
+set_geometry(xcb_window_t window, const struct wlc_geometry *g)
+{
+   assert(g);
+   const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+   const uint32_t values[] = { g->origin.x, g->origin.y, g->size.w, g->size.h };
+   XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, window, mask, (uint32_t*)&values));
+   x11.api.xcb_flush(x11.connection);
+}
+
+static void
+get_geometry(xcb_window_t window, struct wlc_geometry *out_g, uint32_t *out_depth)
+{
+   if (out_g)
+      *out_g = wlc_geometry_zero;
+
+   if (out_depth)
+      *out_depth = 0;
+
+   xcb_get_geometry_reply_t *reply;
+   if ((reply = x11.api.xcb_get_geometry_reply(x11.connection, x11.api.xcb_get_geometry(x11.connection, window), NULL))) {
+      if (out_g)
+         *out_g = (struct wlc_geometry){ .origin = { reply->x, reply->y }, .size = { reply->width, reply->height } };
+
+      if (out_depth)
+         *out_depth = reply->depth;
+
+      free(reply);
+   }
+}
+
+static void
 link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource *resource)
 {
    assert(xwm && win);
@@ -530,14 +561,10 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
       return;
    }
 
-   xcb_get_geometry_reply_t *reply;
-   struct wlc_geometry geometry = wlc_geometry_zero;
-   if ((reply = x11.api.xcb_get_geometry_reply(x11.connection, x11.api.xcb_get_geometry(x11.connection, win->id), NULL))) {
-      geometry.origin = (struct wlc_origin){ reply->x, reply->y };
-      geometry.size = (struct wlc_size){ reply->width, reply->height };
-      win->has_alpha = (reply->depth == 32);
-      free(reply);
-   }
+   uint32_t depth;
+   struct wlc_geometry geometry;
+   get_geometry(win->id, &geometry, &depth);
+   win->has_alpha = (depth == 32);
 
    // This is not real interactable x11 window most likely, lets just not handle it.
    if (win->override_redirect && geometry.size.w <= 1 && geometry.size.h <= 1) {
@@ -602,7 +629,7 @@ focus_window(xcb_window_t window, bool force)
 }
 
 static void
-deletewindow(xcb_window_t window)
+delete_window(xcb_window_t window)
 {
    xcb_client_message_event_t ev = {0};
    ev.response_type = XCB_CLIENT_MESSAGE;
@@ -631,7 +658,7 @@ wlc_x11_window_close(struct wlc_x11_window *win)
       return;
 
    if (win->has_delete_window) {
-      deletewindow(win->id);
+      delete_window(win->id);
    } else {
       XCB_CALL(x11.api.xcb_kill_client_checked(x11.connection, win->id));
    }
@@ -822,25 +849,19 @@ x11_event(int fd, uint32_t mask, void *data)
             {
                xcb_configure_request_event_t *ev = (xcb_configure_request_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_REQUEST (%u) [%ux%u+%d,%d]", ev->window, ev->width, ev->height, ev->x, ev->y);
-               struct wlc_geometry r = { { ev->x, ev->y }, { ev->width, ev->height } };
 
                // Some windows freeze unless they get what they want.
-               const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-               const uint32_t values[] = { r.origin.x, r.origin.y, r.size.w, r.size.h };
-               XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, ev->window, mask, (uint32_t*)&values));
+               const struct wlc_geometry r = { { ev->x, ev->y }, { ev->width, ev->height } };
+               set_geometry(ev->window, &r);
 
                struct wlc_view *view;
                struct wlc_x11_window *win;
                if ((win = paired_for_id(xwm, ev->window)) && (view = view_for_window(win))) {
                   set_parent(xwm, win, ev->parent);
-                  wlc_view_request_geometry(view, &r);
 
                   // Force geometry back, if request did not go through
-                  if (!wlc_geometry_equals(&view->pending.geometry, &r)) {
-                     r = view->pending.geometry;
-                     const uint32_t values[] = { r.origin.x, r.origin.y, r.size.w, r.size.h };
-                     XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, ev->window, mask, (uint32_t*)&values));
-                  }
+                  if (!wlc_view_request_geometry(view, &r))
+                     set_geometry(ev->window, &view->pending.geometry);
                }
             }
             break;
