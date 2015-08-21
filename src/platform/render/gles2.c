@@ -960,8 +960,8 @@ wlc_gles2(struct wlc_render_api *api)
       return NULL;
    }
 
-   struct ctx *gl;
-   if (!(gl = create_context()))
+   struct ctx *ctx;
+   if (!(ctx = create_context()))
       return NULL;
 
    api->terminate = terminate;
@@ -981,7 +981,7 @@ wlc_gles2(struct wlc_render_api *api)
       DIM = strtof(dimenv, NULL);
 
    wlc_log(WLC_LOG_INFO, "GLES2 renderer initialized");
-   return gl;
+   return ctx;
 }
 
 // 0 == black, 1 == white, 2 == transparent

@@ -390,8 +390,8 @@ x11_event(int fd, uint32_t mask, void *data)
             xcb_focus_in_event_t *ev = (xcb_focus_in_event_t*)event;
             struct wlc_output *output;
             if ((output = output_for_window(&compositor->outputs.pool, ev->event))) {
-               struct wlc_output_event ev = { .active = { output }, .type = WLC_OUTPUT_EVENT_ACTIVE };
-               wl_signal_emit(&wlc_system_signals()->output, &ev);
+               struct wlc_output_event oev = { .active = { output }, .type = WLC_OUTPUT_EVENT_ACTIVE };
+               wl_signal_emit(&wlc_system_signals()->output, &oev);
             }
          }
          break;

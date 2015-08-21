@@ -13,16 +13,10 @@ OPTION(WLC_BUILD_EXAMPLES "Build wlc examples" ON)
 OPTION(WLC_BUILD_TESTS "Build wlc tests" ON)
 
 # Warnings
-# FIXME: Use CMake module made for this
-if (MSVC)
-   if (CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-      string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-   else ()
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-   endif ()
-elseif (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
-   set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -Wextra -Wno-variadic-macros -Wno-long-long -Wformat=2")
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-variadic-macros -Wno-long-long -Wformat=2")
+if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+   add_definitions(
+      -Wall -Wextra -Wno-variadic-macros -Wno-long-long -Wformat=2 -Winit-self -Wfloat-equal
+      -Wsuggest-attribute=pure -Wsuggest-attribute=const)
 endif ()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

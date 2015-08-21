@@ -520,10 +520,12 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
    if (!info)
       return;
 
-   struct wlc_output_mode *mode;
-   chck_iter_pool_for_each(&output->information.modes, mode) {
-      if (mode->flags & WL_OUTPUT_MODE_CURRENT || (output->active.mode == UINT_MAX && (mode->flags & WL_OUTPUT_MODE_PREFERRED)))
-         output->active.mode = _I - 1;
+   {
+      struct wlc_output_mode *mode;
+      chck_iter_pool_for_each(&output->information.modes, mode) {
+         if (mode->flags & WL_OUTPUT_MODE_CURRENT || (output->active.mode == UINT_MAX && (mode->flags & WL_OUTPUT_MODE_PREFERRED)))
+            output->active.mode = _I - 1;
+      }
    }
 
    assert(output->active.mode != UINT_MAX && "output should have at least one current mode!");

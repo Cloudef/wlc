@@ -828,8 +828,8 @@ x11_event(int fd, uint32_t mask, void *data)
                   struct wlc_view *view;
                   struct wlc_x11_window *win;
                   if ((win = paired_for_id(xwm, ev->event)) && (view = view_for_window(win))) {
-                     struct wlc_focus_event ev = { .view = view, .type = WLC_FOCUS_EVENT_VIEW };
-                     wl_signal_emit(&wlc_system_signals()->focus, &ev);
+                     struct wlc_focus_event evf = { .view = view, .type = WLC_FOCUS_EVENT_VIEW };
+                     wl_signal_emit(&wlc_system_signals()->focus, &evf);
                   }
                }
             }
