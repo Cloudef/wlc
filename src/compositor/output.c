@@ -365,7 +365,7 @@ wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surfac
       break;
    }
 
-   wlc_dlog(WLC_DBG_RENDER, "-> Deattached surface (%zu) from output (%zu)", convert_to_wlc_resource(surface), convert_to_wlc_handle(output));
+   wlc_dlog(WLC_DBG_RENDER, "-> Deattached surface (%" PRIuWLC ") from output (%" PRIuWLC ")", convert_to_wlc_resource(surface), convert_to_wlc_handle(output));
 }
 
 bool
@@ -395,7 +395,7 @@ wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface
          return false;
       }
 
-      wlc_dlog(WLC_DBG_RENDER, "-> Attached surface (%zu) to output (%zu)", r, convert_to_wlc_handle(output));
+      wlc_dlog(WLC_DBG_RENDER, "-> Attached surface (%" PRIuWLC ") to output (%" PRIuWLC ")", r, convert_to_wlc_handle(output));
    }
 
    wlc_output_schedule_repaint(output);
@@ -440,7 +440,7 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
       return true;
 
    if (output->state.pending) {
-      wlc_log(WLC_LOG_INFO, "Pending bsurface set for output (%zu)", convert_to_wlc_handle(output));
+      wlc_log(WLC_LOG_INFO, "Pending bsurface set for output (%" PRIuWLC ")", convert_to_wlc_handle(output));
       if (bsurface) {
          memcpy(&output->task.bsurface, bsurface, sizeof(output->task.bsurface));
       } else {
@@ -489,9 +489,9 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
          }
       }
 
-      wlc_log(WLC_LOG_INFO, "Set new bsurface to output (%zu)", convert_to_wlc_handle(output));
+      wlc_log(WLC_LOG_INFO, "Set new bsurface to output (%" PRIuWLC ")", convert_to_wlc_handle(output));
    } else {
-      wlc_log(WLC_LOG_INFO, "Removed bsurface from output (%zu)", convert_to_wlc_handle(output));
+      wlc_log(WLC_LOG_INFO, "Removed bsurface from output (%" PRIuWLC ")", convert_to_wlc_handle(output));
    }
 
    struct wlc_output_event ev = { .surface = { .output = output }, .type = WLC_OUTPUT_EVENT_SURFACE };
@@ -835,12 +835,12 @@ wlc_output_terminate(struct wlc_output *output)
 
    if (output->state.pending) {
       output->task.terminate = true;
-      wlc_log(WLC_LOG_INFO, "Terminating output (%zu)...", convert_to_wlc_handle(output));
+      wlc_log(WLC_LOG_INFO, "Terminating output (%" PRIuWLC ")...", convert_to_wlc_handle(output));
       wlc_output_schedule_repaint(output);
       return;
    }
 
-   wlc_log(WLC_LOG_INFO, "Output (%zu) terminated...", convert_to_wlc_handle(output));
+   wlc_log(WLC_LOG_INFO, "Output (%" PRIuWLC ") terminated...", convert_to_wlc_handle(output));
    struct wlc_output_event ev = { .remove = { .output = output }, .type = WLC_OUTPUT_EVENT_REMOVE };
    wl_signal_emit(&wlc_system_signals()->output, &ev);
 }

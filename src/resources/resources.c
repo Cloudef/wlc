@@ -129,7 +129,7 @@ handle_create(struct chck_pool *pool, struct wlc_source *source, struct handle_i
    if (source->constructor && !source->constructor(v))
       goto error1;
 
-   wlc_dlog(WLC_DBG_HANDLE, "New %s (%s) %zu", (pool == &handles ? "handle" : "resource"), source->name, i + 1);
+   wlc_dlog(WLC_DBG_HANDLE, "New %s (%s) %" PRIuWLC, (pool == &handles ? "handle" : "resource"), source->name, i + 1);
    return true;
 
 error1:
@@ -164,7 +164,7 @@ handle_release(struct chck_pool *pool, struct handle *handle, void (*preremove)(
    if (preremove)
       preremove(chck_pool_get(pool, handle->public - 1));
 
-   wlc_dlog(WLC_DBG_HANDLE, "Released %s (%s) %zu", (pool == &handles ? "handle" : "resource"), handle->source->name, handle->public);
+   wlc_dlog(WLC_DBG_HANDLE, "Released %s (%s) %" PRIuWLC, (pool == &handles ? "handle" : "resource"), handle->source->name, handle->public);
 
    void *original = pool->items.buffer;
    chck_pool_remove(pool, handle->public - 1);
@@ -391,7 +391,7 @@ wl_destructor(struct wl_listener *listener, void *data)
    wl_list_remove(&r->wl.destructor.link);
    r->wl.r = NULL;
 
-   wlc_dlog(WLC_DBG_HANDLE, "Destruct resource (%s) %zu", r->handle.source->name, r->handle.public);
+   wlc_dlog(WLC_DBG_HANDLE, "Destruct resource (%s) %" PRIuWLC, r->handle.source->name, r->handle.public);
    wlc_resource_release(r->handle.public);
 }
 

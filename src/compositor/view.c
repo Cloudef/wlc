@@ -63,7 +63,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface")))
          wl_shell_surface_send_ping(r, wl_display_next_serial(wlc_display()));
 
-      wlc_dlog(WLC_DBG_COMMIT, "=> ping view %zu", convert_to_wlc_handle(view));
+      wlc_dlog(WLC_DBG_COMMIT, "=> ping view %" PRIuWLC, convert_to_wlc_handle(view));
       return;
 #endif
 
@@ -102,7 +102,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    }
 
    const bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) || !wlc_size_equals(&pending->geometry.size, &surface->size));
-   wlc_dlog(WLC_DBG_COMMIT, "=> pending commit %zu (%d) pending: %ux%u commited: %ux%u surface: %ux%u", convert_to_wlc_handle(view), size_changed, pending->geometry.size.w, pending->geometry.size.h, out->geometry.size.w, out->geometry.size.h, surface->size.w, surface->size.h);
+   wlc_dlog(WLC_DBG_COMMIT, "=> pending commit %" PRIuWLC " (%d) pending: %ux%u commited: %ux%u surface: %ux%u", convert_to_wlc_handle(view), size_changed, pending->geometry.size.w, pending->geometry.size.h, out->geometry.size.w, out->geometry.size.h, surface->size.w, surface->size.h);
 
    if (pending->state != out->state || size_changed) {
       struct wl_resource *r;
@@ -124,7 +124,7 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    }
 
    memcpy(out, pending, sizeof(struct wlc_view_state));
-   wlc_dlog(WLC_DBG_COMMIT, "=> commit %zu", convert_to_wlc_handle(view));
+   wlc_dlog(WLC_DBG_COMMIT, "=> commit %" PRIuWLC, convert_to_wlc_handle(view));
 }
 
 void
@@ -290,7 +290,7 @@ wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface)
       wlc_view_unmap(view);
    }
 
-   wlc_dlog(WLC_DBG_RENDER, "-> Linked surface (%zu) to view (%zu)", convert_to_wlc_resource(surface), convert_to_wlc_handle(view));
+   wlc_dlog(WLC_DBG_RENDER, "-> Linked surface (%" PRIuWLC ") to view (%" PRIuWLC ")", convert_to_wlc_resource(surface), convert_to_wlc_handle(view));
 }
 
 struct wl_client*

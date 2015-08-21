@@ -324,7 +324,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
    if (keyboard->focused.view == convert_to_wlc_handle(view))
       return;
 
-   wlc_dlog(WLC_DBG_FOCUS, "-> keyboard focus event %zu, %zu", keyboard->focused.view, convert_to_wlc_handle(view));
+   wlc_dlog(WLC_DBG_FOCUS, "-> keyboard focus event %" PRIuWLC ", %" PRIuWLC, keyboard->focused.view, convert_to_wlc_handle(view));
 
    if (!keyboard->state.repeating)
       reset_repeat(keyboard);

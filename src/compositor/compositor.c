@@ -348,7 +348,7 @@ active_output(struct wlc_compositor *compositor, struct wlc_output *output)
 {
    assert(compositor);
 
-   wlc_dlog(WLC_DBG_FOCUS, "focus output %zu %zu", compositor->active.output, convert_to_wlc_handle(output));
+   wlc_dlog(WLC_DBG_FOCUS, "focus output %" PRIuWLC " %" PRIuWLC, compositor->active.output, convert_to_wlc_handle(output));
 
    if (compositor->active.output == convert_to_wlc_handle(output))
       return;
@@ -390,7 +390,7 @@ add_output(struct wlc_compositor *compositor, struct wlc_backend_surface *bsurfa
       active_output(compositor, output);
 
    wlc_output_schedule_repaint(output);
-   wlc_log(WLC_LOG_INFO, "Added output (%zu)", convert_to_wlc_handle(output));
+   wlc_log(WLC_LOG_INFO, "Added output (%" PRIuWLC ")", convert_to_wlc_handle(output));
 }
 
 static void
@@ -415,7 +415,7 @@ remove_output(struct wlc_compositor *compositor, struct wlc_output *output)
    WLC_INTERFACE_EMIT(output.destroyed, convert_to_wlc_handle(output));
    wlc_output_set_backend_surface(output, NULL);
 
-   wlc_log(WLC_LOG_INFO, "Removed output (%zu)", convert_to_wlc_handle(output));
+   wlc_log(WLC_LOG_INFO, "Removed output (%" PRIuWLC ")", convert_to_wlc_handle(output));
 
    if (compositor->state.terminating && !alive)
       wlc_compositor_terminate(compositor);

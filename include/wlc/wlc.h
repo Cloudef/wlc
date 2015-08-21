@@ -1,12 +1,18 @@
 #ifndef _WLC_H_
 #define _WLC_H_
 
+#include <inttypes.h>
 #include <wlc/geometry.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 typedef uintptr_t wlc_handle;
-
 struct wlc_event_source;
+
+/** printf format specifiers. */
+#define PRIoWLC PRIoPTR
+#define PRIuWLC PRIuPTR
+#define PRIxWLC PRIxPTR
+#define PRIXWLC PRIXPTR
 
 /** wlc_log(), wlc_vlog(); */
 enum wlc_log_type {

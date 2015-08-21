@@ -779,7 +779,7 @@ surface_attach(struct ctx *context, struct wlc_context *bound, struct wlc_surfac
    }
 
    if (attached)
-      wlc_dlog(WLC_DBG_RENDER, "-> Attached surface (%zu) with buffer of size (%ux%u)", convert_to_wlc_resource(surface), buffer->size.w, buffer->size.h);
+      wlc_dlog(WLC_DBG_RENDER, "-> Attached surface (%" PRIuWLC ") with buffer of size (%ux%u)", convert_to_wlc_resource(surface), buffer->size.w, buffer->size.h);
 
    return attached;
 }

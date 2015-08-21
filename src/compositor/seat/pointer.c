@@ -223,7 +223,7 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
    if (pointer->focused.view == convert_to_wlc_handle(view))
       return;
 
-   wlc_dlog(WLC_DBG_FOCUS, "-> pointer focus event %zu, %zu", pointer->focused.view, convert_to_wlc_handle(view));
+   wlc_dlog(WLC_DBG_FOCUS, "-> pointer focus event %" PRIuWLC ", %" PRIuWLC, pointer->focused.view, convert_to_wlc_handle(view));
 
    defocus(pointer);
    focus_view(pointer, view, &d);
