@@ -295,11 +295,9 @@ wlc_xwayland_init(void)
       setenv("XDG_RUNTIME_DIR", xdg_runtime, true);
       setenv("WAYLAND_SOCKET", strings[0], true);
 
-      if (wlc_get_log_file() != stdout)
-         dup2(fileno(wlc_get_log_file()), STDOUT_FILENO);
-
-      if (wlc_get_log_file() != stderr)
-         dup2(fileno(wlc_get_log_file()), STDERR_FILENO);
+      // XXX: forward xwayland log to wlc_log through fd?
+      freopen("/dev/null", "w", stdout);
+      freopen("/dev/null", "w", stderr);
 
       wlc_log(WLC_LOG_INFO, "Xwayland %s -rootless -terminate -listen %s -listen %s -wm %s",
               xserver.display_name, strings[2], strings[3], strings[1]);

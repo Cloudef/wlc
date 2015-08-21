@@ -1,9 +1,9 @@
 #include "os-compatibility.h"
 #include <string.h>
 #include <assert.h>
-#include <wlc/wlc.h>
 #include <wayland-server.h>
 #include <chck/string/string.h>
+#include "internal.h"
 #include "keymap.h"
 
 const char *WLC_MOD_NAMES[WLC_MOD_LAST] = {

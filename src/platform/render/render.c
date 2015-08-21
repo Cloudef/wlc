@@ -1,6 +1,6 @@
-#include <wlc/wlc.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "internal.h"
 #include "platform/context/context.h"
 #include "render.h"
 #include "gles2.h"

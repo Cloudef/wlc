@@ -3,14 +3,6 @@
 
 #include <wlc/geometry.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-#include <stdio.h>
-#include <stdarg.h>
-
-#if __GNUC__
-#  define WLC_LOG_ATTR(x, y) __attribute__((format(printf, x, y)))
-#else
-#  define WLC_LOG_ATTR(x, y)
-#endif
 
 typedef uintptr_t wlc_handle;
 
@@ -21,6 +13,7 @@ enum wlc_log_type {
    WLC_LOG_INFO,
    WLC_LOG_WARN,
    WLC_LOG_ERROR,
+   WLC_LOG_WAYLAND,
 };
 
 /** wlc_get_backend_type(); */
@@ -243,17 +236,8 @@ void wlc_exec(const char *bin, char *const args[]);
 /** Run event loop. */
 void wlc_run(void);
 
-/** Get current log file. */
-FILE* wlc_get_log_file(void);
-
-/** Set log file. */
-void wlc_set_log_file(FILE *out);
-
-/** Log through wlc's log system. */
-WLC_LOG_ATTR(2, 3) void wlc_log(enum wlc_log_type type, const char *fmt, ...);
-
-/** va_list version of wlc_log. */
-void wlc_vlog(enum wlc_log_type type, const char *fmt, va_list ap);
+/** Set log handler. */
+void wlc_log_set_handler(void (*cb)(enum wlc_log_type type, const char *str));
 
 /** Link custom data to handle. */
 void wlc_handle_set_user_data(wlc_handle handle, const void *userdata);

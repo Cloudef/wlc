@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <wlc/wlc.h>
+#include "internal.h"
 #include "backend.h"
 #include "x11.h"
 #include "drm.h"

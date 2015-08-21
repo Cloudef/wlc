@@ -1,5 +1,6 @@
 /** adapted from weston logind-util.c */
 
+#include <stdio.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <fcntl.h>

@@ -341,8 +341,8 @@ wlc_dbus_add_match(DBusConnection *c, const char *format, ...)
    chck_string_release(&str);
 
    if (dbus.dbus_error_is_set(&err)) {
-      printf("%s\n", err.name);
-      printf("%s\n", err.message);
+      wlc_log(WLC_LOG_ERROR, "dbus: %s", err.name);
+      wlc_log(WLC_LOG_ERROR, "dbus: %s", err.message);
       dbus.dbus_error_free(&err);
       return false;
    }

@@ -1,8 +1,5 @@
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include <signal.h>
-#include <sys/wait.h>
 #include <sys/time.h>
 #include <chck/string/string.h>
 #include "internal.h"
@@ -15,151 +12,43 @@
 #include "xwayland/xwayland.h"
 #include "resources/resources.h"
 
-#if defined(__linux__)
-#  include <linux/version.h>
-#  if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
-#     include <sys/prctl.h> /* for yama */
-#     define HAS_YAMA_PRCTL 1
-#  endif
-#endif
-
-#if defined(__linux__) && defined(__GNUC__)
-#  include <fenv.h>
-int feenableexcept(int excepts);
-#endif
-
-#if (defined(__APPLE__) && (defined(__i386__) || defined(__x86_64__)))
-#  define OSX_SSE_FPE
-#  include <xmmintrin.h>
-#endif
-
 static struct {
    struct wlc_compositor compositor;
    struct wlc_interface interface;
    struct wlc_system_signals signals;
    struct wl_display *display;
-   FILE *log_file;
-   int cached_tm_mday;
+   void (*log_fun)(enum wlc_log_type type, const char *str);
    bool active;
 } wlc;
-
-#ifndef NDEBUG
-
-static void
-backtrace(int signal)
-{
-   (void)signal;
-
-   if (clearenv() != 0)
-      exit(EXIT_FAILURE);
-
-   /* GDB */
-#if defined(__linux__) || defined(__APPLE__)
-   pid_t child_pid = fork();
-
-#if HAS_YAMA_PRCTL
-   /* tell yama that we allow our child_pid to trace our process */
-   if (child_pid > 0) {
-      if (!prctl(PR_GET_DUMPABLE)) {
-         wlc_log(WLC_LOG_WARN, "Compositor binary is suid/sgid, most likely since you are running from TTY.");
-         wlc_log(WLC_LOG_WARN, "Kernel ptracing security policy does not allow attaching to suid/sgid processes.");
-         wlc_log(WLC_LOG_WARN, "If you don't get backtrace below, try `setcap cap_sys_ptrace=eip gdb` temporarily.");
-      }
-      prctl(PR_SET_DUMPABLE, 1);
-      prctl(PR_SET_PTRACER, child_pid);
-   }
-#endif
-
-   if (child_pid < 0) {
-      wlc_log(WLC_LOG_WARN, "Fork failed for gdb backtrace");
-   } else if (child_pid == 0) {
-      /*
-       * NOTE: gdb-7.8 does not seem to work with this,
-       *       either downgrade to 7.7 or use gdb from master.
-       */
-
-      /* sed -n '/bar/h;/bar/!H;$!b;x;p' (another way, if problems) */
-      char buf[255];
-      const int fd = fileno(wlc_get_log_file());
-      snprintf(buf, sizeof(buf) - 1, "gdb -p %d -n -batch -ex bt 2>/dev/null | sed -n '/<signal handler/{n;x;b};H;${x;p}' 1>&%d", getppid(), fd);
-      execl("/bin/sh", "/bin/sh", "-c", buf, NULL);
-      wlc_log(WLC_LOG_ERROR, "Failed to launch gdb for backtrace");
-      _exit(EXIT_FAILURE);
-   } else {
-      waitpid(child_pid, NULL, 0);
-   }
-#endif
-
-   /* SIGABRT || SIGSEGV */
-   exit(EXIT_FAILURE);
-}
-
-static void
-fpehandler(int signal)
-{
-   (void)signal;
-   wlc_log(WLC_LOG_INFO, "SIGFPE signal received");
-   abort();
-}
-
-static void
-fpesetup(struct sigaction *action)
-{
-#if defined(__linux__) || defined(_WIN32) || defined(OSX_SSE_FPE)
-   action->sa_handler = fpehandler;
-   sigaction(SIGFPE, action, NULL);
-#  if defined(__linux__) && defined(__GNUC__)
-   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
-#  endif /* defined(__linux__) && defined(__GNUC__) */
-#  if defined(OSX_SSE_FPE)
-   return; /* causes issues */
-   /* OSX uses SSE for floating point by default, so here
-    * use SSE instructions to throw floating point exceptions */
-   _MM_SET_EXCEPTION_MASK(_MM_MASK_MASK & ~(_MM_MASK_OVERFLOW | _MM_MASK_INVALID | _MM_MASK_DIV_ZERO));
-#  endif /* OSX_SSE_FPE */
-#  if defined(_WIN32) && defined(_MSC_VER)
-   _controlfp_s(NULL, 0, _MCW_EM); /* enables all fp exceptions */
-   _controlfp_s(NULL, _EM_DENORMAL | _EM_UNDERFLOW | _EM_INEXACT, _MCW_EM); /* hide the ones we don't care about */
-#  endif /* _WIN32 && _MSC_VER */
-#endif
-}
-
-#endif /* NDEBUG */
-
-static inline void
-wlc_log_timestamp(FILE *out)
-{
-   struct timeval tv;
-   struct tm *brokendown_time;
-   gettimeofday(&tv, NULL);
-
-   if (!(brokendown_time = localtime(&tv.tv_sec))) {
-      fprintf(out, "[(NULL)localtime] ");
-      return;
-   }
-
-   char string[128];
-   if (brokendown_time->tm_mday != wlc.cached_tm_mday) {
-      strftime(string, sizeof(string), "%Y-%m-%d %Z", brokendown_time);
-      fprintf(out, "Date: %s\n", string);
-      wlc.cached_tm_mday = brokendown_time->tm_mday;
-   }
-
-   strftime(string, sizeof(string), "%H:%M:%S", brokendown_time);
-   fprintf(out, "[%s.%03li] ", string, tv.tv_usec / 1000);
-}
 
 static inline void
 wl_cb_log(const char *fmt, va_list args)
 {
-   FILE *out = wlc_get_log_file();
+   wlc_vlog(WLC_LOG_WAYLAND, fmt, args);
+}
 
-   if (out != stderr && out != stdout)
-      wlc_log_timestamp(out);
+void
+wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
+{
+   assert(fmt);
 
-   fprintf(out, "libwayland: ");
-   vfprintf(out, fmt, args);
-   fflush(out);
+   if (!wlc.log_fun)
+      return;
+
+   struct chck_string str = {0};
+   if (chck_string_set_varg(&str, fmt, args))
+      wlc.log_fun(type, str.data);
+
+   chck_string_release(&str);
+}
+
+void
+wlc_log(enum wlc_log_type type, const char *fmt, ...)
+{
+   va_list argp;
+   va_start(argp, fmt);
+   wlc_vlog(type, fmt, argp);
+   va_end(argp);
 }
 
 void
@@ -281,12 +170,7 @@ wlc_cleanup(void)
    if (wlc.display)
       wl_display_destroy(wlc.display);
 
-   // reset te struct, but keep the wlc log state
-   FILE *f = wlc.log_file;
-   int cached_tm_mday = wlc.cached_tm_mday;
    memset(&wlc, 0, sizeof(wlc));
-   wlc_set_log_file(f);
-   wlc.cached_tm_mday = cached_tm_mday;
 }
 
 WLC_API struct wlc_event_source*
@@ -321,54 +205,9 @@ wlc_event_source_remove(struct wlc_event_source *source)
 }
 
 WLC_API void
-wlc_vlog(enum wlc_log_type type, const char *fmt, va_list args)
+wlc_log_set_handler(void (*cb)(enum wlc_log_type type, const char *str))
 {
-   FILE *out = wlc_get_log_file();
-
-   if (out == stderr || out == stdout) {
-      fprintf(out, "wlc: ");
-   } else {
-      wlc_log_timestamp(out);
-   }
-
-   switch (type) {
-      case WLC_LOG_WARN:
-         fprintf(out, "(WARN) ");
-         break;
-      case WLC_LOG_ERROR:
-         fprintf(out, "(ERROR) ");
-         break;
-
-      default: break;
-   }
-
-   vfprintf(out, fmt, args);
-   fprintf(out, "\n");
-   fflush(out);
-}
-
-WLC_API void
-wlc_log(enum wlc_log_type type, const char *fmt, ...)
-{
-   va_list argp;
-   va_start(argp, fmt);
-   wlc_vlog(type, fmt, argp);
-   va_end(argp);
-}
-
-WLC_API FILE*
-wlc_get_log_file(void)
-{
-   return (wlc.log_file ? wlc.log_file : stderr);
-}
-
-WLC_API void
-wlc_set_log_file(FILE *out)
-{
-   if (wlc.log_file && wlc.log_file != stdout && wlc.log_file != stderr)
-      fclose(wlc.log_file);
-
-   wlc.log_file = out;
+   wlc.log_fun = cb;
 }
 
 WLC_API void
@@ -441,17 +280,12 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    if (wlc.display)
       return true;
 
+   // reset wlc state, but keep log function
+   void *log_fun = wlc.log_fun;
    memset(&wlc, 0, sizeof(wlc));
+   wlc.log_fun = log_fun;
 
    wl_log_set_handler_server(wl_cb_log);
-
-   for (int i = 1; i < argc; ++i) {
-      if (chck_cstreq(argv[i], "--log")) {
-         if (i + 1 >= argc)
-            die("--log takes an argument (filename)");
-         wlc_set_log_file(fopen(argv[++i], "a"));
-      }
-   }
 
    unsetenv("TERM");
    const char *x11display = getenv("DISPLAY");
@@ -466,23 +300,6 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    } else if (!x11display && !has_logind && access("/dev/input/event0", R_OK | W_OK) != 0) {
       die("Not running from X11 and no access to /dev/input/event0 or logind available");
    }
-
-#ifndef NDEBUG
-   {
-      struct sigaction action = {
-         .sa_handler = backtrace
-      };
-      sigaction(SIGABRT, &action, NULL);
-      sigaction(SIGSEGV, &action, NULL);
-
-      // XXX: Some weird sigfpes seems to come when running
-      // wlc compositor inside wlc compositor (X11 backend).
-      // Seems to be caused by resolution changes and mouse clicks.
-      // Gather more information about this later and see what's going on.
-      if (!getenv("WAYLAND_DISPLAY"))
-         fpesetup(&action);
-   }
-#endif
 
    int vt = 0;
 

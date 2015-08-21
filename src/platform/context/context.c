@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <wlc/wlc.h>
+#include "internal.h"
 #include "context.h"
 #include "egl.h"
 

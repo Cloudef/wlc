@@ -9,6 +9,12 @@
 #include <wayland-server.h>
 #include "resources/resources.h"
 
+#if __GNUC__
+#  define WLC_LOG_ATTR(x, y) __attribute__((format(printf, x, y)))
+#else
+#  define WLC_LOG_ATTR(x, y)
+#endif
+
 struct wlc_activate_event {
    int vt; // if != 0, means vt switch
    bool active;
@@ -191,6 +197,12 @@ enum wlc_debug {
    WLC_DBG_COMMIT,
    WLC_DBG_LAST,
 };
+
+/** Log through wlc's log system. */
+WLC_LOG_ATTR(2, 3) void wlc_log(enum wlc_log_type type, const char *fmt, ...);
+
+/** va_list version of wlc_log. */
+void wlc_vlog(enum wlc_log_type type, const char *fmt, va_list ap);
 
 /** Debug log, the output is controlled by WLC_DEBUG env variable. */
 WLC_LOG_ATTR(2, 3) void wlc_dlog(enum wlc_debug dbg, const char *fmt, ...);
