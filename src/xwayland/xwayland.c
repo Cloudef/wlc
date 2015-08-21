@@ -19,9 +19,9 @@
 #include "xwm.h"
 #include "compositor/compositor.h"
 
-static const char *lock_fmt = "/tmp/.X%d-lock";
+#define LOCK_FMT "/tmp/.X%d-lock"
+#define SOCKET_FMT "/tmp/.X11-unix/X%d"
 static const char *socket_dir = "/tmp/.X11-unix";
-static const char *socket_fmt = "/tmp/.X11-unix/X%d";
 
 static struct {
    time_t start_time;
@@ -79,7 +79,7 @@ open_display(int socks[2])
 retry:
    dpy += 1;
    for (lock_fd = -1; dpy <= 32 && lock_fd < 0; ++dpy) {
-      snprintf(lock_name, sizeof(lock_name), lock_fmt, dpy);
+      snprintf(lock_name, sizeof(lock_name), LOCK_FMT, dpy);
       if ((lock_fd = open(lock_name, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0444)) >= 0)
          break;
 
@@ -106,12 +106,12 @@ retry:
       errno = 0;
       if (kill(owner, 0) != 0 && errno == ESRCH) {
          unlink(lock_name);
-         snprintf(lock_name, sizeof(lock_name), socket_fmt, dpy);
+         snprintf(lock_name, sizeof(lock_name), SOCKET_FMT, dpy);
          unlink(lock_name);
 
          /* try open again, as the X server for this lock is not running,
           * if we fail here, give up and try next display */
-         snprintf(lock_name, sizeof(lock_name), lock_fmt, dpy);
+         snprintf(lock_name, sizeof(lock_name), LOCK_FMT, dpy);
          if ((lock_fd = open(lock_name, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0444)) >= 0)
             break;
       }
@@ -132,7 +132,7 @@ retry:
 
    struct sockaddr_un addr = { .sun_family = AF_LOCAL };
    addr.sun_path[0] = '\0';
-   size_t path_size = snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, socket_fmt, dpy);
+   size_t path_size = snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, SOCKET_FMT, dpy);
    if ((socks[0] = open_socket(&addr, path_size)) < 0) {
       unlink(lock_name);
       unlink(addr.sun_path + 1);
@@ -140,7 +140,7 @@ retry:
    }
 
    mkdir(socket_dir, 0777);
-   path_size = snprintf(addr.sun_path, sizeof(addr.sun_path), socket_fmt, dpy);
+   path_size = snprintf(addr.sun_path, sizeof(addr.sun_path), SOCKET_FMT, dpy);
    if ((socks[1] = open_socket(&addr, path_size)) < 0) {
       close(socks[0]);
       unlink(lock_name);
@@ -166,9 +166,9 @@ static void
 close_display(void)
 {
    char path[64];
-   snprintf(path, sizeof(path), socket_fmt, xserver.display);
+   snprintf(path, sizeof(path), SOCKET_FMT, xserver.display);
    unlink(path);
-   snprintf(path, sizeof(path), lock_fmt, xserver.display);
+   snprintf(path, sizeof(path), LOCK_FMT, xserver.display);
    unlink(path);
    unsetenv("DISPLAY");
 }
