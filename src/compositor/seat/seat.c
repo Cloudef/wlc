@@ -180,8 +180,8 @@ input_event(struct wl_listener *listener, void *data)
          const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
          const struct wlc_pointer_origin pos = {
-            chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w),
-            chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
+            chck_clamp(seat->pointer.pos.x, 0, resolution.w),
+            chck_clamp(seat->pointer.pos.y, 0, resolution.h),
          };
 
          if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state, &(struct wlc_origin){ pos.x, pos.y }))
