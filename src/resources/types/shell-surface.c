@@ -137,15 +137,21 @@ wl_cb_shell_surface_set_class(struct wl_client *client, struct wl_resource *reso
    wlc_view_set_class_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), class_);
 }
 
-const struct wl_shell_surface_interface wl_shell_surface_implementation = {
-   .pong = wl_cb_shell_surface_pong,
-   .move = wl_cb_shell_surface_move,
-   .resize = wl_cb_shell_surface_resize,
-   .set_toplevel = wl_cb_shell_surface_set_toplevel,
-   .set_transient = wl_cb_shell_surface_set_transient,
-   .set_fullscreen = wl_cb_shell_surface_set_fullscreen,
-   .set_popup = wl_cb_shell_surface_set_popup,
-   .set_maximized = wl_cb_shell_surface_set_maximized,
-   .set_title = wl_cb_shell_surface_set_title,
-   .set_class = wl_cb_shell_surface_set_class,
-};
+WLC_CONST const struct wl_shell_surface_interface*
+wlc_shell_surface_implementation(void)
+{
+   static const struct wl_shell_surface_interface wl_shell_surface_implementation = {
+      .pong = wl_cb_shell_surface_pong,
+      .move = wl_cb_shell_surface_move,
+      .resize = wl_cb_shell_surface_resize,
+      .set_toplevel = wl_cb_shell_surface_set_toplevel,
+      .set_transient = wl_cb_shell_surface_set_transient,
+      .set_fullscreen = wl_cb_shell_surface_set_fullscreen,
+      .set_popup = wl_cb_shell_surface_set_popup,
+      .set_maximized = wl_cb_shell_surface_set_maximized,
+      .set_title = wl_cb_shell_surface_set_title,
+      .set_class = wl_cb_shell_surface_set_class,
+   };
+
+   return &wl_shell_surface_implementation;
+}

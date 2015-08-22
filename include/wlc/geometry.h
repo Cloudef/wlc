@@ -67,28 +67,28 @@ wlc_size_max(const struct wlc_size *a, const struct wlc_size *b, struct wlc_size
    out->h = MAX(a->h, b->h);
 }
 
-WLC_NONULL static inline bool
+WLC_NONULL WLC_PURE static inline bool
 wlc_origin_equals(const struct wlc_origin *a, const struct wlc_origin *b)
 {
    assert(a && b);
    return !memcmp(a, b, sizeof(struct wlc_origin));
 }
 
-WLC_NONULL static inline bool
+WLC_NONULL WLC_PURE static inline bool
 wlc_size_equals(const struct wlc_size *a, const struct wlc_size *b)
 {
    assert(a && b);
    return !memcmp(a, b, sizeof(struct wlc_size));
 }
 
-WLC_NONULL static inline bool
+WLC_NONULL WLC_PURE static inline bool
 wlc_geometry_equals(const struct wlc_geometry *a, const struct wlc_geometry *b)
 {
    assert(a && b);
    return !memcmp(a, b, sizeof(struct wlc_geometry));
 }
 
-WLC_NONULL static inline bool
+WLC_NONULL WLC_PURE static inline bool
 wlc_geometry_contains(const struct wlc_geometry *a, const struct wlc_geometry *b)
 {
    assert(a && b);

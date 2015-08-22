@@ -9,6 +9,7 @@
 #include "xwayland/xwm.h"
 #include "resources/resources.h"
 
+enum output_link;
 struct wlc_surface;
 struct wlc_x11_window;
 
@@ -65,6 +66,8 @@ struct wl_client* wlc_view_get_client(struct wlc_view *view);
 void wlc_view_release(struct wlc_view *view);
 WLC_NONULL bool wlc_view(struct wlc_view *view);
 
+void wlc_view_send_to_other(struct wlc_view *view, enum output_link link, struct wlc_view *other);
+void wlc_view_send_to(struct wlc_view *view, enum output_link link);
 void wlc_view_focus_ptr(struct wlc_view *view);
 void wlc_view_close_ptr(struct wlc_view *view);
 struct wlc_output* wlc_view_get_output_ptr(struct wlc_view *view);

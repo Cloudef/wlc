@@ -642,7 +642,7 @@ delete_window(xcb_window_t window)
    XCB_CALL(x11.api.xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_NO_EVENT, (char*)&ev));
 }
 
-enum wlc_surface_format
+WLC_PURE enum wlc_surface_format
 wlc_x11_window_get_surface_format(struct wlc_x11_window *win)
 {
    assert(win);

@@ -23,7 +23,7 @@ const char *WLC_LED_NAMES[WLC_LED_LAST] = {
    XKB_LED_NAME_SCROLL
 };
 
-uint32_t
+WLC_PURE uint32_t
 wlc_keymap_get_mod_mask(struct wlc_keymap *keymap, uint32_t in)
 {
    assert(keymap);

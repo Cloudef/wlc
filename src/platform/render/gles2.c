@@ -258,7 +258,7 @@ gl_call(const char *func, uint32_t line, const char *glfunc)
 
 #define GL_CALL(x) x; gl_call(__PRETTY_FUNCTION__, __LINE__, __STRING(x))
 
-static bool
+WLC_PURE static bool
 has_extension(const struct ctx *context, const char *extension)
 {
    assert(context && extension);

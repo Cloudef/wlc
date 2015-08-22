@@ -47,10 +47,10 @@ relocate_handle(struct handle *handle, void *dest, const void *start, const void
 {
    assert(handle && dest && start && end);
 
-   if ((void*)handle->source < start || (void*)handle->source > end)
+   if ((char*)handle->source < (char*)start || (char*)handle->source > (char*)end)
       return;
 
-   handle->source = dest + ((void*)handle->source - start);
+   handle->source = (void*)((char*)dest + ((char*)handle->source - (char*)start));
 }
 
 static void
@@ -101,15 +101,15 @@ handle_create(struct chck_pool *pool, struct wlc_source *source, struct handle_i
 
    size_t i;
    void *c;
-   void *original = pool->items.buffer;
+   uint8_t *original = pool->items.buffer;
    if (!(c = chck_pool_add(pool, NULL, &i)))
       return false;
 
    if (pool == &resources && original != pool->items.buffer)
       relocate_resources(pool);
 
-   void *v;
    size_t h;
+   uint8_t *v;
    original = source->pool.items.buffer;
    if (!(v = chck_pool_add(&source->pool, NULL, &h)))
       goto error0;
@@ -152,7 +152,7 @@ handle_release(struct chck_pool *pool, struct handle *handle, void (*preremove)(
       if (handle->source->destructor && (v = chck_pool_get(&handle->source->pool, handle->private - 1)))
          handle->source->destructor(v);
 
-      void *original = handle->source->pool.items.buffer;
+      uint8_t *original = handle->source->pool.items.buffer;
       chck_pool_remove(&handle->source->pool, handle->private - 1);
 
       if (original != handle->source->pool.items.buffer)
@@ -173,14 +173,14 @@ handle_release(struct chck_pool *pool, struct handle *handle, void (*preremove)(
       relocate_resources(pool);
 }
 
-static bool
+WLC_PURE static bool
 handle_is(struct handle *handle, const char *name)
 {
    assert(name);
    return (handle ? chck_cstreq(handle->source->name, name) : false);
 }
 
-void*
+static void*
 handle_get(struct handle *handle, const char *name, size_t line, const char *file, const char *function)
 {
    assert(name && file && function);
@@ -196,13 +196,13 @@ handle_get(struct handle *handle, const char *name, size_t line, const char *fil
    return chck_pool_get(&handle->source->pool, handle->private - 1);
 }
 
-wlc_handle
+WLC_PURE wlc_handle
 convert_to_handle(void *ptr, size_t size)
 {
    if (!ptr)
       return 0;
 
-   return *(wlc_handle*)(ptr + size);
+   return *(wlc_handle*)((char*)ptr + size);
 }
 
 static void
@@ -523,7 +523,7 @@ wlc_handle_set_user_data(wlc_handle handle, const void *userdata)
    h->userdata = (void*)userdata;
 }
 
-WLC_API void*
+WLC_API WLC_PURE void*
 wlc_handle_get_user_data(wlc_handle handle)
 {
    const struct handle_public *h;

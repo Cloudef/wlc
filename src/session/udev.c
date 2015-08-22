@@ -71,7 +71,7 @@ touch_abs_y(void *internal, uint32_t height)
    return libinput_event_touch_get_y_transformed(tev, height);
 }
 
-static enum wlc_touch_type
+WLC_PURE static enum wlc_touch_type
 wlc_touch_type_for_libinput_type(enum libinput_event_type type)
 {
    switch (type) {
@@ -332,7 +332,7 @@ cb_input_log_handler(struct libinput *input, enum libinput_log_priority priority
    wlc_vlog(WLC_LOG_INFO, format, args);
 }
 
-bool
+WLC_PURE bool
 wlc_input_has_init(void)
 {
    return (input.handle ? true : false);

@@ -193,7 +193,7 @@ wlc_tty_activate_vt(int vt)
    return (ioctl(wlc.tty, VT_ACTIVATE, vt) != -1);
 }
 
-int
+WLC_PURE int
 wlc_tty_get_vt(void)
 {
    return wlc.vt;

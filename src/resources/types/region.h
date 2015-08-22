@@ -8,8 +8,8 @@ struct wlc_region {
    pixman_region32_t region;
 };
 
-const struct wl_region_interface wl_region_implementation;
-
 void wlc_region_release(struct wlc_region *region);
+
+const struct wl_region_interface* wlc_region_implementation(void);
 
 #endif /* _WLC_REGION_H_ */

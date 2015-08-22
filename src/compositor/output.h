@@ -101,11 +101,13 @@ void wlc_output_terminate(struct wlc_output *output);
 void wlc_output_release(struct wlc_output *output);
 WLC_NONULL bool wlc_output(struct wlc_output *output);
 
+void wlc_output_focus_ptr(struct wlc_output *output);
 void wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep);
 WLC_NONULLV(2) void wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution);
 void wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask);
 WLC_NONULLV(2) void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
 bool wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb);
 const wlc_handle* wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb);
+wlc_handle* wlc_output_get_mutable_views_ptr(struct wlc_output *output, size_t *out_memb);
 
 #endif /* _WLC_OUTPUT_H_ */

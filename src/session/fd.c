@@ -430,7 +430,7 @@ check_socket(int sock)
    return read_response(sock, NULL, &response, TYPE_CHECK);
 }
 
-static void
+WLC_PURE static void
 signal_handler(int signal)
 {
    if (wlc.has_logind && (signal == SIGTERM || signal == SIGINT))

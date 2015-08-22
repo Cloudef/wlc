@@ -1,3 +1,4 @@
+#include "output.h"
 #include <stdlib.h>
 #include <limits.h>
 #include <wayland-server.h>
@@ -14,7 +15,7 @@
 // FIXME: this is a hack
 static EGLNativeDisplayType INVALID_DISPLAY = (EGLNativeDisplayType)~0;
 
-static const char*
+WLC_PURE static const char*
 name_for_connector(enum wlc_connector_type connector)
 {
    switch (connector) {
@@ -736,7 +737,7 @@ wlc_output_focus_ptr(struct wlc_output *output)
 static void*
 get(struct wlc_output *output, size_t offset)
 {
-   return (output ? ((void*)output + offset) : NULL);
+   return (output ? ((char*)output + offset) : NULL);
 }
 
 WLC_API const struct wlc_size*

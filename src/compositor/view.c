@@ -461,13 +461,13 @@ wlc_view_focus_ptr(struct wlc_view *view)
 static void*
 get(struct wlc_view *view, size_t offset)
 {
-   return (view ? ((void*)view + offset) : NULL);
+   return (view ? ((char*)view + offset) : NULL);
 }
 
 static void*
 get_cstr(struct wlc_view *view, size_t offset)
 {
-   struct chck_string *string = ((void*)view + offset);
+   struct chck_string *string = get(view, offset);
    return (view && !chck_string_is_empty(string) ? string->data : NULL);
 }
 

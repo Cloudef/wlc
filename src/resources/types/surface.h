@@ -62,8 +62,6 @@ struct wlc_surface {
    bool synchronized;
 };
 
-const struct wl_surface_interface wl_surface_implementation;
-
 struct wlc_buffer* wlc_surface_get_buffer(struct wlc_surface *surface);
 void wlc_surface_attach_to_view(struct wlc_surface *surface, struct wlc_view *view);
 bool wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *output, struct wlc_buffer *buffer);
@@ -71,5 +69,7 @@ void wlc_surface_set_parent(struct wlc_surface *surface, struct wlc_surface *par
 void wlc_surface_invalidate(struct wlc_surface *surface);
 void wlc_surface_release(struct wlc_surface *surface);
 WLC_NONULL bool wlc_surface(struct wlc_surface *surface);
+
+const struct wl_surface_interface* wlc_surface_implementation(void);
 
 #endif /* _WLC_SURFACE_H_ */

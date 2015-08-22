@@ -123,7 +123,7 @@ wl_cb_surface_create(struct wl_client *client, struct wl_resource *resource, uin
    if (!(r = wlc_resource_create(&compositor->surfaces, client, &wl_surface_interface, wl_resource_get_version(resource), 3, id)))
       return;
 
-   wlc_resource_implement(r, &wl_surface_implementation, compositor);
+   wlc_resource_implement(r, wlc_surface_implementation(), compositor);
 
    struct wlc_surface_event ev = { .surface = convert_from_wlc_resource(r, "surface"), .type = WLC_SURFACE_EVENT_CREATED };
    wl_signal_emit(&wlc_system_signals()->surface, &ev);
@@ -140,7 +140,7 @@ wl_cb_region_create(struct wl_client *client, struct wl_resource *resource, uint
    if (!(r = wlc_resource_create(&compositor->regions, client, &wl_region_interface, wl_resource_get_version(resource), 3, id)))
       return;
 
-   wlc_resource_implement(r, &wl_region_implementation, wl_resource_get_user_data(resource));
+   wlc_resource_implement(r, wlc_region_implementation(), wl_resource_get_user_data(resource));
 }
 
 static const struct wl_compositor_interface wl_compositor_implementation = {
@@ -517,7 +517,7 @@ wlc_get_outputs(size_t *out_memb)
    return _g_compositor->tmp.outputs;
 }
 
-WLC_API wlc_handle
+WLC_API WLC_PURE wlc_handle
 wlc_get_focused_output(void)
 {
    assert(_g_compositor);

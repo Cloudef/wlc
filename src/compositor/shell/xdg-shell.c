@@ -34,7 +34,7 @@ xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource,
    if (!(r = wlc_resource_create(&xdg_shell->surfaces, client, &xdg_surface_interface, wl_resource_get_version(resource), 1, id)))
       return;
 
-   wlc_resource_implement(r, &xdg_surface_implementation, NULL);
+   wlc_resource_implement(r, wlc_xdg_surface_implementation(), NULL);
 
    struct wlc_surface_event ev = { .attach = { .type = WLC_XDG_SURFACE, .shell_surface = r }, .surface = surface, .type = WLC_SURFACE_EVENT_REQUEST_VIEW_ATTACH };
    wl_signal_emit(&wlc_system_signals()->surface, &ev);

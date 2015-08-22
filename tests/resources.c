@@ -1,19 +1,21 @@
 #include <stdlib.h>
-#include <assert.h>
 #include <wlc/wlc.h>
 #include "resources/resources.h"
+
+#undef NDEBUG
+#include <assert.h>
 
 static bool constructor_called = false;
 static bool destructor_called = false;
 
-void
+static void
 destructor(void *ptr)
 {
    assert(ptr);
    destructor_called = true;
 }
 
-bool
+static bool
 constructor(void *ptr)
 {
    assert(ptr);
@@ -26,14 +28,14 @@ struct contains_source {
    uint8_t padding2[3];
 };
 
-void
+static void
 destructor2(struct contains_source *ptr)
 {
    assert(ptr);
    wlc_source_release(&ptr->source);
 }
 
-bool
+static bool
 constructor2(struct contains_source *ptr)
 {
    assert(ptr);
@@ -58,7 +60,9 @@ main(void)
       assert(source.pool.items.count == 1);
 
       wlc_handle handle;
+#pragma GCC diagnostic ignored "-Wpointer-arith"
       assert(!convert_to_wlc_handle(NULL));
+#pragma GCC diagnostic warning "-Wpointer-arith"
       assert((handle = convert_to_wlc_handle(ptr)));
       assert(!convert_from_wlc_handle(handle, "invalid"));
       assert(convert_from_wlc_handle(handle, "test") == ptr);

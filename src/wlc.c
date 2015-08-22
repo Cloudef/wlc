@@ -106,19 +106,19 @@ wlc_set_active(bool active)
    wlc_log(WLC_LOG_INFO, (wlc.active ? "become active" : "deactive"));
 }
 
-bool
+WLC_PURE bool
 wlc_get_active(void)
 {
    return wlc.active;
 }
 
-const struct wlc_interface*
+WLC_CONST const struct wlc_interface*
 wlc_interface(void)
 {
    return &wlc.interface;
 }
 
-struct wlc_system_signals*
+WLC_CONST struct wlc_system_signals*
 wlc_system_signals(void)
 {
    return &wlc.signals;
@@ -130,7 +130,7 @@ wlc_event_loop(void)
    return wl_display_get_event_loop(wlc.display);
 }
 
-struct wl_display*
+WLC_PURE struct wl_display*
 wlc_display(void)
 {
    return wlc.display;
@@ -254,7 +254,7 @@ wlc_run(void)
    wlc_cleanup();
 }
 
-WLC_API enum wlc_backend_type
+WLC_API WLC_PURE enum wlc_backend_type
 wlc_get_backend_type(void)
 {
    return wlc.compositor.backend.type;

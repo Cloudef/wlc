@@ -20,7 +20,7 @@ wl_cb_shell_get_shell_surface(struct wl_client *client, struct wl_resource *reso
    if (!(r = wlc_resource_create(&shell->surfaces, client, &wl_shell_surface_interface, wl_resource_get_version(resource), 1, id)))
       return;
 
-   wlc_resource_implement(r, &wl_shell_surface_implementation, NULL);
+   wlc_resource_implement(r, wlc_shell_surface_implementation(), NULL);
 
    struct wlc_surface_event ev = { .attach = { .type = WLC_SHELL_SURFACE, .shell_surface = r }, .surface = surface, .type = WLC_SURFACE_EVENT_REQUEST_VIEW_ATTACH };
    wl_signal_emit(&wlc_system_signals()->surface, &ev);

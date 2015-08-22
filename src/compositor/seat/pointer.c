@@ -44,11 +44,6 @@ wl_cb_pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
    wlc_pointer_set_surface(pointer, surface, &(struct wlc_origin){ hotspot_x, hotspot_y });
 }
 
-const struct wl_pointer_interface wl_pointer_implementation = {
-   .set_cursor = wl_cb_pointer_set_cursor,
-   .release = wlc_cb_resource_destructor
-};
-
 static struct wlc_output*
 active_output(struct wlc_pointer *pointer)
 {
@@ -333,4 +328,15 @@ wlc_pointer(struct wlc_pointer *pointer)
 fail:
    wlc_pointer_release(pointer);
    return false;
+}
+
+WLC_CONST const struct wl_pointer_interface*
+wlc_pointer_implementation(void)
+{
+   static const struct wl_pointer_interface wl_pointer_implementation = {
+      .set_cursor = wl_cb_pointer_set_cursor,
+      .release = wlc_cb_resource_destructor
+   };
+
+   return &wl_pointer_implementation;
 }

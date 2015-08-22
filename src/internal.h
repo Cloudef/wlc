@@ -226,10 +226,10 @@ void wlc_set_active(bool active);
 bool wlc_get_active(void);
 
 /** Pointer to the event loop. */
-struct wl_event_loop* wlc_event_loop();
+struct wl_event_loop* wlc_event_loop(void);
 
 /** Pointer to the wayland display. */
-struct wl_display* wlc_display();
+struct wl_display* wlc_display(void);
 
 /** Emit interface callback with variable arguments. */
 #define WLC_INTERFACE_EMIT(x, ...) { if (wlc_interface()->x) wlc_interface()->x(__VA_ARGS__); }

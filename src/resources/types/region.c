@@ -33,12 +33,6 @@ wl_cb_region_subtract(struct wl_client *client, struct wl_resource *resource, in
    pixman_region32_fini(&rect);
 }
 
-const struct wl_region_interface wl_region_implementation = {
-   .destroy = wlc_cb_resource_destructor,
-   .add = wl_cb_region_add,
-   .subtract = wl_cb_region_subtract,
-};
-
 void
 wlc_region_release(struct wlc_region *region)
 {
@@ -46,4 +40,16 @@ wlc_region_release(struct wlc_region *region)
       return;
 
    pixman_region32_fini(&region->region);
+}
+
+WLC_CONST const struct wl_region_interface*
+wlc_region_implementation(void)
+{
+   static const struct wl_region_interface wl_region_implementation = {
+      .destroy = wlc_cb_resource_destructor,
+      .add = wl_cb_region_add,
+      .subtract = wl_cb_region_subtract,
+   };
+
+   return &wl_region_implementation;
 }

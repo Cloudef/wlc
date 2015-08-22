@@ -9,6 +9,7 @@
 #include <chck/string/string.h>
 #include "internal.h"
 #include "dbus.h"
+#include "logind.h"
 
 #ifndef DRM_MAJOR
 #  define DRM_MAJOR 226

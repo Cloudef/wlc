@@ -29,7 +29,7 @@ wl_cb_seat_get_pointer(struct wl_client *client, struct wl_resource *resource, u
    if (!(r = wlc_resource_create(&seat->pointer.resources, client, &wl_pointer_interface, wl_resource_get_version(resource), 4, id)))
       return;
 
-   wlc_resource_implement(r, &wl_pointer_implementation, &seat->pointer);
+   wlc_resource_implement(r, wlc_pointer_implementation(), &seat->pointer);
 }
 
 static const struct wl_keyboard_interface wl_keyboard_implementation = {

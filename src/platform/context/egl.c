@@ -195,7 +195,7 @@ egl_call(const char *func, uint32_t line, const char *eglfunc)
 
 #define EGL_CALL(x) x; egl_call(__PRETTY_FUNCTION__, __LINE__, __STRING(x))
 
-static bool
+WLC_PURE static bool
 has_extension(const struct ctx *context, const char *extension)
 {
    assert(context && extension);
@@ -434,6 +434,7 @@ swap(struct ctx *context, struct wlc_backend_surface *bsurface)
 static void*
 get_proc_address(struct ctx *context, const char *procname)
 {
+   (void)context;
    assert(context && procname);
    return egl.api.eglGetProcAddress(procname);
 }

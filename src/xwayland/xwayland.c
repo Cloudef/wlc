@@ -183,13 +183,13 @@ sigusr_handler(int signal_number)
    wl_signal_emit(&wlc_system_signals()->xwayland, &(bool){true});
 }
 
-struct wl_client*
+WLC_PURE struct wl_client*
 wlc_xwayland_get_client(void)
 {
    return xserver.client;
 }
 
-int
+WLC_PURE int
 wlc_xwayland_get_fd(void)
 {
    return xserver.wm[0];

@@ -221,18 +221,6 @@ wl_cb_surface_set_buffer_scale(struct wl_client *client, struct wl_resource *res
    surface->pending.scale = 1;
 }
 
-const struct wl_surface_interface wl_surface_implementation = {
-   .destroy = wlc_cb_resource_destructor,
-   .attach = wl_cb_surface_attach,
-   .damage = wl_cb_surface_damage,
-   .frame = wl_cb_surface_frame,
-   .set_opaque_region = wl_cb_surface_set_opaque_region,
-   .set_input_region = wl_cb_surface_set_input_region,
-   .commit = wl_cb_surface_commit,
-   .set_buffer_transform = wl_cb_surface_set_buffer_transform,
-   .set_buffer_scale = wl_cb_surface_set_buffer_scale
-};
-
 struct wlc_buffer*
 wlc_surface_get_buffer(struct wlc_surface *surface)
 {
@@ -343,4 +331,22 @@ wlc_surface(struct wlc_surface *surface)
 fail:
    wlc_surface_release(surface);
    return false;
+}
+
+WLC_CONST const struct wl_surface_interface*
+wlc_surface_implementation(void)
+{
+   static const struct wl_surface_interface wl_surface_implementation = {
+      .destroy = wlc_cb_resource_destructor,
+      .attach = wl_cb_surface_attach,
+      .damage = wl_cb_surface_damage,
+      .frame = wl_cb_surface_frame,
+      .set_opaque_region = wl_cb_surface_set_opaque_region,
+      .set_input_region = wl_cb_surface_set_input_region,
+      .commit = wl_cb_surface_commit,
+      .set_buffer_transform = wl_cb_surface_set_buffer_transform,
+      .set_buffer_scale = wl_cb_surface_set_buffer_scale
+   };
+
+   return &wl_surface_implementation;
 }
