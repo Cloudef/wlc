@@ -199,16 +199,16 @@ enum wlc_debug {
 };
 
 /** Log through wlc's log system. */
-WLC_NONULL WLC_LOG_ATTR(2, 3) void wlc_log(enum wlc_log_type type, const char *fmt, ...);
+WLC_NONULLV(2) WLC_LOG_ATTR(2, 3) void wlc_log(enum wlc_log_type type, const char *fmt, ...);
 
 /** va_list version of wlc_log. */
 WLC_NONULL void wlc_vlog(enum wlc_log_type type, const char *fmt, va_list ap);
 
 /** Debug log, the output is controlled by WLC_DEBUG env variable. */
-WLC_NONULL WLC_LOG_ATTR(2, 3) void wlc_dlog(enum wlc_debug dbg, const char *fmt, ...);
+WLC_NONULLV(2) WLC_LOG_ATTR(2, 3) void wlc_dlog(enum wlc_debug dbg, const char *fmt, ...);
 
 /** Use only on fatals, currently only wlc.c */
-WLC_NONULL WLC_LOG_ATTR(1, 2) static inline void
+WLC_NONULLV(1) WLC_LOG_ATTR(1, 2) static inline void
 die(const char *format, ...)
 {
    va_list vargs;
