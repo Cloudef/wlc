@@ -69,7 +69,7 @@ struct ctx {
       GLuint frames;
    } programs[PROGRAM_LAST];
 
-   struct wlc_size resolution;
+   struct wlc_size resolution, mode;
 
    GLuint time;
 
@@ -563,7 +563,7 @@ create_context(void)
 }
 
 static void
-resolution(struct ctx *context, const struct wlc_size *resolution)
+resolution(struct ctx *context, const struct wlc_size *mode, const struct wlc_size *resolution)
 {
    assert(context && resolution);
 
@@ -573,8 +573,13 @@ resolution(struct ctx *context, const struct wlc_size *resolution)
          GL_CALL(gl.api.glUniform2fv(context->program->uniforms[UNIFORM_RESOLUTION], 1, (GLfloat[]){ resolution->w, resolution->h }));
       }
 
-      GL_CALL(gl.api.glViewport(0, 0, resolution->w, resolution->h));
       context->resolution = *resolution;
+   }
+
+
+   if (!wlc_size_equals(&context->mode, mode)) {
+      GL_CALL(gl.api.glViewport(0, 0, mode->w, mode->h));
+      context->mode = *mode;
    }
 }
 

@@ -40,7 +40,7 @@ struct wlc_output_information {
 
 struct wlc_output {
    struct wlc_source resources;
-   struct wlc_size resolution;
+   struct wlc_size mode, resolution;
    struct wlc_output_information information;
    struct wlc_backend_surface bsurface;
    struct wlc_context context;

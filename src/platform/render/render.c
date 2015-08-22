@@ -6,14 +6,14 @@
 #include "gles2.h"
 
 void
-wlc_render_resolution(struct wlc_render *render, struct wlc_context *bound, const struct wlc_size *resolution)
+wlc_render_resolution(struct wlc_render *render, struct wlc_context *bound, const struct wlc_size *mode, const struct wlc_size *resolution)
 {
-   assert(render && bound && resolution);
+   assert(render && bound && mode && resolution);
 
    if (!render->api.resolution || !wlc_context_bind(bound))
       return;
 
-   render->api.resolution(render->render, resolution);
+   render->api.resolution(render->render, mode, resolution);
 }
 
 void

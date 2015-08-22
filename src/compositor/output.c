@@ -227,7 +227,7 @@ repaint(struct wlc_output *output)
    }
 
    wlc_render_time(&output->render, &output->context, output->state.frame_time);
-   wlc_render_resolution(&output->render, &output->context, &output->resolution);
+   wlc_render_resolution(&output->render, &output->context, &output->mode, &output->resolution);
 
    if (output->state.sleeping) {
       // fake sleep
@@ -538,7 +538,8 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
       struct wlc_output_mode *mode;
       except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
       wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
-      wlc_output_set_resolution_ptr(output, &(struct wlc_size){ mode->width, mode->height });
+      output->mode = (struct wlc_size){ mode->width, mode->height };
+      wlc_output_set_resolution_ptr(output, &output->mode);
    }
 }
 

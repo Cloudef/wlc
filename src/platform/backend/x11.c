@@ -380,8 +380,10 @@ x11_event(int fd, uint32_t mask, void *data)
          {
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)event;
             struct wlc_output *output;
-            if ((output = output_for_window(&compositor->outputs.pool, ev->window)))
-               wlc_output_set_resolution_ptr(output, &(struct wlc_size){ ev->width, ev->height });    // XXX: make a request?
+            if ((output = output_for_window(&compositor->outputs.pool, ev->window))) {
+               output->mode = (struct wlc_size){ ev->width, ev->height };
+               wlc_output_set_resolution_ptr(output, &output->mode); // XXX: make a request?
+            }
          }
          break;
 
