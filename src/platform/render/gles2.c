@@ -825,7 +825,7 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_ge
       GL_CALL(gl.api.glActiveTexture(GL_TEXTURE0 + i));
       GL_CALL(gl.api.glBindTexture(GL_TEXTURE_2D, textures[i]));
 
-      if (settings->filter) {
+      if (settings->filter || !wlc_size_equals(&context->resolution, &context->mode)) {
          GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
          GL_CALL(gl.api.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
       } else {
