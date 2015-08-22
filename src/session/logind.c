@@ -453,7 +453,7 @@ device_resumed(DBusMessage *m)
 static DBusHandlerResult
 filter_dbus(DBusConnection *c, DBusMessage *m, void *data)
 {
-   assert(c && m && data);
+   assert(m);
    (void)c, (void)data;
 
    if (dbus.dbus_message_is_signal(m, DBUS_INTERFACE_LOCAL, "Disconnected")) {
