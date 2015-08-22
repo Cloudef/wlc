@@ -303,7 +303,9 @@ wlc_pointer_release(struct wlc_pointer *pointer)
    if (!pointer)
       return;
 
-   wl_list_remove(&pointer->listener.render.link);
+   if (pointer->listener.render.notify)
+      wl_list_remove(&pointer->listener.render.link);
+
    chck_iter_pool_release(&pointer->focused.resources);
    wlc_source_release(&pointer->resources);
    memset(pointer, 0, sizeof(struct wlc_pointer));

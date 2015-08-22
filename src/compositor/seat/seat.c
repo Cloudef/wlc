@@ -262,9 +262,14 @@ wlc_seat_release(struct wlc_seat *seat)
    if (!seat)
       return;
 
-   wl_list_remove(&seat->listener.input.link);
-   wl_list_remove(&seat->listener.focus.link);
-   wl_list_remove(&seat->listener.surface.link);
+   if (seat->listener.input.notify)
+      wl_list_remove(&seat->listener.input.link);
+
+   if (seat->listener.focus.notify)
+      wl_list_remove(&seat->listener.focus.link);
+
+   if (seat->listener.surface.notify)
+      wl_list_remove(&seat->listener.surface.link);
 
    if (seat->wl.seat)
       wl_global_destroy(seat->wl.seat);
