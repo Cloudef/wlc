@@ -591,7 +591,8 @@ wlc_fd_init(int argc, char *argv[], bool has_logind)
    } else {
       close(sock[1]);
 
-      wlc_log(WLC_LOG_INFO, "Work done, dropping permissions and checking communication");
+      if (getuid() != geteuid() || getgid() != getegid())
+         wlc_log(WLC_LOG_INFO, "Work done, dropping permissions and checking communication");
 
       if (setgid(getgid()) != 0 || setuid(getuid()) != 0)
          die("Could not drop permissions: %m");
