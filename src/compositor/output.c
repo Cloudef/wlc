@@ -633,6 +633,13 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
 void
 wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution)
 {
+   assert(resolution->w != 0 && resolution->h != 0);
+
+   if (resolution->w == 0 || resolution->h == 0) {
+      wlc_log(WLC_LOG_WARN, "Tried to set resolution of output %" PRIuWLC "to %ux%u", convert_to_wlc_handle(output), resolution->w, resolution->h);
+      return;
+   }
+
    if (!output || wlc_size_equals(resolution, &output->resolution))
       return;
 
