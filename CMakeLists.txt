@@ -4,6 +4,7 @@ set(WLC_NAME "wlc")
 set(WLC_DESCRIPTION "Wayland compositor library")
 set(WLC_VERSION "0.0.1")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${wlc_SOURCE_DIR}/CMake)
+include(GNUInstallDirs)
 include(CTest)
 include(test)
 
