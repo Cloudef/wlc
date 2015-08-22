@@ -158,6 +158,7 @@ wlc_cleanup(void)
       wlc_compositor_release(&wlc.compositor);
       wl_list_remove(&compositor_listener.link);
       wlc_xwayland_terminate();
+      wlc_resources_terminate();
       wlc_input_terminate();
       wlc_udev_terminate();
       wlc_fd_terminate();
