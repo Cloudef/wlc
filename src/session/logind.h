@@ -4,7 +4,7 @@
 #if HAS_LOGIND
 
 /** Use wlc_fd_open instead, it automatically calls this if logind is used. */
-int wlc_logind_open(const char *path, int flags);
+WLC_NONULL int wlc_logind_open(const char *path, int flags);
 
 /** Use wlc_fd_close instead, it automatically calls this if logind is used. */
 void wlc_logind_close(int fd);
@@ -13,7 +13,7 @@ void wlc_logind_close(int fd);
 bool wlc_logind_available(void);
 
 void wlc_logind_terminate(void);
-int wlc_logind_init(const char *seat_id);
+WLC_NONULL int wlc_logind_init(const char *seat_id);
 
 #else
 

@@ -85,26 +85,26 @@ struct wlc_output {
    } options;
 };
 
-bool wlc_output_information(struct wlc_output_information *info);
+WLC_NONULL bool wlc_output_information(struct wlc_output_information *info);
 void wlc_output_information_release(struct wlc_output_information *info);
-bool wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode);
+WLC_NONULL bool wlc_output_information_add_mode(struct wlc_output_information *info, struct wlc_output_mode *mode);
 
-void wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts);
+WLC_NONULLV(2) void wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts);
 void wlc_output_schedule_repaint(struct wlc_output *output);
-bool wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface, struct wlc_buffer *buffer);
-void wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surface);
+WLC_NONULLV(2) bool wlc_output_surface_attach(struct wlc_output *output, struct wlc_surface *surface, struct wlc_buffer *buffer);
+WLC_NONULLV(2) void wlc_output_surface_destroy(struct wlc_output *output, struct wlc_surface *surface);
 bool wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_surface *surface);
 void wlc_output_set_information(struct wlc_output *output, struct wlc_output_information *info);
-void wlc_output_unlink_view(struct wlc_output *output, struct wlc_view *view);
-void wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum output_link link, struct wlc_view *other);
+WLC_NONULLV(2) void wlc_output_unlink_view(struct wlc_output *output, struct wlc_view *view);
+WLC_NONULLV(2) void wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum output_link link, struct wlc_view *other);
 void wlc_output_terminate(struct wlc_output *output);
 void wlc_output_release(struct wlc_output *output);
-bool wlc_output(struct wlc_output *output);
+WLC_NONULL bool wlc_output(struct wlc_output *output);
 
 void wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep);
-void wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution);
+WLC_NONULLV(2) void wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution);
 void wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask);
-void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
+WLC_NONULLV(2) void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
 bool wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb);
 const wlc_handle* wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb);
 

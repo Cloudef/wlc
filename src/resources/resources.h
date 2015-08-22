@@ -21,7 +21,7 @@ struct wlc_source {
 struct wlc_resource {};
 
 /** Generic destructor that can be passed to various wl interface implementations. */
-static inline void
+WLC_NONULL static inline void
 wlc_cb_resource_destructor(struct wl_client *client, struct wl_resource *resource)
 {
    (void)client;
@@ -29,7 +29,7 @@ wlc_cb_resource_destructor(struct wl_client *client, struct wl_resource *resourc
 }
 
 /** Helper for creating wayland resources with version support check. */
-struct wl_resource* wl_resource_create_checked(struct wl_client *client, const struct wl_interface *interface, uint32_t version, uint32_t supported, uint32_t id);
+WLC_NONULL struct wl_resource* wl_resource_create_checked(struct wl_client *client, const struct wl_interface *interface, uint32_t version, uint32_t supported, uint32_t id);
 
 /** Init resource management */
 bool wlc_resources_init(void);
@@ -43,7 +43,7 @@ void wlc_resources_terminate(void);
  * grow defines the reallocation step for source.
  * member defines the size of item the source will be carrying.
  */
-bool wlc_source(struct wlc_source *source, const char *name, bool (*constructor)(), void (*destructor)(), size_t grow, size_t member);
+WLC_NONULLV(1,2) bool wlc_source(struct wlc_source *source, const char *name, bool (*constructor)(), void (*destructor)(), size_t grow, size_t member);
 
 /**
  * Release source and all the handles/resources it contains.
@@ -58,7 +58,7 @@ wlc_handle convert_to_handle(void *ptr, size_t size);
  * wlc handles are types that are not tied to wayland resource.
  * For example wlc_view and wlc_output.
  */
-void* wlc_handle_create(struct wlc_source *source);
+WLC_NONULL void* wlc_handle_create(struct wlc_source *source);
 
 /**
  * Convert from wlc_handle back to the pointer.
@@ -86,10 +86,10 @@ void wlc_handle_release(wlc_handle handle);
  *
  * Implementation for these types should go in resources/types/
  */
-wlc_resource wlc_resource_create(struct wlc_source *source, struct wl_client *client, const struct wl_interface *interface, uint32_t version, uint32_t supported, uint32_t id);
+WLC_NONULL wlc_resource wlc_resource_create(struct wlc_source *source, struct wl_client *client, const struct wl_interface *interface, uint32_t version, uint32_t supported, uint32_t id);
 
 /** Create new wlc_resource from existing wayland resource. */
-wlc_resource wlc_resource_create_from(struct wlc_source *source, struct wl_resource *resource);
+WLC_NONULL wlc_resource wlc_resource_create_from(struct wlc_source *source, struct wl_resource *resource);
 
 /** Implement wlc_resource. */
 void wlc_resource_implement(wlc_resource resource, const void *implementation, void *userdata);
@@ -102,7 +102,7 @@ struct wl_resource* wl_resource_from_wlc_resource(wlc_resource resource, const c
 #define wl_resource_from_wlc_resource(x, y) wl_resource_from_wlc_resource(x, y, __LINE__, WLC_FILE, __func__)
 
 /** Get wayland resource for client from source. */
-struct wl_resource* wl_resource_for_client(struct wlc_source *source, struct wl_client *client);
+WLC_NONULL struct wl_resource* wl_resource_for_client(struct wlc_source *source, struct wl_client *client);
 
 /** Convert to pointer from wlc_resource. */
 void* convert_from_wlc_resource(wlc_resource resource, const char *name, size_t line, const char *file, const char *function);

@@ -40,9 +40,9 @@ struct wlc_keymap {
    xkb_led_index_t leds[WLC_LED_LAST];
 };
 
-uint32_t wlc_keymap_get_mod_mask(struct wlc_keymap *keymap, uint32_t in);
-uint32_t wlc_keymap_get_led_mask(struct wlc_keymap *keymap, struct xkb_state *xkb);
+WLC_NONULL uint32_t wlc_keymap_get_mod_mask(struct wlc_keymap *keymap, uint32_t in);
+WLC_NONULL uint32_t wlc_keymap_get_led_mask(struct wlc_keymap *keymap, struct xkb_state *xkb);
 void wlc_keymap_release(struct wlc_keymap *keymap);
-bool wlc_keymap(struct wlc_keymap *keymap, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags);
+WLC_NONULL bool wlc_keymap(struct wlc_keymap *keymap, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags);
 
 #endif /* _WLC_KEYMAP_H_ */

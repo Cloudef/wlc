@@ -52,18 +52,18 @@ struct wlc_view {
    } state;
 };
 
-void wlc_view_map(struct wlc_view *view);
-void wlc_view_unmap(struct wlc_view *view);
-void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
-void wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, struct wlc_size *old_surface_size);
-void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible);
-void wlc_view_get_opaque(struct wlc_view *view, struct wlc_geometry *out_opaque);
-bool wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r);
+WLC_NONULL void wlc_view_map(struct wlc_view *view);
+WLC_NONULL void wlc_view_unmap(struct wlc_view *view);
+WLC_NONULL void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
+WLC_NONULL void wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, struct wlc_size *old_surface_size);
+WLC_NONULLV(1,2) void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible);
+WLC_NONULL void wlc_view_get_opaque(struct wlc_view *view, struct wlc_geometry *out_opaque);
+WLC_NONULL bool wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r);
 void wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
 void wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface);
 struct wl_client* wlc_view_get_client(struct wlc_view *view);
 void wlc_view_release(struct wlc_view *view);
-bool wlc_view(struct wlc_view *view);
+WLC_NONULL bool wlc_view(struct wlc_view *view);
 
 void wlc_view_focus_ptr(struct wlc_view *view);
 void wlc_view_close_ptr(struct wlc_view *view);
@@ -74,7 +74,7 @@ void wlc_view_send_below_ptr(struct wlc_view *view, struct wlc_view *other);
 void wlc_view_bring_above_ptr(struct wlc_view *view, struct wlc_view *other);
 void wlc_view_bring_to_front_ptr(struct wlc_view *view);
 void wlc_view_set_mask_ptr(struct wlc_view *view, uint32_t mask);
-void wlc_view_set_geometry_ptr(struct wlc_view *view, uint32_t edges, const struct wlc_geometry *geometry);
+WLC_NONULLV(3) void wlc_view_set_geometry_ptr(struct wlc_view *view, uint32_t edges, const struct wlc_geometry *geometry);
 void wlc_view_set_type_ptr(struct wlc_view *view, enum wlc_view_type_bit type, bool toggle);
 void wlc_view_set_state_ptr(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
 void wlc_view_set_parent_ptr(struct wlc_view *view, struct wlc_view *parent);

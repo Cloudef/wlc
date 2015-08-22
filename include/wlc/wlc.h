@@ -1,18 +1,11 @@
 #ifndef _WLC_H_
 #define _WLC_H_
 
-#include <inttypes.h>
+#include <wlc/defines.h>
 #include <wlc/geometry.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-typedef uintptr_t wlc_handle;
 struct wlc_event_source;
-
-/** printf format specifiers. */
-#define PRIoWLC PRIoPTR
-#define PRIuWLC PRIuPTR
-#define PRIxWLC PRIxPTR
-#define PRIXWLC PRIXPTR
 
 /** wlc_log(), wlc_vlog(); */
 enum wlc_log_type {
@@ -157,7 +150,7 @@ struct wlc_interface {
       void (*focus)(wlc_handle output, bool focus);
 
       /** Output resolution changed. */
-      void (*resolution)(wlc_handle output, const struct wlc_size *from, const struct wlc_size *to);
+      WLC_NONULL void (*resolution)(wlc_handle output, const struct wlc_size *from, const struct wlc_size *to);
    } output;
 
    struct {
@@ -175,38 +168,38 @@ struct wlc_interface {
 
       struct {
          /** Request to set given geometry for view. Apply using wlc_view_set_geometry to agree. */
-         void (*geometry)(wlc_handle view, const struct wlc_geometry*);
+         WLC_NONULL void (*geometry)(wlc_handle view, const struct wlc_geometry*);
 
          /** Request to disable or enable the given state for view. Apply using wlc_view_set_state to agree. */
          void (*state)(wlc_handle view, enum wlc_view_state_bit, bool toggle);
 
          /** Request to move itself. Start a interactive move to agree. */
-         void (*move)(wlc_handle view, const struct wlc_origin *origin);
+         WLC_NONULL void (*move)(wlc_handle view, const struct wlc_origin *origin);
 
          /** Request to resize itself with the given edges. Start a interactive resize to agree. */
-         void (*resize)(wlc_handle view, uint32_t edges, const struct wlc_origin *origin);
+         WLC_NONULL void (*resize)(wlc_handle view, uint32_t edges, const struct wlc_origin *origin);
       } request;
    } view;
 
    struct {
       /** Key event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      bool (*key)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, uint32_t sym, enum wlc_key_state);
+      WLC_NONULL bool (*key)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, uint32_t sym, enum wlc_key_state);
    } keyboard;
 
    struct {
       /** Button event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      bool (*button)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state, const struct wlc_origin*);
+      WLC_NONULL bool (*button)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state, const struct wlc_origin*);
 
       /** Scroll event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      bool (*scroll)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]);
+      WLC_NONULL bool (*scroll)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]);
 
       /** Motion event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      bool (*motion)(wlc_handle view, uint32_t time, const struct wlc_origin*);
+      WLC_NONULL bool (*motion)(wlc_handle view, uint32_t time, const struct wlc_origin*);
    } pointer;
 
    struct {
       /** Touch event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      bool (*touch)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, enum wlc_touch_type, int32_t slot, const struct wlc_origin*);
+      WLC_NONULL bool (*touch)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, enum wlc_touch_type, int32_t slot, const struct wlc_origin*);
    } touch;
 
    struct {
@@ -228,7 +221,7 @@ struct wlc_interface {
  * You can pass argc and argv from main(), so wlc can rename the process it forks
  * to cleanup crashed parent process and do FD passing (non-logind).
  */
-bool wlc_init(const struct wlc_interface *interface, int argc, char *argv[]);
+WLC_NONULLV(1) bool wlc_init(const struct wlc_interface *interface, int argc, char *argv[]);
 
 /** Terminate wlc. */
 void wlc_terminate(void);
@@ -237,7 +230,7 @@ void wlc_terminate(void);
 enum wlc_backend_type wlc_get_backend_type(void);
 
 /** Exec program. */
-void wlc_exec(const char *bin, char *const args[]);
+WLC_NONULLV(1) void wlc_exec(const char *bin, char *const args[]);
 
 /** Run event loop. */
 void wlc_run(void);
@@ -252,16 +245,16 @@ void wlc_handle_set_user_data(wlc_handle handle, const void *userdata);
 void* wlc_handle_get_user_data(wlc_handle handle);
 
 /** Add fd to event loop. Return value of callback is unused, you should return 0. */
-struct wlc_event_source* wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *arg), void *arg);
+WLC_NONULL struct wlc_event_source* wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *arg), void *arg);
 
 /** Add timer to event loop. Return value of callback is unused, you should return 0. */
-struct wlc_event_source* wlc_event_loop_add_timer(int (*cb)(void *arg), void *arg);
+WLC_NONULLV(1) struct wlc_event_source* wlc_event_loop_add_timer(int (*cb)(void *arg), void *arg);
 
 /** Update timer to trigger after delay. Returns true on success. */
-bool wlc_event_source_timer_update(struct wlc_event_source *source, int32_t ms_delay);
+WLC_NONULL bool wlc_event_source_timer_update(struct wlc_event_source *source, int32_t ms_delay);
 
 /** Remove event source from event loop. */
-void wlc_event_source_remove(struct wlc_event_source *source);
+WLC_NONULL void wlc_event_source_remove(struct wlc_event_source *source);
 
 /** -- Output API */
 
@@ -290,7 +283,7 @@ void wlc_output_set_sleep(wlc_handle output, bool sleep);
 const struct wlc_size* wlc_output_get_resolution(wlc_handle output);
 
 /** Set resolution. */
-void wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution);
+WLC_NONULL void wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution);
 
 /** Get current visibility bitmask. */
 uint32_t wlc_output_get_mask(wlc_handle output);
@@ -299,7 +292,7 @@ uint32_t wlc_output_get_mask(wlc_handle output);
 void wlc_output_set_mask(wlc_handle output, uint32_t mask);
 
 /** Get pixels. If you return true in callback, the rgba data will be not freed. Do this if you don't want to copy the buffer. */
-void wlc_output_get_pixels(wlc_handle output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
+WLC_NONULL void wlc_output_get_pixels(wlc_handle output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
 
 /** Get views in stack order. Returned array is a direct reference, careful when moving and destroying handles. */
 const wlc_handle* wlc_output_get_views(wlc_handle output, size_t *out_memb);
@@ -353,7 +346,7 @@ void wlc_view_set_mask(wlc_handle view, uint32_t mask);
 const struct wlc_geometry* wlc_view_get_geometry(wlc_handle view);
 
 /** Set geometry. Set edges if the geometry change is caused by interactive resize. */
-void wlc_view_set_geometry(wlc_handle view, uint32_t edges, const struct wlc_geometry *geometry);
+WLC_NONULL void wlc_view_set_geometry(wlc_handle view, uint32_t edges, const struct wlc_geometry *geometry);
 
 /** Get type bitfield. */
 uint32_t wlc_view_get_type(wlc_handle view);

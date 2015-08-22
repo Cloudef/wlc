@@ -15,7 +15,7 @@ bool wlc_fd_activate(void);
 bool wlc_fd_deactivate(void);
 bool wlc_fd_activate_vt(int vt);
 
-int wlc_fd_open(const char *path, int flags, enum wlc_fd_type type);
+WLC_NONULL int wlc_fd_open(const char *path, int flags, enum wlc_fd_type type);
 void wlc_fd_close(int fd);
 void wlc_fd_terminate(void);
 void wlc_fd_init(int argc, char *argv[], bool has_logind);

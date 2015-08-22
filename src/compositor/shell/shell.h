@@ -12,6 +12,6 @@ struct wlc_shell {
 };
 
 void wlc_shell_release(struct wlc_shell *shell);
-bool wlc_shell(struct wlc_shell *shell);
+WLC_NONULL bool wlc_shell(struct wlc_shell *shell);
 
 #endif /* _WLC_SHELL_H_ */

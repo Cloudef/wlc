@@ -86,8 +86,8 @@ struct wlc_input_event {
 
       // WLC_INPUT_EVENT_MOTION_ABSOLUTE
       struct wlc_input_event_motion_absolute {
-         double (*x)(void *internal, uint32_t width);
-         double (*y)(void *internal, uint32_t height);
+         WLC_NONULL double (*x)(void *internal, uint32_t width);
+         WLC_NONULL double (*y)(void *internal, uint32_t height);
          void *internal; // Pass to x / y functions
       } motion_abs;
 
@@ -111,8 +111,8 @@ struct wlc_input_event {
 
       // WLC_INPUT_EVENT_TOUCH
       struct wlc_input_event_touch {
-         double (*x)(void *internal, uint32_t width);
-         double (*y)(void *internal, uint32_t height);
+         WLC_NONULL double (*x)(void *internal, uint32_t width);
+         WLC_NONULL double (*y)(void *internal, uint32_t height);
          void *internal; // Pass to x / y functions
          int32_t slot;
          enum wlc_touch_type type;
@@ -199,16 +199,16 @@ enum wlc_debug {
 };
 
 /** Log through wlc's log system. */
-WLC_LOG_ATTR(2, 3) void wlc_log(enum wlc_log_type type, const char *fmt, ...);
+WLC_NONULL WLC_LOG_ATTR(2, 3) void wlc_log(enum wlc_log_type type, const char *fmt, ...);
 
 /** va_list version of wlc_log. */
-void wlc_vlog(enum wlc_log_type type, const char *fmt, va_list ap);
+WLC_NONULL void wlc_vlog(enum wlc_log_type type, const char *fmt, va_list ap);
 
 /** Debug log, the output is controlled by WLC_DEBUG env variable. */
-WLC_LOG_ATTR(2, 3) void wlc_dlog(enum wlc_debug dbg, const char *fmt, ...);
+WLC_NONULL WLC_LOG_ATTR(2, 3) void wlc_dlog(enum wlc_debug dbg, const char *fmt, ...);
 
 /** Use only on fatals, currently only wlc.c */
-WLC_LOG_ATTR(1, 2) static inline void
+WLC_NONULL WLC_LOG_ATTR(1, 2) static inline void
 die(const char *format, ...)
 {
    va_list vargs;

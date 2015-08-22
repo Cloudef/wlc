@@ -17,8 +17,8 @@ struct wlc_data_device_manager {
    wlc_resource source;
 };
 
-void wlc_data_device_manager_offer(struct wlc_data_device_manager *device, struct wl_client *client);
+WLC_NONULLV(1) void wlc_data_device_manager_offer(struct wlc_data_device_manager *device, struct wl_client *client);
 void wlc_data_device_manager_release(struct wlc_data_device_manager *manager);
-bool wlc_data_device_manager(struct wlc_data_device_manager *manager);
+WLC_NONULL bool wlc_data_device_manager(struct wlc_data_device_manager *manager);
 
 #endif /* _WLC_DATA_DEVICE_MANAGER_H_ */
