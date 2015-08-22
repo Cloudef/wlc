@@ -276,7 +276,7 @@ dispatch(int fd, uint32_t mask, void *data)
 static bool
 dbus_bind(struct wl_event_loop *loop, DBusConnection *c, struct wl_event_source **ctx_out)
 {
-   assert(ctx_out);
+   assert(loop && c && ctx_out);
    *ctx_out = NULL;
 
    /* Idle events cannot reschedule themselves, therefore we use a dummy
@@ -317,6 +317,7 @@ error0:
 static void
 dbus_unbind(DBusConnection *c, struct wl_event_source *ctx)
 {
+   assert(c && ctx);
    dbus.dbus_connection_set_timeout_functions(c, NULL, NULL, NULL, NULL, NULL);
    dbus.dbus_connection_set_watch_functions(c, NULL, NULL, NULL, NULL, NULL);
    dbus.dbus_connection_unref(c);
@@ -326,6 +327,8 @@ dbus_unbind(DBusConnection *c, struct wl_event_source *ctx)
 bool
 wlc_dbus_add_match(DBusConnection *c, const char *format, ...)
 {
+   assert(c && format);
+
    va_list list;
    va_start(list, format);
    struct chck_string str = {0};
@@ -353,12 +356,15 @@ wlc_dbus_add_match(DBusConnection *c, const char *format, ...)
 bool
 wlc_dbus_add_match_signal(DBusConnection *c, const char *sender, const char *iface, const char *member, const char *path)
 {
+   assert(c && sender && iface && member && path);
    return wlc_dbus_add_match(c, "type='signal',sender='%s',interface='%s',member='%s',path='%s'", sender, iface, member, path);
 }
 
 void
 wlc_dbus_remove_match(DBusConnection *c, const char *format, ...)
 {
+   assert(c && format);
+
    va_list list;
    va_start(list, format);
    struct chck_string str = {0};
@@ -374,12 +380,14 @@ wlc_dbus_remove_match(DBusConnection *c, const char *format, ...)
 void
 wlc_dbus_remove_match_signal(DBusConnection *c, const char *sender, const char *iface, const char *member, const char *path)
 {
+   assert(c && sender && iface && member && path);
    wlc_dbus_remove_match(c, "type='signal',sender='%s',interface='%s',member='%s',path='%s'", sender, iface, member, path);
 }
 
 void
 wlc_dbus_close(DBusConnection *c, struct wl_event_source *ctx)
 {
+   assert(c && ctx);
    dbus_unbind(c, ctx);
    dbus.dbus_connection_close(c);
    dbus.dbus_connection_unref(c);
@@ -388,6 +396,8 @@ wlc_dbus_close(DBusConnection *c, struct wl_event_source *ctx)
 bool
 wlc_dbus_open(struct wl_event_loop *loop, DBusBusType bus, DBusConnection **out, struct wl_event_source **ctx_out)
 {
+   assert(loop && out && ctx_out);
+
    if (!dbus_load())
       return false;
 

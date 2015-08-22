@@ -28,6 +28,9 @@ wlc_buffer_use(struct wlc_buffer *buffer)
 void
 wlc_buffer_release(struct wlc_buffer *buffer)
 {
+   if (!buffer)
+      return;
+
    struct wlc_surface *surface;
    if ((surface = convert_from_wlc_resource(buffer->surface, "surface"))) {
       if (surface->commit.buffer == convert_to_wlc_resource(buffer))

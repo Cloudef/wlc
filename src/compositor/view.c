@@ -53,6 +53,8 @@ wlc_view_unmap(struct wlc_view *view)
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
+   assert(view && pending && out);
+
    struct wlc_surface *surface;
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;

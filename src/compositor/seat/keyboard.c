@@ -275,6 +275,8 @@ wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard)
 bool
 wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state)
 {
+   assert(keyboard && mods);
+
    uint32_t sym = xkb_state_key_get_one_sym(keyboard->state.xkb, key + 8);
 
    if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, sym, (enum wlc_key_state)state)) {

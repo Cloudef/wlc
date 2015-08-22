@@ -238,6 +238,7 @@ pause_device(uint32_t major, uint32_t minor)
 int
 wlc_logind_open(const char *path, int flags)
 {
+   assert(path);
    (void)flags; // unused
 
    struct stat st;
@@ -265,6 +266,7 @@ static void
 parse_active(DBusMessage *m, DBusMessageIter *iter)
 {
    (void)m;
+   assert(m && iter);
 
    if (dbus.dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_VARIANT)
       return;
@@ -283,6 +285,7 @@ parse_active(DBusMessage *m, DBusMessageIter *iter)
 static void
 get_active_cb(DBusPendingCall *pending, void *data)
 {
+   assert(pending);
    (void)data;
 
    dbus.dbus_pending_call_unref(logind.pending.active);
@@ -343,6 +346,8 @@ disconnected_dbus(void)
 static void
 session_removed(DBusMessage *m)
 {
+   assert(m);
+
    const char *name, *obj;
    if (!dbus.dbus_message_get_args(m, NULL, DBUS_TYPE_STRING, &name, DBUS_TYPE_OBJECT_PATH, &obj, DBUS_TYPE_INVALID))
       return;
@@ -357,6 +362,8 @@ session_removed(DBusMessage *m)
 static void
 property_changed(DBusMessage *m)
 {
+   assert(m);
+
    DBusMessageIter iter;
    if (!dbus.dbus_message_iter_init(m, &iter) || dbus.dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
       goto error0;
@@ -416,6 +423,8 @@ error0:
 static void
 device_paused(DBusMessage *m)
 {
+   assert(m);
+
    const char *type;
    uint32_t major, minor;
    if (!dbus.dbus_message_get_args(m, NULL, DBUS_TYPE_UINT32, &major, DBUS_TYPE_UINT32, &minor, DBUS_TYPE_STRING, &type, DBUS_TYPE_INVALID))
@@ -431,6 +440,8 @@ device_paused(DBusMessage *m)
 static void
 device_resumed(DBusMessage *m)
 {
+   assert(m);
+
    uint32_t major;
    if (!dbus.dbus_message_get_args(m, NULL, DBUS_TYPE_UINT32, &major, DBUS_TYPE_INVALID))
       return;
@@ -442,6 +453,7 @@ device_resumed(DBusMessage *m)
 static DBusHandlerResult
 filter_dbus(DBusConnection *c, DBusMessage *m, void *data)
 {
+   assert(c && m && data);
    (void)c, (void)data;
 
    if (dbus.dbus_message_is_signal(m, DBUS_INTERFACE_LOCAL, "Disconnected")) {

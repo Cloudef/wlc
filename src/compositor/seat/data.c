@@ -141,6 +141,8 @@ wl_data_device_manager_bind(struct wl_client *client, void *data, uint32_t versi
 void
 wlc_data_device_manager_offer(struct wlc_data_device_manager *manager, struct wl_client *client)
 {
+   assert(manager);
+
    struct wl_resource *resource;
    if (!client || !(resource = wl_resource_for_client(&manager->devices, client)))
       return;
