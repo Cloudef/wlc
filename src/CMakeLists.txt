@@ -145,6 +145,7 @@ target_link_libraries(wlc
 set(WLC_DEFINITIONS "${definitions}" CACHE STRING "Compile definitions of wlc" FORCE)
 set(WLC_INCLUDE_DIRS "${wlc_SOURCE_DIR}/include" CACHE STRING "Include directories of wlc" FORCE)
 set(WLC_LIBRARIES wlc ${WAYLAND_SERVER_LIBRARIES} ${PIXMAN_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${DL_LIBRARY} ${MATH_LIBRARY} CACHE STRING "Libraries needed for wlc" FORCE)
+mark_as_advanced(WLC_DEFINITIONS WLC_INCLUDE_DIRS WLC_LIBRARIES)
 
 # Add pkgconfig
 configure_file(wlc.pc.in wlc.pc @ONLY)
