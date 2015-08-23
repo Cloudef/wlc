@@ -67,7 +67,7 @@ xdg_cb_shell_get_popup(struct wl_client *client, struct wl_resource *resource, u
 static void
 xdg_cb_shell_pong(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
 {
-   (void)client, (void)serial;
+   (void)client, (void)resource, (void)serial;
    STUBL(resource);
 }
 
