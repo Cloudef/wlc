@@ -1,12 +1,32 @@
-# - Find Pixman
-# Find the Pixman libraries
+#.rst:
+# FindPixman
+# -------
 #
-#  This module defines the following variables:
-#     PIXMAN_FOUND        - True if pixman is found
-#     PIXMAN_LIBRARIES    - Pixman libraries
-#     PIXMAN_INCLUDE_DIRS - Pixman include dirs
-#	  PIXMAN_DEFINITIONS  - Compiler switches required for using pixman
+# Find Pixman library
 #
+# Try to find Pixman library. The following values are defined
+#
+# ::
+#
+#   PIXMAN_FOUND         - True if Pixman is available
+#   PIXMAN_INCLUDE_DIRS  - Include directories for Pixman
+#   PIXMAN_LIBRARIES     - List of libraries for Pixman
+#   PIXMAN_DEFINITIONS   - List of definitions for Pixman
+#
+#=============================================================================
+# Copyright (c) 2015 Jari Vetoniemi
+#
+# Distributed under the OSI-approved BSD License (the "License");
+#
+# This software is distributed WITHOUT ANY WARRANTY; without even the
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the License for more information.
+#=============================================================================
+
+include(FeatureSummary)
+set_package_properties(Pixman PROPERTIES
+   URL "http://pixman.org/"
+   DESCRIPTION "Low-level software library for pixel manipulation")
 
 find_package(PkgConfig)
 pkg_check_modules(PC_PIXMAN QUIET pixman-1)
@@ -16,5 +36,5 @@ find_path(PIXMAN_INCLUDE_DIRS NAMES pixman.h PATH_SUFFIXES pixman-1 HINTS ${PC_P
 set(PIXMAN_DEFINITIONS ${PC_PIXMAN_CFLAGS_OTHER})
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(pixman-1 DEFAULT_MSG PIXMAN_LIBRARIES PIXMAN_INCLUDE_DIRS)
-mark_as_advanced(PIXMAN_INCLUDE_DIRS PIXMAN_LIBRARIES)
+find_package_handle_standard_args(PIXMAN DEFAULT_MSG PIXMAN_LIBRARIES PIXMAN_INCLUDE_DIRS)
+mark_as_advanced(PIXMAN_INCLUDE_DIRS PIXMAN_LIBRARIES PIXMAN_DEFINITIONS)

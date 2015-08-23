@@ -1,26 +1,44 @@
-# Try to find Wayland on a Unix system
+#.rst:
+# FindWayland
+# -----------
 #
-# This will define:
+# Find Wayland installation
+#
+# Try to find Wayland. The following values are defined
+#
+# ::
 #
 #   WAYLAND_FOUND        - True if Wayland is found
 #   WAYLAND_LIBRARIES    - Link these to use Wayland
 #   WAYLAND_INCLUDE_DIRS - Include directories for Wayland
 #   WAYLAND_DEFINITIONS  - Compiler flags for using Wayland
 #
-# In addition the following more fine grained variables will be defined:
+# and also the following more fine grained variables:
 #
-#   WAYLAND_CLIENT_FOUND  WAYLAND_CLIENT_INCLUDE_DIRS  WAYLAND_CLIENT_LIBRARIES
-#   WAYLAND_SERVER_FOUND  WAYLAND_SERVER_INCLUDE_DIRS  WAYLAND_SERVER_LIBRARIES
-#   WAYLAND_EGL_FOUND     WAYLAND_EGL_INCLUDE_DIRS     WAYLAND_EGL_LIBRARIES
+# ::
 #
+#   WAYLAND_CLIENT_FOUND,  WAYLAND_CLIENT_INCLUDE_DIRS,  WAYLAND_CLIENT_LIBRARIES
+#   WAYLAND_SERVER_FOUND,  WAYLAND_SERVER_INCLUDE_DIRS,  WAYLAND_SERVER_LIBRARIES
+#   WAYLAND_EGL_FOUND,     WAYLAND_EGL_INCLUDE_DIRS,     WAYLAND_EGL_LIBRARIES
+#
+#=============================================================================
 # Copyright (c) 2015 Jari Vetoniemi
 #               2013 Martin Gräßlin <mgraesslin@kde.org>
 #
-# Redistribution and use is allowed according to the terms of the BSD license.
-# For details see the accompanying COPYING-CMAKE-SCRIPTS file.
+# Distributed under the OSI-approved BSD License (the "License");
+#
+# This software is distributed WITHOUT ANY WARRANTY; without even the
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the License for more information.
+#=============================================================================
+
+include(FeatureSummary)
+set_package_properties(Wayland PROPERTIES
+   URL "http://wayland.freedesktop.org/"
+   DESCRIPTION "Protocol for implementing compositors")
 
 find_package(PkgConfig)
-pkg_check_modules(PC_WAYLAND REQUIRED QUIET wayland-client>=1.7 wayland-server>=1.7 wayland-egl)
+pkg_check_modules(PC_WAYLAND QUIET wayland-client>=1.7 wayland-server>=1.7 wayland-egl)
 
 find_library(WAYLAND_CLIENT_LIBRARIES NAMES wayland-client   HINTS ${PC_WAYLAND_LIBRARY_DIRS})
 find_library(WAYLAND_SERVER_LIBRARIES NAMES wayland-server   HINTS ${PC_WAYLAND_LIBRARY_DIRS})
@@ -47,4 +65,5 @@ mark_as_advanced(
   WAYLAND_CLIENT_INCLUDE_DIRS  WAYLAND_CLIENT_LIBRARIES
   WAYLAND_SERVER_INCLUDE_DIRS  WAYLAND_SERVER_LIBRARIES
   WAYLAND_EGL_INCLUDE_DIRS     WAYLAND_EGL_LIBRARIES
+  WAYLAND_DEFINITIONS
   )

@@ -4,9 +4,5 @@
 # Also uses CTEST_OUTPUT_DIRECTORY to set global output directory
 
 function(add_test_ex target)
-   if (WIN32)
-      add_test(${target} ${CTEST_EXEC_WITH} "${CTEST_OUTPUT_DIRECTORY}/${target}.exe")
-   else ()
-      add_test(${target} ${CTEST_EXEC_WITH} "${CTEST_OUTPUT_DIRECTORY}/${target}")
-   endif ()
+   add_test(${target} ${CTEST_EXEC_WITH} "${CTEST_OUTPUT_DIRECTORY}/${target}${CMAKE_EXECUTABLE_SUFFIX}")
 endfunction()

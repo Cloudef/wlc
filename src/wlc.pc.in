@@ -3,9 +3,9 @@ exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
 
-Name: wlc
+Name: @PROJECT_NAME@
 Description: Wayland compositor library
-Version: @WLC_VERSION@
+Version: @PROJECT_VERSION@
 Libs: -L${libdir} -lwlc
 Libs.private: -lpixman -lxkbcommon -lwayland-server -lm -ldl
 Cflags: -I${includedir}

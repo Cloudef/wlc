@@ -1,4 +1,3 @@
-add_definitions(${WLC_DEFINITIONS})
-include_directories(${WLC_INCLUDE_DIRS} ${wlc_SOURCE_DIR}/lib/chck/src)
+include_directories(${WLC_INCLUDE_DIRS} ${CHCK_INCLUDE_DIRS})
 add_executable(example example.c)
-target_link_libraries(example ${WLC_LIBRARIES})
+target_link_libraries(example PRIVATE ${WLC_LIBRARIES})
