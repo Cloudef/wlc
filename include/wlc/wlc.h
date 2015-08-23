@@ -210,6 +210,9 @@ struct wlc_interface {
 
 /** -- Core API */
 
+/** Set log handler. Can be set before wlc_init. */
+void wlc_log_set_handler(void (*cb)(enum wlc_log_type type, const char *str));
+
 /**
  * Initialize wlc. Returns false on failure.
  *
@@ -234,9 +237,6 @@ WLC_NONULLV(1) void wlc_exec(const char *bin, char *const args[]);
 
 /** Run event loop. */
 void wlc_run(void);
-
-/** Set log handler. */
-void wlc_log_set_handler(void (*cb)(enum wlc_log_type type, const char *str));
 
 /** Link custom data to handle. */
 void wlc_handle_set_user_data(wlc_handle handle, const void *userdata);
