@@ -130,6 +130,26 @@ endif ()
 
 set_target_properties(wlc PROPERTIES VERSION ${WLC_VERSION} SOVERSION ${SOVERSION})
 
+if (NO_WEAK_LINK)
+   list(APPEND definitions -DNO_WEAK_LINK)
+   list(APPEND libraries
+      ${GLESv2_LIBRARIES}
+      ${GBM_LIBRARIES}
+      ${DRM_LIBRARIES}
+      ${X11_LIBRARIES}
+      ${X11_XCB_LIBRARIES}
+      ${XCB_LIBRARIES_xkb}
+      ${XCB_LIBRARIES_composite}
+      ${XCB_LIBRARIES_xfixes}
+      ${XKBCOMMON_LIBRARIES}
+      ${EGL_LIBRARIES}
+      ${DBUS_LIBRARIES}
+      ${SYSTEMD_LIBRARIES}
+    )
+else ()
+   list(APPEND libraries ${DL_LIBRARY})
+endif ()
+
 add_definitions(${definitions})
 target_link_libraries(wlc
    chck_wlc
@@ -138,7 +158,7 @@ target_link_libraries(wlc
    ${XKBCOMMON_LIBRARIES}
    ${LIBINPUT_LIBRARIES}
    ${UDEV_LIBRARIES}
-   ${DL_LIBRARY}
+   ${libraries}
    )
 
 # Set helpful variables for add_subdirectory build

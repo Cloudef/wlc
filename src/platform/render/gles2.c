@@ -135,12 +135,15 @@ gles2_load(void)
 {
    const char *lib = "libGLESv2.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(gl.api.handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (gl.api.x = dlsym(gl.api.handle, (func = #x)))
+#else
+#define load(x) (gl.api.x = &x)
+#endif
 
    if (!(load(glGetError)))
       goto function_pointer_exception;

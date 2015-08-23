@@ -118,12 +118,15 @@ xcb_load(void)
 {
    const char *lib = "libxcb.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
+#else
+#define load(x) (x11.api.x = &x)
+#endif
 
    if (!load(xcb_connect_to_fd))
       goto function_pointer_exception;
@@ -207,12 +210,15 @@ xcb_composite_load(void)
 {
    const char *lib = "libxcb-composite.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(x11.api.xcb_composite_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (x11.api.x = dlsym(x11.api.xcb_composite_handle, (func = #x)))
+#else
+#define load(x) (x11.api.x = &x)
+#endif
 
    if (!load(xcb_composite_redirect_subwindows_checked))
       goto function_pointer_exception;
@@ -233,12 +239,15 @@ xcb_xfixes_load(void)
 {
    const char *lib = "libxcb-xfixes.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(x11.api.xcb_xfixes_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (x11.api.x = dlsym(x11.api.xcb_xfixes_handle, (func = #x)))
+#else
+#define load(x) (x11.api.x = &x)
+#endif
 
    if (!load(xcb_xfixes_query_version))
       goto function_pointer_exception;

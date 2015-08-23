@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <linux/major.h>
+#include <xf86drm.h>
 #include "internal.h"
 #include "macros.h"
 #include "fd.h"
@@ -89,12 +90,15 @@ drm_load(void)
 {
    const char *lib = "libdrm.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(drm.api.handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (drm.api.x = dlsym(drm.api.handle, (func = #x)))
+#else
+#define load(x) (drm.api.x = &x)
+#endif
 
    if (!load(drmSetMaster))
       goto function_pointer_exception;

@@ -9,6 +9,8 @@
 #include <assert.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
+#include <xcb/xcb.h>
+#include <xcb/xkb.h>
 #include "internal.h"
 #include "macros.h"
 #include "x11.h"
@@ -93,12 +95,15 @@ x11_load(void)
 {
    const char *lib = "libX11.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(x11.api.x11_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (x11.api.x = dlsym(x11.api.x11_handle, (func = #x)))
+#else
+#define load(x) (x11.api.x = &x)
+#endif
 
    if (!load(XOpenDisplay))
       goto function_pointer_exception;
@@ -119,12 +124,15 @@ x11_xcb_load(void)
 {
    const char *lib = "libX11-xcb.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(x11.api.x11_xcb_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (x11.api.x = dlsym(x11.api.x11_xcb_handle, (func = #x)))
+#else
+#define load(x) (x11.api.x = &x)
+#endif
 
    if (!load(XGetXCBConnection))
       goto function_pointer_exception;
@@ -145,12 +153,15 @@ xcb_load(void)
 {
    const char *lib = "libxcb.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
+#else
+#define load(x) (x11.api.x = &x)
+#endif
 
    if (!load(xcb_flush))
       goto function_pointer_exception;
@@ -213,12 +224,15 @@ xcb_xkb_load(void)
 {
    const char *lib = "libxcb-xkb.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(x11.api.xcb_xkb_handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (x11.api.x = dlsym(x11.api.xcb_xkb_handle, (func = #x)))
+#else
+#define load(x) (x11.api.x = &x)
+#endif
 
    if (!load(xcb_xkb_per_client_flags))
       goto function_pointer_exception;

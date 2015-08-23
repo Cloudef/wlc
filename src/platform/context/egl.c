@@ -70,12 +70,15 @@ egl_load(void)
 {
    const char *lib = "libEGL.so", *func = NULL;
 
+#ifndef NO_WEAK_LINK
    if (!(egl.api.handle = dlopen(lib, RTLD_LAZY))) {
       wlc_log(WLC_LOG_WARN, "%s", dlerror());
       return false;
    }
-
 #define load(x) (egl.api.x = dlsym(egl.api.handle, (func = #x)))
+#else
+#define load(x) (egl.api.x = &x)
+#endif
 
    if (!load(eglGetError))
       goto function_pointer_exception;
