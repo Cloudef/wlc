@@ -68,7 +68,7 @@ static void
 xdg_cb_shell_pong(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
 {
    (void)client, (void)serial;
-   STUB(resource);
+   STUBL(resource);
 }
 
 static void

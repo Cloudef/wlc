@@ -104,7 +104,7 @@ static void
 wl_cb_shell_surface_set_popup(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, struct wl_resource *parent, int32_t x, int32_t y, uint32_t flags)
 {
    (void)client, (void)seat, (void)serial, (void)parent, (void)x, (void)y, (void)flags;
-   STUB(resource);
+   STUBL(resource);
 }
 
 static void
