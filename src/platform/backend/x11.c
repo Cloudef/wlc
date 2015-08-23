@@ -580,12 +580,12 @@ update_outputs(struct chck_pool *outputs)
          }
 
          struct wlc_output_information info;
-         fake_information(&info, i);
+         fake_information(&info, 1 + i);
          count += (add_output(window, &info) ? 1 : 0);
       }
    } else {
       struct wlc_output_information info;
-      fake_information(&info, 0);
+      fake_information(&info, 1);
       count += (add_output(x11.screen->root, &info) ? 1 : 0);
    }
 
