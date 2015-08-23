@@ -69,4 +69,6 @@ if (WLC_BUILD_TESTS)
    add_subdirectory(tests)
 endif ()
 
-feature_summary(WHAT ALL)
+if ("${CMAKE_PROJECT_NAME}" STREQUAL "${PROJECT_NAME}")
+   feature_summary(WHAT ALL)
+endif ()
