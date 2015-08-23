@@ -26,7 +26,7 @@ set_package_properties(Dbus PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind 
 find_package(Systemd)
 set_package_properties(Systemd PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
 
-set(definitions
+add_definitions(
    -DWL_HIDE_DEPRECATED
    ${WAYLAND_DEFINITIONS}
    ${PIXMAN_DEFINITIONS}
@@ -38,10 +38,8 @@ set(definitions
    ${UDEV_DEFINITIONS}
    ${LIBINPUT_DEFINITIONS}
    ${XCB_DEFINITIONS}
-   -DDBUS_DISABLE_DEPRECATED
-   ${DBUS_DEFINITIONS}
-   ${SYSTEMD_DEFINITIONS}
    )
+
 include_directories(
    ${CMAKE_CURRENT_SOURCE_DIR}
    ${PROJECT_BINARY_DIR}/protos
@@ -58,8 +56,6 @@ include_directories(
    ${LIBINPUT_INCLUDE_DIRS}
    ${XCB_INCLUDE_DIRS}
    ${X11_INCLUDE_DIR}
-   ${DBUS_INCLUDE_DIRS}
-   ${SYSTEMD_INCLUDE_DIRS}
    )
 
 set(sources
@@ -96,9 +92,22 @@ set(sources
    xwayland/xwm.c
    )
 
-if (DBUS_FOUND AND SYSTEMD_FOUND)
-   list(APPEND definitions -DHAS_LOGIND)
-   list(APPEND sources session/logind.c session/dbus.c)
+if (DBUS_FOUND)
+   add_definitions(-DDBUS_DISABLE_DEPRECATED ${DBUS_DEFINITIONS})
+   include_directories(${DBUS_INCLUDE_DIRS})
+   list(APPEND sources session/dbus.c)
+endif ()
+
+if (SYSTEMD_FOUND)
+   add_definitions(${SYSTEMD_DEFINITIONS})
+   include_directories(${SYSTEMD_INCLUDE_DIRS})
+
+   if (DBUS_FOUND)
+      add_definitions(-DHAS_LOGIND)
+      list(APPEND sources session/logind.c)
+   else ()
+      message("Dbus was not found, so logind is disabled")
+   endif ()
 endif ()
 
 foreach (src ${sources})
@@ -112,7 +121,6 @@ else ()
    add_library(wlc SHARED ${sources})
 endif ()
 
-add_definitions(${definitions})
 target_link_libraries(wlc
    PRIVATE
    wlc_protos

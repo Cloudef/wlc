@@ -484,7 +484,9 @@ wlc_fd_close(int fd)
       write_or_die(wlc.socket, -1, &request, sizeof(request));
    }
 
+#ifdef HAS_LOGIND
 close:
+#endif
    close(fd);
 }
 
