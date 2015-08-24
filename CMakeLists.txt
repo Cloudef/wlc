@@ -33,21 +33,17 @@ if (NOT WLC_BUILD_STATIC)
    set(BUILD_SHARED_LIBS ON)
 endif ()
 
-# Warnings
+# Compiler options
 if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
-   set(ldflags -Wl,-O1,--no-undefined,--sort-common,--as-needed,-z,relro,-z,now)
-   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${ldflags}")
-   set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${ldflags}")
-   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ldflags}")
-
-   if ("${CMAKE_C_FLAGS}" STREQUAL "")
-      add_definitions(-O2)
-      add_definitions(-fstack-protector-strong -fstack-check -flto)
+   include(GCCCompatibleCompilerOptions)
+   add_compiler_warnings(-Wall -Wextra -Wno-variadic-macros -Wno-long-long -Wformat=2 -Winit-self -Wfloat-equal -Wcast-align -Wpointer-arith -Wmissing-prototypes -Wsuggest-attribute=pure -Wsuggest-attribute=const)
+   create_custom_linker_flags(Upstream -O1 --sort-common --as-needed -z,relro -z,now)
+   check_c_compiler_flag(-fstack-protector-strong ok)
+   if (ok)
+      create_custom_compiler_flags(Upstream -g -O2 -fstack-protector-strong --param ssp-buffer-size=4 -fstack-check -flto)
+   else ()
+      create_custom_compiler_flags(Upstream -g -O2 -fstack-protector-all --param ssp-buffer-size=4 -fstack-check -flto)
    endif ()
-
-   add_definitions(
-      -Wall -Wextra -Wno-variadic-macros -Wno-long-long -Wformat=2 -Winit-self -Wfloat-equal
-      -Wcast-align -Wpointer-arith -Wmissing-prototypes -Wsuggest-attribute=pure -Wsuggest-attribute=const)
 endif ()
 
 # -std=c99 -fpic -fpie -D_DEFAULT_SOURCE
