@@ -7,6 +7,9 @@
 
 struct wlc_event_source;
 
+struct xkb_state;
+struct xkb_keymap;
+
 /** wlc_log(), wlc_vlog(); */
 enum wlc_log_type {
    WLC_LOG_INFO,
@@ -183,7 +186,7 @@ struct wlc_interface {
 
    struct {
       /** Key event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      WLC_NONULL bool (*key)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, uint32_t sym, enum wlc_key_state);
+      WLC_NONULL bool (*key)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, enum wlc_key_state);
    } keyboard;
 
    struct {
@@ -383,5 +386,29 @@ const char* wlc_view_get_app_id(wlc_handle view);
 
 /** Set app id. Returns false on failure. (xdg-surface only) */
 bool wlc_view_set_app_id(wlc_handle view, const char *app_id);
+
+/** --  Input API
+ * Very recent stuff, things may change.
+ * XXX: This api is dumb and assumes there is only single xkb state and keymap.
+ *      In case of multiple keyboards, we want to each keyboard have own state and layout.
+ *      Thus we need wlc_handle for keyboards eventually. */
+
+/** Internal xkb_state exposed. You can use it to do more advanced key handling.
+ *  However you should avoid messing up with its state. */
+struct xkb_state* wlc_keyboard_get_xkb_state(void);
+
+/** Internal xkb_keymap exposed. You can use it to do more advanced key handling. */
+struct xkb_keymap* wlc_keyboard_get_xkb_keymap(void);
+
+/** Get currently held keys. */
+const uint32_t* wlc_keyboard_get_current_keys(size_t *out_memb);
+
+/** Utility function to convert raw keycode to keysym. Passed modifiers may transform the key. */
+uint32_t wlc_keyboard_get_keysym_for_key(uint32_t key, const struct wlc_modifiers *modifiers);
+
+/** Utility function to convert raw keycode to Unicode/UTF-32 codepoint. Passed modifiers may transform the key. */
+uint32_t wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers *modifiers);
+
+/** XXX: Expose libinput */
 
 #endif /* _WLC_H_ */

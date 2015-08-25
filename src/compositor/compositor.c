@@ -525,6 +525,41 @@ wlc_get_focused_output(void)
    return _g_compositor->active.output;
 }
 
+WLC_API struct xkb_state*
+wlc_keyboard_get_xkb_state(void)
+{
+   assert(_g_compositor);
+   return _g_compositor->seat.keyboard.state.xkb;
+}
+
+WLC_API struct xkb_keymap*
+wlc_keyboard_get_xkb_keymap(void)
+{
+   assert(_g_compositor);
+   return _g_compositor->seat.keymap.keymap;
+}
+
+WLC_API const uint32_t*
+wlc_keyboard_get_current_keys(size_t *out_memb)
+{
+   assert(_g_compositor);
+   return chck_iter_pool_to_c_array(&_g_compositor->seat.keyboard.keys, out_memb);
+}
+
+WLC_API uint32_t
+wlc_keyboard_get_keysym_for_key(uint32_t key, const struct wlc_modifiers *modifiers)
+{
+   assert(_g_compositor);
+   return wlc_keyboard_get_keysym_for_key_ptr(&_g_compositor->seat.keyboard, key, modifiers);
+}
+
+WLC_API uint32_t
+wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers *modifiers)
+{
+   assert(_g_compositor);
+   return wlc_keyboard_get_utf32_for_key_ptr(&_g_compositor->seat.keyboard, key, modifiers);
+}
+
 void
 wlc_compositor_terminate(struct wlc_compositor *compositor)
 {

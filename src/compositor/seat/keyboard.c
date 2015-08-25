@@ -6,6 +6,7 @@
 #include "keyboard.h"
 #include "keymap.h"
 #include "compositor/view.h"
+#include <chck/unicode/unicode.h>
 
 static bool
 update_keys(struct chck_iter_pool *keys, uint32_t key, enum wl_keyboard_key_state state)
@@ -233,6 +234,49 @@ focus_view(struct wlc_keyboard *keyboard, struct wlc_view *view)
       WLC_INTERFACE_EMIT(view.focus, keyboard->focused.view, true);
 }
 
+static void
+apply_modifiers_to_xkb_state(struct xkb_state *state, const struct wlc_keymap *keymap, const struct wlc_modifiers *modifiers)
+{
+   assert(state);
+
+   if (!modifiers || !keymap) {
+      xkb_state_update_mask(state, 0, 0, 0, 0, 0, 0);
+      return;
+   }
+
+   uint32_t pressed = 0;
+   for (uint32_t i = 0; i < WLC_MOD_LAST; ++i) {
+      if (keymap->mods[i] != XKB_MOD_INVALID && (modifiers->mods & (1 << i)))
+         pressed |= (1 << keymap->mods[i]);
+   }
+
+   xkb_state_update_mask(state, pressed, 0, 0, 0, 0, 0);
+}
+
+uint32_t
+wlc_keyboard_get_keysym_for_key_ptr(struct wlc_keyboard *keyboard, uint32_t key, const struct wlc_modifiers *modifiers)
+{
+   assert(keyboard);
+
+   if (!keyboard->state.sym)
+      return XKB_KEY_NoSymbol;
+
+   apply_modifiers_to_xkb_state(keyboard->state.sym, keyboard->keymap, modifiers);
+   return xkb_state_key_get_one_sym(keyboard->state.sym, key + 8);
+}
+
+uint32_t
+wlc_keyboard_get_utf32_for_key_ptr(struct wlc_keyboard *keyboard, uint32_t key, const struct wlc_modifiers *modifiers)
+{
+   assert(keyboard);
+
+   if (!keyboard->state.sym)
+      return CHCK_REPLACEMENT_CHAR;
+
+   apply_modifiers_to_xkb_state(keyboard->state.sym, keyboard->keymap, modifiers);
+   return xkb_state_key_get_utf32(keyboard->state.sym, key + 8);
+}
+
 void
 wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard)
 {
@@ -277,9 +321,7 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const str
 {
    assert(keyboard && mods);
 
-   uint32_t sym = xkb_state_key_get_one_sym(keyboard->state.xkb, key + 8);
-
-   if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, sym, (enum wlc_key_state)state)) {
+   if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, (enum wlc_key_state)state)) {
       if (state == WL_KEYBOARD_KEY_STATE_PRESSED && keyboard->keymap && xkb_keymap_key_repeats(keyboard->keymap->keymap, key + 8))
          begin_repeat(keyboard, false);
       return false;
@@ -340,10 +382,20 @@ wlc_keyboard_set_keymap(struct wlc_keyboard *keyboard, struct wlc_keymap *keymap
 {
    assert(keyboard);
 
-   if (!keymap && keyboard->state.xkb)
+   if (keyboard->state.xkb) {
       xkb_state_unref(keyboard->state.xkb);
+      keyboard->state.xkb = NULL;
+   }
+
+   if (keyboard->state.sym) {
+      xkb_state_unref(keyboard->state.sym);
+      keyboard->state.sym = NULL;
+   }
 
    if (keymap && (!(keyboard->state.xkb = xkb_state_new(keymap->keymap))))
+      return false;
+
+   if (keymap && (!(keyboard->state.sym = xkb_state_new(keymap->keymap))))
       return false;
 
    keyboard->keymap = keymap;
@@ -358,6 +410,9 @@ wlc_keyboard_release(struct wlc_keyboard *keyboard)
 
    if (keyboard->state.xkb)
       xkb_state_unref(keyboard->state.xkb);
+
+   if (keyboard->state.sym)
+      xkb_state_unref(keyboard->state.sym);
 
    if (keyboard->timer.repeat)
       wl_event_source_remove(keyboard->timer.repeat);
