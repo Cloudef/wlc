@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <wlc/wlc.h>
 #include <chck/math/math.h>
 #include <linux/input.h>
@@ -128,9 +129,10 @@ view_request_resize(wlc_handle view, uint32_t edges, const struct wlc_origin *or
 }
 
 static bool
-keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifiers, uint32_t key, uint32_t sym, enum wlc_key_state state)
+keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifiers, uint32_t key, enum wlc_key_state state)
 {
    (void)time, (void)key;
+   const uint32_t sym = wlc_keyboard_get_keysym_for_key(key, NULL);
 
    if (state == WLC_KEY_STATE_PRESSED) {
       if (view) {
@@ -230,6 +232,7 @@ pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_origin *origin
 static void
 cb_log(enum wlc_log_type type, const char *str)
 {
+   (void)type;
    printf("%s\n", str);
 }
 
