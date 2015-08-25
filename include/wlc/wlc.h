@@ -9,6 +9,7 @@ struct wlc_event_source;
 
 struct xkb_state;
 struct xkb_keymap;
+struct libinput_device;
 
 /** wlc_log(), wlc_vlog(); */
 enum wlc_log_type {
@@ -409,6 +410,7 @@ uint32_t wlc_keyboard_get_keysym_for_key(uint32_t key, const struct wlc_modifier
 /** Utility function to convert raw keycode to Unicode/UTF-32 codepoint. Passed modifiers may transform the key. */
 uint32_t wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers *modifiers);
 
-/** XXX: Expose libinput */
+/** Exposes the libinput devices for configuration. */
+struct libinput_device*const* wlc_input_get_devices(size_t *out_memb);
 
 #endif /* _WLC_H_ */

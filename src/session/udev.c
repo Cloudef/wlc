@@ -7,6 +7,7 @@
 #include <libinput.h>
 #include <wayland-server.h>
 #include <chck/string/string.h>
+#include <chck/pool/pool.h>
 #include "internal.h"
 #include "session/fd.h"
 #include "udev.h"
@@ -14,6 +15,7 @@
 #include "compositor/output.h"
 
 static struct input {
+   struct chck_iter_pool devices;
    struct libinput *handle;
    struct wl_event_source *event_source;
 } input;
@@ -105,16 +107,28 @@ input_event(int fd, uint32_t mask, void *data)
    struct libinput_event *event;
    while ((event = libinput_get_event(input->handle))) {
       struct libinput *handle = libinput_event_get_context(event);
+      struct libinput_device *device = libinput_event_get_device(event);
       (void)handle;
 
       switch (libinput_event_get_type(event)) {
          case LIBINPUT_EVENT_DEVICE_ADDED:
             wlc_log(WLC_LOG_INFO, "INPUT DEVICE ADDED");
+            chck_iter_pool_push_back(&input->devices, &device);
             break;
 
          case LIBINPUT_EVENT_DEVICE_REMOVED:
+         {
+            struct libinput_device *d;
+            chck_iter_pool_for_each(&input->devices, d) {
+               if (d != device)
+                  continue;
+
+               chck_iter_pool_remove(&input->devices, _I - 1);
+               break;
+            }
             wlc_log(WLC_LOG_INFO, "INPUT DEVICE REMOVED");
-            break;
+         }
+         break;
 
          case LIBINPUT_EVENT_POINTER_MOTION:
          {
@@ -342,6 +356,7 @@ void
 wlc_input_terminate(void)
 {
    input_set_event_loop(NULL);
+   chck_iter_pool_release(&input.devices);
    libinput_unref(input.handle);
    memset(&input, 0, sizeof(input));
 }
@@ -353,6 +368,9 @@ wlc_input_init(void)
 
    if (input.handle)
       return true;
+
+   if (!chck_iter_pool(&input.devices, 8, 0, sizeof(struct libinput_device*)))
+      goto fail;
 
    if (!(input.handle = libinput_udev_create_context(&libinput_implementation, &input, udev.handle)))
       goto failed_to_create_context;
@@ -419,4 +437,10 @@ monitor_receiving_fail:
 fail:
    wlc_udev_terminate();
    return false;
+}
+
+struct libinput_device*const*
+wlc_input_get_devices(size_t *out_memb)
+{
+   return chck_iter_pool_to_c_array(&input.devices, out_memb);
 }
