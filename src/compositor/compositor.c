@@ -525,14 +525,14 @@ wlc_get_focused_output(void)
    return _g_compositor->active.output;
 }
 
-WLC_API struct xkb_state*
+WLC_API WLC_PURE struct xkb_state*
 wlc_keyboard_get_xkb_state(void)
 {
    assert(_g_compositor);
    return _g_compositor->seat.keyboard.state.xkb;
 }
 
-WLC_API struct xkb_keymap*
+WLC_API WLC_PURE struct xkb_keymap*
 wlc_keyboard_get_xkb_keymap(void)
 {
    assert(_g_compositor);
