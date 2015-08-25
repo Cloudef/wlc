@@ -28,21 +28,10 @@ wlc_keymap_get_mod_mask(struct wlc_keymap *keymap, uint32_t in)
 {
    assert(keymap);
 
-   const enum wlc_modifier_bit mod_bits[WLC_MOD_LAST] = {
-      WLC_BIT_MOD_SHIFT,
-      WLC_BIT_MOD_CAPS,
-      WLC_BIT_MOD_CTRL,
-      WLC_BIT_MOD_ALT,
-      WLC_BIT_MOD_MOD2,
-      WLC_BIT_MOD_MOD3,
-      WLC_BIT_MOD_LOGO,
-      WLC_BIT_MOD_MOD5,
-   };
-
    uint32_t mods = 0;
    for (uint32_t i = 0; i < WLC_MOD_LAST; ++i) {
       if (keymap->mods[i] != XKB_MOD_INVALID && (in & (1 << keymap->mods[i])))
-         mods |= mod_bits[i];
+         mods |= (1 << i);
    }
 
    return mods;
@@ -53,16 +42,10 @@ wlc_keymap_get_led_mask(struct wlc_keymap *keymap, struct xkb_state *xkb)
 {
    assert(keymap && xkb);
 
-   const enum wlc_led_bit led_bits[WLC_LED_LAST] = {
-      WLC_BIT_LED_NUM,
-      WLC_BIT_LED_CAPS,
-      WLC_BIT_LED_SCROLL,
-   };
-
    uint32_t leds = 0;
    for (uint32_t i = 0; i < WLC_LED_LAST; ++i) {
       if (xkb_state_led_index_is_active(xkb, keymap->leds[i]))
-         leds |= led_bits[i];
+         leds |= (1 << i);
    }
 
    return leds;
