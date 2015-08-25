@@ -12,9 +12,9 @@
 #undef convert_from_wlc_handle
 
 struct handle {
-   wlc_resource public;
-   wlc_resource private;
-   struct wlc_source *source;
+   wlc_resource public; // points to either to this struct handle or struct resource
+   wlc_resource private; // the actual type under types/ folder
+   struct wlc_source *source; // source this handle exists in
 };
 
 /**
@@ -126,8 +126,14 @@ handle_create(struct chck_pool *pool, struct wlc_source *source, struct handle_i
    out_info->private = h + 1;
    memcpy(v + source->pool.items.member - sizeof(wlc_handle), &out_info->public, sizeof(wlc_handle));
 
-   if (source->constructor && !source->constructor(v))
-      goto error1;
+   if (source->constructor) {
+      wlc_dlog(WLC_DBG_HANDLE, "=> Calling constructor for (%s) %" PRIuWLC, source->name, out_info->public);
+      const bool ret = source->constructor(v);
+      wlc_dlog(WLC_DBG_HANDLE, "=> Called constructor for (%s) %" PRIuWLC, source->name, out_info->public);
+
+      if (!ret)
+         goto error1;
+   }
 
    wlc_dlog(WLC_DBG_HANDLE, "New %s (%s) %" PRIuWLC, (pool == &handles ? "handle" : "resource"), source->name, i + 1);
    return true;
@@ -149,8 +155,22 @@ handle_release(struct chck_pool *pool, struct handle *handle, void (*preremove)(
 
    if (handle->private) {
       void *v;
-      if (handle->source->destructor && (v = chck_pool_get(&handle->source->pool, handle->private - 1)))
+      if (handle->source->destructor && (v = chck_pool_get(&handle->source->pool, handle->private - 1))) {
+         wlc_dlog(WLC_DBG_HANDLE, "=> Calling destructor for (%s) %" PRIuWLC, handle->source->name, handle->public);
+
+         // destructor may trigger destruction of other handles
+         // that may then cause relocation of the containing pool
+         // keep track of the address and relocate our handle after.
+         uint8_t *original = pool->items.buffer;
          handle->source->destructor(v);
+
+         if (pool->items.buffer != original) {
+            wlc_dlog(WLC_DBG_HANDLE, "Pool got relocated after calling destructor. Relocating handle...");
+            handle = (struct handle*)(pool->items.buffer + ((uint8_t*)handle - original));
+         }
+
+         wlc_dlog(WLC_DBG_HANDLE, "<= Called destructor for (%s) %" PRIuWLC, handle->source->name, handle->public);
+      }
 
       uint8_t *original = handle->source->pool.items.buffer;
       chck_pool_remove(&handle->source->pool, handle->private - 1);
