@@ -448,7 +448,7 @@ wlc_view_send_to_other(struct wlc_view *view, enum output_link link, struct wlc_
 void
 wlc_view_focus_ptr(struct wlc_view *view)
 {
-   if ((view->type & WLC_BIT_UNMANAGED))
+   if (!view || (view->type & WLC_BIT_UNMANAGED))
       return;
 
    if (view && view->x11.id && !view->x11.override_redirect) {
