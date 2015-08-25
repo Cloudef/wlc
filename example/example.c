@@ -227,9 +227,17 @@ pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_origin *origin
    return (compositor.action.view ? true : false);
 }
 
+static void
+cb_log(enum wlc_log_type type, const char *str)
+{
+   printf("%s\n", str);
+}
+
 int
 main(int argc, char *argv[])
 {
+   wlc_log_set_handler(cb_log);
+
    static struct wlc_interface interface = {
       .output = {
          .resolution = output_resolution,
