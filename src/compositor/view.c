@@ -277,7 +277,11 @@ wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, boo
    if (!view || !view->state.created || !!(view->pending.state & state) == toggle)
       return;
 
-   WLC_INTERFACE_EMIT(view.request.state, convert_to_wlc_handle(view), state, toggle);
+   if (wlc_interface()->view.request.state) {
+      WLC_INTERFACE_EMIT(view.request.state, convert_to_wlc_handle(view), state, toggle);
+   } else {
+      wlc_view_set_state_ptr(view, state, toggle);
+   }
 }
 
 void
