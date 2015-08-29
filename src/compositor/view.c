@@ -276,8 +276,12 @@ wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, boo
    if (!view || !view->state.created)
       return false;
 
-   if (!!(view->pending.state & state) == toggle)
+   if (!!(view->pending.state & state) == toggle) {
+      // refresh geometry
+      if (state == WLC_BIT_FULLSCREEN || state == WLC_BIT_MAXIMIZED)
+         configure_view(view, view->pending.edges, &view->pending.geometry);
       return true;
+   }
 
    wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") requested state %d", convert_to_wlc_handle(view), state);
 
