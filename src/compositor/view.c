@@ -159,7 +159,7 @@ should_be_transformed_by_parent(struct wlc_view *view)
 void
 wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible)
 {
-   assert(view && out_bounds);
+   assert(view && out_bounds && out_bounds != out_visible);
    memcpy(out_bounds, &view->commit.geometry, sizeof(struct wlc_geometry));
 
    struct wlc_surface *surface;
