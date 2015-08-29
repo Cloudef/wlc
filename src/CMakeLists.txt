@@ -114,14 +114,32 @@ foreach (src ${sources})
    set_source_files_properties(${src} PROPERTIES COMPILE_FLAGS -DWLC_FILE=\\\"${src}\\\")
 endforeach ()
 
+add_compile_options(-fvisibility=hidden)
+add_library(wlc-object OBJECT ${sources})
+
 if (WLC_BUILD_STATIC)
-   add_library(wlc STATIC ${sources})
+   add_library(wlc STATIC $<TARGET_OBJECTS:wlc-object>)
 else ()
    add_definitions(-DWLC_BUILD_SHARED)
-   add_library(wlc SHARED ${sources})
+   add_library(wlc SHARED $<TARGET_OBJECTS:wlc-object>)
 endif ()
 
 target_link_libraries(wlc
+   PRIVATE
+   wlc_protos
+   ${CHCK_LIBRARIES}
+   ${WAYLAND_SERVER_LIBRARIES}
+   ${PIXMAN_LIBRARIES}
+   ${XKBCOMMON_LIBRARIES}
+   ${LIBINPUT_LIBRARIES}
+   ${UDEV_LIBRARIES}
+   ${MATH_LIBRARY}
+   ${CMAKE_DL_LIBS}
+   )
+
+# Combine wlc-tests for tests, it's static so it has all symbols visible
+add_library(wlc-tests STATIC $<TARGET_OBJECTS:wlc-object>)
+target_link_libraries(wlc-tests
    PRIVATE
    wlc_protos
    ${CHCK_LIBRARIES}

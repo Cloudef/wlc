@@ -13,6 +13,7 @@
 #include "udev.h"
 #include "compositor/compositor.h"
 #include "compositor/output.h"
+#include "visibility.h"
 
 static struct input {
    struct chck_iter_pool devices;
@@ -439,7 +440,7 @@ fail:
    return false;
 }
 
-struct libinput_device*const*
+WLC_API struct libinput_device*const*
 wlc_input_get_devices(size_t *out_memb)
 {
    return chck_iter_pool_to_c_array(&input.devices, out_memb);
