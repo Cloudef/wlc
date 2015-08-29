@@ -111,7 +111,7 @@ wl_cb_surface_attach(struct wl_client *client, struct wl_resource *resource, str
    }
 
    surface->pending.offset = (struct wlc_origin){ x, y };
-   surface->pending.attached = (buffer ? true : false);
+   surface->pending.attached = true;
 
    wlc_dlog(WLC_DBG_RENDER, "-> Attach request");
 }
