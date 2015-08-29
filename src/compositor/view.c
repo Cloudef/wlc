@@ -85,19 +85,18 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
 
    if (pending->state != out->state) {
       const struct {
-         uint32_t bit;
+         enum wlc_view_state_bit bit;
          uint32_t state;
       } map[] = {
          { WLC_BIT_MAXIMIZED, XDG_SURFACE_STATE_MAXIMIZED },
          { WLC_BIT_FULLSCREEN, XDG_SURFACE_STATE_FULLSCREEN },
          { WLC_BIT_RESIZING, XDG_SURFACE_STATE_RESIZING },
          { WLC_BIT_ACTIVATED, XDG_SURFACE_STATE_ACTIVATED },
-         { 0, 0 },
       };
 
       chck_iter_pool_flush(&view->wl_state);
 
-      for (uint32_t i = 0; map[i].state != 0; ++i) {
+      for (uint32_t i = 0; i < LENGTH(map); ++i) {
          if (pending->state & map[i].bit)
             chck_iter_pool_push_back(&view->wl_state, &map[i].state);
       }
