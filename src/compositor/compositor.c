@@ -621,6 +621,7 @@ wlc_compositor_release(struct wlc_compositor *compositor)
    wlc_xwm_release(&compositor->xwm);
    wlc_backend_release(&compositor->backend);
    wlc_shell_release(&compositor->shell);
+   wlc_xdg_shell_release(&compositor->xdg_shell);
    wlc_seat_release(&compositor->seat);
 
    if (compositor->wl.subcompositor)
