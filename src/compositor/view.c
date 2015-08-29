@@ -15,6 +15,23 @@
 #include "resources/types/surface.h"
 
 static void
+configure_view(struct wlc_view *view, uint32_t edges, const struct wlc_geometry *g)
+{
+   assert(view && g);
+
+   struct wl_resource *r;
+   if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
+      const uint32_t serial = wl_display_next_serial(wlc_display());
+      struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
+      xdg_surface_send_configure(r, g->size.w, g->size.h, &states, serial);
+   } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
+      wl_shell_surface_send_configure(r, edges, g->size.w, g->size.h);
+   } else if (view->x11.id) {
+      wlc_x11_window_configure(&view->x11, g);
+   }
+}
+
+static void
 update(struct wlc_view *view)
 {
    assert(view);
@@ -34,6 +51,7 @@ wlc_view_map(struct wlc_view *view)
       return;
 
    wlc_output_link_view(wlc_view_get_output_ptr(view), view, LINK_ABOVE, NULL);
+   configure_view(view, view->pending.edges, &view->pending.geometry);
 }
 
 void
@@ -48,23 +66,6 @@ wlc_view_unmap(struct wlc_view *view)
 
    WLC_INTERFACE_EMIT(view.destroyed, convert_to_wlc_handle(view));
    view->state.created = false;
-}
-
-static void
-configure_view(struct wlc_view *view, uint32_t edges, const struct wlc_geometry *g)
-{
-   assert(view && g);
-
-   struct wl_resource *r;
-   if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
-      const uint32_t serial = wl_display_next_serial(wlc_display());
-      struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
-      xdg_surface_send_configure(r, g->size.w, g->size.h, &states, serial);
-   } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
-      wl_shell_surface_send_configure(r, edges, g->size.w, g->size.h);
-   } else if (view->x11.id) {
-      wlc_x11_window_configure(&view->x11, g);
-   }
 }
 
 void
