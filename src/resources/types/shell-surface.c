@@ -67,7 +67,9 @@ wl_cb_shell_surface_set_toplevel(struct wl_client *client, struct wl_resource *r
    if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")))
       return;
 
-   wlc_view_request_state(view, WLC_BIT_FULLSCREEN, false);
+   if (!wlc_view_request_state(view, WLC_BIT_FULLSCREEN, false))
+      return;
+
    view->data.fullscreen_mode = WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT;
 }
 
@@ -94,12 +96,14 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *client, struct wl_resource 
    if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")))
       return;
 
+   if (!wlc_view_request_state(view, WLC_BIT_FULLSCREEN, true))
+      return;
+
    struct wlc_output *output;
    if (output_resource && ((output = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(output_resource), "output"))))
       wlc_view_set_output_ptr(view, output);
 
    view->data.fullscreen_mode = method;
-   wlc_view_request_state(view, WLC_BIT_FULLSCREEN, true);
 }
 
 static void
@@ -118,11 +122,12 @@ wl_cb_shell_surface_set_maximized(struct wl_client *client, struct wl_resource *
    if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")))
       return;
 
+   if (!wlc_view_request_state(view, WLC_BIT_MAXIMIZED, true))
+      return;
+
    struct wlc_output *output;
    if (output_resource && ((output = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(output_resource), "output"))))
       wlc_view_set_output_ptr(view, output);
-
-   wlc_view_request_state(view, WLC_BIT_MAXIMIZED, true);
 }
 
 static void
