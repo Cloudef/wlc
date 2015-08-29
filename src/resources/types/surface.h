@@ -20,6 +20,7 @@ struct wlc_surface_state {
    struct wlc_origin offset;
    wlc_resource buffer;
    int32_t scale;
+   enum wl_output_transform transform;
    bool attached;
 };
 

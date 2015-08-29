@@ -201,7 +201,12 @@ static void
 wl_cb_surface_set_buffer_transform(struct wl_client *client, struct wl_resource *resource, int32_t transform)
 {
    (void)client, (void)resource, (void)transform;
-   STUBL(resource);
+
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wl_resource(resource, "surface")))
+      return;
+
+   surface->pending.transform = transform;
 }
 
 static void
@@ -252,24 +257,8 @@ wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *out
 
    struct wlc_size size = wlc_size_zero;
 
-   if (buffer) {
-#if 0
-      switch (transform) {
-         case WL_OUTPUT_TRANSFORM_90:
-         case WL_OUTPUT_TRANSFORM_270:
-         case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-         case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-            width = s->buffer_ref.buffer->height / vp->buffer.scale;
-            height = s->buffer_ref.buffer->width / vp->buffer.scale;
-            break;
-         default:
-            width = s->buffer_ref.buffer->width / vp->buffer.scale;
-            height = s->buffer_ref.buffer->height / vp->buffer.scale;
-            break;
-      }
-#endif
+   if (buffer)
       size = buffer->size;
-   }
 
    surface->size = size;
    surface->commit.attached = (buffer ? true : false);
