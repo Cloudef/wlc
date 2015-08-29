@@ -84,6 +84,10 @@ release_state(struct wlc_surface_state *state)
    if (!state)
       return;
 
+   pixman_region32_fini(&state->opaque);
+   pixman_region32_fini(&state->damage);
+   pixman_region32_fini(&state->input);
+
    state_set_buffer(state, 0);
    chck_iter_pool_for_each_call(&state->frame_cbs, wlc_resource_release_ptr);
    chck_iter_pool_release(&state->frame_cbs);
