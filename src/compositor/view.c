@@ -438,9 +438,13 @@ wlc_view_close_ptr(struct wlc_view *view)
    } else if (view->xdg_popup && (r = wl_resource_from_wlc_resource(view->xdg_popup, "xdg-popup"))) {
       xdg_popup_send_popup_done(r);
    } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
-      struct wl_client *client = wl_resource_get_client(r);
-      wlc_resource_release(view->shell_surface);
-      wl_client_destroy(client);
+      if (view->type & WLC_BIT_POPUP) {
+         wl_shell_surface_send_popup_done(r);
+      } else {
+         struct wl_client *client = wl_resource_get_client(r);
+         wlc_resource_release(view->shell_surface);
+         wl_client_destroy(client);
+      }
    }
 }
 

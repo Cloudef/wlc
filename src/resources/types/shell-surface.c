@@ -107,10 +107,19 @@ wl_cb_shell_surface_set_fullscreen(struct wl_client *client, struct wl_resource 
 }
 
 static void
-wl_cb_shell_surface_set_popup(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, struct wl_resource *parent, int32_t x, int32_t y, uint32_t flags)
+wl_cb_shell_surface_set_popup(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, struct wl_resource *parent_resource, int32_t x, int32_t y, uint32_t flags)
 {
-   (void)client, (void)resource, (void)seat, (void)serial, (void)parent, (void)x, (void)y, (void)flags;
-   STUBL(resource);
+   (void)client, (void)seat, (void)serial, (void)flags;
+
+   struct wlc_view *view;
+   if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")))
+      return;
+
+   wlc_view_set_type_ptr(view, WLC_BIT_POPUP, true);
+   struct wlc_surface *surface = (parent_resource ? convert_from_wl_resource(parent_resource, "surface") : NULL);
+   wlc_view_set_parent_ptr(view, (surface ? convert_from_wlc_handle(surface->view, "view") : NULL));
+   view->pending.geometry.origin = (struct wlc_origin){ x, y };
+
 }
 
 static void
