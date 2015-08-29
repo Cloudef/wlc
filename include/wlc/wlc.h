@@ -410,6 +410,9 @@ uint32_t wlc_keyboard_get_keysym_for_key(uint32_t key, const struct wlc_modifier
 /** Utility function to convert raw keycode to Unicode/UTF-32 codepoint. Passed modifiers may transform the key. */
 uint32_t wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers *modifiers);
 
+/** Get current pointer origin. */
+void wlc_pointer_get_origin(struct wlc_origin *out_origin);
+
 /** Exposes the libinput devices for configuration. Array is direct reference, do not store it. */
 struct libinput_device*const* wlc_input_get_devices(size_t *out_memb);
 

@@ -560,6 +560,14 @@ wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers *modifie
    return wlc_keyboard_get_utf32_for_key_ptr(&_g_compositor->seat.keyboard, key, modifiers);
 }
 
+WLC_API void
+wlc_pointer_get_origin(struct wlc_origin *out_origin)
+{
+   assert(_g_compositor && out_origin);
+   out_origin->x = _g_compositor->seat.pointer.pos.x;
+   out_origin->y = _g_compositor->seat.pointer.pos.y;
+}
+
 void
 wlc_compositor_terminate(struct wlc_compositor *compositor)
 {
