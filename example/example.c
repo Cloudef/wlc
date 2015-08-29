@@ -69,6 +69,9 @@ get_topmost(wlc_handle output, size_t offset)
 static void
 relayout(wlc_handle output)
 {
+   // very simple layout function
+   // you probably don't want to layout certain type of windows in wm
+
    const struct wlc_size *r;
    if (!(r = wlc_output_get_resolution(output)))
       return;
