@@ -206,6 +206,11 @@ wl_cb_surface_set_buffer_transform(struct wl_client *client, struct wl_resource 
    if (!(surface = convert_from_wl_resource(resource, "surface")))
       return;
 
+   if (transform < 0 || transform > WL_OUTPUT_TRANSFORM_FLIPPED_270) {
+      wl_resource_post_error(resource, WL_SURFACE_ERROR_INVALID_TRANSFORM, "buffer transform must be a valid transform (%d specified)", transform);
+      return;
+   }
+
    surface->pending.transform = transform;
 }
 
