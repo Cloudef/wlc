@@ -667,31 +667,14 @@ wlc_x11_window_close(struct wlc_x11_window *win)
 }
 
 void
-wlc_x11_window_position(struct wlc_x11_window *win, int32_t x, int32_t y)
+wlc_x11_window_configure(struct wlc_x11_window *win, const struct wlc_geometry *g)
 {
-   assert(win);
+   assert(win && g);
 
    if (!win->id)
       return;
 
-   const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y;
-   const uint32_t values[] = { x, y };
-   XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, win->id, mask, (uint32_t*)&values));
-   x11.api.xcb_flush(x11.connection);
-}
-
-void
-wlc_x11_window_resize(struct wlc_x11_window *win, uint32_t width, uint32_t height)
-{
-   assert(win);
-
-   if (!win->id)
-      return;
-
-   const uint32_t mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-   const uint32_t values[] = { width, height };
-   XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, win->id, mask, (uint32_t*)&values));
-   x11.api.xcb_flush(x11.connection);
+   set_geometry(win->id, g);
 }
 
 void
@@ -858,10 +841,7 @@ x11_event(int fd, uint32_t mask, void *data)
                struct wlc_x11_window *win;
                if ((win = paired_for_id(xwm, ev->window)) && (view = view_for_window(win))) {
                   set_parent(xwm, win, ev->parent);
-
-                  // Force geometry back, if request did not go through
-                  if (!wlc_view_request_geometry(view, &r))
-                     set_geometry(ev->window, &view->pending.geometry);
+                  wlc_view_request_geometry(view, &r);
                }
             }
             break;

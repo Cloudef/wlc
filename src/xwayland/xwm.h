@@ -26,8 +26,7 @@ struct wlc_xwm {
 };
 
 WLC_NONULL enum wlc_surface_format wlc_x11_window_get_surface_format(struct wlc_x11_window *win);
-WLC_NONULL void wlc_x11_window_position(struct wlc_x11_window *win, int32_t x, int32_t y);
-WLC_NONULL void wlc_x11_window_resize(struct wlc_x11_window *win, uint32_t width, uint32_t height);
+WLC_NONULL void wlc_x11_window_configure(struct wlc_x11_window *win, const struct wlc_geometry *g);
 WLC_NONULL void wlc_x11_window_set_state(struct wlc_x11_window *win, enum wlc_view_state_bit state, bool toggle);
 WLC_NONULL bool wlc_x11_window_set_active(struct wlc_x11_window *win, bool active);
 WLC_NONULL void wlc_x11_window_close(struct wlc_x11_window *win);

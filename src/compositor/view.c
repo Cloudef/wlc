@@ -50,6 +50,23 @@ wlc_view_unmap(struct wlc_view *view)
    view->state.created = false;
 }
 
+static void
+configure_view(struct wlc_view *view, uint32_t edges, const struct wlc_geometry *g)
+{
+   assert(view && g);
+
+   struct wl_resource *r;
+   if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
+      const uint32_t serial = wl_display_next_serial(wlc_display());
+      struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
+      xdg_surface_send_configure(r, g->size.w, g->size.h, &states, serial);
+   } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
+      wl_shell_surface_send_configure(r, edges, g->size.w, g->size.h);
+   } else if (view->x11.id) {
+      wlc_x11_window_configure(&view->x11, g);
+   }
+}
+
 void
 wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out)
 {
@@ -103,29 +120,13 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
    }
 
    const bool size_changed = (!wlc_size_equals(&pending->geometry.size, &out->geometry.size) || !wlc_size_equals(&pending->geometry.size, &surface->size));
-   wlc_dlog(WLC_DBG_COMMIT, "=> pending commit %" PRIuWLC " (%d) pending: %ux%u commited: %ux%u surface: %ux%u", convert_to_wlc_handle(view), size_changed, pending->geometry.size.w, pending->geometry.size.h, out->geometry.size.w, out->geometry.size.h, surface->size.w, surface->size.h);
+   wlc_dlog(WLC_DBG_COMMIT, "=> pending view commit %" PRIuWLC " (%d) pending: %ux%u commited: %ux%u surface: %ux%u", convert_to_wlc_handle(view), size_changed, pending->geometry.size.w, pending->geometry.size.h, out->geometry.size.w, out->geometry.size.h, surface->size.w, surface->size.h);
 
-   if (pending->state != out->state || size_changed) {
-      struct wl_resource *r;
-      if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
-         const uint32_t serial = wl_display_next_serial(wlc_display());
-         struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
-         xdg_surface_send_configure(r, pending->geometry.size.w, pending->geometry.size.h, &states, serial);
-      } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
-         wl_shell_surface_send_configure(r, pending->edges, pending->geometry.size.w, pending->geometry.size.h);
-      }
-   }
+   if (pending->state != out->state || size_changed)
+      configure_view(view, pending->edges, &pending->geometry);
 
-   if (view->x11.id) {
-      if (!wlc_origin_equals(&pending->geometry.origin, &out->geometry.origin))
-         wlc_x11_window_position(&view->x11, pending->geometry.origin.x, pending->geometry.origin.y);
-
-      if (size_changed)
-         wlc_x11_window_resize(&view->x11, pending->geometry.size.w, pending->geometry.size.h);
-   }
-
-   memcpy(out, pending, sizeof(struct wlc_view_state));
-   wlc_dlog(WLC_DBG_COMMIT, "=> commit %" PRIuWLC, convert_to_wlc_handle(view));
+   *out = *pending;
+   wlc_dlog(WLC_DBG_COMMIT, "=> commit view %" PRIuWLC, convert_to_wlc_handle(view));
 }
 
 void
@@ -267,6 +268,7 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
       memcpy(&view->pending.geometry, r, sizeof(view->pending.geometry));
    }
 
+   configure_view(view, view->pending.edges, &view->pending.geometry);
    return granted;
 }
 
