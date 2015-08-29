@@ -36,6 +36,7 @@ wl_cb_shell_surface_move(struct wl_client *client, struct wl_resource *resource,
    if (!seat->pointer.focused.view)
       return;
 
+   wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") requested move", seat->pointer.focused.view);
    const struct wlc_origin o = { seat->pointer.pos.x, seat->pointer.pos.y };
    WLC_INTERFACE_EMIT(view.request.move, seat->pointer.focused.view, &o);
 }
@@ -52,6 +53,7 @@ wl_cb_shell_surface_resize(struct wl_client *client, struct wl_resource *resourc
    if (!seat->pointer.focused.view)
       return;
 
+   wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") requested resize", seat->pointer.focused.view);
    const struct wlc_origin o = { seat->pointer.pos.x, seat->pointer.pos.y };
    WLC_INTERFACE_EMIT(view.request.resize, seat->pointer.focused.view, edges, &o);
 }

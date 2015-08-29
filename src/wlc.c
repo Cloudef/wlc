@@ -66,6 +66,7 @@ wlc_dlog(enum wlc_debug dbg, const char *fmt, ...)
       { "xwm", false, false },
       { "keyboard", false, false },
       { "commit", false, false },
+      { "request", false, false },
    };
 
    if (!channels[dbg].checked) {

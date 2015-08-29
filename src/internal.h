@@ -195,6 +195,7 @@ enum wlc_debug {
    WLC_DBG_XWM,
    WLC_DBG_KEYBOARD,
    WLC_DBG_COMMIT,
+   WLC_DBG_REQUEST,
    WLC_DBG_LAST,
 };
 

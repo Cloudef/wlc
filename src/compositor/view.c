@@ -258,6 +258,8 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
    assert(view && r);
    bool granted = true;
 
+   wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") requested geometry %ux%u+%d,%d", convert_to_wlc_handle(view), r->size.w, r->size.h, r->origin.x, r->origin.y);
+
    if (view->state.created && wlc_interface()->view.request.geometry) {
       WLC_INTERFACE_EMIT(view.request.geometry, convert_to_wlc_handle(view), r);
 
@@ -269,6 +271,7 @@ wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r)
    }
 
    configure_view(view, view->pending.edges, &view->pending.geometry);
+   wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") applied geometry %ux%u+%d,%d", convert_to_wlc_handle(view), view->pending.geometry.size.w, view->pending.geometry.size.h, view->pending.geometry.origin.x, view->pending.geometry.origin.y);
    return granted;
 }
 
@@ -278,11 +281,15 @@ wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, boo
    if (!view || !view->state.created || !!(view->pending.state & state) == toggle)
       return;
 
+   wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") requested state %d", convert_to_wlc_handle(view), state);
+
    if (wlc_interface()->view.request.state) {
       WLC_INTERFACE_EMIT(view.request.state, convert_to_wlc_handle(view), state, toggle);
    } else {
       wlc_view_set_state_ptr(view, state, toggle);
    }
+
+   wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") applied states %d", convert_to_wlc_handle(view), view->pending.state);
 }
 
 void
