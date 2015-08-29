@@ -7,6 +7,7 @@
 #include "pointer.h"
 #include "macros.h"
 #include "seat.h"
+#include "keyboard.h"
 #include "compositor/compositor.h"
 #include "compositor/view.h"
 #include "compositor/output.h"
@@ -228,6 +229,27 @@ void
 wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, enum wl_pointer_button_state state)
 {
    assert(pointer);
+
+   struct wlc_seat *seat;
+   struct wlc_compositor *compositor;
+   except((seat = wl_container_of(pointer, seat, pointer)) && (compositor = wl_container_of(seat, compositor, seat)));
+
+   // Special handling for popups
+   if (seat->keyboard.focused.view != pointer->focused.view) {
+      struct wlc_view *v;
+      if ((v = convert_from_wlc_handle(seat->keyboard.focused.view, "view")) && !v->x11.id && (v->type & WLC_BIT_POPUP)) {
+         struct wl_client *client = NULL;
+
+         struct wl_resource *surface;
+         if ((surface = wl_resource_from_wlc_resource(v->surface, "surface")))
+            client = wl_resource_get_client(surface);
+
+         if (focused_client(pointer) != client) {
+            wlc_view_close_ptr(v);
+            return;
+         }
+      }
+   }
 
    wlc_resource *r;
    chck_iter_pool_for_each(&pointer->focused.resources, r) {

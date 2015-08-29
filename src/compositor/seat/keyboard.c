@@ -124,7 +124,7 @@ reset_repeat(struct wlc_keyboard *keyboard)
 }
 
 static void
-defocus(struct wlc_keyboard *keyboard)
+defocus(struct wlc_keyboard *keyboard, struct wlc_view *new_focus)
 {
    assert(keyboard);
 
@@ -157,8 +157,18 @@ defocus(struct wlc_keyboard *keyboard)
    if (keyboard->focused.view)
       WLC_INTERFACE_EMIT(view.focus, keyboard->focused.view, false);
 
-   if (view->xdg_popup)
-      wlc_view_close_ptr(view);
+   if (!view->x11.id && (view->type & WLC_BIT_POPUP)) {
+      struct wl_client *client = wl_resource_get_client(surface), *new_client = NULL;
+
+      {
+         struct wl_resource *surface;
+         if (new_focus && (surface = wl_resource_from_wlc_resource(new_focus->surface, "surface")))
+            new_client = wl_resource_get_client(surface);
+      }
+
+      if (client != new_client)
+         wlc_view_close_ptr(view);
+   }
 
 out:
    chck_iter_pool_flush(&keyboard->focused.resources);
@@ -373,7 +383,7 @@ wlc_keyboard_focus(struct wlc_keyboard *keyboard, struct wlc_view *view)
    if (!keyboard->state.repeating)
       reset_repeat(keyboard);
 
-   defocus(keyboard);
+   defocus(keyboard, view);
    focus_view(keyboard, view);
 }
 
