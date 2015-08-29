@@ -21,14 +21,19 @@ enum wlc_view_ack {
 
 struct wlc_view_state {
    struct wlc_geometry geometry;
-   struct wlc_geometry visible;
    uint32_t edges, state;
+};
+
+struct wlc_view_surface_state {
+   struct wlc_geometry visible;
 };
 
 struct wlc_view {
    struct wlc_x11_window x11;
    struct wlc_view_state pending;
    struct wlc_view_state commit;
+   struct wlc_view_surface_state surface_pending;
+   struct wlc_view_surface_state surface_commit;
    struct chck_iter_pool wl_state;
 
    wlc_handle parent;
@@ -53,10 +58,11 @@ struct wlc_view {
    } state;
 };
 
+WLC_NONULL void wlc_view_update(struct wlc_view *view);
 WLC_NONULL void wlc_view_map(struct wlc_view *view);
 WLC_NONULL void wlc_view_unmap(struct wlc_view *view);
 WLC_NONULL void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, struct wlc_view_state *out);
-WLC_NONULL void wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, struct wlc_size *old_surface_size);
+WLC_NONULL void wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface);
 WLC_NONULLV(1,2) void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible);
 WLC_NONULL bool wlc_view_get_opaque(struct wlc_view *view, struct wlc_geometry *out_opaque);
 WLC_NONULL bool wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r);

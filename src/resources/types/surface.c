@@ -20,9 +20,6 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
    if (!(output = convert_from_wlc_handle(surface->output, "output")))
       return;
 
-   // Old surface size for xdg-surface commit
-   struct wlc_size old_size = surface->size;
-
    if (output)
       wlc_surface_attach_to_output(surface, output, buffer);
 
@@ -30,7 +27,7 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
    if ((view = convert_from_wlc_handle(surface->view, "view"))) {
       if (buffer) {
          wlc_view_map(view);
-         wlc_view_ack_surface_attach(view, surface, &old_size);
+         wlc_view_ack_surface_attach(view, surface);
       } else {
          wlc_view_unmap(view);
       }

@@ -31,8 +31,8 @@ configure_view(struct wlc_view *view, uint32_t edges, const struct wlc_geometry 
    }
 }
 
-static void
-update(struct wlc_view *view)
+void
+wlc_view_update(struct wlc_view *view)
 {
    assert(view);
 
@@ -131,21 +131,23 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
 }
 
 void
-wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface, struct wlc_size *old_surface_size)
+wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface)
 {
-   assert(view && surface && old_surface_size);
+   assert(view && surface);
 
-   if (view->x11.id)
+   if (view->x11.id) {
       surface->pending.opaque.extents = (pixman_box32_t){ 0, 0, surface->size.w, surface->size.h };
-
-   const bool resizing = (view->pending.state & WLC_BIT_RESIZING);
-   if (resizing) {
-      if (view->pending.edges & WLC_RESIZE_EDGE_LEFT || view->commit.edges & WLC_RESIZE_EDGE_LEFT)
-         view->pending.geometry.origin.x += old_surface_size->w - surface->size.w;
-      if (view->pending.edges & WLC_RESIZE_EDGE_TOP || view->commit.edges & WLC_RESIZE_EDGE_TOP)
-         view->pending.geometry.origin.y += old_surface_size->h - surface->size.h;
+      view->surface_pending.visible = (struct wlc_geometry){ wlc_origin_zero, surface->size };
    }
 
+   const bool resizing = (view->pending.state & WLC_BIT_RESIZING || view->commit.state & WLC_BIT_RESIZING);
+   if (!resizing && !wlc_geometry_equals(&view->surface_pending.visible, &view->surface_commit.visible)) {
+      struct wlc_geometry g = (struct wlc_geometry){ view->pending.geometry.origin, view->surface_pending.visible.size };
+      wlc_view_request_geometry(view, &g);
+   }
+
+   view->surface_commit = view->surface_pending;
+   wlc_dlog(WLC_DBG_COMMIT, "=> surface view %" PRIuWLC, convert_to_wlc_handle(view));
 }
 
 static bool
@@ -171,17 +173,12 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
       }
    }
 
-   if (view->xdg_surface && view->commit.visible.size.w > 0 && view->commit.visible.size.h > 0) {
+   if (view->xdg_surface && view->surface_commit.visible.size.w > 0 && view->surface_commit.visible.size.h > 0) {
       // xdg-surface client that draws drop shadows or other stuff.
-      // Only obey visible hints when not maximized or fullscreen.
-      if (!(view->commit.state & WLC_BIT_MAXIMIZED) && !(view->commit.state & WLC_BIT_FULLSCREEN)) {
-         out_bounds->origin.x -= view->commit.visible.origin.x;
-         out_bounds->origin.y -= view->commit.visible.origin.y;
-
-         // Make sure size is at least what we want, but may be bigger (shadows etc...)
-         out_bounds->size.w = chck_maxu32(surface->size.w, view->commit.geometry.size.w);
-         out_bounds->size.h = chck_maxu32(surface->size.h, view->commit.geometry.size.h);
-      }
+      out_bounds->origin.x -= view->surface_commit.visible.origin.x;
+      out_bounds->origin.y -= view->surface_commit.visible.origin.y;
+      out_bounds->size.w += surface->size.w - view->surface_commit.visible.size.w;
+      out_bounds->size.h += surface->size.h - view->surface_commit.visible.size.h;
    }
 
    // Make sure bounds is never 0x0 w/h
@@ -348,7 +345,7 @@ wlc_view_set_mask_ptr(struct wlc_view *view, uint32_t mask)
       return;
 
    view->mask = mask;
-   update(view);
+   wlc_view_update(view);
 }
 
 void
@@ -361,7 +358,7 @@ wlc_view_set_geometry_ptr(struct wlc_view *view, uint32_t edges, const struct wl
 
    view->pending.geometry = *geometry;
    view->pending.edges = edges;
-   update(view);
+   wlc_view_update(view);
 }
 
 void
@@ -387,7 +384,7 @@ wlc_view_set_state_ptr(struct wlc_view *view, enum wlc_view_state_bit state, boo
 #define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
    view->pending.state = BIT_TOGGLE(view->pending.state, state, toggle);
 #undef BIT_TOGGLE
-   update(view);
+   wlc_view_update(view);
 }
 
 void
@@ -397,7 +394,7 @@ wlc_view_set_parent_ptr(struct wlc_view *view, struct wlc_view *parent)
       return;
 
    view->parent = convert_to_wlc_handle(parent);
-   update(view);
+   wlc_view_update(view);
 }
 
 void

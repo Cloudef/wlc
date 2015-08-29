@@ -105,7 +105,8 @@ xdg_cb_surface_set_window_geometry(struct wl_client *client, struct wl_resource 
    if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")))
       return;
 
-   view->pending.visible = (struct wlc_geometry){ { x, y }, { width, height } };
+   view->surface_pending.visible = (struct wlc_geometry){ { x, y }, { width, height } };
+   wlc_view_update(view);
 }
 
 static void
