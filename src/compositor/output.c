@@ -115,15 +115,42 @@ view_visible(struct wlc_view *view, struct wlc_surface *surface, uint32_t mask)
 }
 
 static bool
-is_visible(struct wlc_output *output)
+blit(bool *g, const struct wlc_size *r, const struct wlc_origin *a, const struct wlc_origin *b, bool should_blit)
 {
-   // FIXME: Use pixman_region32 for this
+   assert(g && r && a && b);
 
-   assert(output);
-   struct wlc_geometry g = { { INT_MAX, INT_MAX }, { 0, 0 } }, root = { { 0, 0 }, output->resolution };
+   bool visible = false;
+   const size_t gsz = r->w * r->h;
+   assert(b->x - a->x >= 0);
+   assert(a->x >= 0 && b->x <= (int32_t)r->w && a->y >= 0 && b->y <= (int32_t)r->h);
+   for (int32_t y = a->y; y < b->y; ++y) {
+      const size_t off = a->x + y * r->w, memb = (b->x - a->x);
+      assert(off + memb <= gsz);
+
+      if (!visible && memchr(g + off, false, memb)) {
+         visible = true;
+
+         if (!should_blit)
+            return true;
+      }
+
+      if (should_blit)
+         memset(g + off, true, memb);
+   }
+
+   return visible;
+}
+
+static bool
+get_visible_views(struct wlc_output *output, struct chck_iter_pool *visible)
+{
+   assert(output && output->blit);
+
+   const size_t gsz = output->resolution.w * output->resolution.h;
+   memset(output->blit, false, gsz);
 
    wlc_handle *h;
-   chck_iter_pool_for_each(&output->views, h) {
+   chck_iter_pool_for_each_reverse(&output->views, h) {
       struct wlc_view *v;
       struct wlc_surface *s;
       if (!(v = convert_from_wlc_handle(*h, "view")) ||
@@ -133,32 +160,23 @@ is_visible(struct wlc_output *output)
       if (!view_visible(v, s, output->active.mask))
          continue;
 
-      struct wlc_geometry vg;
-      wlc_view_get_opaque(v, &vg);
+      struct wlc_geometry o;
+      struct wlc_origin a, b;
+      const bool should_blit = wlc_view_get_opaque(v, &o);
+      a.x = chck_clamp32(o.origin.x, 0, output->resolution.w);
+      a.y = chck_clamp32(o.origin.y, 0, output->resolution.h);
+      b.x = chck_clamp32((o.origin.x + o.size.w), 1, output->resolution.w);
+      b.y = chck_clamp32((o.origin.y + o.size.h), 1, output->resolution.h);
 
-      struct wlc_size size = {
-         vg.origin.x + vg.size.w,
-         vg.origin.y + vg.size.h
-      };
+      if (!blit(output->blit, &output->resolution, &a, &b, should_blit)) {
+         wlc_dlog(WLC_DBG_RENDER_LOOP, "%" PRIuWLC " is not visible", *h);
+         continue;
+      }
 
-      wlc_origin_min(&g.origin, &vg.origin, &g.origin);
-      wlc_size_max(&g.size, &size, &g.size);
+      chck_iter_pool_push_front(visible, &v);
    }
 
-   return !wlc_geometry_contains(&g, &root);
-}
-
-static bool
-view_contains_output(struct wlc_view *view, struct wlc_output *output)
-{
-   assert(output);
-
-   if (!view || !view_visible(view, convert_from_wlc_resource(view->surface, "surface"), output->active.mask))
-      return false;
-
-   struct wlc_geometry vg, root = { { 0, 0 }, output->resolution };
-   wlc_view_get_opaque(view, &vg);
-   return wlc_geometry_contains(&vg, &root);
+   return memchr(output->blit, false, gsz);
 }
 
 static void
@@ -238,18 +256,14 @@ repaint(struct wlc_output *output)
       return true;
    }
 
-   wlc_handle *last;
-   if ((last = chck_iter_pool_get_last(&output->views)) && !view_contains_output(convert_from_wlc_handle(*last, "view"), output))
-      last = NULL;
+   struct chck_iter_pool visible;
+   chck_iter_pool(&visible, 32, 0, sizeof(struct wlc_view*));
+   const bool bg_visible = get_visible_views(output, &visible);
 
-   // if last contains output, we already know background is not visible
-   // otherwise do the more expensive check.
-   const bool visible = (!last && is_visible(output));
-
-   if (!output->state.background_visible && visible) {
+   if (!output->state.background_visible && bg_visible) {
       wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background visible");
       output->state.background_visible = true;
-   } else if (output->state.background_visible && !visible) {
+   } else if (output->state.background_visible && !bg_visible) {
       wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background not visible");
       output->state.background_visible = false;
    }
@@ -263,12 +277,11 @@ repaint(struct wlc_output *output)
    struct chck_iter_pool callbacks;
    chck_iter_pool(&callbacks, 32, 0, sizeof(wlc_resource));
 
-   if (last) {
-      render_view(output, convert_from_wlc_handle(*last, "view"), &callbacks);
-   } else {
-      wlc_handle *h;
-      chck_iter_pool_for_each(&output->views, h)
-         render_view(output, convert_from_wlc_handle(*h, "view"), &callbacks);
+   {
+      struct wlc_view **v;
+      chck_iter_pool_for_each(&visible, v)
+         render_view(output, *v, &callbacks);
+      chck_iter_pool_release(&visible);
    }
 
    struct wlc_render_event ev = { .output = output, .type = WLC_RENDER_EVENT_POINTER };
@@ -643,6 +656,15 @@ wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *
    if (!output || wlc_size_equals(resolution, &output->resolution))
       return;
 
+   size_t gsz;
+   if (chck_mul_ofsz(resolution->w, resolution->h, &gsz)) {
+      wlc_log(WLC_LOG_WARN, "Requested resolution %ux%u overflows when multiplied, ignoring resolution", resolution->w, resolution->h);
+      return;
+   }
+
+   free(output->blit);
+   except(output->blit = calloc(1, gsz));
+
    struct wlc_size old = output->resolution;
    output->resolution = *resolution;
    WLC_INTERFACE_EMIT(output.resolution, convert_to_wlc_handle(output), &old, &output->resolution);
@@ -868,6 +890,9 @@ wlc_output_release(struct wlc_output *output)
    chck_iter_pool_release(&output->surfaces);
    chck_iter_pool_release(&output->views);
    chck_iter_pool_release(&output->mutable);
+
+   free(output->blit);
+   output->blit = NULL;
 
    if (output->wl.output)
       wl_global_destroy(output->wl.output);

@@ -18,6 +18,7 @@
 #include "resources/types/buffer.h"
 
 static GLfloat DIM = 0.5f;
+static bool DRAW_OPAQUE = false;
 
 static const GLubyte cursor_palette[];
 
@@ -886,6 +887,15 @@ view_paint(struct ctx *context, struct wlc_view *view)
    struct wlc_geometry geometry;
    wlc_view_get_bounds(view, &geometry, &settings.visible);
    surface_paint_internal(context, surface, &geometry, &settings);
+
+   if (DRAW_OPAQUE) {
+      wlc_view_get_opaque(view, &geometry);
+      settings.visible = geometry;
+      settings.program = PROGRAM_CURSOR;
+      GL_CALL(gl.api.glBlendFunc(GL_ONE, GL_DST_COLOR));
+      texture_paint(context, &context->textures[TEXTURE_BLACK], 1, &geometry, &settings);
+      GL_CALL(gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+   }
 }
 
 static void
@@ -981,9 +991,8 @@ wlc_gles2(struct wlc_render_api *api)
    api->clear = clear;
    api->time = frame_time;
 
-   const char *dimenv;
-   if ((dimenv = getenv("WLC_DIM")))
-      DIM = strtof(dimenv, NULL);
+   chck_cstr_to_f(getenv("WLC_DIM"), &DIM);
+   chck_cstr_to_bool(getenv("WLC_DRAW_OPAQUE"), &DRAW_OPAQUE);
 
    wlc_log(WLC_LOG_INFO, "GLES2 renderer initialized");
    return ctx;
