@@ -82,18 +82,7 @@ xdg_cb_surface_resize(struct wl_client *client, struct wl_resource *resource, st
 static void
 xdg_cb_surface_ack_configure(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
 {
-   (void)client, (void)serial;
-
-   // XXX: Some clients such simple-damage from weston does not trigger this
-#if 0
-   struct wlc_view *view;
-   if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")))
-      return;
-
-   view->state.ack = ACK_NEXT_COMMIT;
-#else
-   (void)resource;
-#endif
+   (void)client, (void)serial, (void)resource;
 }
 
 static void
