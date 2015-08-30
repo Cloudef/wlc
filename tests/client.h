@@ -5,11 +5,20 @@
 #include <wayland-client.h>
 #include <chck/lut/lut.h>
 #include <chck/pool/pool.h>
+#include <sys/signal.h>
+#include <wlc/wlc.h>
 
 #undef NDEBUG
 #include <assert.h>
 
-struct test {
+static int TEST_EXIT_STATUS = EXIT_FAILURE;
+
+struct compositor_test {
+   const char *name;
+   pid_t client;
+};
+
+struct client_test {
    const char *name;
    struct wl_display *display;
    struct wl_registry *registry;
@@ -17,6 +26,10 @@ struct test {
    struct wl_shell *shell;
    struct wl_shm *shm;
    struct wl_seat *seat;
+
+#ifdef BACKGROUND_CLIENT_PROTOCOL_H
+   struct background *background;
+#endif
 
    struct {
       struct wl_surface *surface;
@@ -53,7 +66,7 @@ struct mode {
 };
 
 static inline void
-create_shm_buffer(struct test *test)
+create_shm_buffer(struct client_test *test)
 {
    int fd;
    const size_t stride = test->view.width * 4;
@@ -71,7 +84,7 @@ static inline void
 shm_format(void *data, struct wl_shm *shm, uint32_t format)
 {
    assert(shm);
-   struct test *test;
+   struct client_test *test;
    assert((test = data));
    chck_hash_table_set(&test->formats, format, (bool[]){ true });
 }
@@ -83,7 +96,7 @@ struct wl_shm_listener shm_listener = {
 static inline void
 seat_handle_capabilities(void *data, struct wl_seat *seat, enum wl_seat_capability caps)
 {
-   struct test *test;
+   struct client_test *test;
    assert((test = data) && seat);
    assert((caps & WL_SEAT_CAPABILITY_TOUCH) && (caps & WL_SEAT_CAPABILITY_POINTER) && (caps & WL_SEAT_CAPABILITY_KEYBOARD));
 
@@ -117,7 +130,7 @@ static const struct wl_seat_listener seat_listener = {
 };
 
 static inline void
-add_seat(struct test *test, uint32_t name, uint32_t version)
+add_seat(struct client_test *test, uint32_t name, uint32_t version)
 {
    (void)version;
    assert(test);
@@ -150,8 +163,8 @@ static const struct wl_shell_surface_listener shell_surface_listener = {
    .popup_done = handle_popup_done
 };
 
-static struct output*
-output_for_wl_output(struct test *test, struct wl_output *wl_output)
+static inline struct output*
+output_for_wl_output(struct client_test *test, struct wl_output *wl_output)
 {
    struct output *o;
    chck_iter_pool_for_each(&test->outputs, o) {
@@ -162,10 +175,10 @@ output_for_wl_output(struct test *test, struct wl_output *wl_output)
    return NULL;
 }
 
-static void
+static inline void
 handle_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y, int32_t physical_width, int32_t physical_height, int32_t subpixel, const char *make, const char *model, int32_t transform)
 {
-   struct test *test;
+   struct client_test *test;
    assert((test = data) && wl_output);
    (void)x, (void)y, (void)physical_width, (void)physical_height, (void)subpixel, (void)make, (void)model, (void)transform;
 
@@ -186,10 +199,10 @@ handle_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y, i
    o->done = false;
 }
 
-static void
+static inline void
 handle_done(void *data, struct wl_output *wl_output)
 {
-   struct test *test;
+   struct client_test *test;
    assert((test = data) && wl_output);
 
    struct output *o;
@@ -198,10 +211,10 @@ handle_done(void *data, struct wl_output *wl_output)
    o->done = true;
 }
 
-static void
+static inline void
 handle_scale(void *data, struct wl_output *wl_output, int32_t scale)
 {
-   struct test *test;
+   struct client_test *test;
    assert((test = data) && wl_output);
 
    struct output *o;
@@ -210,12 +223,12 @@ handle_scale(void *data, struct wl_output *wl_output, int32_t scale)
    o->scale = scale;
 }
 
-static void
+static inline void
 handle_mode(void *data, struct wl_output *wl_output, uint32_t flags, int32_t width, int32_t height, int32_t refresh)
 {
    (void)wl_output, (void)refresh, (void)height;
 
-   struct test *test;
+   struct client_test *test;
    assert((test = data) && wl_output);
 
    struct output *o;
@@ -241,7 +254,7 @@ static const struct wl_output_listener output_listener = {
 static inline void
 handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
 {
-   struct test *test;
+   struct client_test *test;
    assert((test = data));
 
    if (chck_cstreq(interface, "wl_compositor")) {
@@ -257,6 +270,10 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
       struct wl_output *o;
       assert((o = wl_registry_bind(registry, name, &wl_output_interface, 2)));
       wl_output_add_listener(o, &output_listener, test);
+#ifdef BACKGROUND_CLIENT_PROTOCOL_H
+   } else if (chck_cstreq(interface, "background")) {
+      assert((test->background = wl_registry_bind(registry, name, &background_interface, 1)));
+#endif
    }
 }
 
@@ -272,31 +289,70 @@ static const struct wl_registry_listener registry_listener = {
 };
 
 static inline void
-test_roundtrip(struct test *test)
+client_test_roundtrip(struct client_test *test)
 {
    wl_display_dispatch(test->display);
    wl_display_roundtrip(test->display);
 }
 
 static inline void
-test_create(struct test *test, const char *name, uint32_t width, uint32_t height)
+setup_signals(void (*sigterm)(int signal))
+{
+   {
+      struct sigaction action = {
+         .sa_handler = SIG_DFL,
+         .sa_flags = SA_NOCLDWAIT
+      };
+
+      sigaction(SIGCHLD, &action, NULL);
+   }
+
+   {
+      struct sigaction action = {
+         .sa_handler = sigterm,
+      };
+
+      sigaction(SIGUSR2, &action, NULL);
+      sigaction(SIGTERM, &action, NULL);
+      sigaction(SIGINT, &action, NULL);
+   }
+}
+
+static inline void
+client_sigterm(int signal)
+{
+   TEST_EXIT_STATUS = (signal == SIGUSR2 ? EXIT_SUCCESS : EXIT_FAILURE);
+   kill(getppid(), (signal == SIGUSR2 ? SIGUSR2 : SIGINT));
+}
+
+static inline void
+client_test_create(struct client_test *test, const char *name, uint32_t width, uint32_t height)
 {
    assert(test && name);
-   memset(test, 0, sizeof(struct test));
+   memset(test, 0, sizeof(struct client_test));
    test->name = name;
    test->view.width = width;
    test->view.height = height;
+   setup_signals(client_sigterm);
    assert(chck_hash_table(&test->formats, 0, 128, sizeof(bool)));
    assert(chck_iter_pool(&test->outputs, 0, 4, sizeof(struct output)));
    assert((test->display = wl_display_connect(NULL)));
    assert((test->registry = wl_display_get_registry(test->display)));
    wl_registry_add_listener(test->registry, &registry_listener, test);
-   test_roundtrip(test);
+   client_test_roundtrip(test);
    assert(*(bool*)chck_hash_table_get(&test->formats, WL_SHM_FORMAT_ARGB8888));
 }
 
+static inline int
+client_test_end(struct client_test *test)
+{
+   (void)test;
+   kill(getppid(), SIGUSR2);
+   return TEST_EXIT_STATUS;
+}
+
 static inline void
-surface_create(struct test *test)
+surface_create(struct client_test *test)
 {
    assert(test);
    assert((test->view.surface = wl_compositor_create_surface(test->compositor)));
@@ -308,12 +364,63 @@ surface_create(struct test *test)
 }
 
 static inline void
-shell_surface_create(struct test *test)
+shell_surface_create(struct client_test *test)
 {
    assert(test);
    assert((test->view.ssurface = wl_shell_get_shell_surface(test->shell, test->view.surface)));
    wl_shell_surface_add_listener(test->view.ssurface, &shell_surface_listener, test);
    wl_shell_surface_set_toplevel(test->view.ssurface);
+}
+
+static inline void
+compositor_sigterm(int signal)
+{
+   TEST_EXIT_STATUS = (signal == SIGUSR2 ? EXIT_SUCCESS : EXIT_FAILURE);
+   wlc_terminate();
+}
+
+static inline void
+cb_log(enum wlc_log_type type, const char *str)
+{
+   (void)type;
+   printf("%s\n", str);
+}
+
+static inline void
+compositor_test_create(struct compositor_test *test, int argc, char *argv[], const char *name, const struct wlc_interface *interface)
+{
+   assert(test && name);
+   memset(test, 0, sizeof(struct compositor_test));
+   test->name = name;
+   wlc_log_set_handler(cb_log);
+   setup_signals(compositor_sigterm);
+   assert(wlc_init(interface, argc, argv));
+}
+
+static inline void
+compositor_test_fork_client(struct compositor_test *test, int (*main)(void))
+{
+   test->client = fork();
+   assert(test->client >= 0);
+
+   if (test->client != 0)
+      return;
+
+   _exit(main());
+}
+
+static inline int
+compositor_test_end(struct compositor_test *test)
+{
+   kill(test->client, SIGINT);
+   return TEST_EXIT_STATUS;
+}
+
+static inline bool
+signal_client(const struct compositor_test *test)
+{
+   assert(kill(test->client, SIGUSR2) != -1);
+   return true;
 }
 
 #endif /* __wlc_client_h__ */
