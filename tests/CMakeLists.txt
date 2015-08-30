@@ -1,6 +1,8 @@
 set(tests
-   resources
-   fullscreen)
+   resources)
+
+# FIXME: disabling compositor tests until we have headless backend
+   # fullscreen)
 
 include_directories(${PROJECT_SOURCE_DIR}/src ${PROJECT_BINARY_DIR}/protos ${WAYLAND_SERVER_INCLUDE_DIRS} ${WAYLAND_CLIENT_INCLUDE_DIRS} ${WLC_INCLUDE_DIRS} ${CHCK_INCLUDE_DIRS})
 foreach (test ${tests})
