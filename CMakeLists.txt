@@ -15,6 +15,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Wayland compositor library")
 set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION ON)
 
 # Includes
+include(CheckFunctionExists)
 include(GNUInstallDirs)
 include(FeatureSummary)
 include(CPack)
@@ -53,6 +54,18 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_definitions(-D_DEFAULT_SOURCE)
+
+check_function_exists(mkostemp mkostemp_exists)
+if (mkostemp_exists)
+   add_definitions(-D_GNU_SOURCE -DHAVE_MKOSTEMP=1)
+else ()
+   add_definitions(-D_DEFAULT_SOURCE -DHAVE_MKOSTEMP=0)
+endif ()
+
+check_function_exists(posix_fallocate posix_fallocate_exists)
+if (posix_fallocate_exists)
+   add_definitions(-DHAVE_POSIX_FALLOCATE=1)
+endif ()
 
 include_directories(shared)
 add_subdirectory(protos)

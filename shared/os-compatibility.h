@@ -1,20 +1,6 @@
 #ifndef __wlc_os_compatibility_h__
 #define __wlc_os_compatibility_h__
 
-#if __GLIBC__
-#  ifdef _STDLIB_H
-#     error "You must include this file before stdlib.h"
-#  endif
-#  ifndef _GNU_SOURCE
-#     define _GNU_SOURCE
-#  endif
-#  define HAVE_MKOSTEMP 1
-#endif
-
-#if _XOPEN_SOURCE >= 600 || _POSIX_C_SOURCE >= 200112L
-#  define HAVE_POSIX_FALLOCATE 1
-#endif
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -22,6 +8,7 @@
 #include <fcntl.h>
 #include <chck/string/string.h>
 
+#if !HAVE_MKOSTEMP
 static int
 set_cloexec_or_close(int fd)
 {
@@ -41,13 +28,14 @@ err:
    close(fd);
    return -1;
 }
+#endif
 
 static int
 create_tmpfile_cloexec(char *tmpname)
 {
    int fd;
 
-#ifdef HAVE_MKOSTEMP
+#if HAVE_MKOSTEMP
    if ((fd = mkostemp(tmpname, O_CLOEXEC)) >= 0)
       unlink(tmpname);
 #else
@@ -80,7 +68,7 @@ os_create_anonymous_file(off_t size)
       return -1;
 
    int ret;
-#ifdef HAVE_POSIX_FALLOCATE
+#if HAVE_POSIX_FALLOCATE
    if ((ret = posix_fallocate(fd, 0, size)) != 0) {
       close(fd);
       errno = ret;
