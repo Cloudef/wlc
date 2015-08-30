@@ -210,6 +210,18 @@ struct wlc_interface {
       /** Compositor is ready to accept clients. */
       void (*ready)(void);
    } compositor;
+
+   /**
+    * Experimental input api.
+    * libinput isn't abstracted, so no handles given.
+    */
+   struct {
+      /** Input device was created. Return value does nothing. */
+      bool (*created)(struct libinput_device *device);
+
+      /** Input device was destroyed. */
+      void (*destroyed)(struct libinput_device *device);
+   } input;
 };
 
 /** -- Core API */
@@ -412,8 +424,5 @@ uint32_t wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers
 
 /** Get current pointer origin. */
 void wlc_pointer_get_origin(struct wlc_origin *out_origin);
-
-/** Exposes the libinput devices for configuration. Array is direct reference, do not store it. */
-struct libinput_device*const* wlc_input_get_devices(size_t *out_memb);
 
 #endif /* _WLC_H_ */
