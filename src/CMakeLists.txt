@@ -2,6 +2,8 @@ find_package(Math REQUIRED)
 find_package(Wayland REQUIRED)
 find_package(Pixman REQUIRED)
 find_package(XKBCommon REQUIRED)
+find_package(Udev REQUIRED)
+find_package(LibInput REQUIRED)
 
 # These are optional runtime (loaded dynamically)
 # But are needed for compilation (headers)
@@ -15,10 +17,6 @@ find_package(EGL REQUIRED)
 set_package_properties(EGL PROPERTIES TYPE REQUIRED PURPOSE "Enables EGL context")
 find_package(DRM REQUIRED)
 set_package_properties(DRM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
-find_package(Udev REQUIRED)
-set_package_properties(Udev PROPERTIES TYPE REQUIRED PURPOSE "Enables hotplugging")
-find_package(LibInput REQUIRED)
-set_package_properties(LibInput PROPERTIES TYPE REQUIRED PURPOSE "Enables input")
 
 # Optional
 find_package(Dbus)
@@ -49,7 +47,7 @@ include_directories(
    ${PIXMAN_INCLUDE_DIRS}
    ${GBM_INCLUDE_DIRS}
    ${DRM_INCLUDE_DIRS}
-   ${XCBCOMMON_INCLUDE_DIRS}
+   ${XKBCOMMON_INCLUDE_DIRS}
    ${EGL_INCLUDE_DIRS}
    ${GLESv2_INCLUDE_DIRS}
    ${UDEV_INCLUDE_DIRS}
