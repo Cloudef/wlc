@@ -601,7 +601,7 @@ update_outputs(struct chck_pool *outputs)
 }
 
 bool
-wlc_drm(struct wlc_backend *backend)
+backend_init(struct wlc_backend *backend)
 {
    drm.fd = -1;
 

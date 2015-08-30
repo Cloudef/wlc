@@ -5,37 +5,19 @@ find_package(XKBCommon REQUIRED)
 find_package(Udev REQUIRED)
 find_package(LibInput REQUIRED)
 
-# These are optional runtime (loaded dynamically)
-# But are needed for compilation (headers)
-find_package(X11 REQUIRED)
-set_package_properties(X11 PROPERTIES TYPE REQUIRED PURPOSE "Enables X11 backend")
-find_package(XCB REQUIRED COMPONENTS ewmh composite xkb)
-set_package_properties(XCB PROPERTIES TYPE REQUIRED PURPOSE "Enables Xwayland and X11 backend")
-find_package(GLESv2 REQUIRED)
-set_package_properties(GLESv2 PROPERTIES TYPE REQUIRED PURPOSE "Enables OpenGL renderer")
-find_package(EGL REQUIRED)
-set_package_properties(EGL PROPERTIES TYPE REQUIRED PURPOSE "Enables EGL context")
-find_package(DRM REQUIRED)
-set_package_properties(DRM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
-
-# Optional
-find_package(Dbus)
-set_package_properties(Dbus PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
-find_package(Systemd)
-set_package_properties(Systemd PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
+add_subdirectory(platform/backend)
+add_subdirectory(platform/context)
+add_subdirectory(platform/render)
+add_subdirectory(session/optional)
+add_subdirectory(xwayland)
 
 add_definitions(
    -DWL_HIDE_DEPRECATED
    ${WAYLAND_DEFINITIONS}
    ${PIXMAN_DEFINITIONS}
-   ${GBM_DEFINITIONS}
-   ${DRM_DEFINITIONS}
    ${XKBCOMMON_DEFINITIONS}
-   ${EGL_DEFINITIONS}
-   ${GLESv2_DEFINITIONS}
    ${UDEV_DEFINITIONS}
    ${LIBINPUT_DEFINITIONS}
-   ${XCB_DEFINITIONS}
    )
 
 include_directories(
@@ -45,15 +27,9 @@ include_directories(
    ${CHCK_INCLUDE_DIRS}
    ${WAYLAND_SERVER_INCLUDE_DIRS}
    ${PIXMAN_INCLUDE_DIRS}
-   ${GBM_INCLUDE_DIRS}
-   ${DRM_INCLUDE_DIRS}
    ${XKBCOMMON_INCLUDE_DIRS}
-   ${EGL_INCLUDE_DIRS}
-   ${GLESv2_INCLUDE_DIRS}
    ${UDEV_INCLUDE_DIRS}
    ${LIBINPUT_INCLUDE_DIRS}
-   ${XCB_INCLUDE_DIRS}
-   ${X11_INCLUDE_DIR}
    )
 
 set(sources
@@ -69,11 +45,7 @@ set(sources
    compositor/shell/xdg-shell.c
    compositor/view.c
    platform/backend/backend.c
-   platform/backend/drm.c
-   platform/backend/x11.c
    platform/context/context.c
-   platform/context/egl.c
-   platform/render/gles2.c
    platform/render/render.c
    resources/resources.c
    resources/types/buffer.c
@@ -86,27 +58,7 @@ set(sources
    session/tty.c
    session/udev.c
    wlc.c
-   xwayland/xwayland.c
-   xwayland/xwm.c
    )
-
-if (DBUS_FOUND)
-   add_definitions(-DDBUS_DISABLE_DEPRECATED ${DBUS_DEFINITIONS})
-   include_directories(${DBUS_INCLUDE_DIRS})
-   list(APPEND sources session/dbus.c)
-endif ()
-
-if (SYSTEMD_FOUND)
-   add_definitions(${SYSTEMD_DEFINITIONS})
-   include_directories(${SYSTEMD_INCLUDE_DIRS})
-
-   if (DBUS_FOUND)
-      add_definitions(-DHAS_LOGIND)
-      list(APPEND sources session/logind.c)
-   else ()
-      message("Dbus was not found, so logind is disabled")
-   endif ()
-endif ()
 
 foreach (src ${sources})
    set_source_files_properties(${src} PROPERTIES COMPILE_FLAGS -DWLC_FILE=\\\"${src}\\\")

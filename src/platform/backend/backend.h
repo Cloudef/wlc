@@ -22,6 +22,7 @@ struct wlc_backend_surface {
 };
 
 struct wlc_backend {
+   const char *sha;
    enum wlc_backend_type type;
 
    struct {

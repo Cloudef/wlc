@@ -672,7 +672,7 @@ terminate(void)
 }
 
 bool
-wlc_x11(struct wlc_backend *backend)
+backend_init(struct wlc_backend *backend)
 {
    x11.backend = backend;
 
