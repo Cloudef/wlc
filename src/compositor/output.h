@@ -48,6 +48,7 @@ struct wlc_output {
 
    // XXX: maybe we can use source later and provide move semantics (for views)?
    struct chck_iter_pool surfaces, views, mutable;
+   struct chck_iter_pool callbacks, visible;
 
    // Pixel blit buffer size of current resolution
    // Used to do visibility checks

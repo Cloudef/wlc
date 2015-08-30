@@ -256,9 +256,7 @@ repaint(struct wlc_output *output)
       return true;
    }
 
-   struct chck_iter_pool visible;
-   chck_iter_pool(&visible, 32, 0, sizeof(struct wlc_view*));
-   const bool bg_visible = get_visible_views(output, &visible);
+   const bool bg_visible = get_visible_views(output, &output->visible);
 
    if (!output->state.background_visible && bg_visible) {
       wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Background visible");
@@ -274,14 +272,12 @@ repaint(struct wlc_output *output)
       wlc_render_clear(&output->render, &output->context);
    }
 
-   struct chck_iter_pool callbacks;
-   chck_iter_pool(&callbacks, 32, 0, sizeof(wlc_resource));
 
    {
       struct wlc_view **v;
-      chck_iter_pool_for_each(&visible, v)
-         render_view(output, *v, &callbacks);
-      chck_iter_pool_release(&visible);
+      chck_iter_pool_for_each(&output->visible, v)
+         render_view(output, *v, &output->callbacks);
+      chck_iter_pool_flush(&output->visible);
    }
 
    struct wlc_render_event ev = { .output = output, .type = WLC_RENDER_EVENT_POINTER };
@@ -304,13 +300,13 @@ repaint(struct wlc_output *output)
 
    {
       wlc_resource *r;
-      chck_iter_pool_for_each(&callbacks, r) {
+      chck_iter_pool_for_each(&output->callbacks, r) {
          struct wl_resource *resource;
          if ((resource = wl_resource_from_wlc_resource(*r, "callback")))
             wl_callback_send_done(resource, output->state.frame_time);
          wlc_resource_release_ptr(r);
       }
-      chck_iter_pool_release(&callbacks);
+      chck_iter_pool_flush(&output->callbacks);
    }
 
    wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Repaint");
@@ -890,6 +886,8 @@ wlc_output_release(struct wlc_output *output)
    chck_iter_pool_release(&output->surfaces);
    chck_iter_pool_release(&output->views);
    chck_iter_pool_release(&output->mutable);
+   chck_iter_pool_release(&output->visible);
+   chck_iter_pool_release(&output->callbacks);
 
    free(output->blit);
    output->blit = NULL;
@@ -916,7 +914,9 @@ wlc_output(struct wlc_output *output)
 
    if (!chck_iter_pool(&output->surfaces, 32, 0, sizeof(wlc_resource)) ||
        !chck_iter_pool(&output->views, 4, 0, sizeof(wlc_handle)) ||
-       !chck_iter_pool(&output->mutable, 4, 0, sizeof(wlc_handle)))
+       !chck_iter_pool(&output->mutable, 4, 0, sizeof(wlc_handle)) ||
+       !chck_iter_pool(&output->callbacks, 32, 0, sizeof(wlc_resource)) ||
+       !chck_iter_pool(&output->visible, 32, 0, sizeof(struct wlc_view*)))
       goto fail;
 
    output->active.mode = UINT_MAX;
