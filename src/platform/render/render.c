@@ -50,18 +50,18 @@ wlc_render_view_paint(struct wlc_render *render, struct wlc_context *bound, stru
 }
 
 void
-wlc_render_surface_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_origin *pos)
+wlc_render_surface_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface, const struct wlc_geometry *geometry)
 {
    assert(render);
 
    if (!render->api.surface_paint || !wlc_context_bind(bound))
       return;
 
-   render->api.surface_paint(render->render, surface, pos);
+   render->api.surface_paint(render->render, surface, geometry);
 }
 
 void
-wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_origin *pos)
+wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, const struct wlc_origin *pos)
 {
    assert(render);
 

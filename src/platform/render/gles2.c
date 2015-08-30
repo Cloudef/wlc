@@ -791,7 +791,7 @@ surface_attach(struct ctx *context, struct wlc_context *bound, struct wlc_surfac
 }
 
 static void
-texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_geometry *geometry, struct paint *settings)
+texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, const struct wlc_geometry *geometry, struct paint *settings)
 {
    const GLfloat vertices[8] = {
       geometry->origin.x + geometry->size.w, geometry->origin.y,
@@ -841,9 +841,11 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, struct wlc_ge
 }
 
 static void
-surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct wlc_geometry *geometry, struct paint *settings)
+surface_paint_internal(struct ctx *context, struct wlc_surface *surface, const struct wlc_geometry *geometry, struct paint *settings)
 {
    assert(context && surface && geometry && settings);
+
+   const struct wlc_geometry *g = geometry;
 
    if (!wlc_size_equals(&surface->size, &geometry->size)) {
       if (wlc_geometry_equals(&settings->visible, geometry)) {
@@ -853,21 +855,22 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, struct 
          struct paint settings2 = *settings;
          settings2.program = (settings2.program == PROGRAM_RGBA || settings2.program == PROGRAM_RGB ? settings2.program : PROGRAM_RGB);
          texture_paint(context, &context->textures[TEXTURE_BLACK], 1, geometry, &settings2);
-         memcpy(geometry, &settings->visible, sizeof(struct wlc_geometry));
+         g = &settings->visible;
       }
    }
 
-   texture_paint(context, surface->textures, 3, geometry, settings);
+   texture_paint(context, surface->textures, 3, g, settings);
 }
 
 static void
-surface_paint(struct ctx *context, struct wlc_surface *surface, struct wlc_origin *pos)
+surface_paint(struct ctx *context, struct wlc_surface *surface, const struct wlc_geometry *geometry)
 {
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
    settings.dim = 1.0f;
    settings.program = (enum program_type)surface->format;
-   surface_paint_internal(context, surface, &(struct wlc_geometry){ { pos->x, pos->y }, { surface->size.w, surface->size.h } }, &settings);
+   settings.visible = *geometry;
+   surface_paint_internal(context, surface, geometry, &settings);
 }
 
 static void
@@ -899,7 +902,7 @@ view_paint(struct ctx *context, struct wlc_view *view)
 }
 
 static void
-pointer_paint(struct ctx *context, struct wlc_origin *pos)
+pointer_paint(struct ctx *context, const struct wlc_origin *pos)
 {
    assert(context);
    struct paint settings;
