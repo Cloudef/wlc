@@ -267,7 +267,6 @@ repaint(struct wlc_output *output)
       return false;
    }
 
-   wlc_render_time(&output->render, &output->context, output->state.frame_time);
    wlc_render_resolution(&output->render, &output->context, &output->mode, &output->resolution);
 
    if (output->state.sleeping) {
@@ -289,17 +288,11 @@ repaint(struct wlc_output *output)
       output->state.background_visible = false;
    }
 
-   if (output->options.enable_bg && output->state.background_visible) {
-      wlc_render_background(&output->render, &output->context);
-   } else if (!output->options.enable_bg) {
-      wlc_render_clear(&output->render, &output->context);
-   }
-
    rendering_output = output;
+   wlc_render_clear(&output->render, &output->context);
 
-   if (bg_visible) {
+   if (output->state.background_visible)
       WLC_INTERFACE_EMIT(output.render.pre, convert_to_wlc_handle(output));
-   }
 
    {
       struct wlc_view **v;
@@ -378,7 +371,7 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 
    // TODO: handle presentation feedback here
 
-   if (((output->options.enable_bg && output->state.background_visible) || output->state.activity) && !output->task.terminate) {
+   if (output->state.activity && !output->task.terminate) {
       output->state.ims = chck_clampf(output->state.ims * (output->state.activity ? 0.9 : 1.1), 1, 41);
       wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Interpolated idle time %f (%u : %d)", output->state.ims, ms, output->state.activity);
       wl_event_source_timer_update(output->timer.idle, output->state.ims);
@@ -955,8 +948,6 @@ wlc_output(struct wlc_output *output)
 
    output->active.mode = UINT_MAX;
    output->state.ims = 41;
-   const char *bg = getenv("WLC_BG");
-   output->options.enable_bg = (chck_cstreq(bg, "0") ? false : true);
 
    wlc_output_set_sleep_ptr(output, false);
    wlc_output_set_mask_ptr(output, (1<<0));

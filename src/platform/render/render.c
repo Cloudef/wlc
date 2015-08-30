@@ -83,17 +83,6 @@ wlc_render_read_pixels(struct wlc_render *render, struct wlc_context *bound, str
 }
 
 void
-wlc_render_background(struct wlc_render *render, struct wlc_context *bound)
-{
-   assert(render);
-
-   if (!render->api.background || !wlc_context_bind(bound))
-      return;
-
-   render->api.background(render->render);
-}
-
-void
 wlc_render_clear(struct wlc_render *render, struct wlc_context *bound)
 {
    assert(render);
@@ -102,17 +91,6 @@ wlc_render_clear(struct wlc_render *render, struct wlc_context *bound)
       return;
 
    render->api.clear(render->render);
-}
-
-void
-wlc_render_time(struct wlc_render *render, struct wlc_context *bound, uint32_t time)
-{
-   assert(render);
-
-   if (!render->api.time || !wlc_context_bind(bound))
-      return;
-
-   render->api.time(render->render, time);
 }
 
 void

@@ -85,10 +85,6 @@ struct wlc_output {
       uint32_t mode;
       uint32_t mask;
    } active;
-
-   struct {
-      bool enable_bg;
-   } options;
 };
 
 WLC_NONULL bool wlc_output_information(struct wlc_output_information *info);
