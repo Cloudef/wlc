@@ -238,14 +238,18 @@ wlc_run(void)
    if (!wlc.display)
       return;
 
+   wlc.compositor.state.ready = false;
+
    bool emit_ready = true;
    const char *xwayland = getenv("WLC_XWAYLAND");
    if (!xwayland || !chck_cstreq(xwayland, "0"))
       emit_ready = !wlc_xwayland_init();
 
    // Emit ready immediately when no Xwayland
-   if (emit_ready)
+   if (emit_ready) {
       WLC_INTERFACE_EMIT(compositor.ready);
+      wlc.compositor.state.ready = true;
+   }
 
    wlc_set_active(true);
 

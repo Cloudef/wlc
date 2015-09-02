@@ -254,7 +254,10 @@ xwayland_event(struct wl_listener *listener, void *data)
       wlc_xwm_release(&compositor->xwm);
    }
 
-   WLC_INTERFACE_EMIT(compositor.ready);
+   if (!compositor->state.ready) {
+      WLC_INTERFACE_EMIT(compositor.ready);
+      compositor->state.ready = true;
+   }
 }
 
 static void
