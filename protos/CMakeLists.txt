@@ -1,5 +1,9 @@
 include(Wayland)
 
+include_directories(
+   ${WAYLAND_SERVER_INCLUDE_DIRS}
+)
+
 set(protos
    xdg-shell)
 
