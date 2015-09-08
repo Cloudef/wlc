@@ -1,29 +1,3 @@
-find_package(Math REQUIRED)
-find_package(Wayland REQUIRED)
-find_package(Pixman REQUIRED)
-find_package(XKBCommon REQUIRED)
-find_package(Udev REQUIRED)
-find_package(LibInput REQUIRED)
-
-# These are optional runtime (loaded dynamically)
-# But are needed for compilation (headers)
-find_package(X11 REQUIRED)
-set_package_properties(X11 PROPERTIES TYPE REQUIRED PURPOSE "Enables X11 backend")
-find_package(XCB REQUIRED COMPONENTS ewmh composite xkb)
-set_package_properties(XCB PROPERTIES TYPE REQUIRED PURPOSE "Enables Xwayland and X11 backend")
-find_package(GLESv2 REQUIRED)
-set_package_properties(GLESv2 PROPERTIES TYPE REQUIRED PURPOSE "Enables OpenGL renderer")
-find_package(EGL REQUIRED)
-set_package_properties(EGL PROPERTIES TYPE REQUIRED PURPOSE "Enables EGL context")
-find_package(DRM REQUIRED)
-set_package_properties(DRM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
-
-# Optional
-find_package(Dbus)
-set_package_properties(Dbus PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
-find_package(Systemd)
-set_package_properties(Systemd PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
-
 add_definitions(
    -DWL_HIDE_DEPRECATED
    ${WAYLAND_DEFINITIONS}
