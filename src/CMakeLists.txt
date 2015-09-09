@@ -88,6 +88,7 @@ endforeach ()
 
 add_compile_options(-fvisibility=hidden)
 add_library(wlc-object OBJECT ${sources})
+add_dependencies(wlc-object wlc_protos)
 
 if (WLC_BUILD_STATIC)
    add_library(wlc STATIC $<TARGET_OBJECTS:wlc-object>)
