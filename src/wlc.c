@@ -128,7 +128,8 @@ wlc_system_signals(void)
 struct wl_event_loop*
 wlc_event_loop(void)
 {
-   return wl_display_get_event_loop(wlc.display);
+   assert(wlc_display());
+   return wl_display_get_event_loop(wlc_display());
 }
 
 WLC_PURE struct wl_display*
