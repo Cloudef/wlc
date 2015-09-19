@@ -131,8 +131,8 @@ list(GET VERSION_COMPONENTS 0 SOVERSION)
 set_target_properties(wlc PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${SOVERSION})
 
 # Set helpful variables for add_subdirectory build
-set(WLC_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include" CACHE STRING "Include directories of wlc" FORCE)
-set(WLC_LIBRARIES wlc CACHE STRING "Libraries needed for wlc" FORCE)
+set(WLC_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include" ${XKBCOMMON_INCLUDE_DIRS} ${LIBINPUT_INCLUDE_DIRS} CACHE STRING "Include directories of wlc" FORCE)
+set(WLC_LIBRARIES wlc ${XKBCOMMON_LIBRARIES} ${LIBINPUT_LIBRARIES} CACHE STRING "Libraries needed for wlc" FORCE)
 mark_as_advanced(WLC_DEFINITIONS WLC_INCLUDE_DIRS WLC_LIBRARIES)
 
 # Add pkgconfig
