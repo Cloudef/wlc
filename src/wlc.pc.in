@@ -6,6 +6,8 @@ includedir=${prefix}/include
 Name: @PROJECT_NAME@
 Description: Wayland compositor library
 Version: @PROJECT_VERSION@
+Requires: xkbcommon libinput
+Requires.private: pixman-1 libudev wayland-server
 Libs: -L${libdir} -lwlc
-Libs.private: -lpixman -lxkbcommon -lwayland-server -lm -ldl
+Libs.private: -lm -ldl
 Cflags: -I${includedir}
