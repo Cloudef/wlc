@@ -51,6 +51,8 @@ find_package(EGL REQUIRED)
 set_package_properties(EGL PROPERTIES TYPE REQUIRED PURPOSE "Enables EGL context")
 find_package(DRM REQUIRED)
 set_package_properties(DRM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
+find_package(GBM REQUIRED)
+set_package_properties(GBM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
 
 # Optional
 find_package(Dbus)

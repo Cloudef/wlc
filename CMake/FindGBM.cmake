@@ -25,7 +25,7 @@
 
 set_package_properties(GBM PROPERTIES
    URL "http://www.mesa3d.org/"
-   DESCRIPTION "Generic buffer manager"
+   DESCRIPTION "Generic buffer manager")
 
 find_package(PkgConfig)
 pkg_check_modules(PC_GBM QUIET gbm)
