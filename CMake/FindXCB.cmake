@@ -51,4 +51,3 @@ set(XCB_DEFINITIONS ${PC_XCB_CFLAGS_OTHER})
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(XCB DEFAULT_MSG XCB_LIBRARIES XCB_INCLUDE_DIRS)
 mark_as_advanced(XCB_INCLUDE_DIRS XCB_LIBRARIES XCB_DEFINITIONS)
-

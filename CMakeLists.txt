@@ -38,6 +38,7 @@ find_package(Pixman REQUIRED)
 find_package(XKBCommon REQUIRED)
 find_package(Udev REQUIRED)
 find_package(LibInput REQUIRED)
+
 # These are optional runtime (loaded dynamically)
 # But are needed for compilation (headers)
 find_package(X11 REQUIRED)
@@ -50,12 +51,12 @@ find_package(EGL REQUIRED)
 set_package_properties(EGL PROPERTIES TYPE REQUIRED PURPOSE "Enables EGL context")
 find_package(DRM REQUIRED)
 set_package_properties(DRM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
+
 # Optional
 find_package(Dbus)
 set_package_properties(Dbus PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
 find_package(Systemd)
 set_package_properties(Systemd PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
-
 
 if (NOT WLC_BUILD_STATIC)
    set(BUILD_SHARED_LIBS ON)
