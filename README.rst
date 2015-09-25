@@ -146,6 +146,7 @@ You will also need these for building, but they are optional runtime:
 
 - libx11
 - libxcb
+- xcb-util-image (for xwayland support atm)
 - mesa, nvidia, etc.. (GLESv2, EGL, DRM)
 
 And optionally:
