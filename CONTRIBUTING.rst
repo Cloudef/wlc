@@ -2,7 +2,7 @@ HOW TO CONTRIBUTE
 -----------------
 
 Look at the project issues list for things to do.
-If you are planning contributing code that does not fix issue, visit the project IRC channel first.
+If you are planning contributing code that does not fix issue, visit the project IRC channel first or discuss in a new feature issue.
 
 Include clear description in comment, what your commit does.
 If it fixes issue, include issue code in the description.
