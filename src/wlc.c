@@ -282,6 +282,9 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    if (!interface)
       die("no wlc_interface was given");
 
+   if (argc > 0 && !argv)
+      die("argc was more than 0, but argv was NULL");
+
    if (wlc.display)
       return true;
 
