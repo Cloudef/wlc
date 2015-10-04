@@ -279,8 +279,6 @@ wlc_terminate(void)
 WLC_API bool
 wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
 {
-   assert(interface);
-
    if (!interface)
       die("no wlc_interface was given");
 
