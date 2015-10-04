@@ -385,20 +385,11 @@ void wlc_view_set_parent(wlc_handle view, wlc_handle parent);
 /** Get title. */
 const char* wlc_view_get_title(wlc_handle view);
 
-/** Set title. Returns false on failure. */
-bool wlc_view_set_title(wlc_handle view, const char *title);
-
 /** Get class. (shell-surface only) */
 const char* wlc_view_get_class(wlc_handle view);
 
-/** Set class. Returns false on failure. (shell-surface only) */
-bool wlc_view_set_class(wlc_handle view, const char *class_);
-
 /** Get app id. (xdg-surface only) */
 const char* wlc_view_get_app_id(wlc_handle view);
-
-/** Set app id. Returns false on failure. (xdg-surface only) */
-bool wlc_view_set_app_id(wlc_handle view, const char *app_id);
 
 /** --  Input API
  * Very recent stuff, things may change.

@@ -611,34 +611,16 @@ wlc_view_get_title(wlc_handle view)
    return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.title));
 }
 
-WLC_API bool
-wlc_view_set_title(wlc_handle view, const char *title)
-{
-   return wlc_view_set_title_ptr(convert_from_wlc_handle(view, "view"), title);
-}
-
 WLC_API const char*
 wlc_view_get_class(wlc_handle view)
 {
    return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data._class));
 }
 
-WLC_API bool
-wlc_view_set_class(wlc_handle view, const char *class_)
-{
-   return wlc_view_set_class_ptr(convert_from_wlc_handle(view, "view"), class_);
-}
-
 WLC_API const char*
 wlc_view_get_app_id(wlc_handle view)
 {
    return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.app_id));
-}
-
-WLC_API bool
-wlc_view_set_app_id(wlc_handle view, const char *app_id)
-{
-   return wlc_view_set_app_id_ptr(convert_from_wlc_handle(view, "view"), app_id);
 }
 
 void
