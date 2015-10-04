@@ -88,7 +88,7 @@ endforeach ()
 
 add_compile_options(-fvisibility=hidden)
 add_library(wlc-object OBJECT ${sources})
-add_dependencies(wlc-object wlc_protos)
+add_dependencies(wlc-object wlc-protos)
 
 if (WLC_BUILD_STATIC)
    add_library(wlc STATIC $<TARGET_OBJECTS:wlc-object>)
@@ -99,7 +99,7 @@ endif ()
 
 target_link_libraries(wlc
    PRIVATE
-   wlc_protos
+   wlc-protos
    ${CHCK_LIBRARIES}
    ${WAYLAND_SERVER_LIBRARIES}
    ${PIXMAN_LIBRARIES}
@@ -114,7 +114,7 @@ target_link_libraries(wlc
 add_library(wlc-tests STATIC $<TARGET_OBJECTS:wlc-object>)
 target_link_libraries(wlc-tests
    PRIVATE
-   wlc_protos
+   wlc-protos
    ${CHCK_LIBRARIES}
    ${WAYLAND_SERVER_LIBRARIES}
    ${PIXMAN_LIBRARIES}

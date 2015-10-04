@@ -14,4 +14,4 @@ foreach(proto ${protos})
 endforeach()
 
 set_source_files_properties(${sources} PROPERTIES GENERATED ON)
-add_library(wlc_protos STATIC ${sources})
+add_library(wlc-protos STATIC ${sources})
