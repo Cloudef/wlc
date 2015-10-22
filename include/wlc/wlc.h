@@ -197,7 +197,7 @@ struct wlc_interface {
       /** Scroll event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
       WLC_NONULL bool (*scroll)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]);
 
-      /** Motion event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
+      /** Motion event was triggered, view handle will be zero if there was no focus. Apply with wlc_pointer_set_origin to agree. Return true to prevent sending the event to clients. */
       WLC_NONULL bool (*motion)(wlc_handle view, uint32_t time, const struct wlc_origin*);
    } pointer;
 

@@ -285,7 +285,6 @@ void
 wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_pointer_origin *pos, bool pass)
 {
    assert(pointer);
-   memcpy(&pointer->pos, pos, sizeof(pointer->pos));
 
    struct wlc_output *output = active_output(pointer);
    struct wlc_view *focused = view_under_pointer(pointer, output);
