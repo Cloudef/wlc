@@ -571,6 +571,14 @@ wlc_pointer_get_origin(struct wlc_origin *out_origin)
    out_origin->y = _g_compositor->seat.pointer.pos.y;
 }
 
+WLC_API void
+wlc_pointer_set_origin(struct wlc_origin new_origin)
+{
+   assert(_g_compositor);
+   _g_compositor->seat.pointer.pos.x = new_origin.x;
+   _g_compositor->seat.pointer.pos.y = new_origin.y;
+}
+
 void
 wlc_compositor_terminate(struct wlc_compositor *compositor)
 {
