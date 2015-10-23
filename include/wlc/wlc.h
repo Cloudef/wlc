@@ -417,6 +417,6 @@ uint32_t wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers
 void wlc_pointer_get_origin(struct wlc_origin *out_origin);
 
 /** Set current pointer origin. */
-void wlc_pointer_set_origin(struct wlc_origin new_origin);
+void wlc_pointer_set_origin(const struct wlc_origin *new_origin);
 
 #endif /* _WLC_H_ */
