@@ -229,6 +229,9 @@ pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_origin *origin
       compositor.action.grab = *origin;
    }
 
+   // In order to give the compositor control of the pointer placement it needs
+   // to be explicitly set after receiving the motion event:
+   wlc_pointer_set_origin(origin);
    return (compositor.action.view ? true : false);
 }
 
