@@ -521,6 +521,7 @@ set_geometry(xcb_window_t window, const struct wlc_geometry *g)
    assert(g);
    const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
    const uint32_t values[] = { g->origin.x, g->origin.y, g->size.w, g->size.h };
+   wlc_dlog(WLC_DBG_XWM, "-> Configure x11 window (%u) %ux%u+%d,%d", window, g->size.w, g->size.h, g->origin.x, g->origin.y);
    XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, window, mask, (uint32_t*)&values));
    x11.api.xcb_flush(x11.connection);
 }
