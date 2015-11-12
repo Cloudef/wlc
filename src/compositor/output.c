@@ -475,8 +475,6 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
    if (bsurface) {
       memcpy(&output->bsurface, bsurface, sizeof(output->bsurface));
       memset(bsurface, 0, sizeof(output->bsurface));
-   } else {
-      memset(&output->bsurface, 0, sizeof(output->bsurface));
    }
 
    if (bsurface) {
