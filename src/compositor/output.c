@@ -321,6 +321,13 @@ cb_idle_timer(void *data)
    return 1;
 }
 
+static void
+cancel_repaint(struct wlc_output *output)
+{
+   wl_event_source_timer_update(output->timer.idle, 0);
+   output->state.scheduled = output->state.activity = false;
+}
+
 void
 wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 {
@@ -500,6 +507,7 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
       wlc_log(WLC_LOG_INFO, "Set new bsurface to output (%" PRIuWLC ")", convert_to_wlc_handle(output));
    } else {
       wlc_log(WLC_LOG_INFO, "Removed bsurface from output (%" PRIuWLC ")", convert_to_wlc_handle(output));
+      cancel_repaint(output);
    }
 
    struct wlc_output_event ev = { .surface = { .output = output }, .type = WLC_OUTPUT_EVENT_SURFACE };
@@ -691,7 +699,7 @@ wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep)
    } else {
       if (output->bsurface.api.sleep) {
          // we fake sleep otherwise, by just drawing black
-         wl_event_source_timer_update(output->timer.idle, 0);
+         cancel_repaint(output);
       }
       output->state.scheduled = output->state.activity = false;
       wlc_log(WLC_LOG_INFO, "Output (%p) sleep", output);
