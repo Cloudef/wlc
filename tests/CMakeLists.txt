@@ -1,7 +1,7 @@
 set(tests
    resources)
 
-# FIXME: disabling compositor tests until we have headless backend
+   # FIXME: disabling compositor tests until we have headless backend
    # fullscreen)
 
 include_directories(
