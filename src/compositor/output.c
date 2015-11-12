@@ -426,7 +426,11 @@ attach_view(struct wlc_output *output, struct wlc_view *view)
    if (!output || !view || !(surface = convert_from_wlc_resource(view->surface, "surface")))
       return false;
 
-   return wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface));
+   struct wlc_buffer *buffer;
+   if (!(buffer = wlc_surface_get_buffer(surface)))
+      return false;
+
+   return wlc_surface_attach_to_output(surface, output, buffer);
 }
 
 void
