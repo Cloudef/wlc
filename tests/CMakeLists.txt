@@ -2,6 +2,7 @@ set(tests
    resources)
 
    # FIXME: disabling compositor tests until we have headless backend
+   # wl-extension
    # fullscreen)
 
 include_directories(
@@ -16,6 +17,6 @@ include_directories(
 foreach (test ${tests})
    set_source_files_properties(${test}.c PROPERTIES COMPILE_FLAGS -DWLC_FILE="\\\"${test}.c\\\"")
    add_executable(${test}-test ${test}.c)
-   target_link_libraries(${test}-test PRIVATE wlc-tests ${WAYLAND_SERVER_LIBRARIES} ${WAYLAND_CLIENT_LIBRARIES})
+   target_link_libraries(${test}-test PRIVATE wlc-tests wlc-tests-protos ${WAYLAND_SERVER_LIBRARIES} ${WAYLAND_CLIENT_LIBRARIES})
    add_test_ex(${test}-test)
 endforeach()

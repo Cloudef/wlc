@@ -130,6 +130,14 @@ struct wlc_interface {
 
       /** Output resolution changed. */
       WLC_NONULL void (*resolution)(wlc_handle output, const struct wlc_size *from, const struct wlc_size *to);
+
+      struct {
+         /** Pre render hook. */
+         void (*pre)(wlc_handle output);
+
+         /** Post render hook. */
+         void (*post)(wlc_handle output);
+      } render;
    } output;
 
    struct {
@@ -158,6 +166,14 @@ struct wlc_interface {
          /** Request to resize itself with the given edges. Start a interactive resize to agree. */
          WLC_NONULL void (*resize)(wlc_handle view, uint32_t edges, const struct wlc_point*);
       } request;
+
+      struct {
+         /** Pre render hook. */
+         void (*pre)(wlc_handle view);
+
+         /** Post render hook. */
+         void (*post)(wlc_handle view);
+      } render;
    } view;
 
    struct {

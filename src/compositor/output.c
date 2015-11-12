@@ -12,6 +12,8 @@
 #include "view.h"
 #include "resources/types/surface.h"
 
+static struct wlc_output *rendering_output;
+
 // FIXME: this is a hack
 static EGLNativeDisplayType INVALID_DISPLAY = (EGLNativeDisplayType)~0;
 
@@ -201,6 +203,25 @@ finish_frame_tasks(struct wlc_output *output)
 }
 
 static void
+render_surface(struct wlc_output *output, struct wlc_surface *surface, const struct wlc_geometry *geometry, struct chck_iter_pool *callbacks)
+{
+   assert(output && callbacks);
+
+   if (surface->output != convert_to_wlc_resource(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface)))
+      return;
+
+   if (!surface->commit.attached)
+      return;
+
+   wlc_render_surface_paint(&output->render, &output->context, surface, geometry);
+
+   wlc_resource *r;
+   chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
+      chck_iter_pool_push_back(callbacks, r);
+   chck_iter_pool_flush(&surface->commit.frame_cbs);
+}
+
+static void
 render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_pool *callbacks)
 {
    assert(output && callbacks);
@@ -215,8 +236,10 @@ render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_p
    if (!view_visible(view, surface, output->active.mask))
       return;
 
+   WLC_INTERFACE_EMIT(view.render.pre, convert_to_wlc_handle(view));
    wlc_view_commit_state(view, &view->pending, &view->commit);
    wlc_render_view_paint(&output->render, &output->context, view);
+   WLC_INTERFACE_EMIT(view.render.post, convert_to_wlc_handle(view));
 
    wlc_resource *r;
    chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
@@ -272,6 +295,11 @@ repaint(struct wlc_output *output)
       wlc_render_clear(&output->render, &output->context);
    }
 
+   rendering_output = output;
+
+   if (bg_visible) {
+      WLC_INTERFACE_EMIT(output.render.pre, convert_to_wlc_handle(output));
+   }
 
    {
       struct wlc_view **v;
@@ -280,8 +308,12 @@ repaint(struct wlc_output *output)
       chck_iter_pool_flush(&output->visible);
    }
 
+   WLC_INTERFACE_EMIT(output.render.post, convert_to_wlc_handle(output));
+
    struct wlc_render_event ev = { .output = output, .type = WLC_RENDER_EVENT_POINTER };
    wl_signal_emit(&wlc_system_signals()->render, &ev);
+
+   rendering_output = NULL;
 
    {
       size_t sz;
@@ -933,4 +965,17 @@ wlc_output(struct wlc_output *output)
 fail:
    wlc_output_release(output);
    return false;
+}
+
+void
+wlc_output_render_surface(wlc_resource surface, const struct wlc_geometry *geometry)
+{
+   assert(rendering_output);
+
+   if (!rendering_output) {
+      wlc_log(WLC_LOG_ERROR, "Trying to render surface %" PRIuWLC " outside of render hook", surface);
+      return;
+   }
+
+   render_surface(rendering_output, convert_from_wlc_resource(surface, "surface"), geometry, &rendering_output->callbacks);
 }

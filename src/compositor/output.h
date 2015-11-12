@@ -116,4 +116,6 @@ bool wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views
 const wlc_handle* wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb);
 wlc_handle* wlc_output_get_mutable_views_ptr(struct wlc_output *output, size_t *out_memb);
 
+void wlc_output_render_surface(wlc_resource surface, const struct wlc_geometry *geometry);
+
 #endif /* _WLC_OUTPUT_H_ */

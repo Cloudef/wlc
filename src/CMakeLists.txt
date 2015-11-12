@@ -62,6 +62,7 @@ set(sources
    wlc.c
    xwayland/xwayland.c
    xwayland/xwm.c
+   wayland/wayland.c
    )
 
 if (DBUS_FOUND)
