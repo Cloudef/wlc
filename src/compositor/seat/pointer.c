@@ -282,7 +282,7 @@ wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, uint8_t axis_bits
 }
 
 void
-wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, const struct wlc_pointer_origin *pos, bool pass)
+wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass)
 {
    assert(pointer);
 
