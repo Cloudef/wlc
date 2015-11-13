@@ -149,7 +149,7 @@ input_event(struct wl_listener *listener, void *data)
             chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
          };
 
-         const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }) : false);
+         const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_point){ pos.x, pos.y }) : false);
          wlc_pointer_motion(&seat->pointer, ev->time, !handled);
       }
       break;
@@ -163,7 +163,7 @@ input_event(struct wl_listener *listener, void *data)
             ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
          };
 
-         const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_origin){ pos.x, pos.y }) : false);
+         const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_point){ pos.x, pos.y }) : false);
          wlc_pointer_motion(&seat->pointer, ev->time, !handled);
       }
       break;
@@ -184,7 +184,7 @@ input_event(struct wl_listener *listener, void *data)
             chck_clamp(seat->pointer.pos.y, 0, resolution.h),
          };
 
-         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state, &(struct wlc_origin){ pos.x, pos.y }))
+         if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state, &(struct wlc_point){ pos.x, pos.y }))
             return;
 
          wlc_pointer_button(&seat->pointer, ev->time, ev->button.code, ev->button.state);
@@ -199,7 +199,7 @@ input_event(struct wl_listener *listener, void *data)
       {
          const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
-         const struct wlc_origin pos = {
+         const struct wlc_point pos = {
             ev->touch.x(ev->touch.internal, resolution.w),
             ev->touch.y(ev->touch.internal, resolution.h)
          };
@@ -249,7 +249,7 @@ surface_event(struct wl_listener *listener, void *data)
          if (ev->surface->view == seat->pointer.focused.view)
             wlc_pointer_focus(&seat->pointer, NULL, NULL);
          if (seat->pointer.surface == convert_to_wlc_resource(ev->surface))
-            wlc_pointer_set_surface(&seat->pointer, NULL, &wlc_origin_zero);
+            wlc_pointer_set_surface(&seat->pointer, NULL, &wlc_point_zero);
          break;
 
       default: break;

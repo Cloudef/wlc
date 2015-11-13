@@ -42,7 +42,7 @@ wl_cb_pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
       return;
 
    struct wlc_surface *surface = convert_from_wl_resource(surface_resource, "surface");
-   wlc_pointer_set_surface(pointer, surface, &(struct wlc_origin){ hotspot_x, hotspot_y });
+   wlc_pointer_set_surface(pointer, surface, &(struct wlc_point){ hotspot_x, hotspot_y });
 }
 
 static struct wlc_output*
@@ -108,13 +108,13 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
    if ((surface = convert_from_wlc_resource(pointer->surface, "surface"))) {
       if (surface->output != convert_to_wlc_handle(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface))) {
          // Fallback
-         wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_origin){ pointer->pos.x, pointer->pos.y });
+         wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_point){ pointer->pos.x, pointer->pos.y });
       } else {
          wlc_render_surface_paint(&output->render, &output->context, surface, &(struct wlc_geometry){ .origin = { pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y }, surface->size });
       }
    } else if (!focused || focused->x11.id) { // focused->x11.id workarounds bug <https://github.com/Cloudef/wlc/issues/21>
       // Show default cursor when no focus and no surface.
-      wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_origin){ pointer->pos.x, pointer->pos.y });
+      wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_point){ pointer->pos.x, pointer->pos.y });
    }
 }
 
@@ -160,7 +160,7 @@ defocus(struct wlc_pointer *pointer)
 out:
    chck_iter_pool_flush(&pointer->focused.resources);
    pointer->focused.view = 0;
-   wlc_pointer_set_surface(pointer, NULL, &wlc_origin_zero);
+   wlc_pointer_set_surface(pointer, NULL, &wlc_point_zero);
 }
 
 static void
@@ -310,7 +310,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass)
 }
 
 void
-wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_origin *tip)
+wlc_pointer_set_surface(struct wlc_pointer *pointer, struct wlc_surface *surface, const struct wlc_point *tip)
 {
    assert(pointer);
    memcpy(&pointer->tip, tip, sizeof(pointer->tip));

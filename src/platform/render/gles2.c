@@ -902,7 +902,7 @@ view_paint(struct ctx *context, struct wlc_view *view)
 }
 
 static void
-pointer_paint(struct ctx *context, const struct wlc_origin *pos)
+pointer_paint(struct ctx *context, const struct wlc_point *pos)
 {
    assert(context);
    struct paint settings;

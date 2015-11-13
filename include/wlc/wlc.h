@@ -178,10 +178,10 @@ struct wlc_interface {
          void (*state)(wlc_handle view, enum wlc_view_state_bit, bool toggle);
 
          /** Request to move itself. Start a interactive move to agree. */
-         WLC_NONULL void (*move)(wlc_handle view, const struct wlc_origin *origin);
+         WLC_NONULL void (*move)(wlc_handle view, const struct wlc_point*);
 
          /** Request to resize itself with the given edges. Start a interactive resize to agree. */
-         WLC_NONULL void (*resize)(wlc_handle view, uint32_t edges, const struct wlc_origin *origin);
+         WLC_NONULL void (*resize)(wlc_handle view, uint32_t edges, const struct wlc_point*);
       } request;
    } view;
 
@@ -192,18 +192,18 @@ struct wlc_interface {
 
    struct {
       /** Button event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      WLC_NONULL bool (*button)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state, const struct wlc_origin*);
+      WLC_NONULL bool (*button)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state, const struct wlc_point*);
 
       /** Scroll event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
       WLC_NONULL bool (*scroll)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]);
 
-      /** Motion event was triggered, view handle will be zero if there was no focus. Apply with wlc_pointer_set_origin to agree. Return true to prevent sending the event to clients. */
-      WLC_NONULL bool (*motion)(wlc_handle view, uint32_t time, const struct wlc_origin*);
+      /** Motion event was triggered, view handle will be zero if there was no focus. Apply with wlc_pointer_set_position to agree. Return true to prevent sending the event to clients. */
+      WLC_NONULL bool (*motion)(wlc_handle view, uint32_t time, const struct wlc_point*);
    } pointer;
 
    struct {
       /** Touch event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
-      WLC_NONULL bool (*touch)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, enum wlc_touch_type, int32_t slot, const struct wlc_origin*);
+      WLC_NONULL bool (*touch)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, enum wlc_touch_type, int32_t slot, const struct wlc_point*);
    } touch;
 
    struct {
@@ -413,10 +413,18 @@ uint32_t wlc_keyboard_get_keysym_for_key(uint32_t key, const struct wlc_modifier
 /** Utility function to convert raw keycode to Unicode/UTF-32 codepoint. Passed modifiers may transform the key. */
 uint32_t wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers *modifiers);
 
+/** Get current pointer position. */
+void wlc_pointer_get_position(struct wlc_point *out_position);
+
+/** Set current pointer position. */
+void wlc_pointer_set_position(const struct wlc_point *position);
+
 /** Get current pointer origin. */
+__attribute__((deprecated("deprecated in favor of wlc_pointer_get_position")))
 void wlc_pointer_get_origin(struct wlc_origin *out_origin);
 
 /** Set current pointer origin. */
+__attribute__((deprecated("deprecated in favor of wlc_pointer_set_position")))
 void wlc_pointer_set_origin(const struct wlc_origin *new_origin);
 
 #endif /* _WLC_H_ */

@@ -7,13 +7,13 @@
 static struct {
    struct {
       wlc_handle view;
-      struct wlc_origin grab;
+      struct wlc_point grab;
       uint32_t edges;
    } action;
 } compositor;
 
 static bool
-start_interactive_action(wlc_handle view, const struct wlc_origin *origin)
+start_interactive_action(wlc_handle view, const struct wlc_point *origin)
 {
    if (compositor.action.view)
       return false;
@@ -25,13 +25,13 @@ start_interactive_action(wlc_handle view, const struct wlc_origin *origin)
 }
 
 static void
-start_interactive_move(wlc_handle view, const struct wlc_origin *origin)
+start_interactive_move(wlc_handle view, const struct wlc_point *origin)
 {
    start_interactive_action(view, origin);
 }
 
 static void
-start_interactive_resize(wlc_handle view, uint32_t edges, const struct wlc_origin *origin)
+start_interactive_resize(wlc_handle view, uint32_t edges, const struct wlc_point *origin)
 {
    const struct wlc_geometry *g;
    if (!(g = wlc_view_get_geometry(view)) || !start_interactive_action(view, origin))
@@ -119,13 +119,13 @@ view_focus(wlc_handle view, bool focus)
 }
 
 static void
-view_request_move(wlc_handle view, const struct wlc_origin *origin)
+view_request_move(wlc_handle view, const struct wlc_point *origin)
 {
    start_interactive_move(view, origin);
 }
 
 static void
-view_request_resize(wlc_handle view, uint32_t edges, const struct wlc_origin *origin)
+view_request_resize(wlc_handle view, uint32_t edges, const struct wlc_point *origin)
 {
    start_interactive_resize(view, edges, origin);
 }
@@ -162,7 +162,7 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
 }
 
 static bool
-pointer_button(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifiers, uint32_t button, enum wlc_button_state state, const struct wlc_origin *origin)
+pointer_button(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifiers, uint32_t button, enum wlc_button_state state, const struct wlc_point *position)
 {
    (void)button, (void)time, (void)modifiers;
 
@@ -170,9 +170,9 @@ pointer_button(wlc_handle view, uint32_t time, const struct wlc_modifiers *modif
       wlc_view_focus(view);
       if (view) {
          if (modifiers->mods & WLC_BIT_MOD_CTRL && button == BTN_LEFT)
-            start_interactive_move(view, origin);
+            start_interactive_move(view, position);
          if (modifiers->mods & WLC_BIT_MOD_CTRL && button == BTN_RIGHT)
-            start_interactive_resize(view, 0, origin);
+            start_interactive_resize(view, 0, position);
       }
    } else {
       stop_interactive_action();
@@ -182,13 +182,13 @@ pointer_button(wlc_handle view, uint32_t time, const struct wlc_modifiers *modif
 }
 
 static bool
-pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_origin *origin)
+pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_point *position)
 {
    (void)handle, (void)time;
 
    if (compositor.action.view) {
-      const int32_t dx = origin->x - compositor.action.grab.x;
-      const int32_t dy = origin->y - compositor.action.grab.y;
+      const int32_t dx = position->x - compositor.action.grab.x;
+      const int32_t dy = position->y - compositor.action.grab.y;
       struct wlc_geometry g = *wlc_view_get_geometry(compositor.action.view);
 
       if (compositor.action.edges) {
@@ -226,12 +226,12 @@ pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_origin *origin
          wlc_view_set_geometry(compositor.action.view, 0, &g);
       }
 
-      compositor.action.grab = *origin;
+      compositor.action.grab = *position;
    }
 
    // In order to give the compositor control of the pointer placement it needs
    // to be explicitly set after receiving the motion event:
-   wlc_pointer_set_origin(origin);
+   wlc_pointer_set_position(position);
    return (compositor.action.view ? true : false);
 }
 

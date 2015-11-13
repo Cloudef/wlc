@@ -37,7 +37,7 @@ wl_cb_shell_surface_move(struct wl_client *client, struct wl_resource *resource,
       return;
 
    wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") requested move", seat->pointer.focused.view);
-   const struct wlc_origin o = { seat->pointer.pos.x, seat->pointer.pos.y };
+   const struct wlc_point o = { seat->pointer.pos.x, seat->pointer.pos.y };
    WLC_INTERFACE_EMIT(view.request.move, seat->pointer.focused.view, &o);
 }
 
@@ -54,7 +54,7 @@ wl_cb_shell_surface_resize(struct wl_client *client, struct wl_resource *resourc
       return;
 
    wlc_dlog(WLC_DBG_REQUEST, "(%" PRIuWLC ") requested resize", seat->pointer.focused.view);
-   const struct wlc_origin o = { seat->pointer.pos.x, seat->pointer.pos.y };
+   const struct wlc_point o = { seat->pointer.pos.x, seat->pointer.pos.y };
    WLC_INTERFACE_EMIT(view.request.resize, seat->pointer.focused.view, edges, &o);
 }
 
@@ -84,7 +84,7 @@ wl_cb_shell_surface_set_transient(struct wl_client *client, struct wl_resource *
 
    struct wlc_surface *surface = (parent_resource ? convert_from_wl_resource(parent_resource, "surface") : NULL);
    wlc_view_set_parent_ptr(view, (surface ? convert_from_wlc_handle(surface->view, "view") : NULL));
-   view->pending.geometry.origin = (struct wlc_origin){ x, y };
+   view->pending.geometry.origin = (struct wlc_point){ x, y };
 }
 
 static void
@@ -118,7 +118,7 @@ wl_cb_shell_surface_set_popup(struct wl_client *client, struct wl_resource *reso
    wlc_view_set_type_ptr(view, WLC_BIT_POPUP, true);
    struct wlc_surface *surface = (parent_resource ? convert_from_wl_resource(parent_resource, "surface") : NULL);
    wlc_view_set_parent_ptr(view, (surface ? convert_from_wlc_handle(surface->view, "view") : NULL));
-   view->pending.geometry.origin = (struct wlc_origin){ x, y };
+   view->pending.geometry.origin = (struct wlc_point){ x, y };
 
 }
 

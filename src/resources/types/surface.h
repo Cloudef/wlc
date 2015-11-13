@@ -17,7 +17,7 @@ struct wlc_surface_state {
    pixman_region32_t opaque;
    pixman_region32_t input;
    pixman_region32_t damage;
-   struct wlc_origin offset;
+   struct wlc_point offset;
    wlc_resource buffer;
    int32_t scale;
    enum wl_output_transform transform;

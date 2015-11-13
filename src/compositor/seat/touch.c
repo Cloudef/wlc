@@ -27,7 +27,7 @@ view_visible(struct wlc_view *view, uint32_t mask)
 }
 
 static struct wlc_view*
-view_under_touch(const struct wlc_origin *pos, struct wlc_output *output)
+view_under_touch(const struct wlc_point *pos, struct wlc_output *output)
 {
    assert(pos);
 
@@ -52,7 +52,7 @@ view_under_touch(const struct wlc_origin *pos, struct wlc_output *output)
 }
 
 void
-wlc_touch_touch(struct wlc_touch *touch, uint32_t time, enum wlc_touch_type type, int32_t slot, const struct wlc_origin *pos)
+wlc_touch_touch(struct wlc_touch *touch, uint32_t time, enum wlc_touch_type type, int32_t slot, const struct wlc_point *pos)
 {
    assert(touch);
 

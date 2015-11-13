@@ -59,7 +59,7 @@ struct wlc_surface_event {
       // WLC_SURFACE_EVENT_REQUEST_VIEW_POPUP
       struct wlc_surface_event_request_view_popup {
          struct wlc_surface *parent;
-         struct wlc_origin origin;
+         struct wlc_point origin;
          wlc_resource resource;
       } popup;
    };

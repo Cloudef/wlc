@@ -11,7 +11,7 @@ struct wlc_buffer;
 struct wlc_view;
 struct wlc_output;
 struct wlc_render;
-struct wlc_origin;
+struct wlc_point;
 struct wlc_geometry;
 struct ctx;
 
@@ -22,7 +22,7 @@ struct wlc_render_api {
    WLC_NONULLV(1,2,3) bool (*surface_attach)(struct ctx *render, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_buffer *buffer);
    WLC_NONULL void (*view_paint)(struct ctx *render, struct wlc_view *view);
    WLC_NONULL void (*surface_paint)(struct ctx *render, struct wlc_surface *surface, const struct wlc_geometry *geometry);
-   WLC_NONULL void (*pointer_paint)(struct ctx *render, const struct wlc_origin *pos);
+   WLC_NONULL void (*pointer_paint)(struct ctx *render, const struct wlc_point *pos);
    WLC_NONULL void (*read_pixels)(struct ctx *render, struct wlc_geometry *geometry, void *out_data);
    WLC_NONULL void (*background)(struct ctx *render);
    WLC_NONULL void (*clear)(struct ctx *render);
@@ -39,7 +39,7 @@ WLC_NONULL void wlc_render_surface_destroy(struct wlc_render *render, struct wlc
 WLC_NONULLV(1,2,3) bool wlc_render_surface_attach(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_buffer *buffer);
 WLC_NONULL void wlc_render_view_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_view *view);
 WLC_NONULL void wlc_render_surface_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface, const struct wlc_geometry *geometry);
-WLC_NONULL void wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, const struct wlc_origin *pos);
+WLC_NONULL void wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, const struct wlc_point *pos);
 WLC_NONULL void wlc_render_read_pixels(struct wlc_render *render, struct wlc_context *bound, struct wlc_geometry *geometry, void *out_data);
 WLC_NONULL void wlc_render_background(struct wlc_render *render, struct wlc_context *bound);
 WLC_NONULL void wlc_render_clear(struct wlc_render *render, struct wlc_context *bound);

@@ -61,7 +61,7 @@ wlc_render_surface_paint(struct wlc_render *render, struct wlc_context *bound, s
 }
 
 void
-wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, const struct wlc_origin *pos)
+wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, const struct wlc_point *pos)
 {
    assert(render);
 

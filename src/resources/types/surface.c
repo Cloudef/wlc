@@ -55,7 +55,7 @@ commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, str
    state_set_buffer(out, convert_from_wlc_resource(pending->buffer, "buffer"));
    state_set_buffer(pending, NULL);
 
-   pending->offset = wlc_origin_zero;
+   pending->offset = wlc_point_zero;
 
    wlc_resource *r;
    chck_iter_pool_for_each(&pending->frame_cbs, r)
@@ -114,7 +114,7 @@ wl_cb_surface_attach(struct wl_client *client, struct wl_resource *resource, str
       state_set_buffer(&surface->pending, b);
    }
 
-   surface->pending.offset = (struct wlc_origin){ x, y };
+   surface->pending.offset = (struct wlc_point){ x, y };
    surface->pending.attached = true;
 
    wlc_dlog(WLC_DBG_RENDER, "-> Attach request");

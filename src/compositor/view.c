@@ -137,7 +137,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface)
 
    if (view->x11.id) {
       surface->pending.opaque.extents = (pixman_box32_t){ 0, 0, surface->size.w, surface->size.h };
-      view->surface_pending.visible = (struct wlc_geometry){ wlc_origin_zero, surface->size };
+      view->surface_pending.visible = (struct wlc_geometry){ wlc_point_zero, surface->size };
    }
 
    const bool resizing = (view->pending.state & WLC_BIT_RESIZING || view->commit.state & WLC_BIT_RESIZING);

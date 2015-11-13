@@ -115,7 +115,7 @@ view_visible(struct wlc_view *view, struct wlc_surface *surface, uint32_t mask)
 }
 
 static bool
-blit(bool *g, const struct wlc_size *r, const struct wlc_origin *a, const struct wlc_origin *b, bool should_blit)
+blit(bool *g, const struct wlc_size *r, const struct wlc_point *a, const struct wlc_point *b, bool should_blit)
 {
    assert(g && r && a && b);
 
@@ -161,7 +161,7 @@ get_visible_views(struct wlc_output *output, struct chck_iter_pool *visible)
          continue;
 
       struct wlc_geometry o;
-      struct wlc_origin a, b;
+      struct wlc_point a, b;
       const bool should_blit = wlc_view_get_opaque(v, &o);
       a.x = chck_clamp32(o.origin.x, 0, output->resolution.w);
       a.y = chck_clamp32(o.origin.y, 0, output->resolution.h);
