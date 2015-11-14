@@ -34,31 +34,6 @@ enum wlc_event_bit {
    WLC_EVENT_ERROR = 0x08,
 };
 
-/** wlc_output_get_connector_type(); */
-enum wlc_connector_type {
-   /* used when running wlc with backend (e.g. x11) that does not use real output. */
-   WLC_CONNECTOR_WLC,
-
-   /* these are based on xf86drm.h */
-   WLC_CONNECTOR_UNKNOWN,
-   WLC_CONNECTOR_VGA,
-   WLC_CONNECTOR_DVII,
-   WLC_CONNECTOR_DVID,
-   WLC_CONNECTOR_DVIA,
-   WLC_CONNECTOR_COMPOSITE,
-   WLC_CONNECTOR_SVIDEO,
-   WLC_CONNECTOR_LVDS,
-   WLC_CONNECTOR_COMPONENT,
-   WLC_CONNECTOR_DIN,
-   WLC_CONNECTOR_DP,
-   WLC_CONNECTOR_HDMIA,
-   WLC_CONNECTOR_HDMIB,
-   WLC_CONNECTOR_TV,
-   WLC_CONNECTOR_eDP,
-   WLC_CONNECTOR_VIRTUAL,
-   WLC_CONNECTOR_DSI,
-};
-
 /** wlc_view_get_state(); */
 enum wlc_view_state_bit {
    WLC_BIT_MAXIMIZED = 1<<0,
@@ -282,12 +257,6 @@ wlc_handle wlc_get_focused_output(void);
 
 /** Get output name. */
 const char* wlc_output_get_name(wlc_handle output);
-
-/** Get connector type. */
-enum wlc_connector_type wlc_output_get_connector_type(wlc_handle output);
-
-/** Get connector id. */
-uint32_t wlc_output_get_connector_id(wlc_handle output);
 
 /** Get sleep state. */
 bool wlc_output_get_sleep(wlc_handle output);

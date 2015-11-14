@@ -9,6 +9,7 @@
 #include "platform/context/context.h"
 #include "platform/render/render.h"
 #include "resources/resources.h"
+#include "internal.h"
 
 struct wl_global;
 struct wlc_surface;

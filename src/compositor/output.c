@@ -857,20 +857,6 @@ wlc_output_get_name(wlc_handle output)
    return (o ? o->information.name.data : NULL);
 }
 
-WLC_API enum wlc_connector_type
-wlc_output_get_connector_type(wlc_handle output)
-{
-   struct wlc_output *o = convert_from_wlc_handle(output, "output");
-   return (o ? o->information.connector : WLC_CONNECTOR_UNKNOWN);
-}
-
-WLC_API uint32_t
-wlc_output_get_connector_id(wlc_handle output)
-{
-   struct wlc_output *o = convert_from_wlc_handle(output, "output");
-   return (o ? o->information.connector_id : 0);
-}
-
 void
 wlc_output_terminate(struct wlc_output *output)
 {

@@ -15,6 +15,30 @@
 #  define WLC_LOG_ATTR(x, y)
 #endif
 
+enum wlc_connector_type {
+   /* used when running wlc with backend (e.g. x11) that does not use real output. */
+   WLC_CONNECTOR_WLC,
+
+   /* these are based on xf86drm.h */
+   WLC_CONNECTOR_UNKNOWN,
+   WLC_CONNECTOR_VGA,
+   WLC_CONNECTOR_DVII,
+   WLC_CONNECTOR_DVID,
+   WLC_CONNECTOR_DVIA,
+   WLC_CONNECTOR_COMPOSITE,
+   WLC_CONNECTOR_SVIDEO,
+   WLC_CONNECTOR_LVDS,
+   WLC_CONNECTOR_COMPONENT,
+   WLC_CONNECTOR_DIN,
+   WLC_CONNECTOR_DP,
+   WLC_CONNECTOR_HDMIA,
+   WLC_CONNECTOR_HDMIB,
+   WLC_CONNECTOR_TV,
+   WLC_CONNECTOR_eDP,
+   WLC_CONNECTOR_VIRTUAL,
+   WLC_CONNECTOR_DSI,
+};
+
 struct wlc_activate_event {
    int vt; // if != 0, means vt switch
    bool active;
