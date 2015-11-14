@@ -104,17 +104,22 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
    if (focus != focused)
       wlc_pointer_focus(pointer, focused, NULL);
 
+   const struct wlc_point pos = {
+      chck_clamp(pointer->pos.x, 0, output->resolution.w),
+      chck_clamp(pointer->pos.y, 0, output->resolution.h)
+   };
+
    struct wlc_surface *surface;
    if ((surface = convert_from_wlc_resource(pointer->surface, "surface"))) {
       if (surface->output != convert_to_wlc_handle(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface))) {
          // Fallback
-         wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_point){ pointer->pos.x, pointer->pos.y });
+         wlc_render_pointer_paint(&output->render, &output->context, &pos);
       } else {
-         wlc_render_surface_paint(&output->render, &output->context, surface, &(struct wlc_geometry){ .origin = { pointer->pos.x - pointer->tip.x, pointer->pos.y - pointer->tip.y }, surface->size });
+         wlc_render_surface_paint(&output->render, &output->context, surface, &(struct wlc_geometry){ .origin = { pos.x - pointer->tip.x, pos.y - pointer->tip.y }, surface->size });
       }
    } else if (!focused || focused->x11.id) { // focused->x11.id workarounds bug <https://github.com/Cloudef/wlc/issues/21>
       // Show default cursor when no focus and no surface.
-      wlc_render_pointer_paint(&output->render, &output->context, &(struct wlc_point){ pointer->pos.x, pointer->pos.y });
+      wlc_render_pointer_paint(&output->render, &output->context, &pos);
    }
 }
 
