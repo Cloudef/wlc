@@ -769,6 +769,9 @@ wlc_output_get_mutable_views_ptr(struct wlc_output *output, size_t *out_memb)
 void
 wlc_output_focus_ptr(struct wlc_output *output)
 {
+   if (!output)
+      return;
+
    struct wlc_focus_event ev = { .output = output, .type = WLC_FOCUS_EVENT_OUTPUT };
    wl_signal_emit(&wlc_system_signals()->focus, &ev);
 }
