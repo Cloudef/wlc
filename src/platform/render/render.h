@@ -24,9 +24,7 @@ struct wlc_render_api {
    WLC_NONULL void (*surface_paint)(struct ctx *render, struct wlc_surface *surface, const struct wlc_geometry *geometry);
    WLC_NONULL void (*pointer_paint)(struct ctx *render, const struct wlc_point *pos);
    WLC_NONULL void (*read_pixels)(struct ctx *render, struct wlc_geometry *geometry, void *out_data);
-   WLC_NONULL void (*background)(struct ctx *render);
    WLC_NONULL void (*clear)(struct ctx *render);
-   WLC_NONULL void (*time)(struct ctx *render, uint32_t time);
 };
 
 struct wlc_render {
@@ -41,9 +39,7 @@ WLC_NONULL void wlc_render_view_paint(struct wlc_render *render, struct wlc_cont
 WLC_NONULL void wlc_render_surface_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface, const struct wlc_geometry *geometry);
 WLC_NONULL void wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, const struct wlc_point *pos);
 WLC_NONULL void wlc_render_read_pixels(struct wlc_render *render, struct wlc_context *bound, struct wlc_geometry *geometry, void *out_data);
-WLC_NONULL void wlc_render_background(struct wlc_render *render, struct wlc_context *bound);
 WLC_NONULL void wlc_render_clear(struct wlc_render *render, struct wlc_context *bound);
-WLC_NONULL void wlc_render_time(struct wlc_render *render, struct wlc_context *bound, uint32_t time);
 void wlc_render_release(struct wlc_render *render, struct wlc_context *context);
 WLC_NONULL bool wlc_render(struct wlc_render *render, struct wlc_context *context);
 

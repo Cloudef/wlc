@@ -85,10 +85,6 @@ struct wlc_output {
       uint32_t mode;
       uint32_t mask;
    } active;
-
-   struct {
-      bool enable_bg;
-   } options;
 };
 
 WLC_NONULL bool wlc_output_information(struct wlc_output_information *info);
@@ -115,5 +111,7 @@ WLC_NONULLV(2) void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*
 bool wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb);
 const wlc_handle* wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb);
 wlc_handle* wlc_output_get_mutable_views_ptr(struct wlc_output *output, size_t *out_memb);
+
+void wlc_output_render_surface(wlc_resource surface, const struct wlc_geometry *geometry);
 
 #endif /* _WLC_OUTPUT_H_ */

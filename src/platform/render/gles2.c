@@ -30,7 +30,6 @@ enum program_type {
    PROGRAM_Y_U_V,
    PROGRAM_Y_XUXV,
    PROGRAM_CURSOR,
-   PROGRAM_BG,
    PROGRAM_LAST,
 };
 
@@ -39,7 +38,6 @@ enum {
    UNIFORM_TEXTURE1,
    UNIFORM_TEXTURE2,
    UNIFORM_RESOLUTION,
-   UNIFORM_TIME,
    UNIFORM_DIM,
    UNIFORM_LAST,
 };
@@ -55,7 +53,6 @@ static const char *uniform_names[UNIFORM_LAST] = {
    "texture1",
    "texture2",
    "resolution",
-   "time",
    "dim",
 };
 
@@ -67,12 +64,9 @@ struct ctx {
    struct ctx_program {
       GLuint obj;
       GLuint uniforms[UNIFORM_LAST];
-      GLuint frames;
    } programs[PROGRAM_LAST];
 
    struct wlc_size resolution, mode;
-
-   GLuint time;
 
    GLuint textures[TEXTURE_LAST];
 
@@ -358,30 +352,6 @@ create_context(void)
       "  gl_FragColor = palette[int(texture2D(texture0, v_uv).r * 256.0)];\n"
       "}\n";
 
-   const char *frag_shader_bg =
-      "#version 100\n"
-      "precision mediump float;\n"
-      "uniform float time;\n"
-      "uniform vec2 resolution;\n"
-      "varying vec2 v_uv;\n"
-      "#define M_PI 3.1415926535897932384626433832795\n"
-      "float impulse(float x, float k) {\n"
-      "  float h = k * x;\n"
-      "  return h * exp(1.0 - h);\n"
-      "}\n"
-      "void main() {\n"
-      "  vec3 color = vec3(0.0);\n"
-      "  vec2 pos = (v_uv * 4.0 - 2.0);\n"
-      "  float frame = time * M_PI * 10.0;\n"
-      "  float f = impulse(0.01, sin(frame) + 1.0) + 0.25;\n"
-      "  color += vec3(0.15, 0.3, 0.35) * (1.0 / distance(vec2(1.0, 0.0), pos) * f);\n"
-      "  for (int i = 0; i < 3; ++i) {\n"
-      "     float t = frame + (float(i) * 1.8);\n"
-      "     color += vec3(0.15, 0.18, 0.15) * float(i + 1) * (1.0 / distance(vec2(sin(t * 0.8) * 0.5 + 1.0, cos(t) * 0.5), pos) * 0.09);\n"
-      "  }\n"
-      "  gl_FragColor = vec4(color, 1.0);\n"
-      "}\n";
-
    const char *frag_shader_rgb =
       "#version 100\n"
       "precision mediump float;\n"
@@ -496,7 +466,6 @@ create_context(void)
       { vert_shader, frag_shader_y_u_v }, // PROGRAM_Y_U_V
       { vert_shader, frag_shader_y_xuxv }, // PROGRAM_Y_XUXV
       { vert_shader, frag_shader_cursor }, // PROGRAM_CURSOR
-      { vert_shader, frag_shader_bg }, // PROGRAM_BG
    };
 
    for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
@@ -558,8 +527,6 @@ create_context(void)
    GL_CALL(gl.api.glEnable(GL_BLEND));
    GL_CALL(gl.api.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
    GL_CALL(gl.api.glClearColor(0.0, 0.0, 0.0, 1));
-
-   context->programs[PROGRAM_BG].frames = 4096 * 2;
    return context;
 }
 
@@ -576,7 +543,6 @@ resolution(struct ctx *context, const struct wlc_size *mode, const struct wlc_si
 
       context->resolution = *resolution;
    }
-
 
    if (!wlc_size_equals(&context->mode, mode)) {
       GL_CALL(gl.api.glViewport(0, 0, mode->w, mode->h));
@@ -813,12 +779,6 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, const struct 
       GL_CALL(gl.api.glUniform1fv(context->program->uniforms[UNIFORM_DIM], 1, &settings->dim));
    }
 
-   if (context->program->frames > 0) {
-      const GLfloat frame = ((context->time / 16) % context->program->frames);
-      GLfloat time = frame / context->program->frames;
-      GL_CALL(gl.api.glUniform1fv(context->program->uniforms[UNIFORM_TIME], 1, &time));
-   }
-
    for (GLuint i = 0; i < nmemb; ++i) {
       if (!textures[i])
          break;
@@ -921,24 +881,6 @@ read_pixels(struct ctx *context, struct wlc_geometry *geometry, void *out_data)
 }
 
 static void
-frame_time(struct ctx *context, GLuint time)
-{
-   assert(context);
-   context->time = time;
-}
-
-static void
-background(struct ctx *context)
-{
-   assert(context);
-   struct paint settings;
-   memset(&settings, 0, sizeof(settings));
-   settings.program = PROGRAM_BG;
-   struct wlc_geometry g = { { 0, 0 }, context->resolution };
-   texture_paint(context, NULL, 0, &g, &settings);
-}
-
-static void
 clear(struct ctx *context)
 {
    (void)context;
@@ -990,9 +932,7 @@ wlc_gles2(struct wlc_render_api *api)
    api->surface_paint = surface_paint;
    api->pointer_paint = pointer_paint;
    api->read_pixels = read_pixels;
-   api->background = background;
    api->clear = clear;
-   api->time = frame_time;
 
    chck_cstr_to_f(getenv("WLC_DIM"), &DIM);
    chck_cstr_to_bool(getenv("WLC_DRAW_OPAQUE"), &DRAW_OPAQUE);

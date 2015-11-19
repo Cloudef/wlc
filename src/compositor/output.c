@@ -12,6 +12,8 @@
 #include "view.h"
 #include "resources/types/surface.h"
 
+static struct wlc_output *rendering_output;
+
 // FIXME: this is a hack
 static EGLNativeDisplayType INVALID_DISPLAY = (EGLNativeDisplayType)~0;
 
@@ -201,6 +203,25 @@ finish_frame_tasks(struct wlc_output *output)
 }
 
 static void
+render_surface(struct wlc_output *output, struct wlc_surface *surface, const struct wlc_geometry *geometry, struct chck_iter_pool *callbacks)
+{
+   assert(output && callbacks);
+
+   if (surface->output != convert_to_wlc_resource(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface)))
+      return;
+
+   if (!surface->commit.attached)
+      return;
+
+   wlc_render_surface_paint(&output->render, &output->context, surface, geometry);
+
+   wlc_resource *r;
+   chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
+      chck_iter_pool_push_back(callbacks, r);
+   chck_iter_pool_flush(&surface->commit.frame_cbs);
+}
+
+static void
 render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_pool *callbacks)
 {
    assert(output && callbacks);
@@ -215,8 +236,10 @@ render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_p
    if (!view_visible(view, surface, output->active.mask))
       return;
 
+   WLC_INTERFACE_EMIT(view.render.pre, convert_to_wlc_handle(view));
    wlc_view_commit_state(view, &view->pending, &view->commit);
    wlc_render_view_paint(&output->render, &output->context, view);
+   WLC_INTERFACE_EMIT(view.render.post, convert_to_wlc_handle(view));
 
    wlc_resource *r;
    chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
@@ -244,7 +267,6 @@ repaint(struct wlc_output *output)
       return false;
    }
 
-   wlc_render_time(&output->render, &output->context, output->state.frame_time);
    wlc_render_resolution(&output->render, &output->context, &output->mode, &output->resolution);
 
    if (output->state.sleeping) {
@@ -266,12 +288,11 @@ repaint(struct wlc_output *output)
       output->state.background_visible = false;
    }
 
-   if (output->options.enable_bg && output->state.background_visible) {
-      wlc_render_background(&output->render, &output->context);
-   } else if (!output->options.enable_bg) {
-      wlc_render_clear(&output->render, &output->context);
-   }
+   rendering_output = output;
+   wlc_render_clear(&output->render, &output->context);
 
+   if (output->state.background_visible)
+      WLC_INTERFACE_EMIT(output.render.pre, convert_to_wlc_handle(output));
 
    {
       struct wlc_view **v;
@@ -280,8 +301,12 @@ repaint(struct wlc_output *output)
       chck_iter_pool_flush(&output->visible);
    }
 
+   WLC_INTERFACE_EMIT(output.render.post, convert_to_wlc_handle(output));
+
    struct wlc_render_event ev = { .output = output, .type = WLC_RENDER_EVENT_POINTER };
    wl_signal_emit(&wlc_system_signals()->render, &ev);
+
+   rendering_output = NULL;
 
    {
       size_t sz;
@@ -346,7 +371,7 @@ wlc_output_finish_frame(struct wlc_output *output, const struct timespec *ts)
 
    // TODO: handle presentation feedback here
 
-   if (((output->options.enable_bg && output->state.background_visible) || output->state.activity) && !output->task.terminate) {
+   if (output->state.activity && !output->task.terminate) {
       output->state.ims = chck_clampf(output->state.ims * (output->state.activity ? 0.9 : 1.1), 1, 41);
       wlc_dlog(WLC_DBG_RENDER_LOOP, "-> Interpolated idle time %f (%u : %d)", output->state.ims, ms, output->state.activity);
       wl_event_source_timer_update(output->timer.idle, output->state.ims);
@@ -923,8 +948,6 @@ wlc_output(struct wlc_output *output)
 
    output->active.mode = UINT_MAX;
    output->state.ims = 41;
-   const char *bg = getenv("WLC_BG");
-   output->options.enable_bg = (chck_cstreq(bg, "0") ? false : true);
 
    wlc_output_set_sleep_ptr(output, false);
    wlc_output_set_mask_ptr(output, (1<<0));
@@ -933,4 +956,17 @@ wlc_output(struct wlc_output *output)
 fail:
    wlc_output_release(output);
    return false;
+}
+
+void
+wlc_output_render_surface(wlc_resource surface, const struct wlc_geometry *geometry)
+{
+   assert(rendering_output);
+
+   if (!rendering_output) {
+      wlc_log(WLC_LOG_ERROR, "Trying to render surface %" PRIuWLC " outside of render hook", surface);
+      return;
+   }
+
+   render_surface(rendering_output, convert_from_wlc_resource(surface, "surface"), geometry, &rendering_output->callbacks);
 }
