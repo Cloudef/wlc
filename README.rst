@@ -89,8 +89,6 @@ ENV VARIABLES
 +----------------------+------------------------------------------------------+
 | ``WLC_OUTPUTS``      | Number of fake outputs in X11 mode.                  |
 +----------------------+------------------------------------------------------+
-| ``WLC_BG``           | Set 0 to disable the background GLSL shader.         |
-+----------------------+------------------------------------------------------+
 | ``WLC_XWAYLAND``     | Set 0 to disable Xwayland.                           |
 +----------------------+------------------------------------------------------+
 | ``WLC_DIM``          | Brightness multiplier for dimmed views (0.5 default) |
