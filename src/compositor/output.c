@@ -164,7 +164,7 @@ get_visible_views(struct wlc_output *output, struct chck_iter_pool *visible)
       // This place sucks for this, but otherwise we would need API level interaction.
       // This is also very ugly, we can't unmap since it would destroy the wayland surface.
       // We move the window out of bounds instead.
-      if (v->x11.id && v->x11.hidden != !vis) {
+      if (v->x11.id && v->x11.hidden == vis) {
          struct wlc_geometry g = v->pending.geometry;
 
          if (!vis)
