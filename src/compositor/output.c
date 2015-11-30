@@ -159,7 +159,22 @@ get_visible_views(struct wlc_output *output, struct chck_iter_pool *visible)
           !(s = convert_from_wlc_resource(v->surface, "surface")))
          continue;
 
-      if (!view_visible(v, s, output->active.mask))
+      const bool vis = view_visible(v, s, output->active.mask);
+
+      // This place sucks for this, but otherwise we would need API level interaction.
+      // This is also very ugly, we can't unmap since it would destroy the wayland surface.
+      // We move the window out of bounds instead.
+      if (v->x11.id && v->x11.hidden != !vis) {
+         struct wlc_geometry g = v->pending.geometry;
+
+         if (!vis)
+            g.origin.x = -g.size.w;
+
+         wlc_x11_window_configure(&v->x11, &g);
+         v->x11.hidden = !vis;
+      }
+
+      if (!vis)
          continue;
 
       struct wlc_geometry o;

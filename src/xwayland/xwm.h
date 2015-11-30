@@ -14,6 +14,7 @@ struct wlc_x11_window {
    bool override_redirect;
    bool has_delete_window;
    bool has_alpha;
+   bool hidden; // HACK: used by output.c to hide invisible windows
 };
 
 struct wlc_xwm {
