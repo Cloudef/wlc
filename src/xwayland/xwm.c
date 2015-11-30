@@ -625,6 +625,7 @@ focus_window(xcb_window_t window, bool force)
    m.data.data32[1] = XCB_TIME_CURRENT_TIME;
    XCB_CALL(x11.api.xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, (char*)&m));
    XCB_CALL(x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, window, XCB_CURRENT_TIME));
+   XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, window, XCB_CONFIG_WINDOW_STACK_MODE, (uint32_t[]){XCB_STACK_MODE_ABOVE}));
    x11.api.xcb_flush(x11.connection);
    x11.focus = window;
 }
