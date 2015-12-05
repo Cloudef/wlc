@@ -299,10 +299,10 @@ wlc_xwayland_init(void)
       freopen("/dev/null", "w", stdout);
       freopen("/dev/null", "w", stderr);
 
-      wlc_log(WLC_LOG_INFO, "Xwayland %s -rootless -terminate -listen %s -listen %s -wm %s",
+      wlc_log(WLC_LOG_INFO, XWAYLAND_EXECUTABLE "%s -rootless -terminate -listen %s -listen %s -wm %s",
               xserver.display_name, strings[2], strings[3], strings[1]);
 
-      execlp("Xwayland", "Xwayland",
+      execlp(XWAYLAND_EXECUTABLE, XWAYLAND_EXECUTABLE,
              xserver.display_name,
              "-rootless",
              "-terminate",
