@@ -599,6 +599,7 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
       wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
       output->mode = (struct wlc_size){ mode->width, mode->height };
       wlc_output_set_resolution_ptr(output, &output->mode);
+      mode->flags |= WL_OUTPUT_MODE_CURRENT;
    }
 }
 
