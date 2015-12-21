@@ -1,10 +1,10 @@
 #.rst:
-# FindWayland
+# FindXwayland
 # -----------
 #
 # Find Xwayland installation
 #
-# Try to find Xxayland. The following values are defined
+# Try to find Xwayland. The following values are defined
 #
 # ::
 #

@@ -310,7 +310,20 @@ wlc_xwayland_init(void)
              "-listen", strings[3],
              "-wm", strings[1],
              NULL);
+
+      if(errno == ENOENT) {
+         wlc_log(WLC_LOG_WARN, "Did not find " XWAYLAND_EXECUTABLE ". Trying in PATH.");
+         execlp("Xwayland", "Xwayland",
+                xserver.display_name,
+                "-rootless",
+                "-terminate",
+                "-listen", strings[2],
+                "-listen", strings[3],
+                "-wm", strings[1],
+                NULL);
+      }
       _exit(EXIT_FAILURE);
+
    } else if (xserver.pid < 0) {
       goto fork_fail;
    }
