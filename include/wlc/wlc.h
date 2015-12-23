@@ -1,6 +1,10 @@
 #ifndef _WLC_H_
 #define _WLC_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif 
+
 #include <wlc/defines.h>
 #include <wlc/geometry.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -411,5 +415,9 @@ void wlc_pointer_get_origin(struct wlc_origin *out_origin);
 /** Set current pointer origin. */
 __attribute__((deprecated("deprecated in favor of wlc_pointer_set_position")))
 void wlc_pointer_set_origin(const struct wlc_origin *new_origin);
+
+#ifdef __cplusplus
+}
+#endif 
 
 #endif /* _WLC_H_ */

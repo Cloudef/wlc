@@ -1,6 +1,10 @@
 #ifndef _WLC_GEOMETRY_H_
 #define _WLC_GEOMETRY_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif 
+
 #include <wlc/defines.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -99,5 +103,9 @@ wlc_geometry_contains(const struct wlc_geometry *a, const struct wlc_geometry *b
    return (a->origin.x <= b->origin.x && a->origin.y <= b->origin.y &&
            a->origin.x + (int32_t)a->size.w >= b->origin.x + (int32_t)b->size.w && a->origin.y + (int32_t)a->size.h >= b->origin.y + (int32_t)b->size.h);
 }
+
+#ifdef __cplusplus
+}
+#endif 
 
 #endif /* _WLC_GEOMETRY_H_ */
