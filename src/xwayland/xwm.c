@@ -440,7 +440,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
       if (!(reply = x11.api.xcb_get_property_reply(x11.connection, cookies[i], NULL)))
          continue;
 
-      if (reply->type == XCB_ATOM_NONE) {
+      if (reply->type == XCB_ATOM_NONE || !x11.api.xcb_get_property_value_length(reply)) {
          free(reply);
          continue;
       }
