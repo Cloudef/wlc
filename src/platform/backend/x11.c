@@ -334,7 +334,7 @@ update_xkb_state(xcb_xkb_state_notify_event_t *ev)
                          wlc_keymap_get_mod_mask(keyboard->keymap, ev->lockedMods),
                          0, 0, ev->group);
 
-   wlc_keyboard_update_modifiers(keyboard);
+   wlc_keyboard_update_modifiers(keyboard, NULL);
 }
 
 static int

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <wayland-server.h>
+#include <libinput.h>
 #include "internal.h"
 #include "macros.h"
 #include "keyboard.h"
@@ -287,8 +288,24 @@ wlc_keyboard_get_utf32_for_key_ptr(struct wlc_keyboard *keyboard, uint32_t key, 
    return xkb_state_key_get_utf32(keyboard->state.sym, key + 8);
 }
 
+static void
+keyboard_update_leds(uint32_t wlc_leds, struct libinput_device *device)
+{
+   assert(device);
+
+   enum libinput_led leds = 0;
+   if (wlc_leds & WLC_BIT_LED_NUM)
+      leds |= LIBINPUT_LED_NUM_LOCK;
+   if (wlc_leds & WLC_BIT_LED_CAPS) 
+      leds |= LIBINPUT_LED_CAPS_LOCK;
+   if (wlc_leds & WLC_BIT_LED_SCROLL) 
+      leds |= LIBINPUT_LED_SCROLL_LOCK;
+
+   libinput_device_led_update(device, leds);
+}
+
 void
-wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard)
+wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard, struct libinput_device *device)
 {
    assert(keyboard);
 
@@ -321,6 +338,9 @@ wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard)
    if (keyboard->keymap) {
       keyboard->modifiers.mods = wlc_keymap_get_mod_mask(keyboard->keymap, depressed | latched);
       keyboard->modifiers.leds = wlc_keymap_get_led_mask(keyboard->keymap, keyboard->state.xkb);
+      
+      if (device)
+         keyboard_update_leds(keyboard->modifiers.leds, device);
    }
 
    wlc_dlog(WLC_DBG_KEYBOARD, "updated modifiers");

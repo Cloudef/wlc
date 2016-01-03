@@ -194,6 +194,7 @@ input_event(int fd, uint32_t mask, void *data)
             ev.time = libinput_event_keyboard_get_time(kev);
             ev.key.code = libinput_event_keyboard_get_key(kev);
             ev.key.state = (enum wl_keyboard_key_state)libinput_event_keyboard_get_key_state(kev);
+            ev.device = device;
             wl_signal_emit(&wlc_system_signals()->input, &ev);
          }
          break;
