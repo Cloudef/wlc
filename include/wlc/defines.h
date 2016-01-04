@@ -1,6 +1,10 @@
 #ifndef _WLC_DEFINES_H_
 #define _WLC_DEFINES_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif 
+
 #include <inttypes.h>
 
 #if __GNUC__
@@ -22,5 +26,9 @@
 #define PRIXWLC PRIXPTR
 
 typedef uintptr_t wlc_handle;
+
+#ifdef __cplusplus
+}
+#endif 
 
 #endif /* _WLC_DEFINES_H_ */
