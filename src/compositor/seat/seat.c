@@ -113,7 +113,7 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
    if (!wlc_keyboard_update(&seat->keyboard, ev->key.code, ev->key.state))
       return;
 
-   wlc_keyboard_update_modifiers(&seat->keyboard);
+   wlc_keyboard_update_modifiers(&seat->keyboard, ev->device);
 
    if (seat->keyboard.modifiers.mods == (WLC_BIT_MOD_CTRL | WLC_BIT_MOD_ALT) && ev->key.code >= 59 && ev->key.code <= 88) {
       const int vt = (ev->key.code - 59) + 1;

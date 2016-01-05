@@ -54,7 +54,7 @@ struct wlc_keyboard {
 WLC_NONULLV(1) uint32_t wlc_keyboard_get_keysym_for_key_ptr(struct wlc_keyboard *keyboard, uint32_t key, const struct wlc_modifiers *modifiers);
 WLC_NONULLV(1) uint32_t wlc_keyboard_get_utf32_for_key_ptr(struct wlc_keyboard *keyboard, uint32_t key, const struct wlc_modifiers *modifiers);
 
-WLC_NONULL void wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard);
+WLC_NONULLV(1) void wlc_keyboard_update_modifiers(struct wlc_keyboard *keyboard, struct libinput_device *device);
 WLC_NONULL bool wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const struct wlc_modifiers *mods, uint32_t key, enum wl_keyboard_key_state state);
 WLC_NONULL bool wlc_keyboard_update(struct wlc_keyboard *keyboard, uint32_t key, enum wl_keyboard_key_state state);
 WLC_NONULL void wlc_keyboard_key(struct wlc_keyboard *keyboard, uint32_t time, uint32_t key, enum wl_keyboard_key_state state);

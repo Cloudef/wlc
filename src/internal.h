@@ -142,7 +142,7 @@ struct wlc_input_event {
          enum wlc_touch_type type;
       } touch;
    };
-
+   struct libinput_device *device;
    uint32_t time;
    enum wlc_input_event_type type;
 };
