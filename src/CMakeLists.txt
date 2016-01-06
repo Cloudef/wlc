@@ -10,6 +10,7 @@ add_definitions(
    ${UDEV_DEFINITIONS}
    ${LIBINPUT_DEFINITIONS}
    ${XCB_DEFINITIONS}
+   -DXWAYLAND_EXECUTABLE="${XWAYLAND_EXECUTABLE}"
    )
 
 include_directories(

@@ -299,10 +299,10 @@ wlc_xwayland_init(void)
       freopen("/dev/null", "w", stdout);
       freopen("/dev/null", "w", stderr);
 
-      wlc_log(WLC_LOG_INFO, "Xwayland %s -rootless -terminate -listen %s -listen %s -wm %s",
+      wlc_log(WLC_LOG_INFO, XWAYLAND_EXECUTABLE "%s -rootless -terminate -listen %s -listen %s -wm %s",
               xserver.display_name, strings[2], strings[3], strings[1]);
 
-      execlp("Xwayland", "Xwayland",
+      execlp(XWAYLAND_EXECUTABLE, XWAYLAND_EXECUTABLE,
              xserver.display_name,
              "-rootless",
              "-terminate",
@@ -310,7 +310,20 @@ wlc_xwayland_init(void)
              "-listen", strings[3],
              "-wm", strings[1],
              NULL);
+
+      if(errno == ENOENT) {
+         wlc_log(WLC_LOG_WARN, "Did not find " XWAYLAND_EXECUTABLE ". Trying in PATH.");
+         execlp("Xwayland", "Xwayland",
+                xserver.display_name,
+                "-rootless",
+                "-terminate",
+                "-listen", strings[2],
+                "-listen", strings[3],
+                "-wm", strings[1],
+                NULL);
+      }
       _exit(EXIT_FAILURE);
+
    } else if (xserver.pid < 0) {
       goto fork_fail;
    }
