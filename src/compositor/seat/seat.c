@@ -199,10 +199,12 @@ input_event(struct wl_listener *listener, void *data)
       {
          const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
-         const struct wlc_point pos = {
-            ev->touch.x(ev->touch.internal, resolution.w),
-            ev->touch.y(ev->touch.internal, resolution.h)
-         };
+         struct wlc_point pos = {0, 0};
+
+         if (ev->touch.x && ev->touch.y && ev->touch.internal) {
+            pos.x = ev->touch.x(ev->touch.internal, resolution.w);
+            pos.y = ev->touch.y(ev->touch.internal, resolution.h);
+         }
 
          const bool handled = (wlc_interface()->touch.touch ? wlc_interface()->touch.touch(seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos) : false);
 

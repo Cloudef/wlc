@@ -200,19 +200,41 @@ input_event(int fd, uint32_t mask, void *data)
          break;
 
          case LIBINPUT_EVENT_TOUCH_UP:
-         case LIBINPUT_EVENT_TOUCH_DOWN:
-         case LIBINPUT_EVENT_TOUCH_MOTION:
-         case LIBINPUT_EVENT_TOUCH_FRAME:
-         case LIBINPUT_EVENT_TOUCH_CANCEL:
          {
             struct libinput_event_touch *tev = libinput_event_get_touch_event(event);
-            struct wlc_input_event ev;
+            struct wlc_input_event ev = {0};
+            ev.type = WLC_INPUT_EVENT_TOUCH;
+            ev.time = libinput_event_touch_get_time(tev);
+            ev.touch.type = wlc_touch_type_for_libinput_type(libinput_event_get_type(event));
+            ev.touch.slot = libinput_event_touch_get_seat_slot(tev);
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
+
+         case LIBINPUT_EVENT_TOUCH_DOWN:
+         case LIBINPUT_EVENT_TOUCH_MOTION:
+         {
+            struct libinput_event_touch *tev = libinput_event_get_touch_event(event);
+            struct wlc_input_event ev = {0};
             ev.type = WLC_INPUT_EVENT_TOUCH;
             ev.time = libinput_event_touch_get_time(tev);
             ev.touch.type = wlc_touch_type_for_libinput_type(libinput_event_get_type(event));
             ev.touch.x = touch_abs_x;
             ev.touch.y = touch_abs_y;
+            ev.touch.internal = tev;
             ev.touch.slot = libinput_event_touch_get_seat_slot(tev);
+            wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
+
+         case LIBINPUT_EVENT_TOUCH_FRAME:
+         case LIBINPUT_EVENT_TOUCH_CANCEL:
+         {
+            struct libinput_event_touch *tev = libinput_event_get_touch_event(event);
+            struct wlc_input_event ev = {0};
+            ev.type = WLC_INPUT_EVENT_TOUCH;
+            ev.time = libinput_event_touch_get_time(tev);
+            ev.touch.type = wlc_touch_type_for_libinput_type(libinput_event_get_type(event));
             wl_signal_emit(&wlc_system_signals()->input, &ev);
          }
          break;
