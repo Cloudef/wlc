@@ -351,7 +351,7 @@ wlc_keyboard_request_key(struct wlc_keyboard *keyboard, uint32_t time, const str
 {
    assert(keyboard && mods);
 
-   if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, false, keyboard->focused.view, time, mods, key, (enum wlc_key_state)state)) {
+   if (WLC_INTERFACE_EMIT_EXCEPT(keyboard.key, true, keyboard->focused.view, time, mods, key, (enum wlc_key_state)state)) {
       if (state == WL_KEYBOARD_KEY_STATE_PRESSED && keyboard->keymap && xkb_keymap_key_repeats(keyboard->keymap->keymap, key + 8))
          begin_repeat(keyboard, false);
       return false;

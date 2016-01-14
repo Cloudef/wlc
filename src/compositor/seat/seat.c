@@ -124,7 +124,7 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
       return;
    }
 
-   if (wlc_keyboard_request_key(&seat->keyboard, ev->time, &seat->keyboard.modifiers, ev->key.code, ev->key.state))
+   if (!wlc_keyboard_request_key(&seat->keyboard, ev->time, &seat->keyboard.modifiers, ev->key.code, ev->key.state))
       return;
 
    wlc_keyboard_key(&seat->keyboard, ev->time, ev->key.code, ev->key.state);
