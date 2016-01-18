@@ -1,0 +1,17 @@
+*.a
+*.pc
+*.so
+*.so.*
+*.swp
+.ycm_extra_conf.py*
+CMakeCache.txt
+CMakeFiles
+CPackConfig.cmake
+CPackSourceConfig.cmake
+CTestTestfile.cmake
+DartConfiguration.tcl
+Makefile
+cmake_install.cmake
+example/example
+tests/resources-test
+wayland-*-protocol.*
