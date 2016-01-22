@@ -261,26 +261,27 @@ xwayland_event(struct wl_listener *listener, void *data)
 }
 
 static void
-attach_surface_to_view_or_create(struct wlc_compositor *compositor, struct wlc_surface *surface, enum wlc_shell_surface_type type, wlc_resource shell_surface)
+attach_surface_to_view_or_create(struct wlc_compositor *compositor, struct wlc_surface *surface, enum wlc_surface_role type, wlc_resource role)
 {
-   assert(compositor && surface && type < WLC_SHELL_SURFACE_TYPE_LAST);
+   assert(compositor && surface && type < WLC_SURFACE_ROLE_LAST);
 
    struct wlc_view *view;
    if (!(view = wlc_compositor_view_for_surface(compositor, surface)))
       return;
 
-   wlc_resource *res[WLC_SHELL_SURFACE_TYPE_LAST] = {
+
+   wlc_resource *res[WLC_SURFACE_ROLE_LAST] = {
       &view->shell_surface,
       &view->xdg_surface,
    };
 
-   const char *name[WLC_SHELL_SURFACE_TYPE_LAST] = {
+   const char *name[WLC_SURFACE_ROLE_LAST] = {
       "shell-surface",
       "xdg-surface",
    };
 
-   *res[type] = shell_surface;
-   wl_resource_set_user_data(wl_resource_from_wlc_resource(shell_surface, name[type]), (void*)convert_to_wlc_handle(view));
+   *res[type] = role;
+   wl_resource_set_user_data(wl_resource_from_wlc_resource(role, name[type]), (void*)convert_to_wlc_handle(view));
 }
 
 static void
@@ -308,7 +309,7 @@ surface_event(struct wl_listener *listener, void *data)
    struct wlc_surface_event *ev = data;
    switch (ev->type) {
       case WLC_SURFACE_EVENT_REQUEST_VIEW_ATTACH:
-         attach_surface_to_view_or_create(compositor, ev->surface, ev->attach.type, ev->attach.shell_surface);
+         attach_surface_to_view_or_create(compositor, ev->surface, ev->attach.type, ev->attach.role);
          break;
 
       case WLC_SURFACE_EVENT_REQUEST_VIEW_POPUP:

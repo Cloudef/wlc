@@ -72,12 +72,12 @@ struct wlc_surface_event {
 
       // WLC_SURFACE_EVENT_REQUEST_VIEW_ATTACH
       struct wlc_surface_event_request_view_attach {
-         enum wlc_shell_surface_type {
+         enum wlc_surface_role {
             WLC_SHELL_SURFACE,
             WLC_XDG_SURFACE,
-            WLC_SHELL_SURFACE_TYPE_LAST
+            WLC_SURFACE_ROLE_LAST
          } type;
-         wlc_resource shell_surface;
+         wlc_resource role;
       } attach;
 
       // WLC_SURFACE_EVENT_REQUEST_VIEW_POPUP
