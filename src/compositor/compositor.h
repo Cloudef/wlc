@@ -8,6 +8,7 @@
 #include "seat/seat.h"
 #include "shell/shell.h"
 #include "shell/xdg-shell.h"
+#include "shell/custom-shell.h"
 #include "xwayland/xwm.h"
 #include "resources/resources.h"
 #include "platform/backend/backend.h"
@@ -20,6 +21,7 @@ struct wlc_compositor {
    struct wlc_seat seat;
    struct wlc_shell shell;
    struct wlc_xdg_shell xdg_shell;
+   struct wlc_custom_shell custom_shell;
    struct wlc_xwm xwm;
    struct wlc_source outputs, views, surfaces, subsurfaces, regions;
 

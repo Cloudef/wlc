@@ -269,15 +269,20 @@ attach_surface_to_view_or_create(struct wlc_compositor *compositor, struct wlc_s
    if (!(view = wlc_compositor_view_for_surface(compositor, surface)))
       return;
 
+   // views without role are ok.
+   if (!role)
+      return;
 
    wlc_resource *res[WLC_SURFACE_ROLE_LAST] = {
       &view->shell_surface,
       &view->xdg_surface,
+      &view->custom_surface,
    };
 
    const char *name[WLC_SURFACE_ROLE_LAST] = {
       "shell-surface",
       "xdg-surface",
+      "custom-surface",
    };
 
    *res[type] = role;
@@ -646,6 +651,7 @@ wlc_compositor_release(struct wlc_compositor *compositor)
    wlc_backend_release(&compositor->backend);
    wlc_shell_release(&compositor->shell);
    wlc_xdg_shell_release(&compositor->xdg_shell);
+   wlc_custom_shell_release(&compositor->custom_shell);
    wlc_seat_release(&compositor->seat);
 
    if (compositor->wl.subcompositor)
@@ -707,6 +713,7 @@ wlc_compositor(struct wlc_compositor *compositor)
    if (!wlc_seat(&compositor->seat) ||
        !wlc_shell(&compositor->shell) ||
        !wlc_xdg_shell(&compositor->xdg_shell) ||
+       !wlc_custom_shell(&compositor->custom_shell) ||
        !wlc_backend(&compositor->backend))
       goto fail;
 

@@ -33,13 +33,6 @@ wlc_resource_from_wl_surface_resource(struct wl_resource *resource)
    return wlc_resource_from_wl_resource(resource);
 }
 
-WLC_API wlc_resource
-wlc_view_get_surface(wlc_handle view)
-{
-   const struct wlc_view *v = convert_from_wlc_handle(view, "view");
-   return (v ? v->surface : 0);
-}
-
 WLC_API const struct wlc_size*
 wlc_surface_get_size(wlc_resource surface)
 {
@@ -51,4 +44,18 @@ WLC_API void
 wlc_surface_render(wlc_resource surface, const struct wlc_geometry *geometry)
 {
    wlc_output_render_surface(surface, geometry);
+}
+
+WLC_API struct wl_resource*
+wlc_view_get_role(wlc_handle view)
+{
+   const struct wlc_view *v = convert_from_wlc_handle(view, "view");
+   return (v ? wl_resource_from_wlc_resource(v->custom_surface, "custom-surface") : 0);
+}
+
+WLC_API wlc_resource
+wlc_view_get_surface(wlc_handle view)
+{
+   const struct wlc_view *v = convert_from_wlc_handle(view, "view");
+   return (v ? v->surface : 0);
 }

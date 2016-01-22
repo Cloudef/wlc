@@ -41,6 +41,7 @@ struct wlc_view {
    wlc_resource shell_surface;
    wlc_resource xdg_surface;
    wlc_resource xdg_popup;
+   wlc_resource custom_surface;
 
    struct {
       struct chck_string app_id;

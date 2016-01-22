@@ -75,6 +75,7 @@ struct wlc_surface_event {
          enum wlc_surface_role {
             WLC_SHELL_SURFACE,
             WLC_XDG_SURFACE,
+            WLC_CUSTOM_SURFACE,
             WLC_SURFACE_ROLE_LAST
          } type;
          wlc_resource role;

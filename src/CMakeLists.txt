@@ -41,6 +41,7 @@ set(sources
    compositor/seat/touch.c
    compositor/shell/shell.c
    compositor/shell/xdg-shell.c
+   compositor/shell/custom-shell.c
    compositor/view.c
    platform/backend/backend.c
    platform/backend/drm.c
