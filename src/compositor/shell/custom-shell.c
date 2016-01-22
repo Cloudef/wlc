@@ -15,7 +15,7 @@
 static struct wlc_custom_shell *_g_custom_shell;
 
 WLC_API wlc_handle
-wlc_view_from_surface(wlc_resource surface, struct wl_client *client, const struct wl_interface *interface, const void *implementation)
+wlc_view_from_surface(wlc_resource surface, struct wl_client *client, const struct wl_interface *interface, const void *implementation, uint32_t version, uint32_t id, void *userdata)
 {
    assert(_g_custom_shell);
 
@@ -27,10 +27,10 @@ wlc_view_from_surface(wlc_resource surface, struct wl_client *client, const stru
    if (client || interface || implementation) {
       assert(client && interface && implementation);
 
-      if (!(r = wlc_resource_create(&_g_custom_shell->surfaces, client, interface, 0, 0, 0)))
+      if (!(r = wlc_resource_create(&_g_custom_shell->surfaces, client, interface, version, version, id)))
          return 0;
 
-      wlc_resource_implement(r, implementation, NULL);
+      wlc_resource_implement(r, implementation, userdata);
    }
 
    struct wlc_surface_event ev = { .attach = { .type = WLC_CUSTOM_SURFACE, .role = r }, .surface = s, .type = WLC_SURFACE_EVENT_REQUEST_VIEW_ATTACH };
