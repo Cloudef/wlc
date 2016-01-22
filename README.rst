@@ -139,9 +139,6 @@ And the following depends:
 - libxkbcommon
 - udev
 - libinput
-
-You will also need these for building, but they are optional runtime:
-
 - libx11
 - libxcb
 - xcb-util-image (for xwayland support atm)
