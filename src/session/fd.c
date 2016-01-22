@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <linux/major.h>
+#include <xf86drm.h>
 #include "internal.h"
 #include "macros.h"
 #include "fd.h"
@@ -22,14 +23,6 @@
 #endif
 
 #define DRM_MAJOR 226
-
-static struct {
-   struct {
-      void *handle;
-      int (*drmSetMaster)(int);
-      int (*drmDropMaster)(int);
-   } api;
-} drm;
 
 struct msg_request_fd_open {
    char path[32];
@@ -83,32 +76,6 @@ static struct {
    pid_t child;
    bool has_logind;
 } wlc;
-
-static bool
-drm_load(void)
-{
-   const char *lib = "libdrm.so", *func = NULL;
-
-   if (!(drm.api.handle = dlopen(lib, RTLD_LAZY))) {
-      wlc_log(WLC_LOG_WARN, "%s", dlerror());
-      return false;
-   }
-
-#define load(x) (drm.api.x = dlsym(drm.api.handle, (func = #x)))
-
-   if (!load(drmSetMaster))
-      goto function_pointer_exception;
-   if (!load(drmDropMaster))
-      goto function_pointer_exception;
-
-#undef load
-
-   return true;
-
-function_pointer_exception:
-   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
-   return false;
-}
 
 static ssize_t
 write_fd(int sock, int fd, const void *buffer, ssize_t buffer_size)
@@ -228,8 +195,8 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
    pfd->st_dev = st.st_dev;
    pfd->st_ino = st.st_ino;
 
-   if (pfd->type == WLC_FD_DRM && drm.api.drmSetMaster)
-      drm.api.drmSetMaster(pfd->fd);
+   if (pfd->type == WLC_FD_DRM)
+      drmSetMaster(pfd->fd);
 
    if (pfd->fd < 0)
       wlc_log(WLC_LOG_WARN, "Error opening (%m): %s", path);
@@ -253,8 +220,8 @@ fd_close(dev_t st_dev, ino_t st_ino)
       return;
    }
 
-   if (pfd->type == WLC_FD_DRM && drm.api.drmDropMaster)
-      drm.api.drmDropMaster(pfd->fd);
+   if (pfd->type == WLC_FD_DRM)
+      drmDropMaster(pfd->fd);
 
    close(pfd->fd);
    pfd->fd = -1;
@@ -269,7 +236,7 @@ activate(void)
 
       switch (wlc.fds[i].type) {
          case WLC_FD_DRM:
-            if (!drm.api.drmSetMaster || drm.api.drmSetMaster(wlc.fds[i].fd)) {
+            if (drmSetMaster(wlc.fds[i].fd)) {
                wlc_log(WLC_LOG_WARN, "Could not set master for drm fd (%d)", wlc.fds[i].fd);
                return false;
             }
@@ -292,7 +259,7 @@ deactivate(void)
       if (wlc.fds[i].fd < 0 || wlc.fds[i].type != WLC_FD_DRM)
          continue;
 
-      if (!drm.api.drmDropMaster || drm.api.drmDropMaster(wlc.fds[i].fd)) {
+      if (drmDropMaster(wlc.fds[i].fd)) {
          wlc_log(WLC_LOG_WARN, "Could not drop master for drm fd (%d)", wlc.fds[i].fd);
          return false;
       }
@@ -371,8 +338,8 @@ communicate(int sock, pid_t parent)
       if (wlc.fds[i].fd < 0)
          continue;
 
-      if (wlc.fds[i].type == WLC_FD_DRM && drm.api.drmDropMaster)
-         drm.api.drmDropMaster(wlc.fds[i].fd);
+      if (wlc.fds[i].type == WLC_FD_DRM)
+         drmDropMaster(wlc.fds[i].fd);
 
       close(wlc.fds[i].fd);
    }
@@ -549,12 +516,8 @@ wlc_fd_terminate(void)
       }
 
       wlc.child = 0;
-
-      if (drm.api.handle)
-         dlclose(drm.api.handle);
    }
 
-   memset(&drm, 0, sizeof(drm));
    memset(&wlc, 0, sizeof(wlc));
 }
 
@@ -585,7 +548,6 @@ wlc_fd_init(int argc, char *argv[], bool has_logind)
       for (int i = 0; i < argc; ++i)
          strncpy(argv[i], (i == 0 ? "wlc" : ""), strlen(argv[i]));
 
-      drm_load();
       communicate(sock[1], getppid());
       _exit(EXIT_SUCCESS);
    } else if (wlc.child < 0) {

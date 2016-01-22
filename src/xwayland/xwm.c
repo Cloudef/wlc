@@ -4,6 +4,8 @@
 #include <dlfcn.h>
 #include <xcb/composite.h>
 #include <xcb/xfixes.h>
+#include <xcb/xcbext.h>
+#include <xcb/xcb_image.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include <chck/overflow/overflow.h>
@@ -60,233 +62,13 @@ static struct {
    xcb_atom_t atoms[ATOM_LAST];
    xcb_window_t window, focus;
    xcb_cursor_t cursor;
-
-   struct {
-      void *xcb_handle;
-      void *xcb_composite_handle;
-      void *xcb_xfixes_handle;
-      void *xcb_image_handle;
-
-      xcb_connection_t* (*xcb_connect_to_fd)(int, xcb_auth_info_t*);
-      void (*xcb_disconnect)(xcb_connection_t*);
-      void (*xcb_prefetch_extension_data)(xcb_connection_t*, xcb_extension_t*);
-      int (*xcb_flush)(xcb_connection_t*);
-      int (*xcb_connection_has_error)(xcb_connection_t*);
-      const xcb_setup_t* (*xcb_get_setup)(xcb_connection_t*);
-      xcb_screen_iterator_t (*xcb_setup_roots_iterator)(const xcb_setup_t*);
-      uint32_t (*xcb_generate_id)(xcb_connection_t*);
-      xcb_get_property_cookie_t (*xcb_get_property)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_atom_t, xcb_atom_t, uint32_t, uint32_t);
-      xcb_get_property_reply_t* (*xcb_get_property_reply)(xcb_connection_t*, xcb_get_property_cookie_t, xcb_generic_error_t**);
-      void* (*xcb_get_property_value)(xcb_get_property_reply_t*);
-      int (*xcb_get_property_value_length)(xcb_get_property_reply_t*);
-      xcb_get_geometry_cookie_t (*xcb_get_geometry)(xcb_connection_t*, xcb_drawable_t);
-      xcb_get_geometry_reply_t* (*xcb_get_geometry_reply)(xcb_connection_t*, xcb_get_geometry_cookie_t, xcb_generic_error_t**);
-      xcb_void_cookie_t (*xcb_create_window_checked)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_window_t, int16_t, int16_t, uint16_t, uint16_t, uint16_t, uint16_t, xcb_visualid_t, uint32_t, const uint32_t*);
-      xcb_void_cookie_t (*xcb_destroy_window_checked)(xcb_connection_t*, xcb_window_t);
-      xcb_void_cookie_t (*xcb_map_window_checked)(xcb_connection_t*, xcb_window_t);
-      xcb_void_cookie_t (*xcb_unmap_window_checked)(xcb_connection_t*, xcb_window_t);
-      xcb_void_cookie_t (*xcb_change_property_checked)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_atom_t, xcb_atom_t, uint8_t, uint32_t, const void*);
-      xcb_void_cookie_t (*xcb_change_window_attributes_checked)(xcb_connection_t*, xcb_window_t, uint32_t, const uint32_t*);
-      xcb_void_cookie_t (*xcb_configure_window_checked)(xcb_connection_t*, xcb_window_t, uint16_t, const uint32_t*);
-      xcb_void_cookie_t (*xcb_set_selection_owner_checked)(xcb_connection_t*, xcb_window_t, xcb_atom_t, xcb_timestamp_t);
-      xcb_void_cookie_t (*xcb_set_input_focus_checked)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_timestamp_t);
-      xcb_void_cookie_t (*xcb_kill_client_checked)(xcb_connection_t*, uint32_t);
-      xcb_void_cookie_t (*xcb_send_event_checked)(xcb_connection_t*, uint8_t, xcb_window_t, uint32_t, const char*);
-      xcb_intern_atom_cookie_t (*xcb_intern_atom)(xcb_connection_t*, uint8_t, uint16_t, const char*);
-      xcb_intern_atom_reply_t* (*xcb_intern_atom_reply)(xcb_connection_t*, xcb_intern_atom_cookie_t, xcb_generic_error_t**);
-      xcb_generic_error_t* (*xcb_request_check)(xcb_connection_t*, xcb_void_cookie_t);
-      xcb_generic_event_t* (*xcb_poll_for_event)(xcb_connection_t*);
-      xcb_query_extension_reply_t* (*xcb_get_extension_data)(xcb_connection_t*, xcb_extension_t*);
-
-      xcb_pixmap_t (*xcb_create_pixmap_from_bitmap_data)(xcb_connection_t*, xcb_drawable_t, uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, xcb_gcontext_t*);
-      xcb_void_cookie_t (*xcb_free_pixmap)(xcb_connection_t*, xcb_pixmap_t pixmap);
-      xcb_void_cookie_t (*xcb_create_cursor)(xcb_connection_t*, xcb_cursor_t, xcb_pixmap_t, xcb_pixmap_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t);
-      xcb_void_cookie_t (*xcb_free_cursor)(xcb_connection_t*, xcb_cursor_t);
-
-      xcb_void_cookie_t (*xcb_composite_redirect_subwindows_checked)(xcb_connection_t*, xcb_window_t, uint8_t);
-      xcb_extension_t *xcb_composite_id;
-
-      xcb_xfixes_query_version_cookie_t (*xcb_xfixes_query_version)(xcb_connection_t*, uint32_t, uint32_t);
-      xcb_xfixes_query_version_reply_t* (*xcb_xfixes_query_version_reply)(xcb_connection_t*, xcb_xfixes_query_version_cookie_t, xcb_generic_error_t**);
-      xcb_void_cookie_t (*xcb_xfixes_select_selection_input_checked)(xcb_connection_t*, xcb_window_t, xcb_atom_t, uint32_t);
-      xcb_extension_t *xcb_xfixes_id;
-   } api;
 } x11;
-
-static bool
-xcb_load(void)
-{
-   const char *lib = "libxcb.so", *func = NULL;
-
-   if (!(x11.api.xcb_handle = dlopen(lib, RTLD_LAZY))) {
-      wlc_log(WLC_LOG_WARN, "%s", dlerror());
-      return false;
-   }
-
-#define load(x) (x11.api.x = dlsym(x11.api.xcb_handle, (func = #x)))
-
-   if (!load(xcb_connect_to_fd))
-      goto function_pointer_exception;
-   if (!load(xcb_disconnect))
-      goto function_pointer_exception;
-   if (!load(xcb_prefetch_extension_data))
-      goto function_pointer_exception;
-   if (!load(xcb_flush))
-      goto function_pointer_exception;
-   if (!load(xcb_connection_has_error))
-      goto function_pointer_exception;
-   if (!load(xcb_get_setup))
-      goto function_pointer_exception;
-   if (!load(xcb_setup_roots_iterator))
-      goto function_pointer_exception;
-   if (!load(xcb_generate_id))
-      goto function_pointer_exception;
-   if (!load(xcb_get_property))
-      goto function_pointer_exception;
-   if (!load(xcb_get_property_reply))
-      goto function_pointer_exception;
-   if (!load(xcb_get_property_value))
-      goto function_pointer_exception;
-   if (!load(xcb_get_property_value_length))
-      goto function_pointer_exception;
-   if (!load(xcb_get_geometry))
-      goto function_pointer_exception;
-   if (!load(xcb_get_geometry_reply))
-      goto function_pointer_exception;
-   if (!load(xcb_create_window_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_destroy_window_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_map_window_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_unmap_window_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_change_property_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_change_window_attributes_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_configure_window_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_set_selection_owner_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_set_input_focus_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_kill_client_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_send_event_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_intern_atom))
-      goto function_pointer_exception;
-   if (!load(xcb_intern_atom_reply))
-      goto function_pointer_exception;
-   if (!load(xcb_request_check))
-      goto function_pointer_exception;
-   if (!load(xcb_poll_for_event))
-      goto function_pointer_exception;
-   if (!load(xcb_get_extension_data))
-      goto function_pointer_exception;
-
-   if (!load(xcb_free_pixmap))
-      goto function_pointer_exception;
-   if (!load(xcb_create_cursor))
-      goto function_pointer_exception;
-   if (!load(xcb_free_cursor))
-      goto function_pointer_exception;
-
-#undef load
-
-   return true;
-
-function_pointer_exception:
-   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
-   return false;
-}
-
-static bool
-xcb_composite_load(void)
-{
-   const char *lib = "libxcb-composite.so", *func = NULL;
-
-   if (!(x11.api.xcb_composite_handle = dlopen(lib, RTLD_LAZY))) {
-      wlc_log(WLC_LOG_WARN, "%s", dlerror());
-      return false;
-   }
-
-#define load(x) (x11.api.x = dlsym(x11.api.xcb_composite_handle, (func = #x)))
-
-   if (!load(xcb_composite_redirect_subwindows_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_composite_id))
-      goto function_pointer_exception;
-
-#undef load
-
-   return true;
-
-function_pointer_exception:
-   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
-   return false;
-}
-
-static bool
-xcb_xfixes_load(void)
-{
-   const char *lib = "libxcb-xfixes.so", *func = NULL;
-
-   if (!(x11.api.xcb_xfixes_handle = dlopen(lib, RTLD_LAZY))) {
-      wlc_log(WLC_LOG_WARN, "%s", dlerror());
-      return false;
-   }
-
-#define load(x) (x11.api.x = dlsym(x11.api.xcb_xfixes_handle, (func = #x)))
-
-   if (!load(xcb_xfixes_query_version))
-      goto function_pointer_exception;
-   if (!load(xcb_xfixes_query_version_reply))
-      goto function_pointer_exception;
-   if (!load(xcb_xfixes_select_selection_input_checked))
-      goto function_pointer_exception;
-   if (!load(xcb_xfixes_id))
-      goto function_pointer_exception;
-
-#undef load
-
-   return true;
-
-function_pointer_exception:
-   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
-   return false;
-}
-
-static bool
-xcb_image_load(void)
-{
-   const char *lib = "libxcb-image.so", *func = NULL;
-
-   if (!(x11.api.xcb_image_handle = dlopen(lib, RTLD_LAZY))) {
-      wlc_log(WLC_LOG_WARN, "%s", dlerror());
-      return false;
-   }
-
-#define load(x) (x11.api.x = dlsym(x11.api.xcb_image_handle, (func = #x)))
-
-   if (!load(xcb_create_pixmap_from_bitmap_data))
-      goto function_pointer_exception;
-
-#undef load
-
-   return true;
-
-function_pointer_exception:
-   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
-   return false;
-}
 
 static bool
 xcb_call(const char *func, uint32_t line, xcb_void_cookie_t cookie)
 {
    xcb_generic_error_t *error;
-   if (!(error = x11.api.xcb_request_check(x11.connection, cookie)))
+   if (!(error = xcb_request_check(x11.connection, cookie)))
       return true;
 
    wlc_log(WLC_LOG_ERROR, "xwm: function %s at line %u x11 error code %d", func, line, error->error_code);
@@ -433,11 +215,11 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
       return;
 
    for (uint32_t i = 0; i < LENGTH(props); ++i)
-      cookies[i] = x11.api.xcb_get_property(x11.connection, 0, win->id, props[i].atom, XCB_ATOM_ANY, 0, 2048);
+      cookies[i] = xcb_get_property(x11.connection, 0, win->id, props[i].atom, XCB_ATOM_ANY, 0, 2048);
 
    for (uint32_t i = 0; i < LENGTH(props); ++i) {
       xcb_get_property_reply_t *reply;
-      if (!(reply = x11.api.xcb_get_property_reply(x11.connection, cookies[i], NULL)))
+      if (!(reply = xcb_get_property_reply(x11.connection, cookies[i], NULL)))
          continue;
 
       if (reply->type == XCB_ATOM_NONE) {
@@ -449,15 +231,15 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
          case XCB_ATOM_STRING:
             // Class && Name
             if (props[i].atom == XCB_ATOM_WM_CLASS) {
-               chck_string_set_cstr_with_length(&view->data._class, x11.api.xcb_get_property_value(reply), x11.api.xcb_get_property_value_length(reply), true);
+               chck_string_set_cstr_with_length(&view->data._class, xcb_get_property_value(reply), xcb_get_property_value_length(reply), true);
             } else if (props[i].atom == XCB_ATOM_WM_NAME) {
-               chck_string_set_cstr_with_length(&view->data.title, x11.api.xcb_get_property_value(reply), x11.api.xcb_get_property_value_length(reply), true);
+               chck_string_set_cstr_with_length(&view->data.title, xcb_get_property_value(reply), xcb_get_property_value_length(reply), true);
             }
             break;
          case XCB_ATOM_WINDOW:
          {
             // Transient
-            xcb_window_t *xid = x11.api.xcb_get_property_value(reply);
+            xcb_window_t *xid = xcb_get_property_value(reply);
             set_parent(xwm, win, *xid);
          }
          break;
@@ -468,7 +250,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
          {
             // Window type
             view->type &= ~WLC_BIT_UNMANAGED | ~WLC_BIT_SPLASH | ~WLC_BIT_MODAL;
-            xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
+            xcb_atom_t *atoms = xcb_get_property_value(reply);
             for (uint32_t i = 0; i < reply->value_len; ++i) {
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_UTILITY] ||
@@ -487,7 +269,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
          break;
          case TYPE_WM_PROTOCOLS:
          {
-            xcb_atom_t *atoms = x11.api.xcb_get_property_value(reply);
+            xcb_atom_t *atoms = xcb_get_property_value(reply);
             for (uint32_t i = 0; i < reply->value_len; ++i) {
                if (atoms[i] == x11.atoms[WM_DELETE_WINDOW])
                   win->has_delete_window = true;
@@ -497,7 +279,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
          case TYPE_WM_NORMAL_HINTS:
             break;
          case TYPE_NET_WM_STATE:
-            handle_state(win, x11.api.xcb_get_property_value(reply), reply->value_len, NET_WM_STATE_ADD);
+            handle_state(win, xcb_get_property_value(reply), reply->value_len, NET_WM_STATE_ADD);
             break;
          case TYPE_MOTIF_WM_HINTS:
             // Motif hints
@@ -522,8 +304,8 @@ set_geometry(xcb_window_t window, const struct wlc_geometry *g)
    const uint32_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
    const uint32_t values[] = { g->origin.x, g->origin.y, g->size.w, g->size.h };
    wlc_dlog(WLC_DBG_XWM, "-> Configure x11 window (%u) %ux%u+%d,%d", window, g->size.w, g->size.h, g->origin.x, g->origin.y);
-   XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, window, mask, (uint32_t*)&values));
-   x11.api.xcb_flush(x11.connection);
+   XCB_CALL(xcb_configure_window_checked(x11.connection, window, mask, (uint32_t*)&values));
+   xcb_flush(x11.connection);
 }
 
 static void
@@ -536,7 +318,7 @@ get_geometry(xcb_window_t window, struct wlc_geometry *out_g, uint32_t *out_dept
       *out_depth = 0;
 
    xcb_get_geometry_reply_t *reply;
-   if ((reply = x11.api.xcb_get_geometry_reply(x11.connection, x11.api.xcb_get_geometry(x11.connection, window), NULL))) {
+   if ((reply = xcb_get_geometry_reply(x11.connection, xcb_get_geometry(x11.connection, window), NULL))) {
       if (out_g)
          *out_g = (struct wlc_geometry){ .origin = { reply->x, reply->y }, .size = { reply->width, reply->height } };
 
@@ -610,8 +392,8 @@ focus_window(xcb_window_t window, bool force)
    wlc_dlog(WLC_DBG_FOCUS, "-> xwm focus %u", window);
 
    if (window == 0) {
-      XCB_CALL(x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_CURRENT_TIME));
-      x11.api.xcb_flush(x11.connection);
+      XCB_CALL(xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_CURRENT_TIME));
+      xcb_flush(x11.connection);
       x11.focus = 0;
       return;
    }
@@ -623,10 +405,10 @@ focus_window(xcb_window_t window, bool force)
    m.type = x11.atoms[WM_PROTOCOLS];
    m.data.data32[0] = x11.atoms[WM_TAKE_FOCUS];
    m.data.data32[1] = XCB_TIME_CURRENT_TIME;
-   XCB_CALL(x11.api.xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, (char*)&m));
-   XCB_CALL(x11.api.xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, window, XCB_CURRENT_TIME));
-   XCB_CALL(x11.api.xcb_configure_window_checked(x11.connection, window, XCB_CONFIG_WINDOW_STACK_MODE, (uint32_t[]){XCB_STACK_MODE_ABOVE}));
-   x11.api.xcb_flush(x11.connection);
+   XCB_CALL(xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, (char*)&m));
+   XCB_CALL(xcb_set_input_focus_checked(x11.connection, XCB_INPUT_FOCUS_POINTER_ROOT, window, XCB_CURRENT_TIME));
+   XCB_CALL(xcb_configure_window_checked(x11.connection, window, XCB_CONFIG_WINDOW_STACK_MODE, (uint32_t[]){XCB_STACK_MODE_ABOVE}));
+   xcb_flush(x11.connection);
    x11.focus = window;
 }
 
@@ -641,7 +423,7 @@ delete_window(xcb_window_t window)
    ev.type = x11.atoms[WM_PROTOCOLS];
    ev.data.data32[0] = x11.atoms[WM_DELETE_WINDOW];
    ev.data.data32[1] = XCB_CURRENT_TIME;
-   XCB_CALL(x11.api.xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_NO_EVENT, (char*)&ev));
+   XCB_CALL(xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_NO_EVENT, (char*)&ev));
 }
 
 WLC_PURE enum wlc_surface_format
@@ -662,10 +444,10 @@ wlc_x11_window_close(struct wlc_x11_window *win)
    if (win->has_delete_window) {
       delete_window(win->id);
    } else {
-      XCB_CALL(x11.api.xcb_kill_client_checked(x11.connection, win->id));
+      XCB_CALL(xcb_kill_client_checked(x11.connection, win->id));
    }
 
-   x11.api.xcb_flush(x11.connection);
+   xcb_flush(x11.connection);
 }
 
 void
@@ -688,7 +470,7 @@ wlc_x11_window_set_state(struct wlc_x11_window *win, enum wlc_view_state_bit sta
       return;
 
    if (state == WLC_BIT_FULLSCREEN)
-      XCB_CALL(x11.api.xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, win->id, x11.atoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, (toggle ? 1 : 0), (toggle ? &x11.atoms[NET_WM_STATE_FULLSCREEN] : NULL)));
+      XCB_CALL(xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, win->id, x11.atoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, (toggle ? 1 : 0), (toggle ? &x11.atoms[NET_WM_STATE_FULLSCREEN] : NULL)));
 }
 
 bool
@@ -739,7 +521,7 @@ x11_event(int fd, uint32_t mask, void *data)
 
    int count = 0;
    xcb_generic_event_t *event;
-   while ((event = x11.api.xcb_poll_for_event(x11.connection))) {
+   while ((event = xcb_poll_for_event(x11.connection))) {
       bool xfixes_event = false;
       switch (event->response_type - x11.xfixes->first_event) {
          case XCB_XFIXES_SELECTION_NOTIFY:
@@ -792,8 +574,8 @@ x11_event(int fd, uint32_t mask, void *data)
             {
                xcb_map_request_event_t *ev = (xcb_map_request_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_MAP_REQUEST (%u)", ev->window);
-               XCB_CALL(x11.api.xcb_change_window_attributes_checked(x11.connection, ev->window, XCB_CW_EVENT_MASK, &(uint32_t){XCB_EVENT_MASK_FOCUS_CHANGE | XCB_EVENT_MASK_PROPERTY_CHANGE}));
-               XCB_CALL(x11.api.xcb_map_window_checked(x11.connection, ev->window));
+               XCB_CALL(xcb_change_window_attributes_checked(x11.connection, ev->window, XCB_CW_EVENT_MASK, &(uint32_t){XCB_EVENT_MASK_FOCUS_CHANGE | XCB_EVENT_MASK_PROPERTY_CHANGE}));
+               XCB_CALL(xcb_map_window_checked(x11.connection, ev->window));
             }
             break;
 
@@ -885,7 +667,7 @@ x11_event(int fd, uint32_t mask, void *data)
       count += 1;
    }
 
-   x11.api.xcb_flush(x11.connection);
+   xcb_flush(x11.connection);
    return count;
 }
 
@@ -917,25 +699,13 @@ static void
 x11_terminate(void)
 {
    if (x11.cursor)
-      x11.api.xcb_free_cursor(x11.connection, x11.cursor);
+      xcb_free_cursor(x11.connection, x11.cursor);
 
    if (x11.window)
-      XCB_CALL(x11.api.xcb_destroy_window_checked(x11.connection, x11.window));
+      XCB_CALL(xcb_destroy_window_checked(x11.connection, x11.window));
 
    if (x11.connection)
-      x11.api.xcb_disconnect(x11.connection);
-
-   if (x11.api.xcb_handle)
-      dlclose(x11.api.xcb_handle);
-
-   if (x11.api.xcb_composite_handle)
-      dlclose(x11.api.xcb_composite_handle);
-
-   if (x11.api.xcb_xfixes_handle)
-      dlclose(x11.api.xcb_xfixes_handle);
-
-   if (x11.api.xcb_image_handle)
-      dlclose(x11.api.xcb_image_handle);
+      xcb_disconnect(x11.connection);
 
    memset(&x11, 0, sizeof(x11));
 }
@@ -946,14 +716,11 @@ x11_init(void)
    if (x11.connection)
       return true;
 
-   if (!x11.api.xcb_handle && (!xcb_load() || !xcb_composite_load() || !xcb_xfixes_load() || !xcb_image_load()))
-      goto fail;
-
-   x11.connection = x11.api.xcb_connect_to_fd(wlc_xwayland_get_fd(), NULL);
-   if (x11.api.xcb_connection_has_error(x11.connection))
+   x11.connection = xcb_connect_to_fd(wlc_xwayland_get_fd(), NULL);
+   if (xcb_connection_has_error(x11.connection))
       goto xcb_connection_fail;
 
-   x11.api.xcb_prefetch_extension_data(x11.connection, x11.api.xcb_composite_id);
+   xcb_prefetch_extension_data(x11.connection, &xcb_composite_id);
 
    struct {
       const char *name;
@@ -997,13 +764,13 @@ x11_init(void)
 
    xcb_intern_atom_cookie_t atom_cookies[ATOM_LAST];
    for (uint32_t i = 0; i < ATOM_LAST; ++i)
-      atom_cookies[map[i].atom] = x11.api.xcb_intern_atom(x11.connection, 0, strlen(map[i].name), map[i].name);
+      atom_cookies[map[i].atom] = xcb_intern_atom(x11.connection, 0, strlen(map[i].name), map[i].name);
 
-   const xcb_setup_t *setup = x11.api.xcb_get_setup(x11.connection);
-   xcb_screen_iterator_t screen_iterator = x11.api.xcb_setup_roots_iterator(setup);
+   const xcb_setup_t *setup = xcb_get_setup(x11.connection);
+   xcb_screen_iterator_t screen_iterator = xcb_setup_roots_iterator(setup);
    x11.screen = screen_iterator.data;
 
-   if (!(x11.cursor = x11.api.xcb_generate_id(x11.connection)))
+   if (!(x11.cursor = xcb_generate_id(x11.connection)))
       goto cursor_fail;
 
    {
@@ -1022,37 +789,37 @@ x11_init(void)
          0x83, 0x03, 0x01, 0x01
       };
 
-      xcb_pixmap_t cp = x11.api.xcb_create_pixmap_from_bitmap_data(x11.connection, x11.screen->root, data, 14, 14, 1, 0, 0, 0);
-      xcb_pixmap_t mp = x11.api.xcb_create_pixmap_from_bitmap_data(x11.connection, x11.screen->root, mask, 14, 14, 1, 0, 0, 0);
-      x11.api.xcb_create_cursor(x11.connection, x11.cursor, cp, mp, 0, 0, 0, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0);
-      x11.api.xcb_free_pixmap(x11.connection, cp);
-      x11.api.xcb_free_pixmap(x11.connection, mp);
+      xcb_pixmap_t cp = xcb_create_pixmap_from_bitmap_data(x11.connection, x11.screen->root, data, 14, 14, 1, 0, 0, 0);
+      xcb_pixmap_t mp = xcb_create_pixmap_from_bitmap_data(x11.connection, x11.screen->root, mask, 14, 14, 1, 0, 0, 0);
+      xcb_create_cursor(x11.connection, x11.cursor, cp, mp, 0, 0, 0, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0);
+      xcb_free_pixmap(x11.connection, cp);
+      xcb_free_pixmap(x11.connection, mp);
    }
 
    uint32_t values[] = { XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_PROPERTY_CHANGE, x11.cursor };
-   if (!XCB_CALL(x11.api.xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK | XCB_CW_CURSOR, values)))
+   if (!XCB_CALL(xcb_change_window_attributes_checked(x11.connection, x11.screen->root, XCB_CW_EVENT_MASK | XCB_CW_CURSOR, values)))
       goto change_attributes_fail;
 
-   if (!(x11.xfixes = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_xfixes_id)) || !x11.xfixes->present)
+   if (!(x11.xfixes = xcb_get_extension_data(x11.connection, &xcb_xfixes_id)) || !x11.xfixes->present)
       goto xfixes_extension_fail;
 
    xcb_xfixes_query_version_reply_t *xfixes_reply;
-   if (!(xfixes_reply = x11.api.xcb_xfixes_query_version_reply(x11.connection, x11.api.xcb_xfixes_query_version(x11.connection, XCB_XFIXES_MAJOR_VERSION, XCB_XFIXES_MINOR_VERSION), NULL)))
+   if (!(xfixes_reply = xcb_xfixes_query_version_reply(x11.connection, xcb_xfixes_query_version(x11.connection, XCB_XFIXES_MAJOR_VERSION, XCB_XFIXES_MINOR_VERSION), NULL)))
       goto xfixes_extension_fail;
 
    wlc_log(WLC_LOG_INFO, "xfixes (%d.%d)", xfixes_reply->major_version, xfixes_reply->minor_version);
    free(xfixes_reply);
 
    const xcb_query_extension_reply_t *composite_extension;
-   if (!(composite_extension = x11.api.xcb_get_extension_data(x11.connection, x11.api.xcb_composite_id)) || !composite_extension->present)
+   if (!(composite_extension = xcb_get_extension_data(x11.connection, &xcb_composite_id)) || !composite_extension->present)
       goto composite_extension_fail;
 
-   if (!XCB_CALL(x11.api.xcb_composite_redirect_subwindows_checked(x11.connection, x11.screen->root, XCB_COMPOSITE_REDIRECT_MANUAL)))
+   if (!XCB_CALL(xcb_composite_redirect_subwindows_checked(x11.connection, x11.screen->root, XCB_COMPOSITE_REDIRECT_MANUAL)))
       goto redirect_subwindows_fail;
 
    for (uint32_t i = 0; i < ATOM_LAST; ++i) {
       xcb_generic_error_t *error;
-      xcb_intern_atom_reply_t *atom_reply = x11.api.xcb_intern_atom_reply(x11.connection, atom_cookies[map[i].atom], &error);
+      xcb_intern_atom_reply_t *atom_reply = xcb_intern_atom_reply(x11.connection, atom_cookies[map[i].atom], &error);
 
       if (atom_reply && !error)
          x11.atoms[map[i].atom] = atom_reply->atom;
@@ -1064,10 +831,10 @@ x11_init(void)
          goto atom_get_fail;
    }
 
-   if (!(x11.window = x11.api.xcb_generate_id(x11.connection)))
+   if (!(x11.window = xcb_generate_id(x11.connection)))
       goto window_fail;
 
-   XCB_CALL(x11.api.xcb_create_window_checked(
+   XCB_CALL(xcb_create_window_checked(
                x11.connection, XCB_COPY_FROM_PARENT, x11.window, x11.screen->root,
                0, 0, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, x11.screen->root_visual,
                XCB_CW_EVENT_MASK, (uint32_t[]){XCB_EVENT_MASK_PROPERTY_CHANGE}));
@@ -1096,20 +863,20 @@ x11_init(void)
       x11.atoms[NET_WM_WINDOW_TYPE_NORMAL],
    };
 
-   XCB_CALL(x11.api.xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTED], XCB_ATOM_ATOM, 32, LENGTH(supported), supported));
-   XCB_CALL(x11.api.xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window));
-   XCB_CALL(x11.api.xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window));
-   XCB_CALL(x11.api.xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, strlen("xwlc"), "xwlc"));
-   XCB_CALL(x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[CLIPBOARD_MANAGER], XCB_CURRENT_TIME));
-   XCB_CALL(x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[WM_S0], XCB_CURRENT_TIME));
-   XCB_CALL(x11.api.xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[NET_WM_S0], XCB_CURRENT_TIME));
+   XCB_CALL(xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTED], XCB_ATOM_ATOM, 32, LENGTH(supported), supported));
+   XCB_CALL(xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, x11.screen->root, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window));
+   XCB_CALL(xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_SUPPORTING_WM_CHECK], XCB_ATOM_WINDOW, 32, 1, &x11.window));
+   XCB_CALL(xcb_change_property_checked(x11.connection, XCB_PROP_MODE_REPLACE, x11.window, x11.atoms[NET_WM_NAME], x11.atoms[UTF8_STRING], 8, strlen("xwlc"), "xwlc"));
+   XCB_CALL(xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[CLIPBOARD_MANAGER], XCB_CURRENT_TIME));
+   XCB_CALL(xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[WM_S0], XCB_CURRENT_TIME));
+   XCB_CALL(xcb_set_selection_owner_checked(x11.connection, x11.window, x11.atoms[NET_WM_S0], XCB_CURRENT_TIME));
 
    uint32_t mask = XCB_XFIXES_SELECTION_EVENT_MASK_SET_SELECTION_OWNER |
                    XCB_XFIXES_SELECTION_EVENT_MASK_SELECTION_WINDOW_DESTROY |
                    XCB_XFIXES_SELECTION_EVENT_MASK_SELECTION_CLIENT_CLOSE;
-   XCB_CALL(x11.api.xcb_xfixes_select_selection_input_checked(x11.connection, x11.window, x11.atoms[CLIPBOARD], mask));
+   XCB_CALL(xcb_xfixes_select_selection_input_checked(x11.connection, x11.window, x11.atoms[CLIPBOARD], mask));
 
-   x11.api.xcb_flush(x11.connection);
+   xcb_flush(x11.connection);
    return true;
 
 xcb_connection_fail:

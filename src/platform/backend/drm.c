@@ -51,138 +51,12 @@ struct drm_surface {
 
 static struct {
    struct gbm_device *device;
-
-   struct {
-      void *handle;
-
-      struct gbm_device* (*gbm_create_device)(int);
-      void (*gbm_device_destroy)(struct gbm_device*);
-      struct gbm_surface* (*gbm_surface_create)(struct gbm_device*, uint32_t, uint32_t, uint32_t, uint32_t);
-      void (*gbm_surface_destroy)(struct gbm_surface*);
-      uint32_t (*gbm_bo_get_width)(struct gbm_bo*);
-      uint32_t (*gbm_bo_get_height)(struct gbm_bo*);
-      uint32_t (*gbm_bo_get_stride)(struct gbm_bo*);
-      union gbm_bo_handle (*gbm_bo_get_handle)(struct gbm_bo*);
-      int (*gbm_surface_has_free_buffers)(struct gbm_surface*);
-      struct gbm_bo* (*gbm_surface_lock_front_buffer)(struct gbm_surface*);
-      int (*gbm_surface_release_buffer)(struct gbm_surface*, struct gbm_bo*);
-   } api;
 } gbm;
 
 static struct {
    int fd;
    struct wl_event_source *event_source;
-
-   struct {
-      void *handle;
-
-      int (*drmIoctl)(int fd, unsigned long request, void *arg);
-      int (*drmModeAddFB)(int, uint32_t, uint32_t, uint8_t, uint8_t, uint32_t, uint32_t, uint32_t*);
-      int (*drmModeRmFB)(int, uint32_t);
-      int (*drmModePageFlip)(int, uint32_t, uint32_t, uint32_t, void*);
-      int (*drmModeSetCrtc)(int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t*, int, drmModeModeInfoPtr);
-      int (*drmHandleEvent)(int, drmEventContextPtr);
-      drmModeResPtr (*drmModeGetResources)(int);
-      drmModeCrtcPtr (*drmModeGetCrtc)(int, uint32_t);
-      void (*drmModeFreeCrtc)(drmModeCrtcPtr);
-      drmModeConnectorPtr (*drmModeGetConnector)(int, uint32_t);
-      void (*drmModeFreeConnector)(drmModeConnectorPtr);
-      drmModeEncoderPtr (*drmModeGetEncoder)(int, uint32_t);
-      void (*drmModeFreeEncoder)(drmModeEncoderPtr);
-   } api;
 } drm;
-
-static bool
-gbm_load(void)
-{
-   const char *lib = "libgbm.so", *func = NULL;
-
-   if (!(gbm.api.handle = dlopen(lib, RTLD_LAZY))) {
-      wlc_log(WLC_LOG_WARN, "%s", dlerror());
-      return false;
-   }
-
-#define load(x) (gbm.api.x = dlsym(gbm.api.handle, (func = #x)))
-
-   if (!load(gbm_create_device))
-      goto function_pointer_exception;
-   if (!load(gbm_device_destroy))
-      goto function_pointer_exception;
-   if (!load(gbm_surface_create))
-      goto function_pointer_exception;
-   if (!load(gbm_surface_destroy))
-      goto function_pointer_exception;
-   if (!load(gbm_bo_get_handle))
-      goto function_pointer_exception;
-   if (!load(gbm_bo_get_width))
-      goto function_pointer_exception;
-   if (!load(gbm_bo_get_height))
-      goto function_pointer_exception;
-   if (!load(gbm_bo_get_stride))
-      goto function_pointer_exception;
-   if (!load(gbm_surface_has_free_buffers))
-      goto function_pointer_exception;
-   if (!load(gbm_surface_lock_front_buffer))
-      goto function_pointer_exception;
-   if (!load(gbm_surface_release_buffer))
-      goto function_pointer_exception;
-
-#undef load
-
-   return true;
-
-function_pointer_exception:
-   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
-   return false;
-}
-
-static bool
-drm_load(void)
-{
-   const char *lib = "libdrm.so", *func = NULL;
-
-   if (!(drm.api.handle = dlopen(lib, RTLD_LAZY))) {
-      wlc_log(WLC_LOG_WARN, "%s", dlerror());
-      return false;
-   }
-
-#define load(x) (drm.api.x = dlsym(drm.api.handle, (func = #x)))
-
-   if (!load(drmIoctl))
-      goto function_pointer_exception;
-   if (!load(drmModeAddFB))
-      goto function_pointer_exception;
-   if (!load(drmModeRmFB))
-      goto function_pointer_exception;
-   if (!load(drmModePageFlip))
-      goto function_pointer_exception;
-   if (!load(drmModeSetCrtc))
-      goto function_pointer_exception;
-   if (!load(drmHandleEvent))
-      goto function_pointer_exception;
-   if (!load(drmModeGetResources))
-      goto function_pointer_exception;
-   if (!load(drmModeGetCrtc))
-      goto function_pointer_exception;
-   if (!load(drmModeFreeCrtc))
-      goto function_pointer_exception;
-   if (!load(drmModeGetConnector))
-      goto function_pointer_exception;
-   if (!load(drmModeFreeConnector))
-      goto function_pointer_exception;
-   if (!load(drmModeGetEncoder))
-      goto function_pointer_exception;
-   if (!load(drmModeFreeEncoder))
-      goto function_pointer_exception;
-
-#undef load
-
-   return true;
-
-function_pointer_exception:
-   wlc_log(WLC_LOG_WARN, "Could not load function '%s' from '%s'", func, lib);
-   return false;
-}
 
 static void
 release_fb(struct gbm_surface *surface, struct drm_fb *fb)
@@ -190,10 +64,10 @@ release_fb(struct gbm_surface *surface, struct drm_fb *fb)
    assert(surface && fb);
 
    if (fb->fd > 0)
-      drm.api.drmModeRmFB(drm.fd, fb->fd);
+      drmModeRmFB(drm.fd, fb->fd);
 
    if (fb->bo)
-      gbm.api.gbm_surface_release_buffer(surface, fb->bo);
+      gbm_surface_release_buffer(surface, fb->bo);
 
    fb->bo = NULL;
    fb->fd = 0;
@@ -228,7 +102,7 @@ drm_event(int fd, uint32_t mask, void *data)
    memset(&evctx, 0, sizeof(evctx));
    evctx.version = DRM_EVENT_CONTEXT_VERSION;
    evctx.page_flip_handler = page_flip_handler;
-   drm.api.drmHandleEvent(fd, &evctx);
+   drmHandleEvent(fd, &evctx);
    return 0;
 }
 
@@ -237,18 +111,18 @@ create_fb(struct gbm_surface *surface, struct drm_fb *fb)
 {
    assert(surface && fb);
 
-   if (!gbm.api.gbm_surface_has_free_buffers(surface))
+   if (!gbm_surface_has_free_buffers(surface))
       goto no_buffers;
 
-   if (!(fb->bo = gbm.api.gbm_surface_lock_front_buffer(surface)))
+   if (!(fb->bo = gbm_surface_lock_front_buffer(surface)))
       goto failed_to_lock;
 
-   uint32_t width = gbm.api.gbm_bo_get_width(fb->bo);
-   uint32_t height = gbm.api.gbm_bo_get_height(fb->bo);
-   uint32_t handle = gbm.api.gbm_bo_get_handle(fb->bo).u32;
-   uint32_t stride = gbm.api.gbm_bo_get_stride(fb->bo);
+   uint32_t width = gbm_bo_get_width(fb->bo);
+   uint32_t height = gbm_bo_get_height(fb->bo);
+   uint32_t handle = gbm_bo_get_handle(fb->bo).u32;
+   uint32_t stride = gbm_bo_get_stride(fb->bo);
 
-   if (drm.api.drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &fb->fd))
+   if (drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &fb->fd))
       goto failed_to_create_fb;
 
    fb->stride = stride;
@@ -283,13 +157,13 @@ page_flip(struct wlc_backend_surface *bsurface)
       return false;
 
    if (fb->stride != dsurface->stride) {
-      if (drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[o->active.mode]))
+      if (drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[o->active.mode]))
          goto set_crtc_fail;
 
       dsurface->stride = fb->stride;
    }
 
-   if (drm.api.drmModePageFlip(drm.fd, dsurface->crtc->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, bsurface))
+   if (drmModePageFlip(drm.fd, dsurface->crtc->crtc_id, fb->fd, DRM_MODE_PAGE_FLIP_EVENT, bsurface))
       goto failed_to_page_flip;
 
    dsurface->flipping = true;
@@ -311,7 +185,7 @@ surface_sleep(struct wlc_backend_surface *bsurface, bool sleep)
    struct drm_surface *dsurface = bsurface->internal;
 
    if (sleep) {
-      drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
+      drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
       dsurface->stride = 0;
    }
 }
@@ -323,19 +197,19 @@ surface_release(struct wlc_backend_surface *bsurface)
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
    release_fb(dsurface->surface, fb);
 
-   drm.api.drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, dsurface->crtc->buffer_id, dsurface->crtc->x, dsurface->crtc->y, &dsurface->connector->connector_id, 1, &dsurface->crtc->mode);
+   drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, dsurface->crtc->buffer_id, dsurface->crtc->x, dsurface->crtc->y, &dsurface->connector->connector_id, 1, &dsurface->crtc->mode);
 
    if (dsurface->crtc)
-      drm.api.drmModeFreeCrtc(dsurface->crtc);
+      drmModeFreeCrtc(dsurface->crtc);
 
    if (dsurface->surface)
-      gbm.api.gbm_surface_destroy(dsurface->surface);
+      gbm_surface_destroy(dsurface->surface);
 
    if (dsurface->encoder)
-      drm.api.drmModeFreeEncoder(dsurface->encoder);
+      drmModeFreeEncoder(dsurface->encoder);
 
    if (dsurface->connector)
-      drm.api.drmModeFreeConnector(dsurface->connector);
+      drmModeFreeConnector(dsurface->connector);
 
    wlc_log(WLC_LOG_INFO, "Released drm surface (%p)", bsurface);
 }
@@ -368,18 +242,18 @@ static drmModeEncoder*
 find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *connector, int32_t *out_crtc_id)
 {
    assert(resources && connector && out_crtc_id);
-   drmModeEncoder *encoder = drm.api.drmModeGetEncoder(fd, connector->encoder_id);
+   drmModeEncoder *encoder = drmModeGetEncoder(fd, connector->encoder_id);
 
    if (encoder) {
       *out_crtc_id = encoder->crtc_id;
       return encoder;
    } else {
-      drm.api.drmModeFreeEncoder(encoder);
+      drmModeFreeEncoder(encoder);
       encoder = NULL;
    }
 
    for (int e = 0; e < resources->count_encoders; ++e) {
-      if (!(encoder = drm.api.drmModeGetEncoder(fd, resources->encoders[e])))
+      if (!(encoder = drmModeGetEncoder(fd, resources->encoders[e])))
          continue;
 
       for (int c = 0; c < resources->count_crtcs; ++c) {
@@ -390,7 +264,7 @@ find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *conn
          return encoder;
       }
 
-      drm.api.drmModeFreeEncoder(encoder);
+      drmModeFreeEncoder(encoder);
    }
 
    return NULL;
@@ -427,21 +301,21 @@ static bool
 query_drm(int fd, struct chck_iter_pool *out_infos)
 {
    drmModeRes *resources;
-   if (!(resources = drm.api.drmModeGetResources(fd))) {
+   if (!(resources = drmModeGetResources(fd))) {
       wlc_log(WLC_LOG_WARN, "Failed to get drm resources");
       goto resources_fail;
    }
 
    for (int c = 0; c < resources->count_connectors; c++) {
       drmModeConnector *connector;
-      if (!(connector = drm.api.drmModeGetConnector(fd, resources->connectors[c]))) {
+      if (!(connector = drmModeGetConnector(fd, resources->connectors[c]))) {
          wlc_log(WLC_LOG_WARN, "Failed to get connector %d", c);
          continue;
       }
 
       if (connector->connection != DRM_MODE_CONNECTED || connector->count_modes <= 0) {
          wlc_log(WLC_LOG_WARN, "Connector %d is not connected or has no modes", c);
-         drm.api.drmModeFreeConnector(connector);
+         drmModeFreeConnector(connector);
          continue;
       }
 
@@ -449,23 +323,23 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
       drmModeEncoder *encoder;
       if (!(encoder = find_encoder_for_connector(fd, resources, connector, &crtc_id))) {
          wlc_log(WLC_LOG_WARN, "Failed to find encoder for connector %d", c);
-         drm.api.drmModeFreeConnector(connector);
+         drmModeFreeConnector(connector);
          continue;
       }
 
       drmModeCrtc *crtc;
-      if (!(crtc = drm.api.drmModeGetCrtc(drm.fd, crtc_id))) {
+      if (!(crtc = drmModeGetCrtc(drm.fd, crtc_id))) {
          wlc_log(WLC_LOG_WARN, "Failed to get crtc for connector %d (with id: %d)", c, crtc_id);
-         drm.api.drmModeFreeEncoder(encoder);
-         drm.api.drmModeFreeConnector(connector);
+         drmModeFreeEncoder(encoder);
+         drmModeFreeConnector(connector);
          continue;
       }
 
       struct drm_output_information *info;
       if (!(info = chck_iter_pool_push_back(out_infos, NULL))) {
-         drm.api.drmModeFreeCrtc(crtc);
-         drm.api.drmModeFreeEncoder(encoder);
-         drm.api.drmModeFreeConnector(connector);
+         drmModeFreeCrtc(crtc);
+         drmModeFreeEncoder(encoder);
+         drmModeFreeConnector(connector);
          continue;
       }
 
@@ -523,13 +397,7 @@ terminate(void)
       wl_event_source_remove(drm.event_source);
 
    if (gbm.device)
-      gbm.api.gbm_device_destroy(gbm.device);
-
-   if (drm.api.handle)
-      dlclose(drm.api.handle);
-
-   if (gbm.api.handle)
-      dlclose(gbm.api.handle);
+      gbm_device_destroy(gbm.device);
 
    wlc_fd_close(drm.fd);
 
@@ -590,7 +458,7 @@ update_outputs(struct chck_pool *outputs)
          continue;
 
       struct gbm_surface *surface;
-      if (!(surface = gbm.api.gbm_surface_create(gbm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
+      if (!(surface = gbm_surface_create(gbm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
          continue;
 
       count += (add_output(gbm.device, surface, info) ? 1 : 0);
@@ -604,9 +472,6 @@ bool
 wlc_drm(struct wlc_backend *backend)
 {
    drm.fd = -1;
-
-   if (!gbm_load() || !drm_load())
-      goto fail;
 
    const char *device = getenv("WLC_DRM_DEVICE");
    device = (chck_cstr_is_empty(device) ? "card0" : device);
@@ -629,7 +494,7 @@ wlc_drm(struct wlc_backend *backend)
     * Workaround this by dlopen()'ing libglapi with RTLD_GLOBAL. */
    dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
 
-   if (!(gbm.device = gbm.api.gbm_create_device(drm.fd)))
+   if (!(gbm.device = gbm_create_device(drm.fd)))
       goto gbm_device_fail;
 
    if (!(drm.event_source = wl_event_loop_add_fd(wlc_event_loop(), drm.fd, WL_EVENT_READABLE, drm_event, NULL)))

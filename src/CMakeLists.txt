@@ -70,6 +70,7 @@ if (DBUS_FOUND)
    add_definitions(-DDBUS_DISABLE_DEPRECATED ${DBUS_DEFINITIONS})
    include_directories(${DBUS_INCLUDE_DIRS})
    list(APPEND sources session/dbus.c)
+   list(APPEND libs ${DBUS_LIBRARIES})
 endif ()
 
 if (SYSTEMD_FOUND)
@@ -79,6 +80,7 @@ if (SYSTEMD_FOUND)
    if (DBUS_FOUND)
       add_definitions(-DHAS_LOGIND)
       list(APPEND sources session/logind.c)
+      list(APPEND libs ${SYSTEMD_LIBRARIES})
    else ()
       message("Dbus was not found, so logind is disabled")
    endif ()
@@ -108,8 +110,15 @@ target_link_libraries(wlc
    ${XKBCOMMON_LIBRARIES}
    ${LIBINPUT_LIBRARIES}
    ${UDEV_LIBRARIES}
+   ${X11_LIBRARIES}
+   ${XCB_LIBRARIES}
+   ${GLESv2_LIBRARIES}
+   ${EGL_LIBRARIES}
+   ${DRM_LIBRARIES}
+   ${GBM_LIBRARIES}
    ${MATH_LIBRARY}
    ${CMAKE_DL_LIBS}
+   ${libs}
    )
 
 # Combine wlc-tests for tests, it's static so it has all symbols visible
@@ -123,8 +132,15 @@ target_link_libraries(wlc-tests
    ${XKBCOMMON_LIBRARIES}
    ${LIBINPUT_LIBRARIES}
    ${UDEV_LIBRARIES}
+   ${X11_LIBRARIES}
+   ${XCB_LIBRARIES}
+   ${GLESv2_LIBRARIES}
+   ${EGL_LIBRARIES}
+   ${DRM_LIBRARIES}
+   ${GBM_LIBRARIES}
    ${MATH_LIBRARY}
    ${CMAKE_DL_LIBS}
+   ${libs}
    )
 
 # Parse soversion
