@@ -34,7 +34,7 @@ struct wlc_surface {
    wlc_resource parent;
 
    /* Set if this surface is bind to view */
-   wlc_resource view;
+   wlc_handle view;
 
    /* Current output the surface is attached to */
    wlc_resource output;
