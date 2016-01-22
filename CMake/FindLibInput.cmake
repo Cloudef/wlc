@@ -50,6 +50,12 @@ if (n EQUAL 3)
    list(GET VERSION_LIST 0 LIBINPUT_VERSION_MAJOR)
    list(GET VERSION_LIST 1 LIBINPUT_VERSION_MINOR)
    list(GET VERSION_LIST 2 LIBINPUT_VERSION_MICRO)
+else ()
+   set(LIBINPUT_VERSION "9999.9999.9999")
+   set(LIBINPUT_VERSION_MAJOR 9999)
+   set(LIBINPUT_VERSION_MINOR 9999)
+   set(LIBINPUT_VERSION_MICRO 9999)
+   message(WARNING "Could not detect libinput version, assuming you have recent one")
 endif ()
 
 # This is compatible with libinput-version.h that exists in upstream
