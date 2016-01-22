@@ -213,7 +213,7 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_MOTION_NOTIFY:
             {
                xcb_motion_notify_event_t *xev = (xcb_motion_notify_event_t*)event;
-               struct wlc_input_event ev;
+               struct wlc_input_event ev = {0};
                ev.type = WLC_INPUT_EVENT_MOTION_ABSOLUTE;
                ev.time = xev->time;
                ev.motion_abs.x = pointer_abs_x;
@@ -226,7 +226,7 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_BUTTON_PRESS:
             {
                xcb_button_press_event_t *xev = (xcb_button_press_event_t*)event;
-               struct wlc_input_event ev;
+               struct wlc_input_event ev = {0};
                ev.type = WLC_INPUT_EVENT_BUTTON;
                ev.time = xev->time;
                ev.button.code = (xev->detail == 2 ? BTN_MIDDLE : (xev->detail == 3 ? BTN_RIGHT : xev->detail + BTN_LEFT - 1));
@@ -238,7 +238,7 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_BUTTON_RELEASE:
             {
                xcb_button_press_event_t *xev = (xcb_button_press_event_t*)event;
-               struct wlc_input_event ev;
+               struct wlc_input_event ev = {0};
                ev.time = xev->time;
                switch (xev->detail) {
                   case 4:
@@ -269,7 +269,7 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_KEY_PRESS:
             {
                xcb_key_press_event_t *xev = (xcb_key_press_event_t*)event;
-               struct wlc_input_event ev;
+               struct wlc_input_event ev = {0};
                ev.type = WLC_INPUT_EVENT_KEY;
                ev.time = xev->time;
                ev.key.code = xev->detail - 8;
@@ -281,7 +281,7 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_KEY_RELEASE:
             {
                xcb_key_press_event_t *xev = (xcb_key_press_event_t*)event;
-               struct wlc_input_event ev;
+               struct wlc_input_event ev = {0};
                ev.type = WLC_INPUT_EVENT_KEY;
                ev.time = xev->time;
                ev.key.code = xev->detail - 8;

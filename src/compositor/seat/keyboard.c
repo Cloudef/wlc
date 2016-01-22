@@ -89,7 +89,7 @@ cb_repeat(void *data)
          if (!xkb_keymap_key_repeats(keyboard->keymap->keymap, *k + 8))
             continue;
 
-         struct wlc_input_event ev;
+         struct wlc_input_event ev = {0};
          ev.type = WLC_INPUT_EVENT_KEY;
          ev.time = wlc_get_time(NULL);
          ev.key.code = *k;

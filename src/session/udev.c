@@ -121,7 +121,7 @@ input_event(int fd, uint32_t mask, void *data)
          case LIBINPUT_EVENT_POINTER_MOTION:
          {
             struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-            struct wlc_input_event ev;
+            struct wlc_input_event ev = {0};
             ev.type = WLC_INPUT_EVENT_MOTION;
             ev.time = libinput_event_pointer_get_time(pev);
             ev.motion.dx = libinput_event_pointer_get_dx(pev);
@@ -133,7 +133,7 @@ input_event(int fd, uint32_t mask, void *data)
          case LIBINPUT_EVENT_POINTER_MOTION_ABSOLUTE:
          {
             struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-            struct wlc_input_event ev;
+            struct wlc_input_event ev = {0};
             ev.type = WLC_INPUT_EVENT_MOTION_ABSOLUTE;
             ev.time = libinput_event_pointer_get_time(pev);
             ev.motion_abs.x = pointer_abs_x;
@@ -146,7 +146,7 @@ input_event(int fd, uint32_t mask, void *data)
          case LIBINPUT_EVENT_POINTER_BUTTON:
          {
             struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-            struct wlc_input_event ev;
+            struct wlc_input_event ev = {0};
             ev.type = WLC_INPUT_EVENT_BUTTON;
             ev.time = libinput_event_pointer_get_time(pev);
             ev.button.code = libinput_event_pointer_get_button(pev);
@@ -158,8 +158,7 @@ input_event(int fd, uint32_t mask, void *data)
          case LIBINPUT_EVENT_POINTER_AXIS:
          {
             struct libinput_event_pointer *pev = libinput_event_get_pointer_event(event);
-            struct wlc_input_event ev;
-            memset(&ev.scroll, 0, sizeof(ev));
+            struct wlc_input_event ev = {0};
             ev.type = WLC_INPUT_EVENT_SCROLL;
             ev.time = libinput_event_pointer_get_time(pev);
 
@@ -189,7 +188,7 @@ input_event(int fd, uint32_t mask, void *data)
          case LIBINPUT_EVENT_KEYBOARD_KEY:
          {
             struct libinput_event_keyboard *kev = libinput_event_get_keyboard_event(event);
-            struct wlc_input_event ev;
+            struct wlc_input_event ev = {0};
             ev.type = WLC_INPUT_EVENT_KEY;
             ev.time = libinput_event_keyboard_get_time(kev);
             ev.key.code = libinput_event_keyboard_get_key(kev);
