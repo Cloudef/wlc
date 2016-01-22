@@ -40,6 +40,12 @@ wlc_surface_get_size(wlc_resource surface)
    return (s ? &s->size : NULL);
 }
 
+WLC_API struct wl_resource*
+wlc_surface_get_wl_resource(wlc_resource surface)
+{
+   return wl_resource_from_wlc_resource(surface, "surface");
+}
+
 WLC_API void
 wlc_surface_render(wlc_resource surface, const struct wlc_geometry *geometry)
 {
