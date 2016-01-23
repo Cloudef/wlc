@@ -51,9 +51,7 @@ wlc_view_map(struct wlc_view *view)
 
    wlc_output_link_view(wlc_view_get_output_ptr(view), view, LINK_ABOVE, NULL);
    configure_view(view, view->pending.edges, &view->pending.geometry);
-
-   if (!view->state.created)
-      wlc_view_commit_state(view, &view->pending, &view->commit);
+   wlc_view_commit_state(view, &view->pending, &view->commit);
 }
 
 void
