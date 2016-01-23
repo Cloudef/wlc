@@ -313,7 +313,7 @@ wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface)
 }
 
 struct wl_client*
-wlc_view_get_client(struct wlc_view *view)
+wlc_view_get_client_ptr(struct wlc_view *view)
 {
    struct wl_resource *r = (view ? wl_resource_from_wlc_resource(view->surface, "surface") : NULL);
    return (r ? wl_resource_get_client(r) : NULL);

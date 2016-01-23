@@ -65,3 +65,9 @@ wlc_view_get_surface(wlc_handle view)
    const struct wlc_view *v = convert_from_wlc_handle(view, "view");
    return (v ? v->surface : 0);
 }
+
+WLC_API struct wl_client*
+wlc_view_get_wl_client(wlc_handle view)
+{
+   return wlc_view_get_client_ptr(convert_from_wlc_handle(view, "view"));
+}

@@ -43,6 +43,9 @@ wlc_handle wlc_view_from_surface(wlc_resource surface, struct wl_client *client,
 /** Returns internal wlc surface from view handle */
 wlc_resource wlc_view_get_surface(wlc_handle view);
 
+/** Returns wl_client from view handle */
+struct wl_client* wlc_view_get_wl_client(wlc_handle view);
+
 /** Returns surface role resource from view handle. Return value will be NULL if the view was not assigned role or created with wlc_view_create_from_surface(). */
 struct wl_resource* wlc_view_get_role(wlc_handle view);
 

@@ -56,7 +56,7 @@ wl_cb_seat_get_keyboard(struct wl_client *client, struct wl_resource *resource, 
    wl_keyboard_send_keymap(wr, seat->keymap.format, seat->keymap.fd, seat->keymap.size);
 
    struct wlc_view *focused = convert_from_wlc_handle(seat->keyboard.focused.view, "view");
-   if (focused && wlc_view_get_client(focused) == client) {
+   if (focused && wlc_view_get_client_ptr(focused) == client) {
       // We refocus the client here so it gets input correctly.
       // This way we avoid the ugly keyboard.init public interface hack.
       seat->keyboard.focused.view = 0;
@@ -230,7 +230,7 @@ focus_event(struct wl_listener *listener, void *data)
    switch (ev->type) {
       case WLC_FOCUS_EVENT_VIEW:
          wlc_keyboard_focus(&seat->keyboard, ev->view);
-         wlc_data_device_manager_offer(&seat->manager, wlc_view_get_client(ev->view));
+         wlc_data_device_manager_offer(&seat->manager, wlc_view_get_client_ptr(ev->view));
          break;
 
       default: break;

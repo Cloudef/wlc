@@ -69,7 +69,7 @@ WLC_NONULL bool wlc_view_get_opaque(struct wlc_view *view, struct wlc_geometry *
 WLC_NONULL bool wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r);
 bool wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
 void wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface);
-struct wl_client* wlc_view_get_client(struct wlc_view *view);
+struct wl_client* wlc_view_get_client_ptr(struct wlc_view *view);
 void wlc_view_release(struct wlc_view *view);
 WLC_NONULL bool wlc_view(struct wlc_view *view);
 
