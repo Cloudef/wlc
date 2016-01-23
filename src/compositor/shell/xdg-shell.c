@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <wayland-server.h>
-#include "wayland-xdg-shell-server-protocol.h"
 #include "internal.h"
 #include "macros.h"
 #include "xdg-shell.h"

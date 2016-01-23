@@ -2,3 +2,6 @@
 	path = lib/chck
 	url = git://github.com/Cloudef/chck.git
 	branch = master
+[submodule "protos/wayland-protocols"]
+	path = protos/wayland-protocols
+	url = git://anongit.freedesktop.org/wayland/wayland-protocols

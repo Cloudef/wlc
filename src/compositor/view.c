@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <chck/math/math.h>
 #include <wayland-server.h>
-#include "wayland-xdg-shell-server-protocol.h"
 #include "internal.h"
 #include "view.h"
 #include "macros.h"

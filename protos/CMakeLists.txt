@@ -5,11 +5,12 @@ include_directories(
 )
 
 set(protos
-   xdg-shell)
+   wayland-protocols/unstable/xdg-shell/xdg-shell-unstable-v5)
 
 foreach(proto ${protos})
    add_feature_info(${proto} proto "Protocol extension")
-   wayland_add_protocol_server(src "${proto}.xml" ${proto})
+   get_filename_component(base ${proto} NAME)
+   wayland_add_protocol_server(src "${proto}.xml" ${base})
    list(APPEND sources ${src})
 endforeach()
 
