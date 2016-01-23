@@ -139,10 +139,12 @@ And the following depends:
 - libxkbcommon
 - udev
 - libinput
-- libx11
-- libxcb
-- xcb-util-image (for xwayland support atm)
-- mesa, nvidia, etc.. (GLESv2, EGL, DRM)
+- libx11 (X11-xcb, Xfixes)
+- libxcb (xcb-ewmh, xcb-composite, xcb-xkb, xcb-image, xcb-xfixes)
+- libgbm (usually provided by mesa in most distros)
+- libdrm
+- libEGL (GPU drivers and mesa provide this)
+- libGLESv2 (GPU drivers and mesa provide this)
 
 And optionally:
 
