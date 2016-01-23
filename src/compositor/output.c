@@ -73,22 +73,14 @@ wlc_output_information_release(struct wlc_output_information *info)
 }
 
 static void
-wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+output_push_to_resource(struct wlc_output *output, wlc_resource r)
 {
-   struct wlc_output *output = data;
-   assert(output);
-
-   wlc_resource r;
-   if (!(r = wlc_resource_create(&output->resources, client, &wl_output_interface, version, 2, id)))
-      return;
-
-   wlc_resource_implement(r, NULL, (void*)convert_to_wlc_handle(output));
-
    struct wl_resource *resource;
    if (!(resource = wl_resource_from_wlc_resource(r, "output")))
       return;
 
-   // FIXME: update on wlc_output_set_information
+   const uint32_t version = wl_resource_get_version(resource);
+
    wl_output_send_geometry(resource, output->information.x, output->information.y,
                            output->information.physical_width, output->information.physical_height, output->information.subpixel,
                            (output->information.make.data ? output->information.make.data : "unknown"),
@@ -100,11 +92,35 @@ wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
       wl_output_send_scale(resource, output->information.scale);
 
    struct wlc_output_mode *mode;
-   chck_iter_pool_for_each(&output->information.modes, mode)
-      wl_output_send_mode(resource, mode->flags, mode->width, mode->height, mode->refresh);
+   chck_iter_pool_for_each(&output->information.modes, mode) {
+      const struct wlc_size r = (mode->flags & WL_OUTPUT_MODE_CURRENT ? output->resolution : (struct wlc_size){ mode->width, mode->height });
+      wl_output_send_mode(resource, mode->flags, r.w, r.h, mode->refresh);
+   }
 
    if (version >= WL_OUTPUT_DONE_SINCE_VERSION)
       wl_output_send_done(resource);
+}
+
+static void
+output_push_to_resources(struct wlc_output *output)
+{
+   wlc_resource *r;
+   chck_pool_for_each(&output->resources.pool, r)
+      output_push_to_resource(output, *r);
+}
+
+static void
+wl_output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+{
+   struct wlc_output *output = data;
+   assert(output);
+
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&output->resources, client, &wl_output_interface, version, 2, id)))
+      return;
+
+   wlc_resource_implement(r, NULL, (void*)convert_to_wlc_handle(output));
+   output_push_to_resource(output, r);
 }
 
 static bool
@@ -590,14 +606,22 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
    const char *name = name_for_connector(output->information.connector);
    chck_string_set_format(&output->information.name, "%s-%u", name, output->information.connector_id);
 
+   bool set_resolution = false;
+
    {
       struct wlc_output_mode *mode;
       except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
       wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
       output->mode = (struct wlc_size){ mode->width, mode->height };
-      wlc_output_set_resolution_ptr(output, &output->mode);
       mode->flags |= WL_OUTPUT_MODE_CURRENT;
+      set_resolution = wlc_output_set_resolution_ptr(output, &output->mode);
    }
+
+   if (!set_resolution)
+      output_push_to_resources(output);
+
+   // XXX: set_information and set_resolution should probably be double buffered
+   //      and commited during start of next render to avoid spurious information updates
 }
 
 static void
@@ -687,26 +711,26 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
    wlc_output_schedule_repaint(output);
 }
 
-void
+bool
 wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution)
 {
    if (!output)
-      return;
+      return false;
 
    assert(resolution && resolution->w != 0 && resolution->h != 0);
 
    if (resolution->w == 0 || resolution->h == 0) {
       wlc_log(WLC_LOG_WARN, "Tried to set resolution of output %" PRIuWLC "to %ux%u", convert_to_wlc_handle(output), resolution->w, resolution->h);
-      return;
+      return false;
    }
 
    if (wlc_size_equals(resolution, &output->resolution))
-      return;
+      return false;
 
    size_t gsz;
    if (chck_mul_ofsz(resolution->w, resolution->h, &gsz)) {
       wlc_log(WLC_LOG_WARN, "Requested resolution %ux%u overflows when multiplied, ignoring resolution", resolution->w, resolution->h);
-      return;
+      return false;
    }
 
    free(output->blit);
@@ -714,8 +738,11 @@ wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *
 
    struct wlc_size old = output->resolution;
    output->resolution = *resolution;
+
+   output_push_to_resources(output);
    WLC_INTERFACE_EMIT(output.resolution, convert_to_wlc_handle(output), &old, &output->resolution);
    wlc_output_schedule_repaint(output);
+   return true;
 }
 
 void
