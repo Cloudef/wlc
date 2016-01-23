@@ -51,6 +51,9 @@ wlc_view_map(struct wlc_view *view)
 
    wlc_output_link_view(wlc_view_get_output_ptr(view), view, LINK_ABOVE, NULL);
    configure_view(view, view->pending.edges, &view->pending.geometry);
+
+   if (!view->state.created)
+      wlc_view_commit_state(view, &view->pending, &view->commit);
 }
 
 void
@@ -147,9 +150,6 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface)
 
    view->surface_commit = view->surface_pending;
    wlc_dlog(WLC_DBG_COMMIT, "=> surface view %" PRIuWLC, convert_to_wlc_handle(view));
-
-   if (!view->state.created)
-      wlc_view_commit_state(view, &view->pending, &view->commit);
 }
 
 static bool
