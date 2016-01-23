@@ -286,7 +286,9 @@ attach_surface_to_view_or_create(struct wlc_compositor *compositor, struct wlc_s
    };
 
    *res[type] = role;
-   wl_resource_set_user_data(wl_resource_from_wlc_resource(role, name[type]), (void*)convert_to_wlc_handle(view));
+
+   if (type != WLC_CUSTOM_SURFACE)
+      wl_resource_set_user_data(wl_resource_from_wlc_resource(role, name[type]), (void*)convert_to_wlc_handle(view));
 }
 
 static void
