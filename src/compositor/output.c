@@ -248,9 +248,6 @@ render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_p
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   if (!view_visible(view, surface, output->active.mask))
-      return;
-
    WLC_INTERFACE_EMIT(view.render.pre, convert_to_wlc_handle(view));
    wlc_view_commit_state(view, &view->pending, &view->commit);
    wlc_render_view_paint(&output->render, &output->context, view);

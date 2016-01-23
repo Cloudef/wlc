@@ -99,6 +99,7 @@ output_resolution(wlc_handle output, const struct wlc_size *from, const struct w
 static bool
 view_created(wlc_handle view)
 {
+   wlc_view_set_mask(view, wlc_output_get_mask(wlc_view_get_output(view)));
    wlc_view_bring_to_front(view);
    wlc_view_focus(view);
    relayout(wlc_view_get_output(view));
