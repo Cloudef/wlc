@@ -593,13 +593,24 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
    if (!info)
       return;
 
+   uint32_t fallback = UINT_MAX;
+
    {
+      uint32_t largest = 0;
       struct wlc_output_mode *mode;
       chck_iter_pool_for_each(&output->information.modes, mode) {
          if (mode->flags & WL_OUTPUT_MODE_CURRENT || (output->active.mode == UINT_MAX && (mode->flags & WL_OUTPUT_MODE_PREFERRED)))
             output->active.mode = _I - 1;
+
+         if ((uint32_t)(mode->width * mode->height) > largest) {
+            largest = mode->width * mode->height;
+            fallback = _I - 1;
+         }
       }
    }
+
+   if (output->active.mode == UINT_MAX)
+      output->active.mode = fallback;
 
    assert(output->active.mode != UINT_MAX && "output should have at least one current mode!");
 
