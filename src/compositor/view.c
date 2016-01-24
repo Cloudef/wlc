@@ -472,12 +472,9 @@ wlc_view_focus_ptr(struct wlc_view *view)
    if (!view || (view->type & WLC_BIT_UNMANAGED))
       return;
 
-   if (view && view->x11.id && !view->x11.override_redirect) {
-      wlc_x11_window_set_active(&view->x11, true);
-   } else {
-      struct wlc_focus_event ev = { .view = view, .type = WLC_FOCUS_EVENT_VIEW };
-      wl_signal_emit(&wlc_system_signals()->focus, &ev);
-   }
+   wlc_x11_window_set_active(&view->x11, true);
+   struct wlc_focus_event ev = { .view = view, .type = WLC_FOCUS_EVENT_VIEW };
+   wl_signal_emit(&wlc_system_signals()->focus, &ev);
 }
 
 static void*
