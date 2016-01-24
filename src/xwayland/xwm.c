@@ -438,7 +438,7 @@ wlc_x11_window_close(struct wlc_x11_window *win)
 {
    assert(win);
 
-   if (!win->id)
+   if (!x11.connection || !win->id)
       return;
 
    if (win->has_delete_window) {
@@ -455,7 +455,7 @@ wlc_x11_window_configure(struct wlc_x11_window *win, const struct wlc_geometry *
 {
    assert(win && g);
 
-   if (!win->id)
+   if (!x11.connection || !win->id)
       return;
 
    set_geometry(win->id, g);
@@ -466,7 +466,7 @@ wlc_x11_window_set_state(struct wlc_x11_window *win, enum wlc_view_state_bit sta
 {
    assert(win);
 
-   if (!win->id)
+   if (!x11.connection || !win->id)
       return;
 
    if (state == WLC_BIT_FULLSCREEN)
@@ -478,7 +478,7 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 {
    assert(win);
 
-   if (!win->id)
+   if (!x11.connection || !win->id)
       return false;
 
    if (active) {
