@@ -257,7 +257,8 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DND] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_MENU] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DROPDOWN_MENU] ||
-                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU]) {
+                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU] ||
+                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_NORMAL]) {
                   wlc_view_set_type_ptr(view, WLC_BIT_UNMANAGED, true);
                }
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DIALOG])
