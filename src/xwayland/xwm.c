@@ -549,8 +549,13 @@ x11_event(int fd, uint32_t mask, void *data)
             {
                xcb_map_notify_event_t *ev = (xcb_map_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_MAP_NOTIFY (%u)", ev->window);
-               if (!paired_for_id(xwm, ev->window) && !unpaired_for_id(xwm, ev->window))
+
+               struct wlc_x11_window *win;
+               if ((win = paired_for_id(xwm, ev->window)) || (win = unpaired_for_id(xwm, ev->window))) {
+                  win->override_redirect = ev->override_redirect;
+               } else {
                   add_window(xwm, ev->window, ev->override_redirect);
+               }
             }
             break;
 
@@ -599,7 +604,7 @@ x11_event(int fd, uint32_t mask, void *data)
                xcb_property_notify_event_t *ev = (xcb_property_notify_event_t*)event;
                wlc_dlog(WLC_DBG_XWM, "XCB_PROPERTY_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
-               if ((win = paired_for_id(xwm, ev->window)))
+               if ((win = paired_for_id(xwm, ev->window)) || (win = unpaired_for_id(xwm, ev->window)))
                   read_properties(xwm, win);
             }
             break;
@@ -628,9 +633,11 @@ x11_event(int fd, uint32_t mask, void *data)
                wlc_dlog(WLC_DBG_XWM, "XCB_CONFIGURE_NOTIFY (%u)", ev->window);
                struct wlc_view *view;
                struct wlc_x11_window *win;
-               if ((win = paired_for_id(xwm, ev->window)) && (view = view_for_window(win))) {
-                  if (win->override_redirect != ev->override_redirect)
-                     wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, (win->override_redirect = ev->override_redirect));
+               if ((win = paired_for_id(xwm, ev->window)) || (win = unpaired_for_id(xwm, ev->window))) {
+                  win->override_redirect = ev->override_redirect;
+
+                  if ((view = view_for_window(win)))
+                     wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, win->override_redirect);
                }
             }
             break;
