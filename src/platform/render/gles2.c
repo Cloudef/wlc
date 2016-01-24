@@ -707,7 +707,7 @@ view_paint(struct ctx *context, struct wlc_view *view)
 
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
-   settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & WLC_BIT_UNMANAGED) ? 1.0f : DIM);
+   settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & (WLC_BIT_UNMANAGED|WLC_BIT_SPLASH|WLC_BIT_OVERRIDE_REDIRECT)) ? 1.0f : DIM);
    settings.program = (enum program_type)surface->format;
 
    struct wlc_geometry geometry;
