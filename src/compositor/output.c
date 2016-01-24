@@ -602,8 +602,9 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
          if (mode->flags & WL_OUTPUT_MODE_CURRENT || (output->active.mode == UINT_MAX && (mode->flags & WL_OUTPUT_MODE_PREFERRED)))
             output->active.mode = _I - 1;
 
-         if ((uint32_t)(mode->width * mode->height) > largest) {
-            largest = mode->width * mode->height;
+         const uint32_t current = mode->width * mode->height;
+         if (current > largest) {
+            largest = current;
             fallback = _I - 1;
          }
       }
