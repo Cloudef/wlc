@@ -255,7 +255,6 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
                if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_UTILITY] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DND] ||
-                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_MENU] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DROPDOWN_MENU] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU] ||
                    atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_COMBO]) {
