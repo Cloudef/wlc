@@ -35,9 +35,11 @@ struct wl_resource* wlc_surface_get_wl_resource(wlc_resource surface);
 /** Function for rendering surfaces inside post / pre render hooks. */
 WLC_NONULL void wlc_surface_render(wlc_resource surface, const struct wlc_geometry *geometry);
 
-/** Turns wl_surface into a wlc view. Returns 0 on failure. This will also trigger view.created callback as any view would.
- *  For the extra arguments see details of wl_resource_create and wl_resource_set_implementation.
- *  The extra arguments may be set NULL, if you are not implementing Wayland interface for the surface role. */
+/**
+ * Turns wl_surface into a wlc view. Returns 0 on failure. This will also trigger view.created callback as any view would.
+ * For the extra arguments see details of wl_resource_create and wl_resource_set_implementation.
+ * The extra arguments may be set NULL, if you are not implementing Wayland interface for the surface role.
+ */
 wlc_handle wlc_view_from_surface(wlc_resource surface, struct wl_client *client, const struct wl_interface *interface, const void *implementation, uint32_t version, uint32_t id,  void *userdata);
 
 /** Returns internal wlc surface from view handle */
