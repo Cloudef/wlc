@@ -158,7 +158,9 @@ wlc_cleanup(void)
 
       // fd process never allocates display
       wlc_xwayland_terminate();
+      wl_display_flush_clients(wlc.display);
       wlc_compositor_release(&wlc.compositor);
+      wl_display_flush_clients(wlc.display);
       wl_list_remove(&compositor_listener.link);
       wlc_resources_terminate();
       wlc_input_terminate();
