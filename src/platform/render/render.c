@@ -72,14 +72,36 @@ wlc_render_pointer_paint(struct wlc_render *render, struct wlc_context *bound, c
 }
 
 void
-wlc_render_read_pixels(struct wlc_render *render, struct wlc_context *bound, struct wlc_geometry *geometry, void *out_data)
+wlc_render_read_pixels(struct wlc_render *render, struct wlc_context *bound, enum wlc_pixel_format format, const struct wlc_geometry *geometry, struct wlc_geometry *out_geometry, void *out_data)
 {
    assert(render);
 
    if (!render->api.read_pixels || !wlc_context_bind(bound))
       return;
 
-   render->api.read_pixels(render->render, geometry, out_data);
+   render->api.read_pixels(render->render, format, geometry, out_geometry, out_data);
+}
+
+void
+wlc_render_write_pixels(struct wlc_render *render, struct wlc_context *bound, enum wlc_pixel_format format, const struct wlc_geometry *geometry, const void *data)
+{
+   assert(render);
+
+   if (!render->api.write_pixels || !wlc_context_bind(bound))
+      return;
+
+   render->api.write_pixels(render->render, format, geometry, data);
+}
+
+void
+wlc_render_flush_fakefb(struct wlc_render *render, struct wlc_context *bound)
+{
+   assert(render);
+
+   if (!render->api.flush_fakefb || !wlc_context_bind(bound))
+      return;
+
+   render->api.flush_fakefb(render->render);
 }
 
 void

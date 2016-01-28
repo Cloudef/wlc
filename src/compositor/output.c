@@ -234,25 +234,6 @@ finish_frame_tasks(struct wlc_output *output)
 }
 
 static void
-render_surface(struct wlc_output *output, struct wlc_surface *surface, const struct wlc_geometry *geometry, struct chck_iter_pool *callbacks)
-{
-   assert(output && callbacks);
-
-   if (surface->output != convert_to_wlc_resource(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface)))
-      return;
-
-   if (!surface->commit.attached)
-      return;
-
-   wlc_render_surface_paint(&output->render, &output->context, surface, geometry);
-
-   wlc_resource *r;
-   chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
-      chck_iter_pool_push_back(callbacks, r);
-   chck_iter_pool_flush(&surface->commit.frame_cbs);
-}
-
-static void
 render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_pool *callbacks)
 {
    assert(output && callbacks);
@@ -265,9 +246,11 @@ render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_p
       return;
 
    WLC_INTERFACE_EMIT(view.render.pre, convert_to_wlc_handle(view));
+   wlc_render_flush_fakefb(&output->render, &output->context);
    wlc_view_commit_state(view, &view->pending, &view->commit);
    wlc_render_view_paint(&output->render, &output->context, view);
    WLC_INTERFACE_EMIT(view.render.post, convert_to_wlc_handle(view));
+   wlc_render_flush_fakefb(&output->render, &output->context);
 
    wlc_resource *r;
    chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
@@ -319,8 +302,10 @@ repaint(struct wlc_output *output)
    rendering_output = output;
    wlc_render_clear(&output->render, &output->context);
 
-   if (output->state.background_visible)
+   if (output->state.background_visible) {
       WLC_INTERFACE_EMIT(output.render.pre, convert_to_wlc_handle(output));
+      wlc_render_flush_fakefb(&output->render, &output->context);
+   }
 
    {
       struct wlc_view **v;
@@ -330,6 +315,7 @@ repaint(struct wlc_output *output)
    }
 
    WLC_INTERFACE_EMIT(output.render.post, convert_to_wlc_handle(output));
+   wlc_render_flush_fakefb(&output->render, &output->context);
 
    struct wlc_render_event ev = { .output = output, .type = WLC_RENDER_EVENT_POINTER };
    wl_signal_emit(&wlc_system_signals()->render, &ev);
@@ -341,7 +327,7 @@ repaint(struct wlc_output *output)
       void *rgba;
       struct wlc_geometry g = { { 0, 0 }, output->resolution };
       if (output->task.pixels.cb && !chck_mul_ofsz(g.size.w, g.size.h, &sz) && (rgba = chck_calloc_of(4, sz))) {
-         wlc_render_read_pixels(&output->render, &output->context, &g, rgba);
+         wlc_render_read_pixels(&output->render, &output->context, WLC_RGBA8888, &g, &g, rgba);
          if (!output->task.pixels.cb(&g.size, rgba, output->task.pixels.arg))
             free(rgba);
          memset(&output->task.pixels, 0, sizeof(output->task.pixels));
@@ -1011,14 +997,32 @@ fail:
 }
 
 void
-wlc_output_render_surface(wlc_resource surface, const struct wlc_geometry *geometry)
+wlc_output_render_surface(struct wlc_output *output, struct wlc_surface *surface, const struct wlc_geometry *geometry, struct chck_iter_pool *callbacks)
 {
-   assert(rendering_output);
+   assert(output && callbacks);
 
-   if (!rendering_output) {
-      wlc_log(WLC_LOG_ERROR, "Trying to render surface %" PRIuWLC " outside of render hook", surface);
+   if (surface->output != convert_to_wlc_resource(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface)))
       return;
+
+   if (!surface->commit.attached)
+      return;
+
+   wlc_render_surface_paint(&output->render, &output->context, surface, geometry);
+
+   wlc_resource *r;
+   chck_iter_pool_for_each(&surface->commit.frame_cbs, r)
+      chck_iter_pool_push_back(callbacks, r);
+   chck_iter_pool_flush(&surface->commit.frame_cbs);
+}
+
+struct wlc_output*
+wlc_get_rendering_output(void)
+{
+   if (!rendering_output) {
+      wlc_log(WLC_LOG_ERROR, "Trying to get rendering output outside of render loop.");
+      wlc_log(WLC_LOG_ERROR, "Are you trying to call wlc-render rendering functions outside of wlc's render hook?");
+      return NULL;
    }
 
-   render_surface(rendering_output, convert_from_wlc_resource(surface, "surface"), geometry, &rendering_output->callbacks);
+   return rendering_output;
 }

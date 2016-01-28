@@ -32,9 +32,6 @@ const struct wlc_size* wlc_surface_get_size(wlc_resource surface);
 /** Return wl_surface resource from internal wlc surface. */
 struct wl_resource* wlc_surface_get_wl_resource(wlc_resource surface);
 
-/** Function for rendering surfaces inside post / pre render hooks. */
-WLC_NONULL void wlc_surface_render(wlc_resource surface, const struct wlc_geometry *geometry);
-
 /**
  * Turns wl_surface into a wlc view. Returns 0 on failure. This will also trigger view.created callback as any view would.
  * For the extra arguments see details of wl_resource_create and wl_resource_set_implementation.

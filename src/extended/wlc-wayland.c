@@ -46,12 +46,6 @@ wlc_surface_get_wl_resource(wlc_resource surface)
    return wl_resource_from_wlc_resource(surface, "surface");
 }
 
-WLC_API void
-wlc_surface_render(wlc_resource surface, const struct wlc_geometry *geometry)
-{
-   wlc_output_render_surface(surface, geometry);
-}
-
 WLC_API struct wl_resource*
 wlc_view_get_role(wlc_handle view)
 {

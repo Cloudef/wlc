@@ -45,6 +45,7 @@ enum {
 enum {
    TEXTURE_BLACK,
    TEXTURE_CURSOR,
+   TEXTURE_FAKEFB,
    TEXTURE_LAST
 };
 
@@ -54,6 +55,13 @@ static const char *uniform_names[UNIFORM_LAST] = {
    "texture2",
    "resolution",
    "dim",
+};
+
+static const struct {
+   GLenum format;
+   GLenum type;
+} format_map[] = {
+   { GL_RGBA, GL_UNSIGNED_BYTE }, // WLC_RGBA8888
 };
 
 struct ctx {
@@ -67,8 +75,11 @@ struct ctx {
    } programs[PROGRAM_LAST];
 
    struct wlc_size resolution, mode;
-
    GLuint textures[TEXTURE_LAST];
+   GLuint clear_fbo;
+   GLenum internal_format;
+   GLenum preferred_type;
+   bool fakefb_dirty;
 
    struct {
       PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES;
@@ -311,6 +322,14 @@ create_context(void)
    str = (const char*)GL_CALL(glGetString(GL_VENDOR));
    wlc_log(WLC_LOG_INFO, "GL vendor: %s", str ? str : "(null)");
 
+   /** TODO: Should be available in GLES3 */
+#if 0
+   GL_CALL(glGetInternalFormativ(GL_TEXTURE_2D, GL_RGBA, GL_TEXTURE_IMAGE_FORMAT, 1, &context->preferred_format));
+   GL_CALL(glGetInternalFormativ(GL_TEXTURE_2D, GL_RGBA, GL_TEXTURE_IMAGE_TYPE, 1, &context->preferred_type));
+   wlc_log(WLC_LOG_INFO, "Preferred texture format: %d", context->preferred_format);
+   wlc_log(WLC_LOG_INFO, "Preferred texture type: %d", context->preferred_type);
+#endif
+
    context->extensions = (const char*)GL_CALL(glGetString(GL_EXTENSIONS));
 
    if (!has_extension(context, "GL_OES_EGL_image_external")) {
@@ -370,8 +389,9 @@ create_context(void)
       GLenum type;
       const void *data;
    } images[TEXTURE_LAST] = {
-      { GL_LUMINANCE, 1, 1, GL_UNSIGNED_BYTE, (GLubyte[]){ 0 } }, // TEXTURE_BLACK
+      { GL_LUMINANCE, 1, 1, GL_UNSIGNED_BYTE, NULL }, // TEXTURE_BLACK
       { GL_LUMINANCE, 14, 14, GL_UNSIGNED_BYTE, cursor_palette }, // TEXTURE_CURSOR
+      { GL_RGBA, 0, 0, GL_UNSIGNED_BYTE, NULL }, // TEXTURE_FAKEFB
    };
 
    GL_CALL(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
@@ -387,10 +407,24 @@ create_context(void)
    GL_CALL(glEnableVertexAttribArray(0));
    GL_CALL(glEnableVertexAttribArray(1));
 
+   GL_CALL(glGenFramebuffers(1, &context->clear_fbo));
+   GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, context->clear_fbo));
+   GL_CALL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, context->textures[TEXTURE_FAKEFB], 0));
+   GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
    GL_CALL(glEnable(GL_BLEND));
    GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-   GL_CALL(glClearColor(0.0, 0.0, 0.0, 1));
+   GL_CALL(glClearColor(0.0, 0.0, 0.0, 0.0));
    return context;
+}
+
+static void
+clear_fakefb(struct ctx *context)
+{
+   // assumes texture already bound!
+   GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, context->clear_fbo));
+   GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+   GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
 static void
@@ -404,6 +438,9 @@ resolution(struct ctx *context, const struct wlc_size *mode, const struct wlc_si
          GL_CALL(glUniform2fv(context->program->uniforms[UNIFORM_RESOLUTION], 1, (GLfloat[]){ resolution->w, resolution->h }));
       }
 
+      GL_CALL(glBindTexture(GL_TEXTURE_2D, context->textures[TEXTURE_FAKEFB]));
+      GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, resolution->w, resolution->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
+      clear_fakefb(context);
       context->resolution = *resolution;
    }
 
@@ -736,11 +773,70 @@ pointer_paint(struct ctx *context, const struct wlc_point *pos)
 }
 
 static void
-read_pixels(struct ctx *context, struct wlc_geometry *geometry, void *out_data)
+clamp_to_bounds(struct wlc_geometry *g, const struct wlc_size *bounds)
+{
+   assert(g);
+
+   // XXX: Check overflows even if unlikely
+
+   if (g->origin.x < 0) {
+      g->size.w += g->origin.x;
+      g->origin.x = 0;
+   } else if ((uint32_t)g->origin.x > bounds->w) {
+      g->origin.x = 0;
+   }
+
+   if (g->origin.y < 0) {
+      g->size.h += g->origin.y;
+      g->origin.y = 0;
+   } else if ((uint32_t)g->origin.y > bounds->h) {
+      g->origin.y = 0;
+   }
+
+   if (g->origin.x + g->size.w > bounds->w)
+      g->size.w -= (g->origin.x + g->size.w) - bounds->w;
+
+   if (g->origin.y + g->size.h > bounds->h)
+      g->size.h -= (g->origin.y + g->size.h) - bounds->h;
+}
+
+static void
+read_pixels(struct ctx *context, enum wlc_pixel_format format, const struct wlc_geometry *geometry, struct wlc_geometry *out_geometry, void *out_data)
 {
    (void)context;
-   assert(context && geometry && out_data);
-   GL_CALL(glReadPixels(geometry->origin.x, geometry->origin.y, geometry->size.w, geometry->size.h, GL_RGBA, GL_UNSIGNED_BYTE, out_data));
+   assert(context && geometry && out_geometry && out_data);
+   struct wlc_geometry g = *geometry;
+   clamp_to_bounds(&g, &context->resolution);
+   GL_CALL(glReadPixels(g.origin.x, g.origin.y, g.size.w, g.size.h, format_map[format].format, format_map[format].type, out_data));
+   *out_geometry = g;
+}
+
+static void
+write_pixels(struct ctx *context, enum wlc_pixel_format format, const struct wlc_geometry *geometry, const void *data)
+{
+   (void)context;
+   assert(context && geometry && data);
+   struct wlc_geometry g = *geometry;
+   clamp_to_bounds(&g, &context->resolution);
+   GL_CALL(glBindTexture(GL_TEXTURE_2D, context->textures[TEXTURE_FAKEFB]));
+   GL_CALL(glTexSubImage2D(GL_TEXTURE_2D, 0, g.origin.x, g.origin.y, g.size.w, g.size.h, format_map[format].format, format_map[format].type, data));
+   context->fakefb_dirty = true;
+}
+
+static void
+flush_fakefb(struct ctx *context)
+{
+   assert(context);
+
+   if (!context->fakefb_dirty)
+      return;
+
+   struct paint settings = {0};
+   settings.dim = 1.0f;
+   settings.program = PROGRAM_RGBA;
+   texture_paint(context, &context->textures[TEXTURE_FAKEFB], 1, &(struct wlc_geometry){ .origin = { 0, 0 }, .size = context->resolution }, &settings);
+   clear_fakefb(context);
+   context->fakefb_dirty = false;
 }
 
 static void
@@ -761,6 +857,7 @@ terminate(struct ctx *context)
    }
 
    GL_CALL(glDeleteTextures(TEXTURE_LAST, context->textures));
+   GL_CALL(glDeleteFramebuffers(1, &context->clear_fbo));
    free(context);
 }
 
@@ -781,6 +878,8 @@ wlc_gles2(struct wlc_render_api *api)
    api->surface_paint = surface_paint;
    api->pointer_paint = pointer_paint;
    api->read_pixels = read_pixels;
+   api->write_pixels = write_pixels;
+   api->flush_fakefb = flush_fakefb;
    api->clear = clear;
 
    chck_cstr_to_f(getenv("WLC_DIM"), &DIM);

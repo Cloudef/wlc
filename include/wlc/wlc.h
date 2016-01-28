@@ -297,6 +297,7 @@ uint32_t wlc_output_get_mask(wlc_handle output);
 void wlc_output_set_mask(wlc_handle output, uint32_t mask);
 
 /** Get pixels. If you return true in callback, the rgba data will be not freed. Do this if you don't want to copy the buffer. */
+__attribute__((deprecated("deprecated in favor of wlc_pixels_read")))
 WLC_NONULL void wlc_output_get_pixels(wlc_handle output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
 
 /** Get views in stack order. Returned array is a direct reference, careful when moving and destroying handles. */
