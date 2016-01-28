@@ -3,7 +3,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif 
+#endif
 
 #include <wlc/defines.h>
 #include <wlc/geometry.h>
@@ -418,6 +418,6 @@ void wlc_pointer_set_origin(const struct wlc_origin *new_origin);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif
 
 #endif /* _WLC_H_ */
