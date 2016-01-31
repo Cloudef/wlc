@@ -607,6 +607,8 @@ wlc_compositor_terminate(struct wlc_compositor *compositor)
       wlc_log(WLC_LOG_INFO, "Terminating compositor...");
       compositor->state.terminating = true;
 
+      WLC_INTERFACE_EMIT(compositor.terminate);
+
       if (compositor->outputs.pool.items.count > 0) {
          chck_pool_for_each_call(&compositor->outputs.pool, wlc_output_terminate);
          return;

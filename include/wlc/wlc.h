@@ -204,6 +204,9 @@ struct wlc_interface {
    struct {
       /** Compositor is ready to accept clients. */
       void (*ready)(void);
+
+      /** Compositor is about to terminate */
+      void (*terminate)(void);
    } compositor;
 
    /**
