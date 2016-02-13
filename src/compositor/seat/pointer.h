@@ -28,6 +28,11 @@ struct wlc_pointer_origin {
    double x, y;
 };
 
+struct wlc_focused_surface {
+    wlc_resource id;
+    struct wlc_point offset;
+};
+
 struct wlc_pointer {
    struct wlc_source resources;
    struct wlc_pointer_origin pos;
@@ -37,6 +42,7 @@ struct wlc_pointer {
 
    struct {
       struct chck_iter_pool resources;
+      struct wlc_focused_surface surface;
       wlc_handle view;
    } focused;
 
@@ -45,7 +51,7 @@ struct wlc_pointer {
    } listener;
 };
 
-WLC_NONULLV(1) void wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_pointer_origin *out_pos);
+WLC_NONULLV(1) void wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_surface *surface, struct wlc_pointer_origin *out_pos);
 WLC_NONULL void wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, enum wl_pointer_button_state state);
 WLC_NONULL void wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, uint8_t axis_bits, double amount[2]);
 WLC_NONULL void wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass);

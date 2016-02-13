@@ -185,6 +185,28 @@ wl_cb_surface_set_input_region(struct wl_client *client, struct wl_resource *res
 }
 
 static void
+commit_subsurface_state(struct wlc_surface *surface)
+{
+   if (!surface)
+      return;
+
+   commit_state(surface, &surface->pending, &surface->commit);
+   wlc_output_schedule_repaint(convert_from_wlc_handle(surface->output, "output"));
+   wlc_dlog(WLC_DBG_RENDER, "-> Commit request");
+
+   wlc_resource *r;
+   chck_iter_pool_for_each(&surface->subsurface_list, r) {
+      struct wlc_surface *sub;
+      if (!(sub = convert_from_wlc_resource(*r, "surface")))
+         continue;
+
+      sub->commit.subsurface_position = sub->pending.subsurface_position;
+      if (sub->synchronized || sub->parent_synchronized)
+         commit_subsurface_state(sub);
+   }
+}
+
+static void
 wl_cb_surface_commit(struct wl_client *client, struct wl_resource *resource)
 {
    (void)client;
@@ -193,9 +215,11 @@ wl_cb_surface_commit(struct wl_client *client, struct wl_resource *resource)
    if (!(surface = convert_from_wl_resource(resource, "surface")))
       return;
 
-   commit_state(surface, &surface->pending, &surface->commit);
-   wlc_output_schedule_repaint(convert_from_wlc_handle(surface->output, "output"));
-   wlc_dlog(WLC_DBG_RENDER, "-> Commit request");
+   if (surface->parent_synchronized || surface->synchronized) {
+      return;
+   } else {
+      commit_subsurface_state(surface);
+   }
 }
 
 static void
@@ -248,7 +272,7 @@ wlc_surface_attach_to_view(struct wlc_surface *surface, struct wlc_view *view)
       return;
 
    wlc_handle old = surface->view;
-   surface->view = convert_to_wlc_handle(view);
+   surface->view = surface->parent_view = convert_to_wlc_handle(view);
    wlc_view_set_surface(convert_from_wlc_handle(old, "view"), NULL);
    wlc_view_set_surface(view, surface);
 }
@@ -267,6 +291,16 @@ wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *out
       size = buffer->size;
 
    surface->size = size;
+
+   if (surface->view) {
+      struct wlc_view *view = convert_from_wlc_handle(surface->view, "view");
+      struct wlc_geometry g, area;
+
+      wlc_view_get_bounds(view, &g, &area);
+      surface->coordinate_transform.w = (float)(area.size.w) / surface->size.w;
+      surface->coordinate_transform.h = (float)(area.size.h) / surface->size.h;
+   }
+
    surface->commit.attached = (buffer ? true : false);
    return true;
 }
@@ -277,7 +311,31 @@ wlc_surface_set_parent(struct wlc_surface *surface, struct wlc_surface *parent)
    if (!surface)
       return;
 
-   surface->parent = convert_to_wlc_resource(parent);
+   const wlc_resource newp = convert_to_wlc_resource(parent);
+   if (surface->parent == newp)
+      return;
+
+   struct wlc_surface *p;
+   if ((p = convert_from_wlc_resource(surface->parent, "surface"))) {
+      wlc_resource *sub;
+      const wlc_resource surface_id = convert_to_wlc_resource(surface);
+      chck_iter_pool_for_each(&p->subsurface_list, sub) {
+         if (*sub != surface_id)
+            continue;
+
+         chck_iter_pool_remove(&p->subsurface_list, _I - 1);
+         break;
+      }
+   }
+
+   const wlc_resource r = convert_to_wlc_resource(surface);
+   if (parent && chck_iter_pool_push_front(&parent->subsurface_list, &r)) {
+      wlc_surface_attach_to_output(surface, convert_from_wlc_handle(parent->output, "output"), wlc_surface_get_buffer(surface));
+      surface->parent = newp;
+      surface->parent_view = parent->parent_view;
+   } else {
+      surface->parent = 0;
+   }
 }
 
 void
@@ -299,6 +357,11 @@ wlc_surface_release(struct wlc_surface *surface)
    wl_signal_emit(&wlc_system_signals()->surface, &ev);
 
    wlc_handle_release(surface->view);
+   wlc_surface_set_parent(surface, NULL);
+
+   chck_iter_pool_for_each_call(&surface->subsurface_list, wlc_resource_release_ptr);
+   chck_iter_pool_release(&surface->subsurface_list);
+
    wlc_surface_invalidate(surface);
 
    release_state(&surface->commit);
@@ -306,6 +369,13 @@ wlc_surface_release(struct wlc_surface *surface)
 
    wlc_source_release(&surface->buffers);
    wlc_source_release(&surface->callbacks);
+}
+
+void
+wlc_surface_commit(struct wlc_surface *surface)
+{
+   assert(surface);
+   commit_state(surface, &surface->pending, &surface->commit);
 }
 
 bool
@@ -318,8 +388,13 @@ wlc_surface(struct wlc_surface *surface)
       goto fail;
 
    if (!chck_iter_pool(&surface->commit.frame_cbs, 4, 0, sizeof(wlc_resource)) ||
-       !chck_iter_pool(&surface->pending.frame_cbs, 4, 0, sizeof(wlc_resource)))
+       !chck_iter_pool(&surface->pending.frame_cbs, 4, 0, sizeof(wlc_resource)) ||
+       !chck_iter_pool(&surface->subsurface_list, 4, 0, sizeof(wlc_resource)))
       goto fail;
+
+   surface->pending.subsurface_position = (struct wlc_point){0, 0};
+   surface->coordinate_transform = (struct wlc_coordinate_scale) {1, 1};
+   surface->parent_synchronized = false;
 
    return true;
 

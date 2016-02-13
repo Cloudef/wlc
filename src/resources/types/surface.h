@@ -18,10 +18,15 @@ struct wlc_surface_state {
    pixman_region32_t input;
    pixman_region32_t damage;
    struct wlc_point offset;
+   struct wlc_point subsurface_position;
    wlc_resource buffer;
    int32_t scale;
    enum wl_output_transform transform;
    bool attached;
+};
+
+struct wlc_coordinate_scale {
+   double w, h;
 };
 
 struct wlc_surface {
@@ -29,12 +34,19 @@ struct wlc_surface {
    struct wlc_surface_state pending;
    struct wlc_surface_state commit;
    struct wlc_size size;
+   struct wlc_coordinate_scale coordinate_transform;
 
    /* Parent surface for subsurface interface */
    wlc_resource parent;
 
+   /* list of subsurfaces */
+   struct chck_iter_pool subsurface_list;
+
    /* Set if this surface is bind to view */
    wlc_handle view;
+
+   /* The view this surface belongs to, e.g also subsurfaces */
+   wlc_handle parent_view;
 
    /* Current output the surface is attached to */
    wlc_resource output;
@@ -60,7 +72,7 @@ struct wlc_surface {
       SURFACE_Y_XUXV,
    } format;
 
-   bool synchronized;
+   bool synchronized, parent_synchronized;
 };
 
 struct wlc_buffer* wlc_surface_get_buffer(struct wlc_surface *surface);
@@ -69,6 +81,7 @@ bool wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output
 void wlc_surface_set_parent(struct wlc_surface *surface, struct wlc_surface *parent);
 void wlc_surface_invalidate(struct wlc_surface *surface);
 void wlc_surface_release(struct wlc_surface *surface);
+void wlc_surface_commit(struct wlc_surface *surface);
 WLC_NONULL bool wlc_surface(struct wlc_surface *surface);
 
 const struct wl_surface_interface* wlc_surface_implementation(void);

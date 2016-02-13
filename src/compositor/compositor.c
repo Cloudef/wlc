@@ -14,22 +14,77 @@
 static void
 wl_cb_subsurface_set_position(struct wl_client *client, struct wl_resource *resource, int32_t x, int32_t y)
 {
-   (void)client, (void)resource, (void)x, (void)y;
-   STUBL(resource);
+   (void)client;
+   struct wlc_surface *surface;
+   if (!(surface = convert_from_wlc_resource((wlc_resource)wl_resource_get_user_data(resource), "surface")))
+      return;
+
+   surface->pending.subsurface_position = (struct wlc_point){x, y};
+}
+
+static void
+restack_subsurface_relative_to(wlc_resource surface, wlc_resource sibling, int32_t offset)
+{
+
+   size_t surface_idx = (size_t)~0, target_idx = (size_t)~0;
+
+   struct wlc_surface *surface_ptr;
+   if (!(surface_ptr = convert_from_wlc_resource(surface, "surface")))
+      return;
+
+   struct wlc_surface *parent = convert_from_wlc_resource(surface_ptr->parent, "surface");
+   wlc_resource *sub;
+   chck_iter_pool_for_each(&parent->subsurface_list, sub) {
+      if (*sub == surface)
+         surface_idx = _I - 1;
+
+      if (*sub == sibling)
+         target_idx = _I - 1;
+   }
+
+   if (surface_idx == (size_t)~0 || target_idx == (size_t)~0)
+      return;
+
+   if (surface_idx < target_idx)
+      --target_idx;
+
+   chck_iter_pool_remove(&parent->subsurface_list, surface_idx);
+   chck_iter_pool_insert(&parent->subsurface_list, target_idx + offset, &surface);
 }
 
 static void
 wl_cb_subsurface_place_above(struct wl_client *client, struct wl_resource *resource, struct wl_resource *sibling_resource)
 {
    (void)client, (void)resource, (void)sibling_resource;
-   STUBL(resource);
+
+   wlc_resource surface_res = (wlc_resource)wl_resource_get_user_data(resource);
+   wlc_resource sibling_res = (wlc_resource)wl_resource_get_user_data(sibling_resource);
+
+   restack_subsurface_relative_to(surface_res, sibling_res, 0);
 }
 
 static void
 wl_cb_subsurface_place_below(struct wl_client *client, struct wl_resource *resource, struct wl_resource *sibling_resource)
 {
    (void)client, (void)resource, (void)sibling_resource;
-   STUBL(resource);
+
+   wlc_resource surface_res = (wlc_resource)wl_resource_get_user_data(resource);
+   wlc_resource sibling_res = (wlc_resource)wl_resource_get_user_data(sibling_resource);
+
+   restack_subsurface_relative_to(surface_res, sibling_res, 1);
+}
+
+static void
+recursive_set_subsurface_parent_sync_state(struct wlc_surface *surface, bool state)
+{
+   if (!surface || surface->synchronized)
+      return;
+
+   surface->parent_synchronized = state;
+
+   wlc_resource *r;
+   chck_iter_pool_for_each(&surface->subsurface_list, r)
+      recursive_set_subsurface_parent_sync_state(convert_from_wlc_resource(*r, "surface"), state);
 }
 
 static void
@@ -41,8 +96,10 @@ wl_cb_subsurface_set_sync(struct wl_client *client, struct wl_resource *resource
    if (!(surface = convert_from_wlc_resource((wlc_resource)wl_resource_get_user_data(resource), "surface")))
       return;
 
-   if (surface)
+   if (surface) {
       surface->synchronized = true;
+      recursive_set_subsurface_parent_sync_state(surface, true);
+   }
 }
 
 static void
@@ -54,8 +111,15 @@ wl_cb_subsurface_set_desync(struct wl_client *client, struct wl_resource *resour
    if (!(surface = convert_from_wlc_resource((wlc_resource)wl_resource_get_user_data(resource), "surface")))
       return;
 
-   if (surface)
+   if (surface) {
       surface->synchronized = false;
+      recursive_set_subsurface_parent_sync_state(surface, false);
+
+      struct wlc_surface *parent = convert_from_wlc_resource(surface->parent, "surface");
+
+      if (parent && !parent->synchronized && !parent->parent_synchronized)
+         wlc_surface_commit(surface);
+   }
 }
 
 static const struct wl_subsurface_interface wl_subsurface_implementation = {
