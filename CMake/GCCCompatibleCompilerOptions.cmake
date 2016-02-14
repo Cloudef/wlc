@@ -14,6 +14,7 @@ endfunction ()
 # Create new ${EXE,MODULE,SHARED}_LINKER_FLAGS build type for list of linker flags
 # Every linker flag gets checked with check_c_compiler_flag
 function(create_custom_linker_flags name)
+   set(ldflags)
    foreach (flag ${ARGN})
       check_c_compiler_flag(-Wl,${flag} ok)
       if (ok)
@@ -35,6 +36,7 @@ endfunction ()
 # Create new {C,CXX}_FLAGS build type for list of compiler flags
 # Every compiler flag gets checked with check_c_compiler_flag
 function(create_custom_compiler_flags name)
+   set(cflags)
    foreach (flag ${ARGN})
       check_c_compiler_flag(${flag} ok)
       if (ok)
