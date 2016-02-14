@@ -1,11 +1,18 @@
 include(Wayland)
+find_package(WaylandProtocols)
+
+if (WLPROTO_FOUND AND NOT SOURCE_WLPROTO)
+   set(prefix "${WLPROTO_PATH}")
+else ()
+   set(prefix "wayland-protocols")
+endif ()
 
 include_directories(
    ${WAYLAND_SERVER_INCLUDE_DIRS}
 )
 
 set(protos
-   wayland-protocols/unstable/xdg-shell/xdg-shell-unstable-v5)
+   "${prefix}/unstable/xdg-shell/xdg-shell-unstable-v5")
 
 foreach(proto ${protos})
    add_feature_info(${proto} proto "Protocol extension")
