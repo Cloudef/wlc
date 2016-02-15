@@ -136,6 +136,7 @@ And the following depends:
 
 - pixman
 - wayland 1.7+
+- wayland-protocols 1.0+
 - libxkbcommon
 - udev
 - libinput
