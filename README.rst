@@ -136,7 +136,7 @@ And the following depends:
 
 - pixman
 - wayland 1.7+
-- wayland-protocols 1.0+
+- wayland-protocols 1.0+ [1]
 - libxkbcommon
 - udev
 - libinput
@@ -146,6 +146,8 @@ And the following depends:
 - libdrm
 - libEGL (GPU drivers and mesa provide this)
 - libGLESv2 (GPU drivers and mesa provide this)
+
+1: Also bundled as submodule. Using submodule is recommended, as updates to unstable protocols won't break build. To force building from submodule even though wayland-protocols is installed in system use CMake option -DSOURCE_WLPROTO=ON.
 
 And optionally:
 
