@@ -182,6 +182,7 @@ BINDINGS
 --------
 
 - `ocaml-wlc <https://github.com/Armael/ocaml-wlc>`_ - OCaml (experimental)
+- `go-wlc <https://github.com/mikkeloscar/go-wlc>`_ - Go
 
 SOFTWARE USING WLC
 ------------------
