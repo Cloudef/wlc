@@ -183,6 +183,7 @@ BINDINGS
 
 - `ocaml-wlc <https://github.com/Armael/ocaml-wlc>`_ - OCaml (experimental)
 - `go-wlc <https://github.com/mikkeloscar/go-wlc>`_ - Go
+- `rust-wlc <https://github.com/Immington-Industries/rust-wlc>`_ - Rust
 
 SOFTWARE USING WLC
 ------------------
