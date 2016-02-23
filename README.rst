@@ -68,15 +68,6 @@ EXAMPLE
        return EXIT_SUCCESS;
     }
 
-OPTIONS
--------
-
-``wlc`` reads the following options on init.
-
-+-----------------------+------------------------------------------------+
-| ``--log FILE``        | Logs output to specified ``FILE``.             |
-+-----------------------+------------------------------------------------+
-
 ENV VARIABLES
 -------------
 
