@@ -351,8 +351,11 @@ uint32_t wlc_view_get_mask(wlc_handle view);
 /** Set visibility bitmask. */
 void wlc_view_set_mask(wlc_handle view, uint32_t mask);
 
-/** Get current geometry. */
+/** Get current geometry. (what client sees) */
 const struct wlc_geometry* wlc_view_get_geometry(wlc_handle view);
+
+/** Get visible geometry. (what wlc displays) */
+void wlc_view_get_visible_geometry(wlc_handle view, struct wlc_geometry *geometry);
 
 /** Set geometry. Set edges if the geometry change is caused by interactive resize. */
 WLC_NONULL void wlc_view_set_geometry(wlc_handle view, uint32_t edges, const struct wlc_geometry *geometry);
