@@ -558,15 +558,15 @@ wlc_view_get_geometry(wlc_handle view)
 }
 
 WLC_API void
-wlc_view_get_visible_geometry(wlc_handle view, struct wlc_geometry *geometry)
+wlc_view_get_visible_geometry(wlc_handle view, struct wlc_geometry *out_geometry)
 {
-   assert(geometry);
+   assert(out_geometry);
 
-   struct wlc_view *v = convert_from_wlc_handle(view, "view");
-   if (!v)
+   struct wlc_view *v;
+   if (!(v = convert_from_wlc_handle(view, "view")))
       return;
 
-   wlc_view_get_bounds(v, geometry, NULL);
+   wlc_view_get_bounds(v, out_geometry, NULL);
 }
 
 WLC_API void
