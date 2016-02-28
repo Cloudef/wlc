@@ -60,6 +60,27 @@ wlc_view_get_surface(wlc_handle view)
    return (v ? v->surface : 0);
 }
 
+WLC_API const wlc_resource*
+wlc_surface_get_subsurfaces(wlc_resource parent, size_t *out_size)
+{
+   struct wlc_surface *surf = convert_from_wlc_resource(parent, "surface");
+   return (surf ? chck_iter_pool_to_c_array(&surf->subsurface_list, out_size) : NULL);
+}
+
+WLC_API void
+wlc_get_subsurface_geometry(wlc_resource surface, struct wlc_geometry *out_geometry)
+{
+   assert(out_geometry);
+   *out_geometry = (struct wlc_geometry) {0};
+
+   struct wlc_surface *surf;
+   if (!(surf = convert_from_wlc_resource(surface, "surface")))
+      return;
+
+   out_geometry->origin = surf->commit.subsurface_position;
+   out_geometry->size   = surf->size;
+}
+
 WLC_API struct wl_client*
 wlc_view_get_wl_client(wlc_handle view)
 {

@@ -154,9 +154,6 @@ set_program(struct ctx *context, enum program_type type)
 {
    assert(context && type >= 0 && type < PROGRAM_LAST);
 
-   if (&context->programs[type] == context->program)
-      return;
-
    context->program = &context->programs[type];
    GL_CALL(glUseProgram(context->program->obj));
 }
@@ -870,6 +867,7 @@ wlc_gles2(struct wlc_render_api *api)
    if (!(ctx = create_context()))
       return NULL;
 
+   api->renderer_type = WLC_RENDERER_GLES2;
    api->terminate = terminate;
    api->resolution = resolution;
    api->surface_destroy = surface_destroy;
