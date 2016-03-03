@@ -301,13 +301,14 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
 
    unsetenv("TERM");
    const char *x11display = getenv("DISPLAY");
+   const char *as_root = getenv("AS_ROOT");
    bool privileged = false;
    const bool has_logind = wlc_logind_available();
 
    if (getuid() != geteuid() || getgid() != getegid()) {
       wlc_log(WLC_LOG_INFO, "Doing work on SUID/SGID side and dropping permissions");
       privileged = true;
-   } else if (getuid() == 0) {
+   } else if (!as_root && getuid() == 0) {
       die("Do not run wlc compositor as root");
    } else if (!x11display && !has_logind && access("/dev/input/event0", R_OK | W_OK) != 0) {
       die("Not running from X11 and no access to /dev/input/event0 or logind available");
