@@ -14,6 +14,29 @@
 #include "resources/types/surface.h"
 
 static void
+surface_update_coordinate_transform(struct wlc_surface *surface, const struct wlc_geometry *area)
+{
+   assert(area);
+
+   if (!surface || surface->size.w * surface->size.h <= 0)
+      return;
+
+   surface->coordinate_transform.w = (float)(area->size.w) / surface->size.w;
+   surface->coordinate_transform.h = (float)(area->size.h) / surface->size.h;
+}
+
+static void
+surface_tree_update_coordinate_transform(struct wlc_surface *surface, const struct wlc_geometry *area)
+{
+   assert(surface && area);
+   surface_update_coordinate_transform(surface, area);
+
+   wlc_resource *s;
+   chck_iter_pool_for_each(&surface->subsurface_list, s)
+      surface_update_coordinate_transform(convert_from_wlc_resource(*s, "surface"), area);
+}
+
+static void
 configure_view(struct wlc_view *view, uint32_t edges, const struct wlc_geometry *g)
 {
    assert(view && g);
@@ -127,6 +150,11 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
       configure_view(view, pending->edges, &pending->geometry);
 
    *out = *pending;
+
+   struct wlc_geometry geom, visible;
+   wlc_view_get_bounds(view, &geom, &visible);
+   surface_tree_update_coordinate_transform(surface, &visible);
+
    wlc_dlog(WLC_DBG_COMMIT, "=> commit view %" PRIuWLC, convert_to_wlc_handle(view));
 }
 

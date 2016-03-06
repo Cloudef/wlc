@@ -246,9 +246,10 @@ surface_event(struct wl_listener *listener, void *data)
    struct wlc_surface_event *ev = data;
    switch (ev->type) {
       case WLC_SURFACE_EVENT_DESTROYED:
-         if (ev->surface->view == seat->keyboard.focused.view)
+         /* defocus keyboard only if the destroyed surface is toplevel, e.g not subsurface */
+         if (!ev->surface->parent && ev->surface->view == seat->keyboard.focused.view)
             wlc_keyboard_focus(&seat->keyboard, NULL);
-         if (ev->surface->view == seat->pointer.focused.view)
+         if (ev->surface->parent_view == seat->pointer.focused.view)
             wlc_pointer_focus(&seat->pointer, NULL, NULL);
          if (seat->pointer.surface == convert_to_wlc_resource(ev->surface))
             wlc_pointer_set_surface(&seat->pointer, NULL, &wlc_point_zero);

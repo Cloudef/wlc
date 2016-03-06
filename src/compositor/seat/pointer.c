@@ -63,13 +63,46 @@ view_visible(struct wlc_view *view, uint32_t mask)
    return (view->mask & mask);
 }
 
-static struct wlc_view*
-view_under_pointer(struct wlc_pointer *pointer, struct wlc_output *output)
+static void
+find_surface_at_position_recursive(struct wlc_pointer *pointer, struct wlc_surface *parent, struct wlc_focused_surface *out)
 {
-   assert(pointer);
+   wlc_resource *sub;
+   chck_iter_pool_for_each(&parent->subsurface_list, sub) {
+      struct wlc_surface *subsurface;
+      if (!(subsurface = convert_from_wlc_resource(*sub, "surface")))
+         continue;
+
+      int32_t dx = subsurface->commit.subsurface_position.x * parent->coordinate_transform.w;
+      int32_t dy = subsurface->commit.subsurface_position.y * parent->coordinate_transform.h;
+
+      out->offset.x += dx;
+      out->offset.y += dy;
+      find_surface_at_position_recursive(pointer, subsurface, out);
+
+      if (out->id)
+         return;
+
+      if (out->offset.x <= pointer->pos.x && out->offset.y <= pointer->pos.y &&
+            subsurface->size.w + out->offset.x >= pointer->pos.x &&
+            subsurface->size.h + out->offset.y >= pointer->pos.y) {
+         out->id = *sub;
+         return;
+      }
+
+      out->offset.x -= dx;
+      out->offset.y -= dy;
+   }
+}
+
+static bool
+surface_under_pointer(struct wlc_pointer *pointer, struct wlc_output *output, struct wlc_focused_surface *out)
+{
+   assert(pointer && out);
 
    if (!output)
-      return NULL;
+      return false;
+
+   out->id = 0;
 
    wlc_handle *h;
    chck_iter_pool_for_each_reverse(&output->views, h) {
@@ -79,13 +112,24 @@ view_under_pointer(struct wlc_pointer *pointer, struct wlc_output *output)
 
       struct wlc_geometry b;
       wlc_view_get_bounds(view, &b, NULL);
-      if (pointer->pos.x >= b.origin.x && pointer->pos.x <= b.origin.x + (int32_t)b.size.w &&
-          pointer->pos.y >= b.origin.y && pointer->pos.y <= b.origin.y + (int32_t)b.size.h) {
-         return view;
+
+      struct wlc_surface *surface;
+      if ((surface = convert_from_wlc_resource(view->surface, "surface"))) {
+         out->offset = b.origin;
+         find_surface_at_position_recursive(pointer, surface, out);
+
+         if (out->id) {
+            return true;
+         } else if (b.origin.x <= pointer->pos.x && b.origin.y <= pointer->pos.y &&
+                    surface->size.w + b.origin.x >= pointer->pos.x &&
+                    surface->size.h + b.origin.y >= pointer->pos.y) {
+            out->id = view->surface;
+            return true;
+         }
       }
    }
 
-   return NULL;
+   return false;
 }
 
 static void
@@ -96,20 +140,14 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
    if (!pointer || output != active_output(pointer))
       return;
 
-   // XXX: Do this check for now every render loop.
-   // Maybe later we may do something nicer, like if any view moved or
-   // geometry changed then update pointer.
-   struct wlc_view *focus = convert_from_wlc_handle(pointer->focused.view, "view");
-   struct wlc_view *focused = view_under_pointer(pointer, output);
-   if (focus != focused)
-      wlc_pointer_focus(pointer, focused, NULL);
-
    const struct wlc_point pos = {
       chck_clamp(pointer->pos.x, 0, output->resolution.w),
       chck_clamp(pointer->pos.y, 0, output->resolution.h)
    };
 
+   struct wlc_view *view = convert_from_wlc_handle(pointer->focused.view, "view");
    struct wlc_surface *surface;
+
    if ((surface = convert_from_wlc_resource(pointer->surface, "surface"))) {
       if (surface->output != convert_to_wlc_handle(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface))) {
          // Fallback
@@ -117,7 +155,7 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
       } else {
          wlc_output_render_surface(output, surface, &(struct wlc_geometry){ .origin = { pos.x - pointer->tip.x, pos.y - pointer->tip.y }, surface->size }, &output->callbacks);
       }
-   } else if (!focused || focused->x11.id) { // focused->x11.id workarounds bug <https://github.com/Cloudef/wlc/issues/21>
+   } else if (!view || view->x11.id) { // focused->x11.id workarounds bug <https://github.com/Cloudef/wlc/issues/21>
       // Show default cursor when no focus and no surface.
       wlc_render_pointer_paint(&output->render, &output->context, &pos);
    }
@@ -144,12 +182,8 @@ defocus(struct wlc_pointer *pointer)
 {
    assert(pointer);
 
-   struct wlc_view *view;
-   if (!(view = convert_from_wlc_handle(pointer->focused.view, "view")))
-      goto out;
-
    struct wl_resource *surface;
-   if (!(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
+   if (!(surface = wl_resource_from_wlc_resource(pointer->focused.surface.id, "surface")))
       goto out;
 
    wlc_resource *r;
@@ -164,17 +198,20 @@ defocus(struct wlc_pointer *pointer)
 
 out:
    chck_iter_pool_flush(&pointer->focused.resources);
+   pointer->focused.surface.id = 0;
    pointer->focused.view = 0;
-   wlc_pointer_set_surface(pointer, NULL, &wlc_point_zero);
 }
 
 static void
-focus_view(struct wlc_pointer *pointer, struct wlc_view *view, const struct wlc_pointer_origin *pos)
+focus_view(struct wlc_pointer *pointer, struct wlc_surface *surf, wlc_handle old_focus, const struct wlc_pointer_origin *pos)
 {
    assert(pointer);
 
+   if (!surf || surf->parent_view != old_focus)
+        wlc_pointer_set_surface(pointer, NULL, &wlc_point_zero);
+
    struct wl_resource *surface;
-   if (!view || !(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
+   if (!surf || !(surface = convert_to_wl_resource(surf, "surface")))
       return;
 
    struct wl_client *client = wl_resource_get_client(surface);
@@ -191,11 +228,12 @@ focus_view(struct wlc_pointer *pointer, struct wlc_view *view, const struct wlc_
       wl_pointer_send_enter(wr, serial, surface, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
    }
 
-   pointer->focused.view = convert_to_wlc_handle(view);
+   pointer->focused.surface.id = convert_to_wlc_resource(surf);
+   pointer->focused.view = surf->parent_view;
 }
 
 void
-wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc_pointer_origin *out_pos)
+wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_surface *surface, struct wlc_pointer_origin *out_pos)
 {
    assert(pointer);
 
@@ -204,30 +242,25 @@ wlc_pointer_focus(struct wlc_pointer *pointer, struct wlc_view *view, struct wlc
    if (out_pos)
       memcpy(out_pos, &d, sizeof(d));
 
-   if (view) {
-      struct wlc_geometry b, v;
-      wlc_view_get_bounds(view, &b, &v);
+   if (surface) {
+      d.x = (pointer->pos.x - pointer->focused.surface.offset.x) / surface->coordinate_transform.w;
+      d.y = (pointer->pos.y - pointer->focused.surface.offset.y) / surface->coordinate_transform.h;
 
-      struct wlc_surface *s;
-      if (!(s = convert_from_wlc_resource(view->surface, "surface")))
-         return;
-
-      d.x = (pointer->pos.x - v.origin.x) * (float)s->size.w / v.size.w;
-      d.y = (pointer->pos.y - v.origin.y) * (float)s->size.h / v.size.h;
-      d.x = chck_clamp(d.x, 0, s->size.w);
-      d.y = chck_clamp(d.y, 0, s->size.h);
+      d.x = chck_clamp(d.x, 0, surface->size.w);
+      d.y = chck_clamp(d.y, 0, surface->size.h);
 
       if (out_pos)
          memcpy(out_pos, &d, sizeof(d));
    }
 
-   if (pointer->focused.view == convert_to_wlc_handle(view))
+   if (pointer->focused.surface.id == convert_to_wlc_resource(surface))
       return;
 
-   wlc_dlog(WLC_DBG_FOCUS, "-> pointer focus event %" PRIuWLC ", %" PRIuWLC, pointer->focused.view, convert_to_wlc_handle(view));
+   wlc_dlog(WLC_DBG_FOCUS, "-> pointer focus event %" PRIuWLC ", %" PRIuWLC, pointer->focused.surface.id, convert_to_wlc_resource(surface));
 
+   wlc_handle old_focused_view = pointer->focused.view;
    defocus(pointer);
-   focus_view(pointer, view, &d);
+   focus_view(pointer, surface, old_focused_view, &d);
 }
 
 void
@@ -280,7 +313,6 @@ wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, uint8_t axis_bits
 
       if (axis_bits & WLC_SCROLL_AXIS_VERTICAL)
          wl_pointer_send_axis(wr, time, WL_POINTER_AXIS_VERTICAL_SCROLL, wl_fixed_from_double(amount[0]));
-
       if (axis_bits & WLC_SCROLL_AXIS_HORIZONTAL)
          wl_pointer_send_axis(wr, time, WL_POINTER_AXIS_HORIZONTAL_SCROLL, wl_fixed_from_double(amount[1]));
    }
@@ -292,16 +324,18 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass)
    assert(pointer);
 
    struct wlc_output *output = active_output(pointer);
-   struct wlc_view *focused = view_under_pointer(pointer, output);
+   struct wlc_focused_surface focused;
    struct wlc_pointer_origin d;
 
-   // Pass event to client
+   surface_under_pointer(pointer, output, &focused);
+   pointer->focused.surface.offset = focused.offset;
+
    if (pass)
-      wlc_pointer_focus(pointer, focused, &d);
+      wlc_pointer_focus(pointer, convert_from_wlc_resource(focused.id, "surface"), &d);
 
    wlc_output_schedule_repaint(output);
 
-   if (!focused || !pass)
+   if (!focused.id || !pass)
       return;
 
    wlc_resource *r;
