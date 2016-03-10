@@ -6,6 +6,7 @@
 #include <pixman.h>
 #include <wlc/geometry.h>
 #include <chck/pool/pool.h>
+#include <wlc/wlc-render.h>
 #include "resources/resources.h"
 
 struct wlc_buffer;
@@ -63,14 +64,7 @@ struct wlc_surface {
     */
    void *images[3];
 
-   enum wlc_surface_format {
-      SURFACE_RGB,
-      SURFACE_RGBA,
-      SURFACE_EGL,
-      SURFACE_Y_UV,
-      SURFACE_Y_U_V,
-      SURFACE_Y_XUXV,
-   } format;
+   enum wlc_surface_format format;
 
    bool synchronized, parent_synchronized;
 };

@@ -42,6 +42,12 @@ wlc_handle wlc_view_from_surface(wlc_resource surface, struct wl_client *client,
 /** Returns internal wlc surface from view handle */
 wlc_resource wlc_view_get_surface(wlc_handle view);
 
+/** Returns a list of the subsurfaces of the given surface */
+const wlc_resource* wlc_surface_get_subsurfaces(wlc_resource parent, size_t *out_size);
+
+/** Returns the size of a subsurface and its position relative to parent */
+void wlc_get_subsurface_geometry(wlc_resource surface, struct wlc_geometry *out_geometry);
+
 /** Returns wl_client from view handle */
 struct wl_client* wlc_view_get_wl_client(wlc_handle view);
 
