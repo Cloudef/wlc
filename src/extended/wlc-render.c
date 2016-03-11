@@ -100,4 +100,8 @@ wlc_surface_flush_frame_callbacks(wlc_resource surface)
    }
 
    surface_flush_frame_callbacks_recursive(surf, output);
+
+   struct wlc_view *v;
+   if ((v = convert_from_wlc_handle(surf->parent_view, "view")))
+      wlc_view_commit_state(v, &v->pending, &v->commit);
 }
