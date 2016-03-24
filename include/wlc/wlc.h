@@ -327,6 +327,9 @@ bool wlc_init(const struct wlc_interface *interface, int argc, char *argv[]);
  * privileges on non logind systems where compositor binary needs to be suid.
  *
  * wlc_init's purpose is to initialize and drop privileges as soon as possible.
+ *
+ * Callbacks should be set using wlc_set_*_cb functions before calling wlc_init2,
+ * failing to do so will cause any callback the init may trigger to not be called.
  */
 bool wlc_init2(void);
 
