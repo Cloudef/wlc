@@ -17,7 +17,6 @@
 #include "resources/types/xdg-surface.h"
 #include "resources/types/buffer.h"
 
-static GLfloat DIM = 0.5f;
 static bool DRAW_OPAQUE = false;
 
 static const GLubyte cursor_palette[];
@@ -38,7 +37,6 @@ enum {
    UNIFORM_TEXTURE1,
    UNIFORM_TEXTURE2,
    UNIFORM_RESOLUTION,
-   UNIFORM_DIM,
    UNIFORM_LAST,
 };
 
@@ -54,7 +52,6 @@ static const char *uniform_names[UNIFORM_LAST] = {
    "texture1",
    "texture2",
    "resolution",
-   "dim",
 };
 
 static const struct {
@@ -88,7 +85,6 @@ struct ctx {
 
 struct paint {
    struct wlc_geometry visible;
-   GLfloat dim;
    enum program_type program;
    bool filter;
 };
@@ -227,21 +223,19 @@ create_context(void)
       "#version 100\n"
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
-      "uniform float dim;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
-      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb * dim, 1.0);\n"
+      "  gl_FragColor = vec4(texture2D(texture0, v_uv).rgb, 1.0);\n"
       "}\n";
 
    const char *frag_shader_rgba =
       "#version 100\n"
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
-      "uniform float dim;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
       "  vec4 col = texture2D(texture0, v_uv);\n"
-      "  gl_FragColor = vec4(col.rgb * dim, col.a);\n"
+      "  gl_FragColor = vec4(col.rgb, col.a);\n"
       "}\n";
 
    const char *frag_shader_egl =
@@ -249,18 +243,14 @@ create_context(void)
       "#extension GL_OES_EGL_image_external : require\n"
       "precision mediump float;\n"
       "uniform samplerExternalOES texture0;\n"
-      "uniform float dim;\n"
       "varying vec2 v_uv;\n"
       "void main()\n"
       "{\n"
       "  vec4 col = texture2D(texture0, v_uv);\n"
-      "  gl_FragColor = vec4(col.rgb * dim, col.a)\n;"
+      "  gl_FragColor = vec4(col.rgb, col.a)\n;"
       "}\n";
 
 #define FRAGMENT_CONVERT_YUV                                        \
-   "  y *= dim;\n"                                               \
-   "  u *= dim;\n"                                               \
-   "  v *= dim;\n"                                               \
    "  gl_FragColor.r = y + 1.59602678 * v;\n"                    \
    "  gl_FragColor.g = y - 0.39176229 * u - 0.81296764 * v;\n"   \
    "  gl_FragColor.b = y + 2.01723214 * u;\n"                    \
@@ -271,7 +261,6 @@ create_context(void)
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"
-      "uniform float dim;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
       "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
@@ -286,7 +275,6 @@ create_context(void)
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"
       "uniform sampler2D texture2;\n"
-      "uniform float dim;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
       "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
@@ -300,7 +288,6 @@ create_context(void)
       "precision mediump float;\n"
       "uniform sampler2D texture0;\n"
       "uniform sampler2D texture1;\n"
-      "uniform float dim;\n"
       "varying vec2 v_uv;\n"
       "void main() {\n"
       "  float y = 1.16438356 * (texture2D(texture0, v_uv).x - 0.0625);\n"
@@ -672,10 +659,6 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, const struct 
 
    set_program(context, settings->program);
 
-   if (settings->dim > 0.0f) {
-      GL_CALL(glUniform1fv(context->program->uniforms[UNIFORM_DIM], 1, &settings->dim));
-   }
-
    for (GLuint i = 0; i < nmemb; ++i) {
       if (!textures[i])
          break;
@@ -724,7 +707,6 @@ surface_paint(struct ctx *context, struct wlc_surface *surface, const struct wlc
 {
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
-   settings.dim = 1.0f;
    settings.program = (enum program_type)surface->format;
    settings.visible = *geometry;
    surface_paint_internal(context, surface, geometry, &settings);
@@ -741,7 +723,6 @@ view_paint(struct ctx *context, struct wlc_view *view)
 
    struct paint settings;
    memset(&settings, 0, sizeof(settings));
-   settings.dim = ((view->commit.state & WLC_BIT_ACTIVATED) || (view->type & (WLC_BIT_UNMANAGED|WLC_BIT_SPLASH|WLC_BIT_OVERRIDE_REDIRECT)) ? 1.0f : DIM);
    settings.program = (enum program_type)surface->format;
 
    struct wlc_geometry geometry;
@@ -829,7 +810,6 @@ flush_fakefb(struct ctx *context)
       return;
 
    struct paint settings = {0};
-   settings.dim = 1.0f;
    settings.program = PROGRAM_RGBA;
    texture_paint(context, &context->textures[TEXTURE_FAKEFB], 1, &(struct wlc_geometry){ .origin = { 0, 0 }, .size = context->resolution }, &settings);
    clear_fakefb(context);
@@ -880,7 +860,6 @@ wlc_gles2(struct wlc_render_api *api)
    api->flush_fakefb = flush_fakefb;
    api->clear = clear;
 
-   chck_cstr_to_f(getenv("WLC_DIM"), &DIM);
    chck_cstr_to_bool(getenv("WLC_DRAW_OPAQUE"), &DRAW_OPAQUE);
 
    wlc_log(WLC_LOG_INFO, "GLES2 renderer initialized");
