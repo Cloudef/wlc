@@ -761,14 +761,14 @@ clamp_to_bounds(struct wlc_geometry *g, const struct wlc_size *bounds)
       g->size.w += g->origin.x;
       g->origin.x = 0;
    } else if ((uint32_t)g->origin.x > bounds->w) {
-      g->origin.x = 0;
+      g->origin.x = bounds->w;
    }
 
    if (g->origin.y < 0) {
       g->size.h += g->origin.y;
       g->origin.y = 0;
    } else if ((uint32_t)g->origin.y > bounds->h) {
-      g->origin.y = 0;
+      g->origin.y = bounds->h;
    }
 
    if (g->origin.x + g->size.w > bounds->w)
