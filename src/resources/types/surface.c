@@ -20,8 +20,7 @@ surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
    if (!(output = convert_from_wlc_handle(surface->output, "output")))
       return;
 
-   if (output)
-      wlc_surface_attach_to_output(surface, output, buffer);
+   wlc_surface_attach_to_output(surface, output, buffer);
 
    struct wlc_view *view;
    if ((view = convert_from_wlc_handle(surface->view, "view"))) {
@@ -280,9 +279,7 @@ wlc_surface_attach_to_view(struct wlc_surface *surface, struct wlc_view *view)
 bool
 wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *output, struct wlc_buffer *buffer)
 {
-   assert(output);
-
-   if (!surface || !wlc_output_surface_attach(output, surface, buffer))
+   if (!output || !surface || !wlc_output_surface_attach(output, surface, buffer))
       return false;
 
    struct wlc_size size = wlc_size_zero;
