@@ -131,6 +131,13 @@ view_request_resize(wlc_handle view, uint32_t edges, const struct wlc_point *ori
    start_interactive_resize(view, edges, origin);
 }
 
+static void
+view_request_geometry(wlc_handle view, const struct wlc_geometry *g)
+{
+   (void)view, (void)g;
+   // stub intentionally to ignore geometry requests.
+}
+
 static bool
 keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifiers, uint32_t key, enum wlc_key_state state)
 {
@@ -248,33 +255,18 @@ main(int argc, char *argv[])
 {
    wlc_log_set_handler(cb_log);
 
-   static struct wlc_interface interface = {
-      .output = {
-         .resolution = output_resolution,
-      },
+   wlc_set_output_resolution_cb(output_resolution);
+   wlc_set_view_created_cb(view_created);
+   wlc_set_view_destroyed_cb(view_destroyed);
+   wlc_set_view_focus_cb(view_focus);
+   wlc_set_view_request_move_cb(view_request_move);
+   wlc_set_view_request_resize_cb(view_request_resize);
+   wlc_set_view_request_geometry_cb(view_request_geometry);
+   wlc_set_keyboard_key_cb(keyboard_key);
+   wlc_set_pointer_button_cb(pointer_button);
+   wlc_set_pointer_motion_cb(pointer_motion);
 
-      .view = {
-         .created = view_created,
-         .destroyed = view_destroyed,
-         .focus = view_focus,
-
-         .request = {
-            .move = view_request_move,
-            .resize = view_request_resize,
-         },
-      },
-
-      .keyboard = {
-         .key = keyboard_key,
-      },
-
-      .pointer = {
-         .button = pointer_button,
-         .motion = pointer_motion,
-      },
-   };
-
-   if (!wlc_init(&interface, argc, argv))
+   if (!wlc_init2())
       return EXIT_FAILURE;
 
    wlc_run();

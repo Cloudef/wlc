@@ -120,7 +120,9 @@ struct wlc_modifiers {
    uint32_t leds, mods;
 };
 
-/** Interface struct for communicating with wlc. */
+/** Interface struct for communicating with wlc.
+ * Deprecated, don't use directly. Instead use the wlc_set_*_cb functions below. */
+__attribute__((deprecated("deprecated in favor of wlc_set_*_cb functions")))
 struct wlc_interface {
    struct {
       /** Output was created. Return false if you want to destroy the output. (e.g. failed to allocate data related to view) */
@@ -222,6 +224,83 @@ struct wlc_interface {
    } input;
 };
 
+/** -- Callbacks API */
+
+/** Output was created. Return false if you want to destroy the output. (e.g. failed to allocate data related to view) */
+void wlc_set_output_created_cb(bool (*cb)(wlc_handle output));
+
+/** Output was destroyed. */
+void wlc_set_output_destroyed_cb(void (*cb)(wlc_handle output));
+
+/** Output got or lost focus. */
+void wlc_set_output_focus_cb(void (*cb)(wlc_handle output, bool focus));
+
+/** Output resolution changed. */
+void wlc_set_output_resolution_cb(void (*cb)(wlc_handle output, const struct wlc_size *from, const struct wlc_size *to));
+
+/** Output pre render hook. */
+void wlc_set_output_render_pre_cb(void (*cb)(wlc_handle output));
+
+/** Output post render hook. */
+void wlc_set_output_render_post_cb(void (*cb)(wlc_handle output));
+
+/** View was created. Return false if you want to destroy the view. (e.g. failed to allocate data related to view) */
+void wlc_set_view_created_cb(bool (*cb)(wlc_handle view));
+
+/** View was destroyed. */
+void wlc_set_view_destroyed_cb(void (*cb)(wlc_handle view));
+
+/** View got or lost focus. */
+void wlc_set_view_focus_cb(void (*cb)(wlc_handle view, bool focus));
+
+/** View was moved to output. */
+void wlc_set_view_move_to_output_cb(void (*cb)(wlc_handle view, wlc_handle from_output, wlc_handle to_output));
+
+/** Request to set given geometry for view. Apply using wlc_view_set_geometry to agree. */
+void wlc_set_view_request_geometry_cb(void (*cb)(wlc_handle view, const struct wlc_geometry*));
+
+/** Request to disable or enable the given state for view. Apply using wlc_view_set_state to agree. */
+void wlc_set_view_request_state_cb(void (*cb)(wlc_handle view, enum wlc_view_state_bit, bool toggle));
+
+/** Request to move itself. Start a interactive move to agree. */
+void wlc_set_view_request_move_cb(void (*cb)(wlc_handle view, const struct wlc_point*));
+
+/** Request to resize itself with the given edges. Start a interactive resize to agree. */
+void wlc_set_view_request_resize_cb(void (*cb)(wlc_handle view, uint32_t edges, const struct wlc_point*));
+
+/** View pre render hook. */
+void wlc_set_view_render_pre_cb(void (*cb)(wlc_handle view));
+
+/** View post render hook. */
+void wlc_set_view_render_post_cb(void (*cb)(wlc_handle view));
+
+/** Key event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
+void wlc_set_keyboard_key_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, enum wlc_key_state));
+
+/** Button event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
+void wlc_set_pointer_button_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t button, enum wlc_button_state, const struct wlc_point*));
+
+/** Scroll event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
+void wlc_set_pointer_scroll_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]));
+
+/** Motion event was triggered, view handle will be zero if there was no focus. Apply with wlc_pointer_set_position to agree. Return true to prevent sending the event to clients. */
+void wlc_set_pointer_motion_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_point*));
+
+/** Touch event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
+void wlc_set_touch_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, enum wlc_touch_type, int32_t slot, const struct wlc_point*));
+
+/** Compositor is ready to accept clients. */
+void wlc_set_compositor_ready_cb(void (*cb)(void));
+
+/** Compositor is about to terminate */
+void wlc_set_compositor_terminate_cb(void (*cb)(void));
+
+/** Input device was created. Return value does nothing. (Experimental) */
+void wlc_set_input_created_cb(bool (*cb)(struct libinput_device *device));
+
+/** Input device was destroyed. (Experimental) */
+void wlc_set_input_destroyed_cb(void (*cb)(struct libinput_device *device));
+
 /** -- Core API */
 
 /** Set log handler. Can be set before wlc_init. */
@@ -238,7 +317,18 @@ void wlc_log_set_handler(void (*cb)(enum wlc_log_type type, const char *str));
  * You can pass argc and argv from main(), so wlc can rename the process it forks
  * to cleanup crashed parent process and do FD passing (non-logind).
  */
-WLC_NONULLV(1) bool wlc_init(const struct wlc_interface *interface, int argc, char *argv[]);
+__attribute__((deprecated("will be replaced with wlc_init2 in next release")))
+bool wlc_init(const struct wlc_interface *interface, int argc, char *argv[]);
+
+/**
+ * Initialize wlc. Returns false on failure.
+ *
+ * Avoid running unverified code before wlc_init as wlc compositor may be run with higher
+ * privileges on non logind systems where compositor binary needs to be suid.
+ *
+ * wlc_init's purpose is to initialize and drop privileges as soon as possible.
+ */
+bool wlc_init2(void);
 
 /** Terminate wlc. */
 void wlc_terminate(void);
