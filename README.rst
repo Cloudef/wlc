@@ -54,14 +54,10 @@ EXAMPLE
     int
     main(int argc, char *argv[])
     {
-       static struct wlc_interface interface = {
-          .view = {
-             .created = view_created,
-             .focus = view_focus,
-          },
-       };
+       wlc_set_view_created_cb(view_created);
+       wlc_set_view_focus_cb(view_focus);
 
-       if (!wlc_init(&interface, argc, argv))
+       if (!wlc_init2())
           return EXIT_FAILURE;
 
        wlc_run();
