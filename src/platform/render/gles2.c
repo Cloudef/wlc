@@ -535,6 +535,8 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    void *data = wl_shm_buffer_get_data(buffer->shm_buffer);
    GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitch, buffer->size.h, 0, gl_format, gl_pixel_type, data));
    wl_shm_buffer_end_access(buffer->shm_buffer);
+   GL_CALL(glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, 0));
+
    return true;
 }
 
