@@ -315,6 +315,7 @@ create_context(void)
 #endif
 
    context->extensions = (const char*)GL_CALL(glGetString(GL_EXTENSIONS));
+   wlc_log(WLC_LOG_INFO, "%s", context->extensions);
 
    if (!has_extension(context, "GL_OES_EGL_image_external")) {
       wlc_log(WLC_LOG_WARN, "gles2: GL_OES_EGL_image_external not available");
