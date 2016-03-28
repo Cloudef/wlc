@@ -322,6 +322,10 @@ create_context(void)
       frag_shader_egl = frag_shader_dummy;
    }
 
+   if (!has_extension(context, "GL_EXT_texture_format_BGRA8888")) {
+      wlc_log(WLC_LOG_WARN, "gles2: GL_EXT_texture_format_BGRA8888 is not available, rendering for many surfaces will most likely be broken");
+   }
+
    const struct {
       const char *vert;
       const char *frag;
