@@ -249,6 +249,7 @@ create_context(struct wlc_backend_surface *bsurface)
    }
 
    context->extensions = EGL_CALL(eglQueryString(context->display, EGL_EXTENSIONS));
+   wlc_log(WLC_LOG_INFO, "%s", context->extensions);
 
    if (has_extension(context, "EGL_WL_bind_wayland_display") && has_extension(context, "EGL_KHR_image_base")) {
       context->api.eglCreateImageKHR = (void*)eglGetProcAddress("eglCreateImageKHR");
