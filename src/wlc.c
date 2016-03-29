@@ -527,13 +527,13 @@ wlc_set_touch_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_mod
 }
 
 WLC_API void
-wlc_set_swipe_cb(bool (*cb)(wlc_handle view, uint32_t time, int finger_count, const struct wlc_point*, const struct wlc_point*))
+wlc_set_swipe_cb(bool (*cb)(wlc_handle view, uint32_t time, int finger_count, double dx, double dy, double dx_unaccel, double dy_unaccel))
 {
    wlc.interface.gesture.swipe = cb;
 }
 
 WLC_API void
-wlc_set_pinch_cb(bool (*cb)(wlc_handle view, uint32_t time, int finger_count, const struct wlc_point*, const struct wlc_point*, double angle, double scale))
+wlc_set_pinch_cb(bool (*cb)(wlc_handle view, uint32_t time, int finger_count, double dx, double dy, double dx_unaccel, double dy_unaccel, double angle, double scale))
 {
    wlc.interface.gesture.pinch = cb;
 }
