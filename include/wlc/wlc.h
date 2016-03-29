@@ -122,6 +122,16 @@ enum wlc_touch_type {
    WLC_TOUCH_CANCEL,
 };
 
+/** Type in interface.gesture.swipe and interface.gesture.pinch funtions */
+enum wlc_gesture_type {
+   WLC_GESTURE_SWIPE_BEGIN,
+   WLC_GESTURE_SWIPE_UPDATE,
+   WLC_GESTURE_SWIPE_END,
+   WLC_GESTURE_PINCH_BEGIN,
+   WLC_GESTURE_PINCH_UPDATE,
+   WLC_GESTURE_PINCH_END,
+};
+
 /** State of keyboard modifiers in various functions. */
 struct wlc_modifiers {
    uint32_t leds, mods;
