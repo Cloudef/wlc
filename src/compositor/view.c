@@ -181,7 +181,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface)
 static bool
 should_be_transformed_by_parent(struct wlc_view *view)
 {
-   return !(view->type & WLC_BIT_OVERRIDE_REDIRECT) && !(view->type & WLC_BIT_UNMANAGED);
+   return view->x11.id == 0;
 }
 
 void
