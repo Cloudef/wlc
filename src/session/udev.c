@@ -115,7 +115,7 @@ wlc_gesture_type_for_libinput_type(enum libinput_event_type type)
    }
 
    assert(0 && "should not happen");
-   return NULL;
+   return WLC_GESTURE_PINCH_END;
 }
 
 static int
@@ -267,7 +267,7 @@ input_event(int fd, uint32_t mask, void *data)
          case LIBINPUT_EVENT_GESTURE_SWIPE_END:
          case LIBINPUT_EVENT_GESTURE_PINCH_BEGIN:
          case LIBINPUT_EVENT_GESTURE_PINCH_UPDATE:
-         case LIBINPUT_EVENT_GESTURE_SWIPE_END:
+         case LIBINPUT_EVENT_GESTURE_PINCH_END:
          {
              struct libinput_event_gesture *tev = libinput_event_get_gesture_event(event);
              struct wlc_input_event ev = {0};
