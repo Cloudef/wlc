@@ -324,8 +324,8 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass)
    assert(pointer);
 
    struct wlc_output *output = active_output(pointer);
-   struct wlc_focused_surface focused;
-   struct wlc_pointer_origin d;
+   struct wlc_focused_surface focused = {0};
+   struct wlc_pointer_origin d = {0};
 
    surface_under_pointer(pointer, output, &focused);
    pointer->focused.surface.offset = focused.offset;
