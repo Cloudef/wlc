@@ -136,7 +136,7 @@ static struct wlc_view*
 view_for_window(struct wlc_x11_window *win)
 {
    struct wlc_view *view;
-   return (win ? wl_container_of(win, view, x11) : NULL);
+   return (win && win->paired ? wl_container_of(win, view, x11) : NULL);
 }
 
 static void
@@ -370,6 +370,7 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
 
    wlc_dlog(WLC_DBG_XWM, "-> Paired collisions (%u)", chck_hash_table_collisions(&xwm->paired));
 
+   view->x11.paired = true;
    wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, view->x11.override_redirect);
    read_properties(xwm, &view->x11);
 
