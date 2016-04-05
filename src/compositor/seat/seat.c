@@ -115,7 +115,13 @@ seat_handle_key(struct wlc_seat *seat, const struct wlc_input_event *ev)
 
    wlc_keyboard_update_modifiers(&seat->keyboard, ev->device);
 
-   if (seat->keyboard.modifiers.mods == (WLC_BIT_MOD_CTRL | WLC_BIT_MOD_ALT) && ev->key.code >= 59 && ev->key.code <= 88) {
+   /* We use no mods to obtain keysym, because otherwise
+    * the ctrl-alt combo will change the resulting keysym
+    * into something different from KEY_F1 -> KEY_F12 */
+   struct wlc_modifiers mods = {0, 0};
+   uint32_t keysym = wlc_keyboard_get_keysym_for_key_ptr(&seat->keyboard, ev->key.code, &mods);
+
+   if (seat->keyboard.modifiers.mods == (WLC_BIT_MOD_CTRL | WLC_BIT_MOD_ALT) && keysym >= XKB_KEY_F1 && keysym <= XKB_KEY_F12) {
       const int vt = (ev->key.code - 59) + 1;
       if (ev->key.state == WL_KEYBOARD_KEY_STATE_PRESSED && wlc_tty_get_vt() != vt) {
          struct wlc_activate_event aev = { .active = false, .vt = vt };
