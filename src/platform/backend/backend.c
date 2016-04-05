@@ -3,7 +3,9 @@
 #include <assert.h>
 #include "internal.h"
 #include "backend.h"
+#ifdef ENABLE_X11_BACKEND
 #include "x11.h"
+#endif
 #include "drm.h"
 
 bool
@@ -65,13 +67,17 @@ wlc_backend(struct wlc_backend *backend)
    memset(backend, 0, sizeof(struct wlc_backend));
 
    bool (*init[])(struct wlc_backend*) = {
+#ifdef ENABLE_X11_BACKEND
       wlc_x11,
+#endif
       wlc_drm,
       NULL
    };
 
    enum wlc_backend_type types[] = {
+#ifdef ENABLE_X11_BACKEND
       WLC_BACKEND_X11,
+#endif
       WLC_BACKEND_DRM,
    };
 

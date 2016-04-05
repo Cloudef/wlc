@@ -59,6 +59,12 @@ struct wlc_view {
    } state;
 };
 
+static inline bool
+is_x11_view(struct wlc_view *view)
+{
+   return wlc_x11_is_valid_window(&view->x11);
+}
+
 WLC_NONULL void wlc_view_update(struct wlc_view *view);
 WLC_NONULL void wlc_view_map(struct wlc_view *view);
 WLC_NONULL void wlc_view_unmap(struct wlc_view *view);

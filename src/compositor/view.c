@@ -48,7 +48,7 @@ configure_view(struct wlc_view *view, uint32_t edges, const struct wlc_geometry 
       xdg_surface_send_configure(r, g->size.w, g->size.h, &states, serial);
    } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
       wl_shell_surface_send_configure(r, edges, g->size.w, g->size.h);
-   } else if (view->x11.id) {
+   } else if (is_x11_view(view)) {
       wlc_x11_window_configure(&view->x11, g);
    }
 }
@@ -163,7 +163,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface)
 {
    assert(view && surface);
 
-   if (view->x11.id) {
+   if (is_x11_view(view)) {
       surface->pending.opaque.extents = (pixman_box32_t){ 0, 0, surface->size.w, surface->size.h };
       view->surface_pending.visible = (struct wlc_geometry){ wlc_point_zero, surface->size };
    }
@@ -181,7 +181,7 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface)
 static bool
 should_be_transformed_by_parent(struct wlc_view *view)
 {
-   return view->x11.id == 0;
+   return !is_x11_view(view);
 }
 
 void
@@ -217,7 +217,7 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
 
    // Actual visible area of the view
    // The idea is to draw black borders to the bounds area, while centering the visible area.
-   if ((view->x11.id || view->shell_surface) && !wlc_size_equals(&surface->size, &out_bounds->size)) {
+   if ((is_x11_view(view) || view->shell_surface) && !wlc_size_equals(&surface->size, &out_bounds->size)) {
       out_visible->size = surface->size;
 
       // Scale visible area retaining aspect
@@ -406,7 +406,7 @@ wlc_view_set_state_ptr(struct wlc_view *view, enum wlc_view_state_bit state, boo
    if (!view)
       return;
 
-   if (view->x11.id)
+   if (is_x11_view(view))
       wlc_x11_window_set_state(&view->x11, state, toggle);
 
 #define BIT_TOGGLE(w, m, f) (w & ~m) | (-f & m)
@@ -461,7 +461,7 @@ wlc_view_close_ptr(struct wlc_view *view)
    struct wl_resource *r;
    if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
       xdg_surface_send_close(r);
-   } else if (view->x11.id) {
+   } else if (is_x11_view(view)) {
       wlc_x11_window_close(&view->x11);
    } else if (view->xdg_popup && (r = wl_resource_from_wlc_resource(view->xdg_popup, "xdg-popup"))) {
       xdg_popup_send_popup_done(r);

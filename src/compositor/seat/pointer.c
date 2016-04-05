@@ -155,7 +155,7 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
       } else {
          wlc_output_render_surface(output, surface, &(struct wlc_geometry){ .origin = { pos.x - pointer->tip.x, pos.y - pointer->tip.y }, surface->size }, &output->callbacks);
       }
-   } else if (!view || view->x11.id) { // focused->x11.id workarounds bug <https://github.com/Cloudef/wlc/issues/21>
+   } else if (!view || is_x11_view(view)) { // focused->x11.id workarounds bug <https://github.com/Cloudef/wlc/issues/21>
       // Show default cursor when no focus and no surface.
       wlc_render_pointer_paint(&output->render, &output->context, &pos);
    }
@@ -275,7 +275,7 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, 
    // Special handling for popups
    if (seat->keyboard.focused.view != pointer->focused.view) {
       struct wlc_view *v;
-      if ((v = convert_from_wlc_handle(seat->keyboard.focused.view, "view")) && !v->x11.id && (v->type & WLC_BIT_POPUP)) {
+      if ((v = convert_from_wlc_handle(seat->keyboard.focused.view, "view")) && !is_x11_view(v) && (v->type & WLC_BIT_POPUP)) {
          struct wl_client *client = NULL;
 
          struct wl_resource *surface;
