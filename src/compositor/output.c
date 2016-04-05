@@ -555,6 +555,9 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
       }
    }
 
+   if (output->state.created)
+      WLC_INTERFACE_EMIT(output.context.destroyed, convert_to_wlc_handle(output));
+
    wlc_render_release(&output->render, &output->context);
    wlc_context_release(&output->context);
    wlc_backend_surface_release(&output->bsurface);
@@ -583,6 +586,9 @@ wlc_output_set_backend_surface(struct wlc_output *output, struct wlc_backend_sur
             wlc_surface_attach_to_output(s, output, wlc_surface_get_buffer(s));
          }
       }
+
+      if (output->state.created)
+         WLC_INTERFACE_EMIT(output.context.created, convert_to_wlc_handle(output));
 
       wlc_log(WLC_LOG_INFO, "Set new bsurface to output (%" PRIuWLC ")", convert_to_wlc_handle(output));
    } else {

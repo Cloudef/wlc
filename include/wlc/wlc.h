@@ -138,6 +138,14 @@ struct wlc_interface {
       WLC_NONULL void (*resolution)(wlc_handle output, const struct wlc_size *from, const struct wlc_size *to);
 
       struct {
+          /** Output context is created. This generally happens on startup and when current tty changes */
+          void (*created)(wlc_handle output);
+
+          /** Output context is destroyed */
+          void (*destroyed)(wlc_handle output);
+      } context;
+
+      struct {
          /** Pre render hook. */
          void (*pre)(wlc_handle output);
 
@@ -243,6 +251,12 @@ void wlc_set_output_render_pre_cb(void (*cb)(wlc_handle output));
 
 /** Output post render hook. */
 void wlc_set_output_render_post_cb(void (*cb)(wlc_handle output));
+
+/** Output context is created. This generally happens on startup and when current tty changes */
+void wlc_set_output_context_created_cb(void (*cb)(wlc_handle output));
+
+/** Output context was destroyed. */
+void wlc_set_output_context_destroyed_cb(void (*cb)(wlc_handle output));
 
 /** View was created. Return false if you want to destroy the view. (e.g. failed to allocate data related to view) */
 void wlc_set_view_created_cb(bool (*cb)(wlc_handle view));
