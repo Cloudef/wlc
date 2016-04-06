@@ -462,6 +462,8 @@ add_output(struct wlc_compositor *compositor, struct wlc_backend_surface *bsurfa
       return;
    }
 
+   output->state.created = true;
+
    if (!compositor->active.output)
       active_output(compositor, output);
 

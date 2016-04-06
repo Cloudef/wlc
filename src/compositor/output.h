@@ -79,6 +79,7 @@ struct wlc_output {
       uint32_t frame_time;
       bool pending, scheduled, activity, sleeping;
       bool background_visible;
+      bool created;
    } state;
 
    struct {

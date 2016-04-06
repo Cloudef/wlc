@@ -431,6 +431,18 @@ wlc_set_output_render_post_cb(void (*cb)(wlc_handle output))
 }
 
 WLC_API void
+wlc_set_output_context_created_cb(void (*cb)(wlc_handle output))
+{
+   wlc.interface.output.context.created = cb;
+}
+
+WLC_API void
+wlc_set_output_context_destroyed_cb(void (*cb)(wlc_handle output))
+{
+   wlc.interface.output.context.destroyed = cb;
+}
+
+WLC_API void
 wlc_set_view_created_cb(bool (*cb)(wlc_handle view))
 {
    wlc.interface.view.created = cb;
