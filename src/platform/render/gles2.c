@@ -528,8 +528,8 @@ shm_attach(struct wlc_surface *surface, struct wlc_buffer *buffer, struct wl_shm
    }
 
    struct wlc_view *view;
-   if ((view = convert_from_wlc_handle(surface->view, "view")) && view->x11.id)
-      surface->format = wlc_x11_window_get_surface_format(&view->x11);
+   if ((view = convert_from_wlc_handle(surface->view, "view")) && is_x11_view(view))
+      wlc_x11_window_set_surface_format(surface, &view->x11);
 
    surface_gen_textures(surface, 1);
    GL_CALL(glBindTexture(GL_TEXTURE_2D, surface->textures[0]));
@@ -593,8 +593,8 @@ egl_attach(struct ctx *context, struct wlc_context *ectx, struct wlc_surface *su
    }
 
    struct wlc_view *view;
-   if ((view = convert_from_wlc_handle(surface->view, "view")) && view->x11.id)
-      surface->format = wlc_x11_window_get_surface_format(&view->x11);
+   if ((view = convert_from_wlc_handle(surface->view, "view")) && is_x11_view(view))
+      wlc_x11_window_set_surface_format(surface, &view->x11);
 
    if (num_planes > 3) {
       wlc_log(WLC_LOG_WARN, "planes > 3 in egl surfaces not supported, nor should be possible");

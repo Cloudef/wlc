@@ -9,7 +9,6 @@ add_definitions(
    ${GLESv2_DEFINITIONS}
    ${UDEV_DEFINITIONS}
    ${LIBINPUT_DEFINITIONS}
-   ${XCB_DEFINITIONS}
    )
 
 include_directories(
@@ -26,8 +25,6 @@ include_directories(
    ${GLESv2_INCLUDE_DIRS}
    ${UDEV_INCLUDE_DIRS}
    ${LIBINPUT_INCLUDE_DIRS}
-   ${XCB_INCLUDE_DIRS}
-   ${X11_INCLUDE_DIR}
    )
 
 set(sources
@@ -45,7 +42,6 @@ set(sources
    compositor/view.c
    platform/backend/backend.c
    platform/backend/drm.c
-   platform/backend/x11.c
    platform/context/context.c
    platform/context/egl.c
    platform/render/gles2.c
@@ -61,11 +57,23 @@ set(sources
    session/tty.c
    session/udev.c
    wlc.c
-   xwayland/xwayland.c
-   xwayland/xwm.c
    extended/wlc-wayland.c
    extended/wlc-render.c
    )
+
+if (X11_FOUND)
+   add_definitions(-DENABLE_X11_BACKEND)
+   include_directories(${X11_INCLUDE_DIR})
+   list(APPEND sources platform/backend/x11.c)
+   list(APPEND libs ${X11_LIBRARIES})
+endif ()
+
+if (XCB_FOUND)
+   add_definitions(-DENABLE_XWAYLAND ${XCB_DEFINITIONS})
+   include_directories(${XCB_INCLUDE_DIRS})
+   list(APPEND sources xwayland/xwayland.c xwayland/xwm.c)
+   list(APPEND libs ${XCB_LIBRARIES})
+endif ()
 
 if (DBUS_FOUND)
    add_definitions(-DDBUS_DISABLE_DEPRECATED ${DBUS_DEFINITIONS})
@@ -111,8 +119,6 @@ target_link_libraries(wlc
    ${XKBCOMMON_LIBRARIES}
    ${LIBINPUT_LIBRARIES}
    ${UDEV_LIBRARIES}
-   ${X11_LIBRARIES}
-   ${XCB_LIBRARIES}
    ${GLESv2_LIBRARIES}
    ${EGL_LIBRARIES}
    ${DRM_LIBRARIES}
@@ -133,8 +139,6 @@ target_link_libraries(wlc-tests
    ${XKBCOMMON_LIBRARIES}
    ${LIBINPUT_LIBRARIES}
    ${UDEV_LIBRARIES}
-   ${X11_LIBRARIES}
-   ${XCB_LIBRARIES}
    ${GLESv2_LIBRARIES}
    ${EGL_LIBRARIES}
    ${DRM_LIBRARIES}
