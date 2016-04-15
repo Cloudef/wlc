@@ -54,28 +54,18 @@ compositor_ready(void)
 }
 
 static int
-compositor_main(int argc, char *argv[])
+compositor_main(void)
 {
-   static struct wlc_interface interface = {
-      .view = {
-         .move_to_output = view_move_to_output,
-
-         .request = {
-            .state = view_request_state,
-         },
-      },
-
-      .compositor = {
-         .ready = compositor_ready,
-      },
-   };
+   wlc_set_view_move_to_output_cb(view_move_to_output);
+   wlc_set_view_request_state_cb(view_request_state);
+   wlc_set_compositor_ready_cb(compositor_ready);
 
    // This causes nouveau to hang at quit.
    // Comment out until headless backend is added.
    // setenv("WLC_OUTPUTS", "2", true);
    view_moved_to_output = true;
 
-   compositor_test_create(&compositor, argc, argv, "fullscreen", &interface);
+   compositor_test_create(&compositor, "fullscreen");
    wlc_run();
 
    assert(fullscreen_state_requested);
@@ -84,7 +74,7 @@ compositor_main(int argc, char *argv[])
 }
 
 int
-main(int argc, char *argv[])
+main(void)
 {
-   return compositor_main(argc, argv);
+   return compositor_main();
 }

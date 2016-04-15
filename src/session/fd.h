@@ -18,6 +18,6 @@ bool wlc_fd_activate_vt(int vt);
 WLC_NONULL int wlc_fd_open(const char *path, int flags, enum wlc_fd_type type);
 void wlc_fd_close(int fd);
 void wlc_fd_terminate(void);
-void wlc_fd_init(int argc, char *argv[], bool has_logind);
+void wlc_fd_init(bool has_logind);
 
 #endif /* _WLC_FD_H_ */

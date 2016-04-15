@@ -279,11 +279,8 @@ wlc_terminate(void)
 }
 
 WLC_API bool
-wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
+wlc_init(void)
 {
-   if (argc > 0 && !argv)
-      die("argc was more than 0, but argv was NULL");
-
    if (wlc.display)
       return true;
 
@@ -335,7 +332,7 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    {
       struct wl_display *display = wlc.display;
       wlc.display = NULL;
-      wlc_fd_init(argc, argv, (vt != 0));
+      wlc_fd_init((vt != 0));
       wlc.display = display;
    }
 
@@ -380,16 +377,7 @@ wlc_init(const struct wlc_interface *interface, int argc, char *argv[])
    if (!wlc_compositor(&wlc.compositor))
       die("Failed to init compositor");
 
-   if (interface)
-      wlc.interface = *interface;
-
    return true;
-}
-
-WLC_API bool
-wlc_init2(void)
-{
-   return wlc_init(NULL, 0, NULL);
 }
 
 WLC_API void

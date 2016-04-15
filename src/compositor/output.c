@@ -359,18 +359,6 @@ repaint(struct wlc_output *output)
 
    rendering_output = NULL;
 
-   {
-      size_t sz;
-      void *rgba;
-      struct wlc_geometry g = { { 0, 0 }, output->resolution };
-      if (output->task.pixels.cb && !chck_mul_ofsz(g.size.w, g.size.h, &sz) && (rgba = chck_calloc_of(4, sz))) {
-         wlc_render_read_pixels(&output->render, &output->context, WLC_RGBA8888, &g, &g, rgba);
-         if (!output->task.pixels.cb(&g.size, rgba, output->task.pixels.arg))
-            free(rgba);
-         memset(&output->task.pixels, 0, sizeof(output->task.pixels));
-      }
-   }
-
    output->state.pending = true;
    wlc_context_swap(&output->context, &output->bsurface);
 
@@ -826,20 +814,6 @@ wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask)
    wlc_output_schedule_repaint(output);
 }
 
-void
-wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg)
-{
-   assert(pixels);
-
-   if (!output)
-      return;
-
-   // TODO: we need real task system, not like we do right now.
-   output->task.pixels.cb = pixels;
-   output->task.pixels.arg = arg;
-   wlc_output_schedule_repaint(output);
-}
-
 bool
 wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb)
 {
@@ -924,12 +898,6 @@ WLC_API void
 wlc_output_set_mask(wlc_handle output, uint32_t mask)
 {
    wlc_output_set_mask_ptr(convert_from_wlc_handle(output, "output"), mask);
-}
-
-WLC_API void
-wlc_output_get_pixels(wlc_handle output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg)
-{
-   wlc_output_get_pixels_ptr(convert_from_wlc_handle(output, "output"), pixels, arg);
 }
 
 WLC_API const wlc_handle*

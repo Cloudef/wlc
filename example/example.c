@@ -251,7 +251,7 @@ cb_log(enum wlc_log_type type, const char *str)
 }
 
 int
-main(int argc, char *argv[])
+main(void)
 {
    wlc_log_set_handler(cb_log);
 
@@ -266,7 +266,7 @@ main(int argc, char *argv[])
    wlc_set_pointer_button_cb(pointer_button);
    wlc_set_pointer_motion_cb(pointer_motion);
 
-   if (!wlc_init2())
+   if (!wlc_init())
       return EXIT_FAILURE;
 
    wlc_run();

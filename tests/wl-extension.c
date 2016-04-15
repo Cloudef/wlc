@@ -1,6 +1,7 @@
 #include "wayland-test-extension-client-protocol.h"
 #include "client.h"
 #include <wlc/wlc-wayland.h>
+#include <wlc/wlc-render.h>
 #include "wayland-test-extension-server-protocol.h"
 
 static struct compositor_test compositor;
@@ -79,21 +80,12 @@ compositor_ready(void)
 }
 
 static int
-compositor_main(int argc, char *argv[])
+compositor_main(void)
 {
-   static struct wlc_interface interface = {
-      .output = {
-         .render = {
-            .pre = output_render_pre,
-         },
-      },
+   wlc_set_output_render_pre_cb(output_render_pre);
+   wlc_set_compositor_ready_cb(compositor_ready);
 
-      .compositor = {
-         .ready = compositor_ready,
-      },
-   };
-
-   compositor_test_create(&compositor, argc, argv, "wl-extension", &interface);
+   compositor_test_create(&compositor, "wl-extension");
 
    if (!wl_global_create(wlc_get_wl_display(), &background_interface, 1, NULL, background_bind))
       return EXIT_FAILURE;
@@ -104,7 +96,7 @@ compositor_main(int argc, char *argv[])
 }
 
 int
-main(int argc, char *argv[])
+main(void)
 {
-   return compositor_main(argc, argv);
+   return compositor_main();
 }

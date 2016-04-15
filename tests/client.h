@@ -387,14 +387,14 @@ cb_log(enum wlc_log_type type, const char *str)
 }
 
 static inline void
-compositor_test_create(struct compositor_test *test, int argc, char *argv[], const char *name, const struct wlc_interface *interface)
+compositor_test_create(struct compositor_test *test, const char *name)
 {
    assert(test && name);
    memset(test, 0, sizeof(struct compositor_test));
    test->name = name;
    wlc_log_set_handler(cb_log);
    setup_signals(compositor_sigterm);
-   assert(wlc_init(interface, argc, argv));
+   assert(wlc_init());
 }
 
 static inline void
