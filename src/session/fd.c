@@ -216,7 +216,7 @@ fd_close(dev_t st_dev, ino_t st_ino)
    }
 
    if (!pfd) {
-      wlc_log(WLC_LOG_WARN, "Tried to close fd that we did not open: (%zu, %zu)", st_dev, st_ino);
+      wlc_log(WLC_LOG_WARN, "Tried to close fd that we did not open: (%zu, %zu)", (size_t)st_dev, (size_t)st_ino);
       return;
    }
 
