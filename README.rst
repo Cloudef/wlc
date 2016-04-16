@@ -158,6 +158,10 @@ PACKAGING
 
 For now you can look at the `AUR recipe <https://aur.archlinux.org/packages/wlc-git/>`_ for a example.
 
+Releases are signed with `1AF6D26A <http://pgp.mit.edu/pks/lookup?op=vindex&search=0xF769BB961AF6D26A>`_ and published `on GitHub <https://github.com/Cloudef/wlc/releases>`_.
+
+All 0.0.x releases are considered unstable.
+
 CONTRIBUTING
 ------------
 
