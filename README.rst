@@ -40,6 +40,7 @@ EXAMPLE
     static bool
     view_created(wlc_handle view)
     {
+       wlc_view_set_mask(view, wlc_output_get_mask(wlc_view_get_output(view)));
        wlc_view_bring_to_front(view);
        wlc_view_focus(view);
        return true;
@@ -57,7 +58,7 @@ EXAMPLE
        wlc_set_view_created_cb(view_created);
        wlc_set_view_focus_cb(view_focus);
 
-       if (!wlc_init2())
+       if (!wlc_init())
           return EXIT_FAILURE;
 
        wlc_run();
