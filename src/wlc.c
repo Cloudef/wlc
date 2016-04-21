@@ -315,7 +315,9 @@ wlc_init(void)
    if (!privileged && !x11display && has_logind) {
       if (!(wlc.display = wl_display_create()))
          die("Failed to create wayland display");
-      if (!(vt = wlc_logind_init("seat0")))
+
+      const char *xdg_seat = getenv("XDG_SEAT");
+      if (!(vt = wlc_logind_init(xdg_seat ? xdg_seat : "seat0")))
          die("Failed to init logind");
    }
 #else
