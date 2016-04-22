@@ -1,0 +1,34 @@
+.TH WLC_RUN 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_run \- run the main event loop
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.B void wlc_run(void);
+
+.SH DESCRIPTION
+.BR wlc_run ()
+starts the main event loop created by
+.BR wlc_init (3).
+The event loop is terminated with
+.BR wlc_terminate (3).
+
+.SH RETURN VALUE
+None.
+
+.SH NOTES
+If 
+.BR wlc_run ()
+is called before
+.BR wlc_init (3)
+then nothing shall happen.
+
+If 
+.BR wlc_run ()
+is called inside the event loop the behaviour is undefined.
+
+.SH ALSO SEE
+.BR wlc_init (3), 
+.BR wlc_terminate(3)
