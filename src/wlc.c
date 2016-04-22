@@ -179,17 +179,17 @@ wlc_cleanup(void)
 }
 
 WLC_API struct wlc_event_source*
-wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *arg), void *arg)
+wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *userdata), void *userdata)
 {
    assert(wlc_event_loop());
-   return (struct wlc_event_source*)wl_event_loop_add_fd(wlc_event_loop(), fd, mask, cb, arg);
+   return (struct wlc_event_source*)wl_event_loop_add_fd(wlc_event_loop(), fd, mask, cb, userdata);
 }
 
 WLC_API struct wlc_event_source*
-wlc_event_loop_add_timer(int (*cb)(void *arg), void *arg)
+wlc_event_loop_add_timer(int (*cb)(void *userdata), void *userdata)
 {
    assert(wlc_event_loop());
-   return (struct wlc_event_source*)wl_event_loop_add_timer(wlc_event_loop(), cb, arg);
+   return (struct wlc_event_source*)wl_event_loop_add_timer(wlc_event_loop(), cb, userdata);
 }
 
 WLC_API bool
