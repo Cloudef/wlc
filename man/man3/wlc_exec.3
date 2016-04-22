@@ -1,0 +1,42 @@
+.TH WLC_EXEC 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_exec \- exec programs
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "void wlc_exec(const char *" bin ", char *const " args[] ");"
+
+.SH DESCRIPTION
+.BR wlc_exec ()
+will fork and exec a new process defined by
+.I bin
+with the arguments
+.IR args .
+The bin argument cannot be
+.IR NULL .
+
+.SH RETURN VALUE
+None.
+
+.SH NOTES
+.BR wlc_exec ()
+will send
+.I stdout
+and
+.I stderr
+to
+.I /dev/null
+and calls
+.BR setsid (3)
+if necessary. The new process will inherit the environment from the compositor.
+
+.SH EXAMPLE
+.nf
+#include <stdlib.h>
+#include <wlc/wlc.h>
+
+char *terminal = getenv("TERMINAL");
+wlc_exec(terminal, (char* const*)0);
+.fi
