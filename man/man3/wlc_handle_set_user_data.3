@@ -1,0 +1,28 @@
+.TH WLC_HANDLE_SET_USER_DATA 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_handle_set_user_data \- add user data to the handle
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "void wlc_handle_set_user_data(wlc_handle "handle ", const void *" userdata ");"
+
+.SH DESCRIPTION
+.BR wlc_handle_set_user_data ()
+lets the programmer add arbitrary user data to the handle for later use or
+inspection.
+
+.SH RETURN VALUE
+None.
+
+.SH NOTES
+If the handle is invalid then
+.BR wlc_handle_set_user_data ()
+will do nothing.
+
+In order to validate that the user data was set one should use
+.BR wlc_handle_get_user_data (3).
+
+.SH ALSO SEE
+.BR wlc_handle_get_user_data (3)

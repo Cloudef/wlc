@@ -1,0 +1,30 @@
+.TH WLC_OUTPUT_GET_MASK 3 2016-04-22 WLC "WLC API Funcitons"
+
+.SH NAME
+wlc_output_get_mask \- get bitmask of visible surfaces for an output
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "uint32_t wlc_output_get_mask(wlc_handle "output ");"
+
+.SH DESCRIPTION
+.BR wlc_output_get_mask ()
+is a utility function which can be used with visibility masks to provide a
+convenient way of implementing workspaces, tagging, or simply provide view
+hiding.
+
+Conceptually this allows one to group a collection of views into a specific
+bit position and then use this to display or hide these collections based
+on which bit, or bits, are active.
+
+.SH RETURN VALUE
+.BR wlc_output_get_mask ()
+returns a visibility mask for the given
+.IR output .
+
+.SH NOTES
+Currently the mask is limited to 32-bits.
+
+.SH ALSO SEE
+.BR wlc_output_set_mask (3)
