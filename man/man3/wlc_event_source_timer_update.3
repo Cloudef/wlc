@@ -1,0 +1,35 @@
+.TH WLC_EVENT_SOURCE_TIMER_UPDATE 3 2016-04-22 WLC "WLC API Functions"
+
+.SH NAME
+wlc_event_source_timer_update \- set the delay for timer activation
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.nf
+.BI "void wlc_event_source_timer_update(struct wlc_event_source *"source ,
+.BI "                                   uint32_t "ms_delay );
+.fi
+
+.SH DESCRIPTION
+For a given
+.IR source ,
+.BR wlc_event_source_timer_update ()
+sets a time in milliseconds according to
+.IR ms_delay .
+This will prime the timer added with
+.BR wlc_event_loop_add_timer (3)
+which is triggered once the
+.I ms_delay
+reaches zero.
+
+Setting a
+.I ms_delay
+of zero will disarm the event source.
+
+.SH RETURN VALUE
+None.
+
+.SH ALSO SEE
+.BR wlc_event_loop_add_timer (3),
+.BR wlc_event_source_remove (3)
