@@ -1,0 +1,31 @@
+.TH WLC_OUTPUT_GET_RESOLUTION 3 2016-04-22 WLC "WLC API FUNCTIONS"
+
+.SH NAME
+wlc_output_get_resolution \- return output resolution
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "const struct wlc_size* wlc_output_get_resolution(wlc_handle "output );
+
+.SH DESCRIPTION
+.BR wlc_output_get_resolution ()
+can be used to get the resolution of a given
+.IR output .
+
+.SH RETURN VALUE
+.BR wlc_output_get_resolution ()
+returns a wlc_size with the values
+.I w
+and
+.I h
+representing the output's dimensions.
+
+.SH ERRORS
+If
+.BR wlc_output_get_resolution ()
+fails for any reason it shall return
+.IR NULL .
+
+.SH SEE ALSO
+.BR wlc_output_set_resolution (3)

@@ -1,0 +1,43 @@
+.TH WLC_OUTPUT_SET_RESOLUTION 3 2016-04-22 WLC "WLC API FUNCTIONS"
+
+.SH NAME
+wlc_output_set_resolution \- set output resolution
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.nf
+.BI "void wlc_output_set_resolution(wlc_handle "output ,
+.BI "                               const struct wlc_size *"resolution );
+.fi
+
+.SH DESCRIPTION
+.BR wlc_output_set_resolution ()
+can be used to set the 
+.I resolution
+of a given
+.IR output .
+
+.SH RETURN VALUE
+None.
+
+.SH NOTES
+If the
+.I output
+is NULL or the requested
+.I resolution
+is the same as the
+.I output
+resolution then
+.BR wlc_output_set_resolution ()
+shall do nothing.
+
+.BR wlc_output_set_resolution ()
+will abort if the
+.I resolution
+is NULL.
+
+It can also abort on memory allocation failure.
+
+.SH SEE ALSO
+.BR wlc_output_get_resolution (3)
