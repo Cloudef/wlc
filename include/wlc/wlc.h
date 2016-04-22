@@ -240,10 +240,10 @@ void wlc_handle_set_user_data(wlc_handle handle, const void *userdata);
 void* wlc_handle_get_user_data(wlc_handle handle);
 
 /** Add fd to event loop. Return value of callback is unused, you should return 0. */
-WLC_NONULLV(3) struct wlc_event_source* wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *arg), void *arg);
+WLC_NONULLV(3) struct wlc_event_source* wlc_event_loop_add_fd(int fd, uint32_t mask, int (*cb)(int fd, uint32_t mask, void *userdata), void *userdata);
 
 /** Add timer to event loop. Return value of callback is unused, you should return 0. */
-WLC_NONULLV(1) struct wlc_event_source* wlc_event_loop_add_timer(int (*cb)(void *arg), void *arg);
+WLC_NONULLV(1) struct wlc_event_source* wlc_event_loop_add_timer(int (*cb)(void *userdata), void *userdata);
 
 /** Update timer to trigger after delay. Returns true on success. */
 WLC_NONULL bool wlc_event_source_timer_update(struct wlc_event_source *source, int32_t ms_delay);
