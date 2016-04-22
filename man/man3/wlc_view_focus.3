@@ -1,0 +1,25 @@
+.TH WLC_VIEW_FOCUS 3 2016-04-22 WLC "WLC API FUNCTIONS"
+
+.SH NAME
+wlc_view_focus \- focus or defocus a view
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "void wlc_view_focus(wlc_handle "view );
+
+.SH DESCRIPTION
+.BR wlc_view_focus ()
+is used to focus a given
+.I view
+or if
+.I view
+is zero or NULL
+.BR wlc_view_focus ()
+will defocus all views.
+
+.SH RETURN VALUE
+None.
+
+.SH SEE ALSO
+.BR wlc (7)

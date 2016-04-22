@@ -1,0 +1,27 @@
+.TH WLC_VIEW_CLOSE 3 2016-04-22 WLC "WLC API Functions"
+
+.SH NAME
+wlc_view_close \- close a view
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "void wlc_view_close(wlc_handle "view );
+
+.SH DESCRIPTION
+.BR wlc_view_close ()
+is used to close a given
+.IR view .
+This is typically a window representing a client.
+
+.SH RETURN VALUE
+None.
+
+.SH NOTES
+If
+.I view
+is NULL or zero then
+.BR wlc_view_close ()
+shall do nothing.
+
+.SH SEE ALSO
+.BR wlc (7)
