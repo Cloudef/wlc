@@ -81,6 +81,9 @@ struct wlc_interface {
          /** Post render hook. */
          void (*post)(wlc_handle view);
       } render;
+
+      /** View properties (title, class, app_id) was updated */
+      void (*properties_updated)(wlc_handle view);
    } view;
 
    struct {
