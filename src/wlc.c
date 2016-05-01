@@ -491,6 +491,12 @@ wlc_set_view_render_post_cb(void (*cb)(wlc_handle view))
 }
 
 WLC_API void
+wlc_set_view_properties_updated_cb(void (*cb)(wlc_handle view))
+{
+   wlc.interface.view.properties_updated = cb;
+}
+
+WLC_API void
 wlc_set_keyboard_key_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, enum wlc_key_state))
 {
    wlc.interface.keyboard.key = cb;

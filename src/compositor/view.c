@@ -437,19 +437,34 @@ wlc_view_set_minimized_ptr(struct wlc_view *view, bool minimized)
 bool
 wlc_view_set_title_ptr(struct wlc_view *view, const char *title)
 {
-   return (view ? chck_string_set_cstr(&view->data.title, title, true) : false);
+   if (view && chck_string_set_cstr(&view->data.title, title, true)) {
+      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view));
+      return true;
+   }
+
+   return false;
 }
 
 bool
 wlc_view_set_class_ptr(struct wlc_view *view, const char *class_)
 {
-   return (view ? chck_string_set_cstr(&view->data._class, class_, true) : false);
+   if (view && chck_string_set_cstr(&view->data._class, class_, true)) {
+      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view));
+      return true;
+   }
+
+   return false;
 }
 
 bool
 wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id)
 {
-   return (view ? chck_string_set_cstr(&view->data.app_id, app_id, true) : false);
+   if (view && chck_string_set_cstr(&view->data.app_id, app_id, true)) {
+      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view));
+      return true;
+   }
+
+   return false;
 }
 
 void
