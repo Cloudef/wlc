@@ -143,14 +143,14 @@ static void
 wl_cb_shell_surface_set_title(struct wl_client *client, struct wl_resource *resource, const char *title)
 {
    (void)client;
-   wlc_view_set_title_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), title);
+   wlc_view_set_title_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), title, strlen(title));
 }
 
 static void
 wl_cb_shell_surface_set_class(struct wl_client *client, struct wl_resource *resource, const char *class_)
 {
    (void)client;
-   wlc_view_set_class_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), class_);
+   wlc_view_set_class_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), class_, strlen(class_));
 }
 
 WLC_CONST const struct wl_shell_surface_interface*

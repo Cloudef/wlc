@@ -435,17 +435,17 @@ wlc_view_set_minimized_ptr(struct wlc_view *view, bool minimized)
 }
 
 void
-wlc_view_set_title_ptr(struct wlc_view *view, const char *title)
+wlc_view_set_title_ptr(struct wlc_view *view, const char *title, size_t length)
 {
-   if (view && !chck_string_eq_cstr(&view->data.title, title) && chck_string_set_cstr(&view->data.title, title, true)) {
+   if (view && !chck_cstrneq(view->data.title.data, title, length) && chck_string_set_cstr_with_length(&view->data.title, title, length, true)) {
       WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view), WLC_BIT_PROPERTY_TITLE);
    }
 }
 
 void
-wlc_view_set_class_ptr(struct wlc_view *view, const char *class_)
+wlc_view_set_class_ptr(struct wlc_view *view, const char *class_, size_t length)
 {
-   if (view && !chck_string_eq_cstr(&view->data._class, class_) && chck_string_set_cstr(&view->data._class, class_, true)) {
+   if (view && !chck_cstrneq(view->data._class.data, class_, length) && chck_string_set_cstr_with_length(&view->data._class, class_, length, true)) {
       WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view), WLC_BIT_PROPERTY_CLASS);
    }
 }
@@ -453,7 +453,7 @@ wlc_view_set_class_ptr(struct wlc_view *view, const char *class_)
 void
 wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id)
 {
-   if (view && !chck_string_eq_cstr(&view->data.app_id, app_id) && chck_string_set_cstr(&view->data.app_id, app_id, true)) {
+   if (view && !chck_cstreq(view->data.app_id.data, app_id) && chck_string_set_cstr(&view->data.app_id, app_id, true)) {
       WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view), WLC_BIT_PROPERTY_APP_ID);
    }
 }
