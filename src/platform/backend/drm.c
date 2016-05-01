@@ -355,7 +355,7 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
 
       for (int i = 0; i < connector->count_modes; ++i) {
          struct wlc_output_mode mode = {0};
-         mode.refresh = connector->modes[i].vrefresh * 1000; // mHz
+         mode.refresh = connector->modes[i].vrefresh;
          mode.width = connector->modes[i].hdisplay;
          mode.height = connector->modes[i].vdisplay;
 
