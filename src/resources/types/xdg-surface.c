@@ -28,7 +28,7 @@ static void
 xdg_cb_surface_set_title(struct wl_client *client, struct wl_resource *resource, const char *title)
 {
    (void)client;
-   wlc_view_set_title_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), title);
+   wlc_view_set_title_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), title, strlen(title));
 }
 
 static void

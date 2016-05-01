@@ -231,9 +231,9 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
          case XCB_ATOM_STRING:
             // Class && Name
             if (props[i].atom == XCB_ATOM_WM_CLASS) {
-               chck_string_set_cstr_with_length(&view->data._class, xcb_get_property_value(reply), xcb_get_property_value_length(reply), true);
+               wlc_view_set_class_ptr(view, xcb_get_property_value(reply), xcb_get_property_value_length(reply));
             } else if (props[i].atom == XCB_ATOM_WM_NAME) {
-               chck_string_set_cstr_with_length(&view->data.title, xcb_get_property_value(reply), xcb_get_property_value_length(reply), true);
+               wlc_view_set_title_ptr(view, xcb_get_property_value(reply), xcb_get_property_value_length(reply));
             }
             break;
          case XCB_ATOM_WINDOW:

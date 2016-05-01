@@ -83,7 +83,7 @@ struct wlc_interface {
       } render;
 
       /** View properties (title, class, app_id) was updated */
-      void (*properties_updated)(wlc_handle view);
+      void (*properties_updated)(wlc_handle view, uint32_t mask);
    } view;
 
    struct {

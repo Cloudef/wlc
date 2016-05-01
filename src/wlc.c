@@ -491,7 +491,7 @@ wlc_set_view_render_post_cb(void (*cb)(wlc_handle view))
 }
 
 WLC_API void
-wlc_set_view_properties_updated_cb(void (*cb)(wlc_handle view))
+wlc_set_view_properties_updated_cb(void (*cb)(wlc_handle view, uint32_t mask))
 {
    wlc.interface.view.properties_updated = cb;
 }
