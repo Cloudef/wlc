@@ -95,8 +95,8 @@ void wlc_view_set_type_ptr(struct wlc_view *view, enum wlc_view_type_bit type, b
 void wlc_view_set_state_ptr(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
 void wlc_view_set_parent_ptr(struct wlc_view *view, struct wlc_view *parent);
 void wlc_view_set_minimized_ptr(struct wlc_view *view, bool minimized);
-bool wlc_view_set_title_ptr(struct wlc_view *view, const char *title);
-bool wlc_view_set_class_ptr(struct wlc_view *view, const char *class_);
-bool wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id);
+void wlc_view_set_title_ptr(struct wlc_view *view, const char *title);
+void wlc_view_set_class_ptr(struct wlc_view *view, const char *class_);
+void wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id);
 
 #endif /* _WLC_VIEW_H_ */
