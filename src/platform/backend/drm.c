@@ -373,7 +373,7 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
             info->height = connector->modes[i].vdisplay;
          }
 
-         wlc_log(WLC_LOG_INFO, "MODE: (%d) %ux%u %s", c, mode.width, mode.height, (mode.flags & WL_OUTPUT_MODE_CURRENT ? "*" : (mode.flags & WL_OUTPUT_MODE_PREFERRED ? "!" : "")));
+         wlc_log(WLC_LOG_INFO, "MODE: (%d) %ux%u@%u %s", c, mode.width, mode.height, mode.refresh, (mode.flags & WL_OUTPUT_MODE_CURRENT ? "*" : (mode.flags & WL_OUTPUT_MODE_PREFERRED ? "!" : "")));
          wlc_output_information_add_mode(&info->info, &mode);
       }
 
