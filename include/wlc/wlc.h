@@ -56,6 +56,13 @@ enum wlc_view_type_bit {
    WLC_BIT_POPUP = 1<<4, // xdg-shell, wl-shell popups
 };
 
+/** wlc_set_view_properties_updated_cb(); */
+enum wlc_view_property_update_bit {
+   WLC_BIT_PROPERTY_TITLE = 1<<0,
+   WLC_BIT_PROPERTY_CLASS = 1<<1,
+   WLC_BIT_PROPERTY_APP_ID = 1<<2,
+};
+
 /** wlc_view_set_geometry(); Edges in interface interface.view.request.resize function. */
 enum wlc_resize_edge {
    WLC_RESIZE_EDGE_NONE = 0,
@@ -177,7 +184,7 @@ void wlc_set_view_render_pre_cb(void (*cb)(wlc_handle view));
 void wlc_set_view_render_post_cb(void (*cb)(wlc_handle view));
 
 /** View properties (title, class, app_id) was updated */
-void wlc_set_view_properties_updated_cb(void (*cb)(wlc_handle view));
+void wlc_set_view_properties_updated_cb(void (*cb)(wlc_handle view, uint32_t mask));
 
 /** Key event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
 void wlc_set_keyboard_key_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, enum wlc_key_state));

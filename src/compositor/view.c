@@ -438,7 +438,7 @@ bool
 wlc_view_set_title_ptr(struct wlc_view *view, const char *title)
 {
    if (view && chck_string_set_cstr(&view->data.title, title, true)) {
-      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view));
+      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view), WLC_BIT_PROPERTY_TITLE);
       return true;
    }
 
@@ -449,7 +449,7 @@ bool
 wlc_view_set_class_ptr(struct wlc_view *view, const char *class_)
 {
    if (view && chck_string_set_cstr(&view->data._class, class_, true)) {
-      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view));
+      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view), WLC_BIT_PROPERTY_CLASS);
       return true;
    }
 
@@ -460,7 +460,7 @@ bool
 wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id)
 {
    if (view && chck_string_set_cstr(&view->data.app_id, app_id, true)) {
-      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view));
+      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view), WLC_BIT_PROPERTY_APP_ID);
       return true;
    }
 
