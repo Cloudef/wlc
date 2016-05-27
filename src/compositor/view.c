@@ -203,8 +203,8 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
 
    if (view->xdg_surface && view->surface_commit.visible.size.w > 0 && view->surface_commit.visible.size.h > 0) {
       // xdg-surface client that draws drop shadows or other stuff.
-      out_bounds->origin.x -= view->surface_commit.visible.origin.x;
-      out_bounds->origin.y -= view->surface_commit.visible.origin.y;
+      out_bounds->origin.x += view->surface_commit.visible.origin.x;
+      out_bounds->origin.y += view->surface_commit.visible.origin.y;
       out_bounds->size.w += surface->size.w - view->surface_commit.visible.size.w;
       out_bounds->size.h += surface->size.h - view->surface_commit.visible.size.h;
    }
