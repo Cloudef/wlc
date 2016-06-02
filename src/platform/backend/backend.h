@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include "EGL/egl.h"
 
-struct wlc_output;
 struct chck_pool;
 
 struct wlc_backend_surface {
