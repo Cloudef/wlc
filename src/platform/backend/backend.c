@@ -3,10 +3,11 @@
 #include <assert.h>
 #include "internal.h"
 #include "backend.h"
-#ifdef ENABLE_X11_BACKEND
-#include "x11.h"
-#endif
 #include "drm.h"
+
+#ifdef ENABLE_X11_BACKEND
+#  include "x11.h"
+#endif
 
 bool
 wlc_backend_surface(struct wlc_backend_surface *surface, void (*destructor)(struct wlc_backend_surface*), size_t internal_size)
