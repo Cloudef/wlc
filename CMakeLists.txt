@@ -83,7 +83,7 @@ endif ()
 create_custom_linker_flags(Upstream ${ldflags})
 create_custom_compiler_flags(Upstream -g -O2 ${cflags})
 
-add_compiler_warnings(-Wall -Wextra -Wno-variadic-macros -Wno-long-long -Wformat=2 -Winit-self -Wfloat-equal -Wcast-align -Wpointer-arith -Wmissing-prototypes)
+add_compiler_warnings(-Wall -Wextra -Wno-variadic-macros -Wno-long-long -Wformat=2 -Winit-self -Wfloat-equal -Wcast-align -Wpointer-arith -Wmissing-prototypes -Wno-nonnull-compare)
 
 if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
    add_compiler_warnings(-Wsuggest-attribute=pure -Wsuggest-attribute=const)
