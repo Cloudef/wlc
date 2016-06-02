@@ -14,6 +14,7 @@ struct wlc_x11_window {
    uint32_t id; // xcb_window_t
    uint32_t surface_id;
    bool override_redirect;
+   bool has_utf8_title;
    bool has_delete_window;
    bool has_alpha;
    bool hidden; // HACK: used by output.c to hide invisible windows

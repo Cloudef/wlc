@@ -181,7 +181,7 @@ handle_state(struct wlc_x11_window *win, xcb_atom_t *atoms, size_t nmemb, enum n
 }
 
 static void
-read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
+read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_t *props, size_t nmemb)
 {
    assert(win);
 
@@ -189,112 +189,90 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
    if (!(view = view_for_window(win)))
       return;
 
-#define TYPE_WM_PROTOCOLS    XCB_ATOM_CUT_BUFFER0
-#define TYPE_MOTIF_WM_HINTS  XCB_ATOM_CUT_BUFFER1
-#define TYPE_NET_WM_STATE    XCB_ATOM_CUT_BUFFER2
-#define TYPE_WM_NORMAL_HINTS XCB_ATOM_CUT_BUFFER3
-
-   const struct {
-      xcb_atom_t atom;
-      xcb_atom_t type;
-   } props[] = {
-      { XCB_ATOM_WM_CLASS, XCB_ATOM_STRING },
-      { XCB_ATOM_WM_NAME, XCB_ATOM_STRING },
-      { XCB_ATOM_WM_TRANSIENT_FOR, XCB_ATOM_WINDOW },
-      { x11.atoms[WM_PROTOCOLS], TYPE_WM_PROTOCOLS },
-      { x11.atoms[WM_NORMAL_HINTS], TYPE_WM_NORMAL_HINTS },
-      { x11.atoms[NET_WM_STATE], TYPE_NET_WM_STATE },
-      { x11.atoms[NET_WM_WINDOW_TYPE], XCB_ATOM_ATOM },
-      { x11.atoms[NET_WM_NAME], XCB_ATOM_STRING },
-      { x11.atoms[NET_WM_PID], XCB_ATOM_CARDINAL },
-      { x11.atoms[MOTIF_WM_HINTS], TYPE_MOTIF_WM_HINTS },
-   };
-
    xcb_get_property_cookie_t *cookies;
-   if (!(cookies = chck_calloc_of(LENGTH(props), sizeof(xcb_get_property_cookie_t))))
+   if (!(cookies = chck_calloc_of(nmemb, sizeof(xcb_get_property_cookie_t))))
       return;
 
-   for (uint32_t i = 0; i < LENGTH(props); ++i)
-      cookies[i] = xcb_get_property(x11.connection, 0, win->id, props[i].atom, XCB_ATOM_ANY, 0, 2048);
+   for (uint32_t i = 0; i < nmemb; ++i)
+      cookies[i] = xcb_get_property(x11.connection, 0, win->id, props[i], XCB_ATOM_ANY, 0, 2048);
 
-   for (uint32_t i = 0; i < LENGTH(props); ++i) {
+   for (uint32_t i = 0; i < nmemb; ++i) {
       xcb_get_property_reply_t *reply;
       if (!(reply = xcb_get_property_reply(x11.connection, cookies[i], NULL)))
          continue;
 
-      if (reply->type == XCB_ATOM_NONE) {
-         free(reply);
-         continue;
-      }
-
-      switch (props[i].type) {
-         case XCB_ATOM_STRING:
-            // Class && Name
-            if (props[i].atom == XCB_ATOM_WM_CLASS) {
-               wlc_view_set_class_ptr(view, xcb_get_property_value(reply), xcb_get_property_value_length(reply));
-            } else if (props[i].atom == XCB_ATOM_WM_NAME) {
+      if (reply->type == XCB_ATOM_STRING || reply->type == x11.atoms[UTF8_STRING]) {
+         // Class && Name
+         // STRING == latin1, but we naively just read it as is. For full support we should convert to utf8.
+         if (props[i] == XCB_ATOM_WM_CLASS) {
+            wlc_view_set_class_ptr(view, xcb_get_property_value(reply), xcb_get_property_value_length(reply));
+         } else if (props[i] == XCB_ATOM_WM_NAME || props[i] == x11.atoms[NET_WM_NAME]) {
+            if (reply->type != XCB_ATOM_STRING  || !win->has_utf8_title) {
                wlc_view_set_title_ptr(view, xcb_get_property_value(reply), xcb_get_property_value_length(reply));
+               win->has_utf8_title = true;
             }
-            break;
-         case XCB_ATOM_WINDOW:
-         {
-            // Transient
-            xcb_window_t *xid = xcb_get_property_value(reply);
-            set_parent(xwm, win, *xid);
+            wlc_dlog(WLC_DBG_XWM, "(%d) %s %s %s", win->has_utf8_title, (reply->type == XCB_ATOM_STRING ? "STRING" : "UTF8_STRING"), (props[i] == XCB_ATOM_WM_NAME ? "WM_NAME" : "NET_WM_NAME"), view->data.title.data);
          }
-         break;
-         case XCB_ATOM_CARDINAL:
-            // PID
-            break;
-         case XCB_ATOM_ATOM:
-         {
-            // Window type
-            view->type &= ~WLC_BIT_UNMANAGED | ~WLC_BIT_SPLASH | ~WLC_BIT_MODAL;
-            xcb_atom_t *atoms = xcb_get_property_value(reply);
-            for (uint32_t i = 0; i < reply->value_len; ++i) {
-               if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP] ||
-                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_UTILITY] ||
-                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DND] ||
-                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DROPDOWN_MENU] ||
-                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU] ||
-                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_COMBO]) {
-                  wlc_view_set_type_ptr(view, WLC_BIT_UNMANAGED, true);
-               }
-               if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DIALOG])
-                  wlc_view_set_type_ptr(view, WLC_BIT_MODAL, true);
-               if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH])
-                  wlc_view_set_type_ptr(view, WLC_BIT_SPLASH, true);
+      } else if (reply->type == XCB_ATOM_WINDOW) {
+         // Transient
+         xcb_window_t *xid = xcb_get_property_value(reply);
+         set_parent(xwm, win, *xid);
+      } else if (props[i] == x11.atoms[NET_WM_PID] && reply->type == XCB_ATOM_CARDINAL) {
+         // PID
+      } else if (props[i] == x11.atoms[NET_WM_WINDOW_TYPE] && reply->type == XCB_ATOM_ATOM) {
+         // Window type
+         view->type &= ~WLC_BIT_UNMANAGED | ~WLC_BIT_SPLASH | ~WLC_BIT_MODAL;
+         xcb_atom_t *atoms = xcb_get_property_value(reply);
+         for (uint32_t i = 0; i < reply->value_len; ++i) {
+            if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_TOOLTIP] ||
+                  atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_UTILITY] ||
+                  atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DND] ||
+                  atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DROPDOWN_MENU] ||
+                  atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU] ||
+                  atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_COMBO]) {
+               wlc_view_set_type_ptr(view, WLC_BIT_UNMANAGED, true);
             }
+            if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DIALOG])
+               wlc_view_set_type_ptr(view, WLC_BIT_MODAL, true);
+            if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH])
+               wlc_view_set_type_ptr(view, WLC_BIT_SPLASH, true);
          }
-         break;
-         case TYPE_WM_PROTOCOLS:
-         {
-            xcb_atom_t *atoms = xcb_get_property_value(reply);
-            for (uint32_t i = 0; i < reply->value_len; ++i) {
-               if (atoms[i] == x11.atoms[WM_DELETE_WINDOW])
-                  win->has_delete_window = true;
-            }
+      } else if (props[i] == x11.atoms[WM_PROTOCOLS]) {
+         xcb_atom_t *atoms = xcb_get_property_value(reply);
+         for (uint32_t i = 0; i < reply->value_len; ++i) {
+            if (atoms[i] == x11.atoms[WM_DELETE_WINDOW])
+               win->has_delete_window = true;
          }
-         break;
-         case TYPE_WM_NORMAL_HINTS:
-            break;
-         case TYPE_NET_WM_STATE:
-            handle_state(win, xcb_get_property_value(reply), reply->value_len, NET_WM_STATE_ADD);
-            break;
-         case TYPE_MOTIF_WM_HINTS:
-            // Motif hints
-            break;
+      } else if (props[i] == x11.atoms[WM_NORMAL_HINTS]) {
+      } else if (props[i] == x11.atoms[NET_WM_STATE]) {
+         handle_state(win, xcb_get_property_value(reply), reply->value_len, NET_WM_STATE_ADD);
+      } else if (props[i] == x11.atoms[MOTIF_WM_HINTS]) {
+         // Motif hints
       }
 
       free(reply);
    }
 
    free(cookies);
+}
 
-#undef TYPE_WM_PROTOCOLS
-#undef TYPE_MOTIF_WM_HINTS
-#undef TYPE_NET_WM_STATE
-#undef TYPE_WM_NORMAL_HINTS
+static void
+get_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win)
+{
+   const xcb_atom_t props[] = {
+      XCB_ATOM_WM_CLASS,
+      XCB_ATOM_WM_NAME,
+      XCB_ATOM_WM_TRANSIENT_FOR,
+      x11.atoms[WM_PROTOCOLS],
+      x11.atoms[WM_NORMAL_HINTS],
+      x11.atoms[NET_WM_STATE],
+      x11.atoms[NET_WM_WINDOW_TYPE],
+      x11.atoms[NET_WM_NAME],
+      x11.atoms[NET_WM_PID],
+      x11.atoms[MOTIF_WM_HINTS]
+   };
+
+   read_properties(xwm, win, props, LENGTH(props));
 }
 
 static void
@@ -372,7 +350,7 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
 
    view->x11.paired = true;
    wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, view->x11.override_redirect);
-   read_properties(xwm, &view->x11);
+   get_properties(xwm, &view->x11);
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
       wlc_view_set_geometry_ptr(view, 0, &geometry);
@@ -612,7 +590,7 @@ x11_event(int fd, uint32_t mask, void *data)
                wlc_dlog(WLC_DBG_XWM, "XCB_PROPERTY_NOTIFY (%u)", ev->window);
                struct wlc_x11_window *win;
                if ((win = paired_for_id(xwm, ev->window)) || (win = unpaired_for_id(xwm, ev->window)))
-                  read_properties(xwm, win);
+                  read_properties(xwm, win, &ev->atom, 1);
             }
             break;
 
