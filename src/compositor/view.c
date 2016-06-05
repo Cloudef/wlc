@@ -193,6 +193,9 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    struct wlc_surface *surface;
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
+   // Little Hacking , commit seems not getting right scale
+   uint32_t scale = surface->pending.scale;
+   if(scale==0)scale=1;
 
    if (should_be_transformed_by_parent(view)) {
       for (struct wlc_view *parent = convert_from_wlc_handle(view->parent, "view"); parent; parent = convert_from_wlc_handle(parent->parent, "view")) {
@@ -205,8 +208,8 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
       // xdg-surface client that draws drop shadows or other stuff.
       out_bounds->origin.x -= view->surface_commit.visible.origin.x;
       out_bounds->origin.y -= view->surface_commit.visible.origin.y;
-      out_bounds->size.w += surface->size.w - view->surface_commit.visible.size.w;
-      out_bounds->size.h += surface->size.h - view->surface_commit.visible.size.h;
+      out_bounds->size.w += surface->size.w / scale - view->surface_commit.visible.size.w;
+      out_bounds->size.h += surface->size.h / scale - view->surface_commit.visible.size.h;
    }
 
    // Make sure bounds is never 0x0 w/h
@@ -215,9 +218,13 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    if (!out_visible)
       return;
 
+   struct wlc_size temp=surface->size;
+   temp.w /= scale;
+   temp.h /= scale;
+
    // Actual visible area of the view
    // The idea is to draw black borders to the bounds area, while centering the visible area.
-   if ((is_x11_view(view) || view->shell_surface) && !wlc_size_equals(&surface->size, &out_bounds->size)) {
+   if ((is_x11_view(view) || view->shell_surface) && !wlc_size_equals(&temp, &out_bounds->size)) {
       out_visible->size = surface->size;
 
       // Scale visible area retaining aspect

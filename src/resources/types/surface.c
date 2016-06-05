@@ -252,7 +252,7 @@ wl_cb_surface_set_buffer_scale(struct wl_client *client, struct wl_resource *res
       return;
    }
 
-   surface->pending.scale = 1;
+   surface->pending.scale = scale;
 }
 
 struct wlc_buffer*

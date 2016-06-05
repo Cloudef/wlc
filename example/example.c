@@ -4,6 +4,8 @@
 #include <chck/math/math.h>
 #include <linux/input.h>
 
+#define SCALE 2
+
 static struct {
    struct {
       wlc_handle view;
@@ -72,18 +74,19 @@ relayout(wlc_handle output)
    // very simple layout function
    // you probably don't want to layout certain type of windows in wm
 
-   const struct wlc_size *r;
-   if (!(r = wlc_output_get_resolution(output)))
+   // We are going to use scaled size here,
+   // that we don't have to divide the resolution for scaling
+   struct wlc_size s;
+   if (!(wlc_output_get_scaled_size(output, &s)))
       return;
 
    size_t memb;
    const wlc_handle *views = wlc_output_get_views(output, &memb);
-
    bool toggle = false;
    uint32_t y = 0;
-   uint32_t w = r->w / 2, h = r->h / chck_maxu32((1 + memb) / 2, 1);
+   uint32_t w = s.w / 2, h = s.h / chck_maxu32((1 + memb) / 2, 1);
    for (size_t i = 0; i < memb; ++i) {
-      struct wlc_geometry g = { { (toggle ? w : 0), y }, { (!toggle && i == memb - 1 ? r->w : w), h } };
+      struct wlc_geometry g = { { (toggle ? w : 0), y }, { (!toggle && i == memb - 1 ? s.w : w), h } };
       wlc_view_set_geometry(views[i], 0, &g);
       y = y + (!(toggle = !toggle) ? h : 0);
    }
@@ -92,6 +95,7 @@ relayout(wlc_handle output)
 static void
 output_resolution(wlc_handle output, const struct wlc_size *from, const struct wlc_size *to)
 {
+   wlc_output_set_scale(output, SCALE);
    (void)from, (void)to;
    relayout(output);
 }
@@ -254,7 +258,6 @@ int
 main(void)
 {
    wlc_log_set_handler(cb_log);
-
    wlc_set_output_resolution_cb(output_resolution);
    wlc_set_view_created_cb(view_created);
    wlc_set_view_destroyed_cb(view_destroyed);

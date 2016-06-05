@@ -139,10 +139,10 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
 
    if (!pointer || output != active_output(pointer))
       return;
-
+   const int32_t scale=output->information.scale;
    const struct wlc_point pos = {
-      chck_clamp(pointer->pos.x, 0, output->resolution.w),
-      chck_clamp(pointer->pos.y, 0, output->resolution.h)
+      chck_clamp(pointer->pos.x*scale, 0, output->resolution.w),
+      chck_clamp(pointer->pos.y*scale, 0, output->resolution.h)
    };
 
    struct wlc_view *view = convert_from_wlc_handle(pointer->focused.view, "view");
@@ -214,6 +214,9 @@ focus_view(struct wlc_pointer *pointer, struct wlc_surface *surf, wlc_handle old
    if (!surf || !(surface = convert_to_wl_resource(surf, "surface")))
       return;
 
+   uint32_t scale = surf->pending.scale;
+   if(scale==0)scale=1;
+
    struct wl_client *client = wl_resource_get_client(surface);
    wlc_resource *r;
    chck_pool_for_each(&pointer->resources.pool, r) {
@@ -225,7 +228,7 @@ focus_view(struct wlc_pointer *pointer, struct wlc_surface *surf, wlc_handle old
          wlc_log(WLC_LOG_WARN, "Failed to push focused pointer resource to pool (out of memory?)");
 
       uint32_t serial = wl_display_next_serial(wlc_display());
-      wl_pointer_send_enter(wr, serial, surface, wl_fixed_from_double(pos->x), wl_fixed_from_double(pos->y));
+      wl_pointer_send_enter(wr, serial, surface, wl_fixed_from_double(pos->x/scale), wl_fixed_from_double(pos->y/scale));
    }
 
    pointer->focused.surface.id = convert_to_wlc_resource(surf);
@@ -330,8 +333,13 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass)
    surface_under_pointer(pointer, output, &focused);
    pointer->focused.surface.offset = focused.offset;
 
+   struct wlc_surface *surface = convert_from_wlc_resource(focused.id, "surface");
+
    if (pass)
-      wlc_pointer_focus(pointer, convert_from_wlc_resource(focused.id, "surface"), &d);
+      wlc_pointer_focus(pointer, surface, &d);
+
+   uint32_t scale = surface->pending.scale;
+   if(scale==0)scale=1;
 
    wlc_output_schedule_repaint(output);
 
@@ -344,7 +352,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass)
       if (!(wr = wl_resource_from_wlc_resource(*r, "pointer")))
          continue;
 
-      wl_pointer_send_motion(wr, time, wl_fixed_from_double(d.x), wl_fixed_from_double(d.y));
+      wl_pointer_send_motion(wr, time, wl_fixed_from_double(d.x/scale), wl_fixed_from_double(d.y/scale));
    }
 }
 
