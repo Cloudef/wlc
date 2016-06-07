@@ -226,6 +226,11 @@ x11_event(int fd, uint32_t mask, void *data)
             case XCB_BUTTON_PRESS:
             {
                xcb_button_press_event_t *xev = (xcb_button_press_event_t*)event;
+
+               // do not send scroll up / down events
+               if (xev->detail >= 4 && xev->detail <= 7)
+                  break;
+
                struct wlc_input_event ev = {0};
                ev.type = WLC_INPUT_EVENT_BUTTON;
                ev.time = xev->time;
