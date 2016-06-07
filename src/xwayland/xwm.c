@@ -213,7 +213,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
             }
             wlc_dlog(WLC_DBG_XWM, "(%d) %s %s %s", win->has_utf8_title, (reply->type == XCB_ATOM_STRING ? "STRING" : "UTF8_STRING"), (props[i] == XCB_ATOM_WM_NAME ? "WM_NAME" : "NET_WM_NAME"), view->data.title.data);
          }
-      } else if (reply->type == XCB_ATOM_WINDOW) {
+      } else if (props[i] == XCB_ATOM_WM_TRANSIENT_FOR && reply->type == XCB_ATOM_WINDOW) {
          // Transient
          xcb_window_t *xid = xcb_get_property_value(reply);
          set_parent(xwm, win, *xid);
