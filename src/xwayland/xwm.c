@@ -206,6 +206,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
          // STRING == latin1, but we naively just read it as is. For full support we should convert to utf8.
          if (props[i] == XCB_ATOM_WM_CLASS) {
             wlc_view_set_class_ptr(view, xcb_get_property_value(reply), xcb_get_property_value_length(reply));
+            wlc_dlog(WLC_DBG_XWM, "WM_CLASS: %s", view->data._class.data);
          } else if (props[i] == XCB_ATOM_WM_NAME || props[i] == x11.atoms[NET_WM_NAME]) {
             if (reply->type != XCB_ATOM_STRING  || !win->has_utf8_title) {
                wlc_view_set_title_ptr(view, xcb_get_property_value(reply), xcb_get_property_value_length(reply));
@@ -217,8 +218,10 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
          // Transient
          xcb_window_t *xid = xcb_get_property_value(reply);
          set_parent(xwm, win, *xid);
+         wlc_dlog(WLC_DBG_XWM, "WM_TRANSIENT_FOR: %u", *xid);
       } else if (props[i] == x11.atoms[NET_WM_PID] && reply->type == XCB_ATOM_CARDINAL) {
          // PID
+         wlc_dlog(WLC_DBG_XWM, "NET_WM_PID");
       } else if (props[i] == x11.atoms[NET_WM_WINDOW_TYPE] && reply->type == XCB_ATOM_ATOM) {
          // Window type
          view->type &= ~WLC_BIT_UNMANAGED | ~WLC_BIT_SPLASH | ~WLC_BIT_MODAL;
@@ -237,17 +240,22 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
             if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH])
                wlc_view_set_type_ptr(view, WLC_BIT_SPLASH, true);
          }
+         wlc_dlog(WLC_DBG_XWM, "NET_WM_WINDOW_TYPE: %u", view->type);
       } else if (props[i] == x11.atoms[WM_PROTOCOLS]) {
          xcb_atom_t *atoms = xcb_get_property_value(reply);
          for (uint32_t i = 0; i < reply->value_len; ++i) {
             if (atoms[i] == x11.atoms[WM_DELETE_WINDOW])
                win->has_delete_window = true;
          }
+         wlc_dlog(WLC_DBG_XWM, "WM_PROTOCOLS: %u", view->type);
       } else if (props[i] == x11.atoms[WM_NORMAL_HINTS]) {
+         wlc_dlog(WLC_DBG_XWM, "WM_NORMAL_HINTS");
       } else if (props[i] == x11.atoms[NET_WM_STATE]) {
          handle_state(win, xcb_get_property_value(reply), reply->value_len, NET_WM_STATE_ADD);
+         wlc_dlog(WLC_DBG_XWM, "NET_WM_STATE");
       } else if (props[i] == x11.atoms[MOTIF_WM_HINTS]) {
          // Motif hints
+         wlc_dlog(WLC_DBG_XWM, "MOTIF_WM_HINTS");
       }
 
       free(reply);
