@@ -734,10 +734,9 @@ view_paint(struct ctx *context, struct wlc_view *view)
 
    struct wlc_geometry geometry;
    wlc_view_get_bounds(view, &geometry, &settings.visible);
-   wlc_handle output = wlc_view_get_output(convert_to_wlc_handle(view));
 
+   wlc_handle output = wlc_view_get_output(convert_to_wlc_handle(view));
    int32_t scale=wlc_output_get_scale(output);
-   //wlc_log(WLC_LOG_WARN, "origin x %d y %d size x %u y %u  scale %u",geometry.origin.x,geometry.origin.y,geometry.size.w,geometry.size.h,scale);
    geometry.origin.x*=scale;
    geometry.origin.y*=scale;
    geometry.size.w*=scale;

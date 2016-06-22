@@ -4,6 +4,8 @@
 #include <chck/math/math.h>
 #include <linux/input.h>
 
+/* We are using output scale = 2 as example
+ * So everything will be double sized than normal*/
 #define SCALE 2
 
 static struct {
@@ -258,6 +260,7 @@ int
 main(void)
 {
    wlc_log_set_handler(cb_log);
+
    wlc_set_output_resolution_cb(output_resolution);
    wlc_set_view_created_cb(view_created);
    wlc_set_view_destroyed_cb(view_destroyed);
