@@ -54,6 +54,9 @@ commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, str
    state_set_buffer(out, convert_from_wlc_resource(pending->buffer, "buffer"));
    state_set_buffer(pending, NULL);
 
+   out->scale = pending->scale;
+   if(out->scale==0)out->scale=1;
+
    pending->offset = wlc_point_zero;
 
    wlc_resource *r;
@@ -391,6 +394,7 @@ wlc_surface(struct wlc_surface *surface)
        !chck_iter_pool(&surface->subsurface_list, 4, 0, sizeof(wlc_resource)))
       goto fail;
 
+   surface->commit.scale = 1;
    surface->pending.subsurface_position = (struct wlc_point){0, 0};
    surface->coordinate_transform = (struct wlc_coordinate_scale) {1, 1};
    surface->parent_synchronized = false;

@@ -214,8 +214,7 @@ focus_view(struct wlc_pointer *pointer, struct wlc_surface *surf, wlc_handle old
    if (!surf || !(surface = convert_to_wl_resource(surf, "surface")))
       return;
 
-   uint32_t scale = surf->pending.scale;
-   if(scale==0)scale=1;
+   const int32_t scale = surf->commit.scale;
 
    struct wl_client *client = wl_resource_get_client(surface);
    wlc_resource *r;
@@ -338,8 +337,7 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass)
    if (pass)
       wlc_pointer_focus(pointer, surface, &d);
 
-   uint32_t scale = surface->pending.scale;
-   if(scale==0)scale=1;
+   const int32_t scale = surface->commit.scale;
 
    wlc_output_schedule_repaint(output);
 

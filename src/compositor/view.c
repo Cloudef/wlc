@@ -193,9 +193,8 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    struct wlc_surface *surface;
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
-   // Little Hacking , commit seems not getting right scale
-   uint32_t scale = surface->pending.scale;
-   if(scale==0)scale=1;
+
+   const int32_t scale = surface->commit.scale;
 
    if (should_be_transformed_by_parent(view)) {
       for (struct wlc_view *parent = convert_from_wlc_handle(view->parent, "view"); parent; parent = convert_from_wlc_handle(parent->parent, "view")) {
