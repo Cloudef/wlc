@@ -145,14 +145,15 @@ input_event(struct wl_listener *listener, void *data)
 
    struct wlc_input_event *ev = data;
    struct wlc_output *output = convert_from_wlc_handle(compositor->active.output, "output");
+   const int32_t scale=output->information.scale;
    switch (ev->type) {
       case WLC_INPUT_EVENT_MOTION:
       {
          const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
          const struct wlc_pointer_origin pos = {
-            chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w),
-            chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
+            chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w/scale),
+            chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h/scale),
          };
 
          const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_point){ pos.x, pos.y }) : false);
@@ -165,8 +166,8 @@ input_event(struct wl_listener *listener, void *data)
          const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
          const struct wlc_pointer_origin pos = {
-            ev->motion_abs.x(ev->motion_abs.internal, resolution.w),
-            ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
+            ev->motion_abs.x(ev->motion_abs.internal, resolution.w/scale),
+            ev->motion_abs.y(ev->motion_abs.internal, resolution.h/scale)
          };
 
          const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_point){ pos.x, pos.y }) : false);
@@ -186,8 +187,8 @@ input_event(struct wl_listener *listener, void *data)
          const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
 
          const struct wlc_pointer_origin pos = {
-            chck_clamp(seat->pointer.pos.x, 0, resolution.w),
-            chck_clamp(seat->pointer.pos.y, 0, resolution.h),
+            chck_clamp(seat->pointer.pos.x, 0, resolution.w/scale),
+            chck_clamp(seat->pointer.pos.y, 0, resolution.h/scale),
          };
 
          if (WLC_INTERFACE_EMIT_EXCEPT(pointer.button, true, seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->button.code, (enum wlc_button_state)ev->button.state, &(struct wlc_point){ pos.x, pos.y }))
@@ -208,8 +209,8 @@ input_event(struct wl_listener *listener, void *data)
          struct wlc_point pos = {0, 0};
 
          if (ev->touch.x && ev->touch.y && ev->touch.internal) {
-            pos.x = ev->touch.x(ev->touch.internal, resolution.w);
-            pos.y = ev->touch.y(ev->touch.internal, resolution.h);
+            pos.x = ev->touch.x(ev->touch.internal, resolution.w/scale);
+            pos.y = ev->touch.y(ev->touch.internal, resolution.h/scale);
          }
 
          const bool handled = (wlc_interface()->touch.touch ? wlc_interface()->touch.touch(seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos) : false);

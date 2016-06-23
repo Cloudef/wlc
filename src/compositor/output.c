@@ -874,6 +874,47 @@ wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution)
    wlc_output_set_resolution_ptr(convert_from_wlc_handle(output, "output"), resolution);
 }
 
+bool
+wlc_output_set_scale_ptr(struct wlc_output *output, int32_t scale)
+{
+   if (!output)
+      return false;
+
+   assert(scale);
+   output->information.scale=scale;
+   return true;
+}
+
+WLC_API void
+wlc_output_set_scale(wlc_handle output, int32_t scale)
+{
+   wlc_output_set_scale_ptr(convert_from_wlc_handle(output, "output"), scale);
+}
+
+WLC_API int32_t
+wlc_output_get_scale(wlc_handle output)
+{
+   struct wlc_output *o = convert_from_wlc_handle(output, "output");
+   assert(o);
+   return o->information.scale;
+}
+
+WLC_API bool
+wlc_output_get_scaled_size(wlc_handle output, struct wlc_size *out_size)
+{
+   if (!out_size)
+      return false;
+
+   const struct wlc_size *resolution;
+   if (!(resolution = wlc_output_get_resolution(output)))
+      return false;
+
+   out_size->w = resolution->w / wlc_output_get_scale(output);
+   out_size->h = resolution->h / wlc_output_get_scale(output);
+
+   return true;
+}
+
 WLC_API bool
 wlc_output_get_sleep(wlc_handle output)
 {

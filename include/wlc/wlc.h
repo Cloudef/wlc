@@ -284,6 +284,15 @@ const struct wlc_size* wlc_output_get_resolution(wlc_handle output);
 /** Set resolution. */
 WLC_NONULL void wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution);
 
+/** Get scale factor. */
+int32_t wlc_output_get_scale(wlc_handle output);
+
+/** Set scale factor. */
+void wlc_output_set_scale(wlc_handle output, int32_t scale);
+
+/** Get scaled size. */
+bool wlc_output_get_scaled_size(wlc_handle output, struct wlc_size *out_size);
+
 /** Get current visibility bitmask. */
 uint32_t wlc_output_get_mask(wlc_handle output);
 

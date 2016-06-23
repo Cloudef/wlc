@@ -139,10 +139,10 @@ pointer_paint(struct wlc_pointer *pointer, struct wlc_output *output)
 
    if (!pointer || output != active_output(pointer))
       return;
-
+   const int32_t scale=output->information.scale;
    const struct wlc_point pos = {
-      chck_clamp(pointer->pos.x, 0, output->resolution.w),
-      chck_clamp(pointer->pos.y, 0, output->resolution.h)
+      chck_clamp(pointer->pos.x*scale, 0, output->resolution.w),
+      chck_clamp(pointer->pos.y*scale, 0, output->resolution.h)
    };
 
    struct wlc_view *view = convert_from_wlc_handle(pointer->focused.view, "view");
