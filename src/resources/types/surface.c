@@ -290,6 +290,9 @@ wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *out
    if (buffer)
       size = buffer->size;
 
+   size.w /= surface->commit.scale;
+   size.h /= surface->commit.scale;
+
    surface->size = size;
 
    if (surface->view) {
