@@ -178,12 +178,6 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface)
    wlc_dlog(WLC_DBG_COMMIT, "=> surface view %" PRIuWLC, convert_to_wlc_handle(view));
 }
 
-static bool
-should_be_transformed_by_parent(struct wlc_view *view)
-{
-   return !is_x11_view(view);
-}
-
 void
 wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible)
 {
@@ -193,13 +187,6 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    struct wlc_surface *surface;
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
-
-   if (should_be_transformed_by_parent(view)) {
-      for (struct wlc_view *parent = convert_from_wlc_handle(view->parent, "view"); parent; parent = convert_from_wlc_handle(parent->parent, "view")) {
-         out_bounds->origin.x += parent->commit.geometry.origin.x;
-         out_bounds->origin.y += parent->commit.geometry.origin.y;
-      }
-   }
 
    if (view->xdg_surface && view->surface_commit.visible.size.w > 0 && view->surface_commit.visible.size.h > 0) {
       // xdg-surface client that draws drop shadows or other stuff.
