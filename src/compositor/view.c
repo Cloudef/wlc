@@ -188,12 +188,21 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   if (view->xdg_surface && view->surface_commit.visible.size.w > 0 && view->surface_commit.visible.size.h > 0) {
+   if (view->xdg_surface && !wlc_size_equals(&view->surface_commit.visible.size, &wlc_size_zero)) {
       // xdg-surface client that draws drop shadows or other stuff.
-      out_bounds->origin.x -= view->surface_commit.visible.origin.x;
-      out_bounds->origin.y -= view->surface_commit.visible.origin.y;
-      out_bounds->size.w += surface->size.w - view->surface_commit.visible.size.w;
-      out_bounds->size.h += surface->size.h - view->surface_commit.visible.size.h;
+      struct wlc_geometry v = view->surface_commit.visible;
+      v.origin.x = chck_clamp32(v.origin.x, 0, surface->size.w);
+      v.origin.y = chck_clamp32(v.origin.y, 0, surface->size.h);
+      v.size.w = chck_clampu32(surface->size.w - v.size.w, 0, surface->size.w);
+      v.size.h = chck_clampu32(surface->size.h - v.size.h, 0, surface->size.h);
+
+      assert(surface->size.w > 0 && surface->size.h > 0);
+      const float wa = (float)out_bounds->size.w / surface->size.w, ha = (float)out_bounds->size.h / surface->size.h;
+
+      out_bounds->origin.x -= v.origin.x * wa;
+      out_bounds->origin.y -= v.origin.y * ha;
+      out_bounds->size.w += v.size.w * wa;
+      out_bounds->size.h += v.size.h * ha;
    }
 
    // Make sure bounds is never 0x0 w/h
