@@ -149,7 +149,7 @@ blit(bool *g, const struct wlc_size *r, const struct wlc_point *a, const struct 
          visible = true;
 
          if (!should_blit)
-            return true;
+            break;
       }
 
       if (should_blit)
@@ -175,6 +175,7 @@ get_visible_views(struct wlc_output *output, struct chck_iter_pool *visible)
           !(s = convert_from_wlc_resource(v->surface, "surface")))
          continue;
 
+      wlc_view_commit_state(v, &v->pending, &v->commit);
       const bool vis = view_visible(v, s, output->active.mask);
 
       // This place sucks for this, but otherwise we would need API level interaction.
@@ -202,10 +203,11 @@ get_visible_views(struct wlc_output *output, struct chck_iter_pool *visible)
       b.y = chck_clamp32((o.origin.y + o.size.h), 1, output->resolution.h);
 
       if (!blit(output->blit, &output->resolution, &a, &b, should_blit)) {
-         wlc_dlog(WLC_DBG_RENDER_LOOP, "%" PRIuWLC " is not visible", *h);
+         wlc_dlog(WLC_DBG_RENDER_LOOP, "%" PRIuWLC " is not visible (%d,%d+%d,%d %d,%d+%ux%u)", *h, a.x, a.y, b.x, b.y, o.origin.x, o.origin.y, o.size.w, o.size.h);
          continue;
       }
 
+      wlc_dlog(WLC_DBG_RENDER_LOOP, "%" PRIuWLC " is visible (%d,%d+%d,%d %d,%d+%ux%u)", *h, a.x, a.y, b.x, b.y, o.origin.x, o.origin.y, o.size.w, o.size.h);
       chck_iter_pool_push_front(visible, &v);
    }
 
@@ -282,7 +284,6 @@ render_view(struct wlc_output *output, struct wlc_view *view, struct chck_iter_p
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   wlc_view_commit_state(view, &view->pending, &view->commit);
    WLC_INTERFACE_EMIT(view.render.pre, convert_to_wlc_handle(view));
    wlc_render_flush_fakefb(&output->render, &output->context);
    wlc_render_view_paint(&output->render, &output->context, view);
