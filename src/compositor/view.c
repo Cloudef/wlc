@@ -245,32 +245,19 @@ bool
 wlc_view_get_opaque(struct wlc_view *view, struct wlc_geometry *out_opaque)
 {
    assert(view && out_opaque);
-   memcpy(out_opaque, &wlc_geometry_zero, sizeof(struct wlc_geometry));
-
-   struct wlc_surface *surface;
-   if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
-      return true;
 
    struct wlc_geometry b, v;
    wlc_view_get_bounds(view, &b, &v);
+   return wlc_surface_get_opaque(convert_from_wlc_resource(view->surface, "surface"), &v.origin, out_opaque);
+}
 
-   const bool opaque = ((surface->pending.opaque.extents.x1 + surface->pending.opaque.extents.y1 + surface->pending.opaque.extents.x2 + surface->pending.opaque.extents.y2) > 0);
-
-   if (opaque && (wlc_size_equals(&surface->size, &b.size) || wlc_geometry_equals(&v, &b))) {
-      // Only ran when we don't draw black borders behind the view
-      const float miw = chck_minf(surface->size.w, b.size.w), maw = chck_maxf(surface->size.w, b.size.w);
-      const float mih = chck_minf(surface->size.h, b.size.h), mah = chck_maxf(surface->size.h, b.size.h);
-      const int32_t dw = surface->size.w - (surface->pending.opaque.extents.x2 - surface->pending.opaque.extents.x1);
-      const int32_t dh = surface->size.h - (surface->pending.opaque.extents.y2 - surface->pending.opaque.extents.y1);
-      b.origin.x += surface->pending.opaque.extents.x1 * miw / maw;
-      b.origin.y += surface->pending.opaque.extents.y1 * mih / mah;
-      b.size.w -= dw * miw / maw;
-      b.size.h -= dh * mih / mah;
-      // printf("O: %ux%u+%d,%d\n", b.size.w, b.size.h, b.origin.x, b.origin.y);
-   }
-
-   memcpy(out_opaque, &b, sizeof(b));
-   return opaque;
+void
+wlc_view_get_input(struct wlc_view *view, struct wlc_geometry *out_input)
+{
+   assert(view && out_input);
+   struct wlc_geometry b, v;
+   wlc_view_get_bounds(view, &b, &v);
+   wlc_surface_get_input(convert_from_wlc_resource(view->surface, "surface"), &v.origin, out_input);
 }
 
 bool

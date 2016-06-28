@@ -79,6 +79,16 @@ commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, str
 }
 
 static void
+init_state(struct wlc_surface_state *state)
+{
+   assert(state);
+   pixman_region32_init_rect(&state->opaque, 0, 0, 0, 0);
+   pixman_region32_init_rect(&state->damage, 0, 0, 0, 0);
+   pixman_region32_init_rect(&state->input, INT32_MIN, INT32_MIN, UINT32_MAX, UINT32_MAX);
+   state->subsurface_position = (struct wlc_point){0, 0};
+}
+
+static void
 release_state(struct wlc_surface_state *state)
 {
    if (!state)
@@ -256,6 +266,69 @@ wl_cb_surface_set_buffer_scale(struct wl_client *client, struct wl_resource *res
    surface->pending.scale = 1;
 }
 
+bool
+wlc_surface_get_opaque(struct wlc_surface *surface, const struct wlc_point *offset, struct wlc_geometry *out_opaque)
+{
+   *out_opaque = wlc_geometry_zero;
+
+   if (!surface)
+      return false;
+
+   assert(offset && out_opaque);
+   const bool opaque = ((surface->commit.opaque.extents.x1 + surface->commit.opaque.extents.y1 + surface->commit.opaque.extents.x2 + surface->commit.opaque.extents.y2) > 0);
+
+   if (opaque) {
+      struct wlc_geometry o = {
+         .origin = {
+            chck_min32(surface->commit.opaque.extents.x1, surface->size.w),
+            chck_min32(surface->commit.opaque.extents.y1, surface->size.h),
+         },
+      };
+
+      o.size.w = chck_clamp32(surface->commit.opaque.extents.x2, o.origin.x, surface->size.w),
+      o.size.h = chck_clamp32(surface->commit.opaque.extents.y2, o.origin.y, surface->size.h),
+      assert((int32_t)o.size.w >= o.origin.x && (int32_t)o.size.h >= o.origin.y);
+
+      struct wlc_geometry v;
+      v.origin.x = offset->x + o.origin.x * surface->coordinate_transform.w;
+      v.origin.y = offset->y + o.origin.y * surface->coordinate_transform.h;
+      v.size.w = (o.size.w - o.origin.x) * surface->coordinate_transform.w;
+      v.size.h = (o.size.h - o.origin.y) * surface->coordinate_transform.h;
+      *out_opaque = v;
+   } else {
+      struct wlc_geometry v = {
+         .origin = *offset,
+         .size = {
+            .w = surface->size.w * surface->coordinate_transform.w,
+            .h = surface->size.h * surface->coordinate_transform.h,
+         }
+      };
+      *out_opaque = v;
+   }
+
+   return opaque;
+}
+
+void
+wlc_surface_get_input(struct wlc_surface *surface, const struct wlc_point *offset, struct wlc_geometry *out_input)
+{
+   *out_input = wlc_geometry_zero;
+
+   if (!surface)
+      return;
+
+   assert(offset && out_input);
+   assert(surface->commit.input.extents.x2 >= surface->commit.input.extents.x1);
+   assert(surface->commit.input.extents.y2 >= surface->commit.input.extents.y1);
+
+   struct wlc_geometry v;
+   v.origin.x = offset->x + surface->commit.input.extents.x1 * surface->coordinate_transform.w;
+   v.origin.y = offset->y + surface->commit.input.extents.y1 * surface->coordinate_transform.h;
+   v.size.w = (surface->commit.input.extents.x2 - surface->commit.input.extents.x1) * surface->coordinate_transform.w;
+   v.size.h = (surface->commit.input.extents.y2 - surface->commit.input.extents.y1) * surface->coordinate_transform.h;
+   *out_input = v;
+}
+
 struct wlc_buffer*
 wlc_surface_get_buffer(struct wlc_surface *surface)
 {
@@ -398,10 +471,10 @@ wlc_surface(struct wlc_surface *surface)
        !chck_iter_pool(&surface->subsurface_list, 4, 0, sizeof(wlc_resource)))
       goto fail;
 
-   surface->pending.subsurface_position = (struct wlc_point){0, 0};
-   surface->coordinate_transform = (struct wlc_coordinate_scale) {1, 1};
+   init_state(&surface->pending);
+   init_state(&surface->commit);
+   surface->coordinate_transform = (struct wlc_coordinate_scale){1, 1};
    surface->parent_synchronized = false;
-
    return true;
 
 fail:

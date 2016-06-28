@@ -69,6 +69,8 @@ struct wlc_surface {
    bool synchronized, parent_synchronized;
 };
 
+WLC_NONULLV(2,3) bool wlc_surface_get_opaque(struct wlc_surface *surface, const struct wlc_point *offset, struct wlc_geometry *out_opaque);
+WLC_NONULLV(2,3) void wlc_surface_get_input(struct wlc_surface *surface, const struct wlc_point *offset, struct wlc_geometry *out_input);
 struct wlc_buffer* wlc_surface_get_buffer(struct wlc_surface *surface);
 void wlc_surface_attach_to_view(struct wlc_surface *surface, struct wlc_view *view);
 bool wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *output, struct wlc_buffer *buffer);

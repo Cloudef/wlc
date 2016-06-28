@@ -72,6 +72,7 @@ WLC_NONULL void wlc_view_commit_state(struct wlc_view *view, struct wlc_view_sta
 WLC_NONULL void wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface);
 WLC_NONULLV(1,2) void wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, struct wlc_geometry *out_visible);
 WLC_NONULL bool wlc_view_get_opaque(struct wlc_view *view, struct wlc_geometry *out_opaque);
+WLC_NONULL void wlc_view_get_input(struct wlc_view *view, struct wlc_geometry *out_input);
 WLC_NONULL bool wlc_view_request_geometry(struct wlc_view *view, const struct wlc_geometry *r);
 bool wlc_view_request_state(struct wlc_view *view, enum wlc_view_state_bit state, bool toggle);
 void wlc_view_set_surface(struct wlc_view *view, struct wlc_surface *surface);
