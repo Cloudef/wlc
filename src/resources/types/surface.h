@@ -50,7 +50,7 @@ struct wlc_surface {
    wlc_handle parent_view;
 
    /* Current output the surface is attached to */
-   wlc_resource output;
+   wlc_handle output;
 
    /**
     * "Texture" as we use OpenGL terminology, but can be id to anything.
