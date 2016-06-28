@@ -175,7 +175,6 @@ wlc_view_ack_surface_attach(struct wlc_view *view, struct wlc_surface *surface)
    }
 
    view->surface_commit = view->surface_pending;
-   wlc_dlog(WLC_DBG_COMMIT, "=> surface view %" PRIuWLC, convert_to_wlc_handle(view));
 }
 
 void
