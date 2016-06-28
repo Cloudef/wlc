@@ -183,7 +183,7 @@ x11_event(int fd, uint32_t mask, void *data)
             struct wlc_output *output;
             if ((output = output_for_window(&compositor->outputs.pool, ev->window))) {
                output->mode = (struct wlc_size){ ev->width, ev->height };
-               wlc_output_set_resolution_ptr(output, &output->mode); // XXX: make a request?
+               wlc_output_set_resolution_ptr(output, &output->mode, output->scale); // XXX: make a request?
             }
          }
          break;
@@ -312,7 +312,6 @@ fake_information(struct wlc_output_information *info, uint32_t id)
    wlc_output_information(info);
    chck_string_set_cstr(&info->make, "Xorg", false);
    chck_string_set_cstr(&info->model, "X11 Window", false);
-   info->scale = 1;
    info->connector = WLC_CONNECTOR_WLC;
    info->connector_id = id;
 

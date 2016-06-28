@@ -75,10 +75,13 @@ struct ctx {
    } programs[PROGRAM_LAST];
 
    struct wlc_size resolution, mode;
+   uint32_t scale;
+
    GLuint textures[TEXTURE_LAST];
    GLuint clear_fbo;
    GLenum internal_format;
    GLenum preferred_type;
+   bool native_resolution;
    bool fakefb_dirty;
 
    struct {
@@ -422,9 +425,9 @@ clear_fakefb(struct ctx *context)
 }
 
 static void
-resolution(struct ctx *context, const struct wlc_size *mode, const struct wlc_size *resolution)
+resolution(struct ctx *context, const struct wlc_size *mode, const struct wlc_size *resolution, uint32_t scale)
 {
-   assert(context && resolution);
+   assert(context && resolution && scale > 0);
 
    if (!wlc_size_equals(&context->resolution, resolution)) {
       for (GLuint i = 0; i < PROGRAM_LAST; ++i) {
@@ -442,6 +445,10 @@ resolution(struct ctx *context, const struct wlc_size *mode, const struct wlc_si
       GL_CALL(glViewport(0, 0, mode->w, mode->h));
       context->mode = *mode;
    }
+
+   struct wlc_size virtual = { .w = mode->w / (float)scale, .h = mode->h / (float)scale };
+   context->native_resolution = wlc_size_equals(resolution, &virtual);
+   context->scale = scale;
 }
 
 static void
@@ -678,7 +685,7 @@ texture_paint(struct ctx *context, GLuint *textures, GLuint nmemb, const struct 
       GL_CALL(glActiveTexture(GL_TEXTURE0 + i));
       GL_CALL(glBindTexture(GL_TEXTURE_2D, textures[i]));
 
-      if (settings->filter || !wlc_size_equals(&context->resolution, &context->mode)) {
+      if (settings->filter || !context->native_resolution) {
          GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
          GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
       } else {
@@ -698,6 +705,9 @@ surface_paint_internal(struct ctx *context, struct wlc_surface *surface, const s
    assert(context && surface && geometry && settings);
 
    const struct wlc_geometry *g = geometry;
+
+   assert(surface->commit.scale >= 1);
+   settings->filter = ((uint32_t)surface->commit.scale != context->scale);
 
    if (!wlc_size_equals(&surface->size, &geometry->size)) {
       if (wlc_geometry_equals(&settings->visible, geometry)) {
@@ -819,7 +829,7 @@ read_pixels(struct ctx *context, enum wlc_pixel_format format, const struct wlc_
    (void)context;
    assert(context && geometry && out_geometry && out_data);
    struct wlc_geometry g = *geometry;
-   clamp_to_bounds(&g, &context->resolution);
+   clamp_to_bounds(&g, &context->mode);
    GL_CALL(glReadPixels(g.origin.x, g.origin.y, g.size.w, g.size.h, format_map[format].format, format_map[format].type, out_data));
    *out_geometry = g;
 }
@@ -830,7 +840,7 @@ write_pixels(struct ctx *context, enum wlc_pixel_format format, const struct wlc
    (void)context;
    assert(context && geometry && data);
    struct wlc_geometry g = *geometry;
-   clamp_to_bounds(&g, &context->resolution);
+   clamp_to_bounds(&g, &context->mode);
    GL_CALL(glBindTexture(GL_TEXTURE_2D, context->textures[TEXTURE_FAKEFB]));
    GL_CALL(glTexSubImage2D(GL_TEXTURE_2D, 0, g.origin.x, g.origin.y, g.size.w, g.size.h, format_map[format].format, format_map[format].type, data));
    context->fakefb_dirty = true;

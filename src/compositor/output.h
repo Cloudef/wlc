@@ -33,7 +33,6 @@ struct wlc_output_information {
    int32_t x, y;
    int32_t physical_width, physical_height;
    int32_t subpixel;
-   int32_t scale;
    uint32_t connector_id;
    enum wl_output_transform transform;
    enum wlc_connector_type connector;
@@ -41,7 +40,7 @@ struct wlc_output_information {
 
 struct wlc_output {
    struct wlc_source resources;
-   struct wlc_size mode, resolution;
+   struct wlc_size mode, resolution, virtual;
    struct wlc_output_information information;
    struct wlc_backend_surface bsurface;
    struct wlc_context context;
@@ -54,6 +53,10 @@ struct wlc_output {
    // Pixel blit buffer size of current resolution
    // Used to do visibility checks
    bool *blit;
+
+   // Scale of the output
+   // Affects virtual resolution by dividing with the scale
+   uint32_t scale;
 
    struct {
       struct wl_event_source *idle;
@@ -102,7 +105,7 @@ WLC_NONULL bool wlc_output(struct wlc_output *output);
 
 void wlc_output_focus_ptr(struct wlc_output *output);
 void wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep);
-WLC_NONULLV(2) bool wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution);
+WLC_NONULLV(2) bool wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution, uint32_t scale);
 void wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask);
 WLC_NONULLV(2) void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
 bool wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb);

@@ -19,7 +19,7 @@ struct ctx;
 struct wlc_render_api {
    enum wlc_renderer renderer_type;
    WLC_NONULL void (*terminate)(struct ctx *render);
-   WLC_NONULL void (*resolution)(struct ctx *render, const struct wlc_size *mode, const struct wlc_size *resolution);
+   WLC_NONULL void (*resolution)(struct ctx *render, const struct wlc_size *mode, const struct wlc_size *resolution, uint32_t scale);
    WLC_NONULL void (*surface_destroy)(struct ctx *render, struct wlc_context *bound, struct wlc_surface *surface);
    WLC_NONULLV(1,2,3) bool (*surface_attach)(struct ctx *render, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_buffer *buffer);
    WLC_NONULL void (*view_paint)(struct ctx *render, struct wlc_view *view);
@@ -36,7 +36,7 @@ struct wlc_render {
    struct wlc_render_api api;
 };
 
-WLC_NONULL void wlc_render_resolution(struct wlc_render *render, struct wlc_context *bound, const struct wlc_size *mode, const struct wlc_size *resolution);
+WLC_NONULL void wlc_render_resolution(struct wlc_render *render, struct wlc_context *bound, const struct wlc_size *mode, const struct wlc_size *resolution, uint32_t scale);
 WLC_NONULL void wlc_render_surface_destroy(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface);
 WLC_NONULLV(1,2,3) bool wlc_render_surface_attach(struct wlc_render *render, struct wlc_context *bound, struct wlc_surface *surface, struct wlc_buffer *buffer);
 WLC_NONULL void wlc_render_view_paint(struct wlc_render *render, struct wlc_context *bound, struct wlc_view *view);

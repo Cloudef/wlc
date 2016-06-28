@@ -47,14 +47,7 @@ state_set_buffer(struct wlc_surface_state *state, struct wlc_buffer *buffer)
 static void
 commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, struct wlc_surface_state *out)
 {
-   if (pending->attached) {
-      surface_attach(surface, convert_from_wlc_resource(pending->buffer, "buffer"));
-      pending->attached = false;
-   }
-
-   state_set_buffer(out, convert_from_wlc_resource(pending->buffer, "buffer"));
-   state_set_buffer(pending, NULL);
-
+   out->scale = chck_max32(pending->scale, 1);
    pending->offset = wlc_point_zero;
 
    wlc_resource *r;
@@ -76,6 +69,14 @@ commit_state(struct wlc_surface *surface, struct wlc_surface_state *pending, str
    pixman_region32_fini(&opaque);
 
    pixman_region32_intersect_rect(&out->input, &pending->input, 0, 0, surface->size.w, surface->size.h);
+
+   if (pending->attached) {
+      surface_attach(surface, convert_from_wlc_resource(pending->buffer, "buffer"));
+      pending->attached = false;
+   }
+
+   state_set_buffer(out, convert_from_wlc_resource(pending->buffer, "buffer"));
+   state_set_buffer(pending, NULL);
 }
 
 static void
@@ -85,6 +86,7 @@ init_state(struct wlc_surface_state *state)
    pixman_region32_init_rect(&state->opaque, 0, 0, 0, 0);
    pixman_region32_init_rect(&state->damage, 0, 0, 0, 0);
    pixman_region32_init_rect(&state->input, INT32_MIN, INT32_MIN, UINT32_MAX, UINT32_MAX);
+   state->scale = 1;
    state->subsurface_position = (struct wlc_point){0, 0};
 }
 
@@ -263,7 +265,7 @@ wl_cb_surface_set_buffer_scale(struct wl_client *client, struct wl_resource *res
       return;
    }
 
-   surface->pending.scale = 1;
+   surface->pending.scale = scale;
 }
 
 bool
@@ -362,6 +364,8 @@ wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *out
       size = buffer->size;
 
    wlc_size_max(&size, &size, &(struct wlc_size){1, 1});
+   size.w /= surface->commit.scale;
+   size.h /= surface->commit.scale;
    surface->size = size;
 
    struct wlc_view *view;

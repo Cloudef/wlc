@@ -73,7 +73,7 @@ relayout(wlc_handle output)
    // you probably don't want to layout certain type of windows in wm
 
    const struct wlc_size *r;
-   if (!(r = wlc_output_get_resolution(output)))
+   if (!(r = wlc_output_get_virtual_resolution(output)))
       return;
 
    size_t memb;
@@ -173,6 +173,16 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
       } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Return) {
          char *terminal = (getenv("TERMINAL") ? getenv("TERMINAL") : "weston-terminal");
          wlc_exec(terminal, (char *const[]){ terminal, NULL });
+         return true;
+      } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym >= XKB_KEY_1 && sym <= XKB_KEY_9) {
+         size_t memb;
+         const wlc_handle *outputs = wlc_get_outputs(&memb);
+         const uint32_t scale = (sym - XKB_KEY_1) + 1;
+
+         for (size_t i = 0; i < memb; ++i)
+            wlc_output_set_resolution(outputs[i], wlc_output_get_resolution(outputs[i]), scale);
+
+         printf("scale: %u\n", scale);
          return true;
       }
    }
