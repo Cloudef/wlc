@@ -63,6 +63,25 @@ view_visible(struct wlc_view *view, uint32_t mask)
    return (view->mask & mask);
 }
 
+static bool
+is_inside_view_input_region(struct wlc_pointer *pointer, struct wlc_view *view)
+{
+   if (!view)
+      return false;
+
+   // FIXME: We should handle subsurfaces as well...
+
+   struct wlc_geometry b;
+   wlc_view_get_input(view, &b);
+
+   const struct wlc_geometry point = {
+      .origin = { .x = pointer->pos.x, .y = pointer->pos.y },
+      .size = { .w = 1, .h = 1 }
+   };
+
+   return wlc_geometry_contains(&b, &point);
+}
+
 static void
 find_surface_at_position_recursive(const struct wlc_geometry *point, struct wlc_surface *parent, struct wlc_focused_surface *out)
 {
@@ -295,6 +314,9 @@ wlc_pointer_button(struct wlc_pointer *pointer, uint32_t time, uint32_t button, 
       }
    }
 
+   if (!is_inside_view_input_region(pointer, convert_from_wlc_handle(pointer->focused.view, "view")))
+      return;
+
    wlc_resource *r;
    chck_iter_pool_for_each(&pointer->focused.resources, r) {
       struct wl_resource *wr;
@@ -310,6 +332,9 @@ void
 wlc_pointer_scroll(struct wlc_pointer *pointer, uint32_t time, uint8_t axis_bits, double amount[2])
 {
    assert(pointer);
+
+   if (!is_inside_view_input_region(pointer, convert_from_wlc_handle(pointer->focused.view, "view")))
+      return;
 
    wlc_resource *r;
    chck_iter_pool_for_each(&pointer->focused.resources, r) {
@@ -342,6 +367,9 @@ wlc_pointer_motion(struct wlc_pointer *pointer, uint32_t time, bool pass)
    wlc_output_schedule_repaint(output);
 
    if (!focused.id || !pass)
+      return;
+
+   if (!is_inside_view_input_region(pointer, convert_from_wlc_handle(pointer->focused.view, "view")))
       return;
 
    wlc_resource *r;
