@@ -64,7 +64,7 @@ view_visible(struct wlc_view *view, uint32_t mask)
 }
 
 static void
-find_surface_at_position_recursive(struct wlc_pointer *pointer, struct wlc_surface *parent, struct wlc_focused_surface *out)
+find_surface_at_position_recursive(const struct wlc_geometry *point, struct wlc_surface *parent, struct wlc_focused_surface *out)
 {
    wlc_resource *sub;
    chck_iter_pool_for_each(&parent->subsurface_list, sub) {
@@ -77,14 +77,17 @@ find_surface_at_position_recursive(struct wlc_pointer *pointer, struct wlc_surfa
 
       out->offset.x += dx;
       out->offset.y += dy;
-      find_surface_at_position_recursive(pointer, subsurface, out);
+      find_surface_at_position_recursive(point, subsurface, out);
+
+      const struct wlc_geometry b = {
+         .origin = out->offset,
+         .size = subsurface->size
+      };
 
       if (out->id)
          return;
 
-      if (out->offset.x <= pointer->pos.x && out->offset.y <= pointer->pos.y &&
-            subsurface->size.w + out->offset.x >= pointer->pos.x &&
-            subsurface->size.h + out->offset.y >= pointer->pos.y) {
+      if (wlc_geometry_contains(&b, point)) {
          out->id = *sub;
          return;
       }
@@ -104,25 +107,28 @@ surface_under_pointer(struct wlc_pointer *pointer, struct wlc_output *output, st
 
    out->id = 0;
 
+   const struct wlc_geometry point = {
+      .origin = { .x = pointer->pos.x, .y = pointer->pos.y },
+      .size = { .w = 1, .h = 1 }
+   };
+
    wlc_handle *h;
    chck_iter_pool_for_each_reverse(&output->views, h) {
       struct wlc_view *view;
       if (!(view = convert_from_wlc_handle(*h, "view")) || !view_visible(view, output->active.mask))
          continue;
 
-      struct wlc_geometry b;
-      wlc_view_get_bounds(view, &b, NULL);
+      struct wlc_geometry b, v;
+      wlc_view_get_bounds(view, &b, &v);
 
       struct wlc_surface *surface;
       if ((surface = convert_from_wlc_resource(view->surface, "surface"))) {
          out->offset = b.origin;
-         find_surface_at_position_recursive(pointer, surface, out);
+         find_surface_at_position_recursive(&point, surface, out);
 
          if (out->id) {
             return true;
-         } else if (b.origin.x <= pointer->pos.x && b.origin.y <= pointer->pos.y &&
-                    surface->size.w + b.origin.x >= pointer->pos.x &&
-                    surface->size.h + b.origin.y >= pointer->pos.y) {
+         } else if (wlc_geometry_contains(&v, &point)) {
             out->id = view->surface;
             return true;
          }

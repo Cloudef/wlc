@@ -238,10 +238,15 @@ finish_frame_tasks(struct wlc_output *output)
 static void
 render_subsurface(struct wlc_output *output, struct wlc_surface *surface, struct wlc_point offset, struct wlc_coordinate_scale parent_scale)
 {
-   const struct wlc_geometry g = (struct wlc_geometry) {
-       .origin = {offset.x + parent_scale.w * (surface->commit.subsurface_position.x + surface->commit.offset.x),
-                  offset.y + parent_scale.h * (surface->commit.subsurface_position.y + surface->commit.offset.y)},
-       .size = surface->size
+   const struct wlc_geometry g = {
+      .origin = {
+         .x = offset.x + parent_scale.w * (surface->commit.subsurface_position.x + surface->commit.offset.x),
+         .y = offset.y + parent_scale.h * (surface->commit.subsurface_position.y + surface->commit.offset.y)
+      },
+      .size = {
+         .w = surface->size.w * parent_scale.w,
+         .h = surface->size.h * parent_scale.h
+      },
    };
    wlc_render_surface_paint(&output->render, &output->context, surface, &g);
 }
@@ -249,9 +254,9 @@ render_subsurface(struct wlc_output *output, struct wlc_surface *surface, struct
 static void
 subsurfaces_render(struct wlc_output *output, struct wlc_surface *surface, struct wlc_coordinate_scale parent_scale, struct chck_iter_pool *callbacks, struct wlc_point offset)
 {
-
    if (!surface)
        return;
+
    /* do not render view's main surface twice */
    if (surface->parent)
        render_subsurface(output, surface, offset, parent_scale);
@@ -261,8 +266,8 @@ subsurfaces_render(struct wlc_output *output, struct wlc_surface *surface, struc
        subsurfaces_render(output, convert_from_wlc_resource(*sub, "surface"), surface->coordinate_transform,
              callbacks,
              (struct wlc_point) {
-              offset.x + (surface->parent ? 0 : surface->commit.subsurface_position.x / parent_scale.w),
-              offset.y + (surface->parent ? 0 : surface->commit.subsurface_position.y / parent_scale.h)
+             offset.x + (surface->parent ? 0 : surface->commit.subsurface_position.x / parent_scale.w),
+             offset.y + (surface->parent ? 0 : surface->commit.subsurface_position.y / parent_scale.h)
              });
    }
 

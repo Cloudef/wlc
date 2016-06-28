@@ -10,6 +10,7 @@
 #include "macros.h"
 #include "compositor/output.h"
 #include "compositor/view.h"
+#include <chck/math/math.h>
 
 static void
 surface_attach(struct wlc_surface *surface, struct wlc_buffer *buffer)
@@ -287,17 +288,23 @@ wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *out
    if (buffer)
       size = buffer->size;
 
+   wlc_size_max(&size, &size, &(struct wlc_size){1, 1});
    surface->size = size;
 
-   if (surface->view) {
-      struct wlc_view *view = convert_from_wlc_handle(surface->view, "view");
+   struct wlc_view *view;
+   if (surface->view && (view = convert_from_wlc_handle(surface->view, "view"))) {
       struct wlc_geometry g, area;
-
-      struct wlc_size ssize = { 1, 1 };
-      wlc_size_max(&ssize, &surface->size, &ssize);
       wlc_view_get_bounds(view, &g, &area);
-      surface->coordinate_transform.w = (float)(area.size.w) / ssize.w;
-      surface->coordinate_transform.h = (float)(area.size.h) / ssize.h;
+      surface->coordinate_transform.w = (float)(area.size.w) / size.w;
+      surface->coordinate_transform.h = (float)(area.size.h) / size.h;
+   } else {
+      surface->coordinate_transform = (struct wlc_coordinate_scale) {1, 1};
+   }
+
+   struct wlc_surface *p;
+   if ((p = convert_from_wlc_resource(surface->parent, "surface"))) {
+      surface->coordinate_transform.w *= p->coordinate_transform.w;
+      surface->coordinate_transform.h *= p->coordinate_transform.h;
    }
 
    surface->commit.attached = (buffer ? true : false);
