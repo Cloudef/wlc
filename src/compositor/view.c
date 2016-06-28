@@ -217,16 +217,15 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
       out_visible->size = surface->size;
 
       // Scale visible area retaining aspect
-      struct wlc_size ssize;
-      wlc_size_max(&surface->size, &(struct wlc_size){ 1, 1 }, &ssize);
+      assert(surface->size.w > 0 && surface->size.h > 0);
       const float ba = (float)out_bounds->size.w / (float)out_bounds->size.h;
-      const float sa = (float)ssize.w / (float)ssize.h;
+      const float sa = (float)surface->size.w / (float)surface->size.h;
       if (ba < sa) {
-         out_visible->size.w *= (float)out_bounds->size.w / ssize.w;
-         out_visible->size.h *= (float)out_bounds->size.w / ssize.w;
+         out_visible->size.w *= (float)out_bounds->size.w / surface->size.w;
+         out_visible->size.h *= (float)out_bounds->size.w / surface->size.w;
       } else {
-         out_visible->size.w *= (float)out_bounds->size.h / ssize.h;
-         out_visible->size.h *= (float)out_bounds->size.h / ssize.h;
+         out_visible->size.w *= (float)out_bounds->size.h / surface->size.h;
+         out_visible->size.h *= (float)out_bounds->size.h / surface->size.h;
       }
 
       // Center visible area
