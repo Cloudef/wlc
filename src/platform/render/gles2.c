@@ -18,6 +18,7 @@
 #include "resources/types/buffer.h"
 
 static bool DRAW_OPAQUE = false;
+static bool DRAW_INPUT = false;
 
 static const GLubyte cursor_palette[];
 
@@ -42,6 +43,8 @@ enum {
 
 enum {
    TEXTURE_BLACK,
+   TEXTURE_RED,
+   TEXTURE_BLUE,
    TEXTURE_CURSOR,
    TEXTURE_FAKEFB,
    TEXTURE_LAST
@@ -379,6 +382,8 @@ create_context(void)
       const void *data;
    } images[TEXTURE_LAST] = {
       { GL_LUMINANCE, 1, 1, GL_UNSIGNED_BYTE, NULL }, // TEXTURE_BLACK
+      { GL_RGB, 1, 1, GL_UNSIGNED_BYTE, (GLubyte[]){255, 0, 0} }, // TEXTURE_RED
+      { GL_RGB, 1, 1, GL_UNSIGNED_BYTE, (GLubyte[]){0, 0, 255} }, // TEXTURE_BLUE
       { GL_LUMINANCE, 14, 14, GL_UNSIGNED_BYTE, cursor_palette }, // TEXTURE_CURSOR
       { GL_RGBA, 0, 0, GL_UNSIGNED_BYTE, NULL }, // TEXTURE_FAKEFB
    };
@@ -717,6 +722,22 @@ surface_paint(struct ctx *context, struct wlc_surface *surface, const struct wlc
    settings.program = (enum program_type)surface->format;
    settings.visible = *geometry;
    surface_paint_internal(context, surface, geometry, &settings);
+
+   if (DRAW_OPAQUE) {
+      wlc_surface_get_opaque(surface, &geometry->origin, &settings.visible);
+      settings.program = PROGRAM_RGB;
+      GL_CALL(glBlendFunc(GL_ONE, GL_DST_COLOR));
+      texture_paint(context, &context->textures[TEXTURE_RED], 1, &settings.visible, &settings);
+      GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+   }
+
+   if (DRAW_INPUT) {
+      wlc_surface_get_input(surface, &geometry->origin, &settings.visible);
+      settings.program = PROGRAM_RGB;
+      GL_CALL(glBlendFunc(GL_ONE, GL_DST_COLOR));
+      texture_paint(context, &context->textures[TEXTURE_BLUE], 1, &settings.visible, &settings);
+      GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+   }
 }
 
 static void
@@ -737,11 +758,18 @@ view_paint(struct ctx *context, struct wlc_view *view)
    surface_paint_internal(context, surface, &geometry, &settings);
 
    if (DRAW_OPAQUE) {
-      wlc_view_get_opaque(view, &geometry);
-      settings.visible = geometry;
-      settings.program = PROGRAM_CURSOR;
+      wlc_view_get_opaque(view, &settings.visible);
+      settings.program = PROGRAM_RGB;
       GL_CALL(glBlendFunc(GL_ONE, GL_DST_COLOR));
-      texture_paint(context, &context->textures[TEXTURE_BLACK], 1, &geometry, &settings);
+      texture_paint(context, &context->textures[TEXTURE_RED], 1, &settings.visible, &settings);
+      GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+   }
+
+   if (DRAW_INPUT) {
+      wlc_view_get_input(view, &settings.visible);
+      settings.program = PROGRAM_RGB;
+      GL_CALL(glBlendFunc(GL_ONE, GL_DST_COLOR));
+      texture_paint(context, &context->textures[TEXTURE_BLUE], 1, &settings.visible, &settings);
       GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
    }
 }
@@ -868,6 +896,7 @@ wlc_gles2(struct wlc_render_api *api)
    api->clear = clear;
 
    chck_cstr_to_bool(getenv("WLC_DRAW_OPAQUE"), &DRAW_OPAQUE);
+   chck_cstr_to_bool(getenv("WLC_DRAW_INPUT"), &DRAW_INPUT);
 
    wlc_log(WLC_LOG_INFO, "GLES2 renderer initialized");
    return ctx;
