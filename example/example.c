@@ -81,11 +81,22 @@ relayout(wlc_handle output)
 
    bool toggle = false;
    uint32_t y = 0;
-   uint32_t w = r->w / 2, h = r->h / chck_maxu32((1 + memb) / 2, 1);
+   const uint32_t n = chck_maxu32((1 + memb) / 2, 1);
+   const uint32_t w = r->w / 2, h = r->h / n;
+   const uint32_t ew = r->w - w * 2, eh = r->h - h * n;
    for (size_t i = 0; i < memb; ++i) {
-      struct wlc_geometry g = { { (toggle ? w : 0), y }, { (!toggle && i == memb - 1 ? r->w : w), h } };
+      const struct wlc_geometry g = {
+         .origin = {
+            .x = (toggle ? w + ew : 0),
+            .y =  y
+         },
+         .size = {
+            .w = (!toggle && i == memb - 1 ? r->w : (toggle ? w : w + ew)),
+            .h = (i < 2 ? h + eh : h)
+         }
+      };
       wlc_view_set_geometry(views[i], 0, &g);
-      y = y + (!(toggle = !toggle) ? h : 0);
+      y = y + (!(toggle = !toggle) ? g.size.h : 0);
    }
 }
 
