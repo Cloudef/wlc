@@ -349,7 +349,6 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
       info->info.physical_width = connector->mmWidth;
       info->info.physical_height = connector->mmHeight;
       info->info.subpixel = connector->subpixel;
-      info->info.scale = 1; // weston gets this from config?
       info->info.connector_id = connector->connector_type_id;
       info->info.connector = wlc_connector_for_drm_connector(connector->connector_type);
 

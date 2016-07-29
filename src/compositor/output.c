@@ -87,9 +87,10 @@ output_push_to_resource(struct wlc_output *output, wlc_resource r)
                            (output->information.model.data ? output->information.model.data : "model"),
                            output->information.transform);
 
-   assert(output->information.scale > 0);
-   if (version >= WL_OUTPUT_SCALE_SINCE_VERSION)
-      wl_output_send_scale(resource, output->information.scale);
+   if (version >= WL_OUTPUT_SCALE_SINCE_VERSION) {
+      assert(output->scale > 0);
+      wl_output_send_scale(resource, output->scale);
+   }
 
    struct wlc_output_mode *mode;
    chck_iter_pool_for_each(&output->information.modes, mode) {
@@ -164,7 +165,7 @@ get_visible_views(struct wlc_output *output, struct chck_iter_pool *visible)
 {
    assert(output && output->blit);
 
-   const size_t gsz = output->resolution.w * output->resolution.h;
+   const size_t gsz = output->virtual.w * output->virtual.h;
    memset(output->blit, false, gsz);
 
    wlc_handle *h;
@@ -197,12 +198,12 @@ get_visible_views(struct wlc_output *output, struct chck_iter_pool *visible)
       struct wlc_geometry o;
       struct wlc_point a, b;
       const bool should_blit = wlc_view_get_opaque(v, &o);
-      a.x = chck_clamp32(o.origin.x, 0, output->resolution.w);
-      a.y = chck_clamp32(o.origin.y, 0, output->resolution.h);
-      b.x = chck_clamp32((o.origin.x + o.size.w), 1, output->resolution.w);
-      b.y = chck_clamp32((o.origin.y + o.size.h), 1, output->resolution.h);
+      a.x = chck_clamp32(o.origin.x, 0, output->virtual.w);
+      a.y = chck_clamp32(o.origin.y, 0, output->virtual.h);
+      b.x = chck_clamp32((o.origin.x + o.size.w), 1, output->virtual.w);
+      b.y = chck_clamp32((o.origin.y + o.size.h), 1, output->virtual.h);
 
-      if (!blit(output->blit, &output->resolution, &a, &b, should_blit)) {
+      if (!blit(output->blit, &output->virtual, &a, &b, should_blit)) {
          wlc_dlog(WLC_DBG_RENDER_LOOP, "%" PRIuWLC " is not visible (%d,%d+%d,%d %d,%d+%ux%u)", *h, a.x, a.y, b.x, b.y, o.origin.x, o.origin.y, o.size.w, o.size.h);
          continue;
       }
@@ -321,7 +322,7 @@ repaint(struct wlc_output *output)
       return false;
    }
 
-   wlc_render_resolution(&output->render, &output->context, &output->mode, &output->resolution);
+   wlc_render_resolution(&output->render, &output->context, &output->mode, &output->virtual, output->scale);
 
    if (output->state.sleeping) {
       // fake sleep
@@ -649,7 +650,7 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
       wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
       output->mode = (struct wlc_size){ mode->width, mode->height };
       mode->flags |= WL_OUTPUT_MODE_CURRENT;
-      set_resolution = wlc_output_set_resolution_ptr(output, &output->mode);
+      set_resolution = wlc_output_set_resolution_ptr(output, &output->mode, output->scale);
    }
 
    if (!set_resolution)
@@ -747,24 +748,28 @@ wlc_output_link_view(struct wlc_output *output, struct wlc_view *view, enum outp
 }
 
 bool
-wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution)
+wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution, uint32_t scale)
 {
    if (!output)
       return false;
 
-   assert(resolution && resolution->w != 0 && resolution->h != 0);
+   assert(resolution && resolution->w != 0 && resolution->h != 0 && scale != 0);
 
-   if (resolution->w == 0 || resolution->h == 0) {
-      wlc_log(WLC_LOG_WARN, "Tried to set resolution of output %" PRIuWLC "to %ux%u", convert_to_wlc_handle(output), resolution->w, resolution->h);
+   if (resolution->w == 0 || resolution->h == 0 || scale == 0) {
+      wlc_log(WLC_LOG_WARN, "Tried to set resolution of output %" PRIuWLC "to %ux%u / %u", convert_to_wlc_handle(output), resolution->w, resolution->h, scale);
       return false;
    }
 
-   if (wlc_size_equals(resolution, &output->resolution))
+   if (output->scale == scale && wlc_size_equals(resolution, &output->resolution))
       return false;
 
+   struct wlc_size virtual = *resolution;
+   virtual.w /= scale;
+   virtual.h /= scale;
+
    size_t gsz;
-   if (chck_mul_ofsz(resolution->w, resolution->h, &gsz)) {
-      wlc_log(WLC_LOG_WARN, "Requested resolution %ux%u overflows when multiplied, ignoring resolution", resolution->w, resolution->h);
+   if (chck_mul_ofsz(virtual.w, virtual.h, &gsz)) {
+      wlc_log(WLC_LOG_WARN, "Requested resolution %ux%u (%ux%u) overflows when multiplied, ignoring resolution", resolution->w, resolution->h, virtual.w, virtual.h);
       return false;
    }
 
@@ -773,6 +778,8 @@ wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *
 
    struct wlc_size old = output->resolution;
    output->resolution = *resolution;
+   output->virtual = virtual;
+   output->scale = scale;
 
    output_push_to_resources(output);
    WLC_INTERFACE_EMIT(output.resolution, convert_to_wlc_handle(output), &old, &output->resolution);
@@ -874,10 +881,23 @@ wlc_output_get_resolution(wlc_handle output)
    return get(convert_from_wlc_handle(output, "output"), offsetof(struct wlc_output, resolution));
 }
 
-WLC_API void
-wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution)
+WLC_API const struct wlc_size*
+wlc_output_get_virtual_resolution(wlc_handle output)
 {
-   wlc_output_set_resolution_ptr(convert_from_wlc_handle(output, "output"), resolution);
+   return get(convert_from_wlc_handle(output, "output"), offsetof(struct wlc_output, virtual));
+}
+
+WLC_API void
+wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution, uint32_t scale)
+{
+   wlc_output_set_resolution_ptr(convert_from_wlc_handle(output, "output"), resolution, scale);
+}
+
+WLC_API uint32_t
+wlc_output_get_scale(wlc_handle output)
+{
+   void *ptr = get(convert_from_wlc_handle(output, "output"), offsetof(struct wlc_output, scale));
+   return (ptr ? *(uint32_t*)ptr : 1);
 }
 
 WLC_API bool
@@ -1003,6 +1023,7 @@ wlc_output(struct wlc_output *output)
 
    output->active.mode = UINT_MAX;
    output->state.ims = 41;
+   output->scale = 1;
 
    wlc_output_set_sleep_ptr(output, false);
    wlc_output_set_mask_ptr(output, (1<<0));

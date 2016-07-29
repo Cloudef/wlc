@@ -145,11 +145,12 @@ input_event(struct wl_listener *listener, void *data)
 
    struct wlc_input_event *ev = data;
    struct wlc_output *output = convert_from_wlc_handle(compositor->active.output, "output");
+
+   const struct wlc_size resolution = (output ? output->virtual : wlc_size_zero);
+
    switch (ev->type) {
       case WLC_INPUT_EVENT_MOTION:
       {
-         const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
-
          const struct wlc_pointer_origin pos = {
             chck_clamp(seat->pointer.pos.x + ev->motion.dx, 0, resolution.w),
             chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
@@ -162,8 +163,6 @@ input_event(struct wl_listener *listener, void *data)
 
       case WLC_INPUT_EVENT_MOTION_ABSOLUTE:
       {
-         const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
-
          const struct wlc_pointer_origin pos = {
             ev->motion_abs.x(ev->motion_abs.internal, resolution.w),
             ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
@@ -183,8 +182,6 @@ input_event(struct wl_listener *listener, void *data)
 
       case WLC_INPUT_EVENT_BUTTON:
       {
-         const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
-
          const struct wlc_pointer_origin pos = {
             chck_clamp(seat->pointer.pos.x, 0, resolution.w),
             chck_clamp(seat->pointer.pos.y, 0, resolution.h),
@@ -203,8 +200,6 @@ input_event(struct wl_listener *listener, void *data)
 
       case WLC_INPUT_EVENT_TOUCH:
       {
-         const struct wlc_size resolution = (output ? output->resolution : wlc_size_zero);
-
          struct wlc_point pos = {0, 0};
 
          if (ev->touch.x && ev->touch.y && ev->touch.internal) {

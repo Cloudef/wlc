@@ -278,11 +278,25 @@ bool wlc_output_get_sleep(wlc_handle output);
 /** Wake up / sleep. */
 void wlc_output_set_sleep(wlc_handle output, bool sleep);
 
-/** Get resolution. */
+/**
+ * Get real resolution.
+ * Resolution applied by either wlc_output_set_resolution call or initially.
+ * Do not use this for coordinate boundary.
+ */
 const struct wlc_size* wlc_output_get_resolution(wlc_handle output);
 
+/**
+ * Get virtual resolution.
+ * Resolution with transformations applied for proper rendering for example on high density displays.
+ * Use this to figure out coordinate boundary.
+ */
+const struct wlc_size* wlc_output_get_virtual_resolution(wlc_handle output);
+
 /** Set resolution. */
-WLC_NONULL void wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution);
+WLC_NONULL void wlc_output_set_resolution(wlc_handle output, const struct wlc_size *resolution, uint32_t scale);
+
+/** Get scale factor. */
+uint32_t wlc_output_get_scale(wlc_handle output);
 
 /** Get current visibility bitmask. */
 uint32_t wlc_output_get_mask(wlc_handle output);
