@@ -440,6 +440,16 @@ wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id)
 }
 
 void
+wlc_view_set_pid_ptr(struct wlc_view *view, pid_t pid)
+{
+   if (!view || view->data.pid == pid)
+      return;
+
+   view->data.pid = pid;
+   WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view), WLC_BIT_PROPERTY_PID);
+}
+
+void
 wlc_view_close_ptr(struct wlc_view *view)
 {
    if (!view)
@@ -647,6 +657,22 @@ WLC_API const char*
 wlc_view_get_app_id(wlc_handle view)
 {
    return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data.app_id));
+}
+
+WLC_API pid_t
+wlc_view_get_pid(wlc_handle handle)
+{
+   struct wlc_view *view;
+   if(!(view = convert_from_wlc_handle(handle, "view")))
+      return 0;
+
+   if (is_x11_view(view)) {
+      return view->data.pid;
+   } else {
+      pid_t pid;
+      wl_client_get_credentials(wlc_view_get_client_ptr(view), &pid, NULL, NULL);
+      return pid;
+   }
 }
 
 void

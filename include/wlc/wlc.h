@@ -8,6 +8,7 @@ extern "C" {
 #include <wlc/defines.h>
 #include <wlc/geometry.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
+#include <sys/types.h>
 
 struct wlc_event_source;
 
@@ -61,6 +62,7 @@ enum wlc_view_property_update_bit {
    WLC_BIT_PROPERTY_TITLE = 1<<0,
    WLC_BIT_PROPERTY_CLASS = 1<<1,
    WLC_BIT_PROPERTY_APP_ID = 1<<2,
+   WLC_BIT_PROPERTY_PID = 1<<3,
 };
 
 /** wlc_view_set_geometry(); Edges in interface interface.view.request.resize function. */
@@ -387,6 +389,9 @@ const char* wlc_view_get_class(wlc_handle view);
 
 /** Get app id. (xdg-surface only) */
 const char* wlc_view_get_app_id(wlc_handle view);
+
+/** Get pid. */
+pid_t wlc_view_get_pid(wlc_handle view);
 
 /** --  Input API
  * Very recent stuff, things may change.

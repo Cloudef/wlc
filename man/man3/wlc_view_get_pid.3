@@ -1,0 +1,32 @@
+.TH WLC_VIEW_GET_PID 3 2016-07-29 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_view_get_pid - get the process id for a given view
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "pid_t wlc_view_get_pid(wlc_handle "view ");"
+
+.SS Wayland protocol requirements:
+.RS
+.BR wlc_view_get_pid ():
+xdg_shell
+.RE
+
+.SH DESCRIPTION
+.BR wlc_view_get_pid ()
+can be used to acquire the process id of a given
+.I view.
+
+.SH RETURN VALUE
+.BR wlc_view_get_pid ()
+returns the process id for
+.I view
+if it is available. Returns 0 (not a valid pid) if it is not. For X11
+views this requires the application set the __NET_WM_PID property.
+
+.SH ALSO SEE
+The XDG Shell protocol extension
+.UR http://cgit.freedesktop.org/wayland/weston/tree/protocol/xdg-shell.xml
+.UE
