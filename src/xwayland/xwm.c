@@ -221,6 +221,7 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
          wlc_dlog(WLC_DBG_XWM, "WM_TRANSIENT_FOR: %u", *xid);
       } else if (props[i] == x11.atoms[NET_WM_PID] && reply->type == XCB_ATOM_CARDINAL) {
          // PID
+         wlc_view_set_pid_ptr(view, *(pid_t *)xcb_get_property_value(reply));
          wlc_dlog(WLC_DBG_XWM, "NET_WM_PID");
       } else if (props[i] == x11.atoms[NET_WM_WINDOW_TYPE] && reply->type == XCB_ATOM_ATOM) {
          // Window type
