@@ -472,7 +472,7 @@ wlc_x11_window_set_active(struct wlc_x11_window *win, bool active)
 {
    assert(win);
 
-   if (!x11.connection || !win->id)
+   if (!x11.connection || !win->id || win->override_redirect)
       return false;
 
    if (active) {
