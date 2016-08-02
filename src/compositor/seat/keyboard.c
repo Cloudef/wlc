@@ -142,7 +142,7 @@ defocus(struct wlc_keyboard *keyboard, struct wlc_view *new_focus)
    if (!(surface = wl_resource_from_wlc_resource(view->surface, "surface")))
       goto out;
 
-   if (is_x11_view(view))
+   if (is_x11_view(view) && (!new_focus || !is_x11_view(new_focus)))
       wlc_x11_window_set_active(&view->x11, false);
 
    wlc_resource *r;
