@@ -256,6 +256,12 @@ wlc_view_get_input(struct wlc_view *view, struct wlc_geometry *out_input)
    assert(view && out_input);
    struct wlc_geometry b, v;
    wlc_view_get_bounds(view, &b, &v);
+
+   if (is_x11_view(view)) {
+      *out_input = v;
+      return;
+   }
+
    wlc_surface_get_input(convert_from_wlc_resource(view->surface, "surface"), &v.origin, out_input);
 }
 
