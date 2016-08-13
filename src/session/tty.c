@@ -10,9 +10,26 @@
 #include "tty.h"
 
 #if defined(__linux__)
+#  define TTY_BASENAME "/dev/tty"
+#  define TTY_0        "/dev/tty0"
 #  include <linux/kd.h>
 #  include <linux/major.h>
 #  include <linux/vt.h>
+#elif defined(__FreeBSD__)
+#  include <sys/consio.h>
+#  include <sys/kbio.h>
+#  define TTY_BASENAME    "/dev/ttyv"
+#  define TTY_0           "/dev/ttyv0"
+#  define TTY_MAJOR       0
+#  define VT_GETSTATE	  0x5603
+#  define VT_ACTIVATE	  0x5606
+#  define K_UNICODE       0x03
+#  define K_OFF           0x04
+struct vt_stat {
+    unsigned short v_active;    /* active vt */
+    unsigned short v_signal;	/* signal to send */
+    unsigned short v_state;	/* vt bitmask */
+};
 #endif
 
 #ifndef KDSKBMUTE
@@ -51,8 +68,8 @@ find_vt(const char *vt_string, bool *out_replace_vt)
    }
 
    int tty0_fd;
-   if ((tty0_fd = open("/dev/tty0", O_RDWR | O_CLOEXEC)) < 0)
-      die("Could not open /dev/tty0 to find free vt");
+   if ((tty0_fd = open(TTY_0, O_RDWR | O_CLOEXEC)) < 0)
+      die("Could not open %s to find free vt", TTY_0);
 
    int vt;
    if (ioctl(tty0_fd, VT_OPENQRY, &vt) != 0)
@@ -66,7 +83,7 @@ static int
 open_tty(int vt)
 {
    char tty_name[64];
-   snprintf(tty_name, sizeof tty_name, "/dev/tty%d", vt);
+   snprintf(tty_name, sizeof tty_name, "%s%d", TTY_BASENAME, vt);
 
    /* check if we are running on the desired vt */
    if (ttyname(STDIN_FILENO) && chck_cstreq(tty_name, ttyname(STDIN_FILENO))) {
@@ -97,6 +114,8 @@ setup_tty(int fd, bool replace_vt)
    if (major(st.st_rdev) != TTY_MAJOR || wlc.vt == 0)
       die("Not a valid vt");
 
+/* FreeBSD's new vt is still missing some bits */
+#if defined(__linux__)
    if (!replace_vt) {
       int kd_mode;
       if (ioctl(fd, KDGETMODE, &kd_mode) == -1)
@@ -117,6 +136,7 @@ setup_tty(int fd, bool replace_vt)
 
    if (ioctl(fd, VT_WAITACTIVE, wlc.vt) == -1)
       die("Could not wait for vt%d to become active", wlc.vt);
+#endif
 
    if (ioctl(fd, KDGKBMODE, &wlc.old_state.kb_mode) == -1)
       die("Could not get keyboard mode");
@@ -124,16 +144,19 @@ setup_tty(int fd, bool replace_vt)
    // vt will be restored from now on
    wlc.tty = fd;
 
+#if defined(__linux__)
    if (ioctl(fd, KDSKBMUTE, 1) == -1 && ioctl(fd, KDSKBMODE, K_OFF) == -1) {
       wlc_tty_terminate();
       die("Could not set keyboard mode to K_OFF");
    }
+#endif
 
    if (ioctl(fd, KDSETMODE, KD_GRAPHICS) == -1) {
       wlc_tty_terminate();
       die("Could not set console mode to KD_GRAPHICS");
    }
 
+#if defined(__linux__)
    struct vt_mode mode = {
       .mode = VT_PROCESS,
       .relsig = SIGUSR1,
@@ -144,6 +167,7 @@ setup_tty(int fd, bool replace_vt)
       wlc_tty_terminate();
       die("Could not set vt%d mode", wlc.vt);
    }
+#endif
 
    return true;
 }

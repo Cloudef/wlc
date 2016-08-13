@@ -385,4 +385,12 @@ const struct wlc_interface* wlc_interface(void);
 /** This is here so fd.c sees it, do not use. */
 void wlc_cleanup(void);
 
+#if defined(__FreeBSD__)
+static inline int clearenv(void) {
+   extern char **environ;
+   environ[0] = NULL;
+   return 0;
+}
+#endif
+
 #endif /* _WLC_INTERNAL_H_ */
