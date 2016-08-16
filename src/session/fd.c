@@ -82,6 +82,7 @@ write_fd(int sock, int fd, const void *buffer, ssize_t buffer_size)
 {
    char control[CMSG_SPACE(sizeof(int))];
    memset(control, 0, sizeof(control));
+
    struct msghdr message = {
       .msg_name = NULL,
       .msg_namelen = 0,
@@ -90,18 +91,19 @@ write_fd(int sock, int fd, const void *buffer, ssize_t buffer_size)
          .iov_len = buffer_size
       },
       .msg_iovlen = 1,
-      .msg_control = control,
-      .msg_controllen = sizeof(control),
+      .msg_control = NULL,
+      .msg_controllen = 0,
    };
 
-   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&message);
    if (fd >= 0) {
+      message.msg_control = control;
+      message.msg_controllen = sizeof(control);
+
+      struct cmsghdr *cmsg = CMSG_FIRSTHDR(&message);
       cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
       cmsg->cmsg_level = SOL_SOCKET;
       cmsg->cmsg_type = SCM_RIGHTS;
       memcpy(CMSG_DATA(cmsg), &fd, sizeof(fd));
-   } else {
-      cmsg->cmsg_len = CMSG_LEN(0);
    }
 
    return sendmsg(sock, &message, 0);
@@ -131,6 +133,9 @@ recv_fd(int sock, int *out_fd, void *out_buffer, ssize_t buffer_size)
    ssize_t read;
    if ((read = recvmsg(sock, &message, 0)) < 0)
       return read;
+
+   if (message.msg_controllen == 0)
+   	  return read;
 
    if (!(cmsg = CMSG_FIRSTHDR(&message)))
       return read;
@@ -183,8 +188,13 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
    }
 
    struct stat st;
-   if (stat(path, &st) < 0 || major(st.st_rdev) != allow[type].major)
-      return -1;
+   if (stat(path, &st) < 0)
+	  return -1;
+
+#ifdef __linux__
+   if (major(st.st_rdev) != allow[type].major)
+   	  return -1;
+#endif
 
    int fd;
    if ((fd = open(path, flags | O_CLOEXEC)) < 0)

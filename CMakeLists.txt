@@ -56,10 +56,12 @@ find_package(GBM REQUIRED)
 set_package_properties(GBM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
 
 # Optional
-find_package(Dbus)
-set_package_properties(Dbus PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
-find_package(Systemd)
-set_package_properties(Systemd PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
+if(LINUX)
+   find_package(Dbus)
+   set_package_properties(Dbus PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
+   find_package(Systemd)
+   set_package_properties(Systemd PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
+endif()
 
 if (NOT WLC_BUILD_STATIC)
    set(BUILD_SHARED_LIBS ON)
