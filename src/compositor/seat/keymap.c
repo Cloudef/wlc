@@ -65,6 +65,8 @@ wlc_keymap_release(struct wlc_keymap *keymap)
 
    if (keymap->fd >= 0)
       close(keymap->fd);
+
+   *keymap = (struct wlc_keymap){0};
 }
 
 bool
