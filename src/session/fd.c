@@ -10,7 +10,9 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#if !defined(__FreeBSD__)
 #include <linux/major.h>
+#endif
 #include <xf86drm.h>
 #include "internal.h"
 #include "macros.h"
@@ -135,7 +137,7 @@ recv_fd(int sock, int *out_fd, void *out_buffer, ssize_t buffer_size)
       return read;
 
    if (message.msg_controllen == 0)
-   	  return read;
+      return read;
 
    if (!(cmsg = CMSG_FIRSTHDR(&message)))
       return read;
@@ -171,6 +173,7 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
    }
 
    /* we will only open allowed paths */
+#if !defined(__FreeBSD__)
 #define FILTER(x, m) { x, (sizeof(x) > 32 ? 32 : sizeof(x)) - 1, m }
    static struct {
       const char *base;
@@ -186,12 +189,13 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
       wlc_log(WLC_LOG_WARN, "Denying open from: %s", path);
       return -1;
    }
+#endif
 
    struct stat st;
    if (stat(path, &st) < 0)
 	  return -1;
 
-#ifdef __linux__
+#if !defined(__FreeBSD__)
    if (major(st.st_rdev) != allow[type].major)
    	  return -1;
 #endif
@@ -245,16 +249,16 @@ activate(void)
          continue;
 
       switch (wlc.fds[i].type) {
-         case WLC_FD_DRM:
-            if (drmSetMaster(wlc.fds[i].fd)) {
-               wlc_log(WLC_LOG_WARN, "Could not set master for drm fd (%d)", wlc.fds[i].fd);
-               return false;
-            }
-            break;
+      case WLC_FD_DRM:
+         if (drmSetMaster(wlc.fds[i].fd)) {
+            wlc_log(WLC_LOG_WARN, "Could not set master for drm fd (%d)", wlc.fds[i].fd);
+            return false;
+         }
+         break;
 
-         case WLC_FD_INPUT:
-         case WLC_FD_LAST:
-            break;
+      case WLC_FD_INPUT:
+      case WLC_FD_LAST:
+         break;
       }
    }
 
@@ -280,18 +284,18 @@ deactivate(void)
          continue;
 
       switch (wlc.fds[i].type) {
-         case WLC_FD_INPUT:
-            if (ioctl(wlc.fds[i].fd, EVIOCREVOKE, 0) == -1) {
-               wlc_log(WLC_LOG_WARN, "Kernel does not support EVIOCREVOKE, can not revoke input devices");
-               return false;
-            }
-            close(wlc.fds[i].fd);
-            wlc.fds[i].fd = -1;
-            break;
+      case WLC_FD_INPUT:
+         if (ioctl(wlc.fds[i].fd, EVIOCREVOKE, 0) == -1) {
+            wlc_log(WLC_LOG_WARN, "Kernel does not support EVIOCREVOKE, can not revoke input devices");
+            return false;
+         }
+         close(wlc.fds[i].fd);
+         wlc.fds[i].fd = -1;
+         break;
 
-         case WLC_FD_DRM:
-         case WLC_FD_LAST:
-            break;
+      case WLC_FD_DRM:
+      case WLC_FD_LAST:
+         break;
       }
    }
 
@@ -306,28 +310,28 @@ handle_request(int sock, int fd, const struct msg_request *request)
    response.type = request->type;
 
    switch (request->type) {
-      case TYPE_CHECK:
-         write_fd(sock, fd, &response, sizeof(response));
-         break;
-      case TYPE_FD_OPEN:
-         fd = fd_open(request->fd_open.path, request->fd_open.flags, request->fd_open.type);
-         write_fd(sock, fd, &response, sizeof(response));
-         break;
-      case TYPE_FD_CLOSE:
-         /* we will only close file descriptors opened by us. */
-         fd_close(request->fd_close.st_dev, request->fd_close.st_ino);
-         break;
-      case TYPE_ACTIVATE:
-         response.activate = activate();
-         write_fd(sock, fd, &response, sizeof(response));
-         break;
-      case TYPE_DEACTIVATE:
-         response.deactivate = deactivate();
-         write_fd(sock, fd, &response, sizeof(response));
-         break;
-      case TYPE_ACTIVATE_VT:
-         response.activate = wlc_tty_activate_vt(request->vt_activate.vt);
-         write_fd(sock, fd, &response, sizeof(response));
+   case TYPE_CHECK:
+      write_fd(sock, fd, &response, sizeof(response));
+      break;
+   case TYPE_FD_OPEN:
+      fd = fd_open(request->fd_open.path, request->fd_open.flags, request->fd_open.type);
+      write_fd(sock, fd, &response, sizeof(response));
+      break;
+   case TYPE_FD_CLOSE:
+      /* we will only close file descriptors opened by us. */
+      fd_close(request->fd_close.st_dev, request->fd_close.st_ino);
+      break;
+   case TYPE_ACTIVATE:
+      response.activate = activate();
+      write_fd(sock, fd, &response, sizeof(response));
+      break;
+   case TYPE_DEACTIVATE:
+      response.deactivate = deactivate();
+      write_fd(sock, fd, &response, sizeof(response));
+      break;
+   case TYPE_ACTIVATE_VT:
+      response.activate = wlc_tty_activate_vt(request->vt_activate.vt);
+      write_fd(sock, fd, &response, sizeof(response));
    }
 }
 
@@ -462,7 +466,7 @@ wlc_fd_close(int fd)
    }
 
 #ifdef HAS_LOGIND
-close:
+ close:
 #endif
    close(fd);
 }
