@@ -293,18 +293,6 @@ wlc_init(void)
       wlc.interface = old_interface;
    }
 
-   // set a fallback XDG_RUNTIME_DIR, if required (needed for libwayland)
-   if (!getenv("XDG_RUNTIME_DIR")) {
-      char buf[] = "/tmp/wlc.XXXXXX";
-      char *dir = mkdtemp(buf);
-      if (dir) {
-         wlc_log(WLC_LOG_WARN, "No XDG_RUNTIME_DIR set, creating a temporary directory");
-         setenv("XDG_RUNTIME_DIR", dir, false);
-      } else {
-         wlc_log(WLC_LOG_ERROR, "No XDG_RUNTIME_DIR set, could not set up a temporary directory");
-      }
-   }
-
    wl_log_set_handler_server(wl_cb_log);
 
    unsetenv("TERM");
