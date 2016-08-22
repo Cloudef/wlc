@@ -56,12 +56,13 @@ find_package(GBM REQUIRED)
 set_package_properties(GBM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
 
 # Optional
-if(LINUX)
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
    find_package(Dbus)
    set_package_properties(Dbus PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
    find_package(Systemd)
    set_package_properties(Systemd PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
-endif()
+endif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+
 
 if (NOT WLC_BUILD_STATIC)
    set(BUILD_SHARED_LIBS ON)
