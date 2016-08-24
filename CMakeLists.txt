@@ -56,7 +56,7 @@ find_package(GBM REQUIRED)
 set_package_properties(GBM PROPERTIES TYPE REQUIRED PURPOSE "Enables DRM backend")
 
 # Optional
-if(LINUX)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
    find_package(Dbus)
    set_package_properties(Dbus PROPERTIES TYPE RECOMMENDED PURPOSE "Enables logind support")
    find_package(Systemd)
