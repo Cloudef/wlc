@@ -830,7 +830,9 @@ read_pixels(struct ctx *context, enum wlc_pixel_format format, const struct wlc_
    assert(context && geometry && out_geometry && out_data);
    struct wlc_geometry g = *geometry;
    clamp_to_bounds(&g, &context->mode);
-   GL_CALL(glReadPixels(g.origin.x, g.origin.y, g.size.w, g.size.h, format_map[format].format, format_map[format].type, out_data));
+   // flip vertical coords, OpenGL assumes lower left is (0, 0)
+   const uint32_t flipped_y = context->mode.h - (g.origin.y + g.size.h);
+   GL_CALL(glReadPixels(g.origin.x, flipped_y, g.size.w, g.size.h, format_map[format].format, format_map[format].type, out_data));
    *out_geometry = g;
 }
 
