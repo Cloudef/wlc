@@ -41,6 +41,7 @@ struct wlc_view {
    wlc_resource surface;
    wlc_resource shell_surface;
    wlc_resource xdg_surface;
+   wlc_resource xdg_toplevel;
    wlc_resource xdg_popup;
    wlc_resource custom_surface;
 

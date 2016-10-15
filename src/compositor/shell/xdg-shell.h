@@ -4,7 +4,7 @@
 #include "resources/resources.h"
 
 struct wlc_xdg_shell {
-   struct wlc_source surfaces, popups;
+   struct wlc_source surfaces, toplevels, popups;
 
    struct {
       struct wl_global *xdg_shell;

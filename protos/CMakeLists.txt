@@ -12,7 +12,7 @@ include_directories(
 )
 
 set(protos
-   "${prefix}/unstable/xdg-shell/xdg-shell-unstable-v5")
+   "${prefix}/unstable/xdg-shell/xdg-shell-unstable-v6")
 
 foreach(proto ${protos})
    add_feature_info(${proto} proto "Protocol extension")

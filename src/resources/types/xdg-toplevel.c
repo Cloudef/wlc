@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
-#include "xdg-surface.h"
+#include "xdg-toplevel.h"
 #include "internal.h"
 #include "macros.h"
 #include "compositor/view.h"
@@ -9,10 +9,8 @@
 #include "compositor/seat/pointer.h"
 #include "resources/types/surface.h"
 
-static_assert_x(XDG_SHELL_VERSION_CURRENT == 5, generated_protocol_and_implementation_version_are_different);
-
 static void
-xdg_cb_surface_set_parent(struct wl_client *client, struct wl_resource *resource, struct wl_resource *parent_resource)
+xdg_cb_toplevel_set_parent(struct wl_client *client, struct wl_resource *resource, struct wl_resource *parent_resource)
 {
    (void)client;
 
@@ -25,28 +23,28 @@ xdg_cb_surface_set_parent(struct wl_client *client, struct wl_resource *resource
 }
 
 static void
-xdg_cb_surface_set_title(struct wl_client *client, struct wl_resource *resource, const char *title)
+xdg_cb_toplevel_set_title(struct wl_client *client, struct wl_resource *resource, const char *title)
 {
    (void)client;
    wlc_view_set_title_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), title, strlen(title));
 }
 
 static void
-xdg_cb_surface_set_app_id(struct wl_client *client, struct wl_resource *resource, const char *app_id)
+xdg_cb_toplevel_set_app_id(struct wl_client *client, struct wl_resource *resource, const char *app_id)
 {
    (void)client;
    wlc_view_set_app_id_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), app_id);
 }
 
 static void
-xdg_cb_surface_show_window_menu(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, int32_t x, int32_t y)
+xdg_cb_toplevel_show_window_menu(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial, int32_t x, int32_t y)
 {
    (void)client, (void)resource, (void)seat, (void)serial, (void)x, (void)y;
    STUBL(resource);
 }
 
 static void
-xdg_cb_surface_move(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial)
+xdg_cb_toplevel_move(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial)
 {
    (void)client, (void)resource, (void)serial;
 
@@ -63,7 +61,7 @@ xdg_cb_surface_move(struct wl_client *client, struct wl_resource *resource, stru
 }
 
 static void
-xdg_cb_surface_resize(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial, uint32_t edges)
+xdg_cb_toplevel_resize(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial, uint32_t edges)
 {
    (void)client, (void)resource, (void)serial;
 
@@ -80,26 +78,19 @@ xdg_cb_surface_resize(struct wl_client *client, struct wl_resource *resource, st
 }
 
 static void
-xdg_cb_surface_ack_configure(struct wl_client *client, struct wl_resource *resource, uint32_t serial)
+xdg_cb_toplevel_set_max_size(struct wl_client *client, struct wl_resource *resource, int32_t width, int32_t height)
 {
-   (void)client, (void)serial, (void)resource;
+   (void)client, (void)resource, (void)width, (void)height;
 }
 
 static void
-xdg_cb_surface_set_window_geometry(struct wl_client *client, struct wl_resource *resource, int32_t x, int32_t y, int32_t width, int32_t height)
+xdg_cb_toplevel_set_min_size(struct wl_client *client, struct wl_resource *resource, int32_t width, int32_t height)
 {
-   (void)client;
-
-   struct wlc_view *view;
-   if (!(view = convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view")))
-      return;
-
-   view->surface_pending.visible = (struct wlc_geometry){ { x, y }, { width, height } };
-   wlc_view_update(view);
+   (void)client, (void)resource, (void)width, (void)height;
 }
 
 static void
-xdg_cb_surface_set_maximized(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_toplevel_set_maximized(struct wl_client *client, struct wl_resource *resource)
 {
    (void)client;
 
@@ -111,7 +102,7 @@ xdg_cb_surface_set_maximized(struct wl_client *client, struct wl_resource *resou
 }
 
 static void
-xdg_cb_surface_unset_maximized(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_toplevel_unset_maximized(struct wl_client *client, struct wl_resource *resource)
 {
    (void)client;
 
@@ -123,7 +114,7 @@ xdg_cb_surface_unset_maximized(struct wl_client *client, struct wl_resource *res
 }
 
 static void
-xdg_cb_surface_set_fullscreen(struct wl_client *client, struct wl_resource *resource, struct wl_resource *output_resource)
+xdg_cb_toplevel_set_fullscreen(struct wl_client *client, struct wl_resource *resource, struct wl_resource *output_resource)
 {
    (void)client;
 
@@ -140,7 +131,7 @@ xdg_cb_surface_set_fullscreen(struct wl_client *client, struct wl_resource *reso
 }
 
 static void
-xdg_cb_surface_unset_fullscreen(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_toplevel_unset_fullscreen(struct wl_client *client, struct wl_resource *resource)
 {
    (void)client;
 
@@ -152,31 +143,31 @@ xdg_cb_surface_unset_fullscreen(struct wl_client *client, struct wl_resource *re
 }
 
 static void
-xdg_cb_surface_set_minimized(struct wl_client *client, struct wl_resource *resource)
+xdg_cb_toplevel_set_minimized(struct wl_client *client, struct wl_resource *resource)
 {
    (void)client;
    wlc_view_set_minimized_ptr(convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(resource), "view"), true);
 }
 
-WLC_CONST const struct xdg_surface_interface*
-wlc_xdg_surface_implementation(void)
+WLC_CONST const struct zxdg_toplevel_v6_interface*
+wlc_xdg_toplevel_implementation(void)
 {
-   static const struct xdg_surface_interface xdg_surface_implementation = {
+   static const struct zxdg_toplevel_v6_interface zxdg_toplevel_v6_implementation = {
       .destroy = wlc_cb_resource_destructor,
-      .set_parent = xdg_cb_surface_set_parent,
-      .set_title = xdg_cb_surface_set_title,
-      .set_app_id = xdg_cb_surface_set_app_id,
-      .show_window_menu = xdg_cb_surface_show_window_menu,
-      .move = xdg_cb_surface_move,
-      .resize = xdg_cb_surface_resize,
-      .ack_configure = xdg_cb_surface_ack_configure,
-      .set_window_geometry = xdg_cb_surface_set_window_geometry,
-      .set_maximized = xdg_cb_surface_set_maximized,
-      .unset_maximized = xdg_cb_surface_unset_maximized,
-      .set_fullscreen = xdg_cb_surface_set_fullscreen,
-      .unset_fullscreen = xdg_cb_surface_unset_fullscreen,
-      .set_minimized = xdg_cb_surface_set_minimized
+      .set_parent = xdg_cb_toplevel_set_parent,
+      .set_title = xdg_cb_toplevel_set_title,
+      .set_app_id = xdg_cb_toplevel_set_app_id,
+      .show_window_menu = xdg_cb_toplevel_show_window_menu,
+      .move = xdg_cb_toplevel_move,
+      .resize = xdg_cb_toplevel_resize,
+      .set_max_size = xdg_cb_toplevel_set_max_size,
+      .set_min_size = xdg_cb_toplevel_set_min_size,
+      .set_maximized = xdg_cb_toplevel_set_maximized,
+      .unset_maximized = xdg_cb_toplevel_unset_maximized,
+      .set_fullscreen = xdg_cb_toplevel_set_fullscreen,
+      .unset_fullscreen = xdg_cb_toplevel_unset_fullscreen,
+      .set_minimized = xdg_cb_toplevel_set_minimized
    };
 
-   return &xdg_surface_implementation;
+   return &zxdg_toplevel_v6_implementation;
 }

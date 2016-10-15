@@ -340,12 +340,14 @@ attach_surface_to_view_or_create(struct wlc_compositor *compositor, struct wlc_s
    wlc_resource *res[WLC_SURFACE_ROLE_LAST] = {
       &view->shell_surface,
       &view->xdg_surface,
+      &view->xdg_toplevel,
       &view->custom_surface,
    };
 
    const char *name[WLC_SURFACE_ROLE_LAST] = {
       "shell-surface",
       "xdg-surface",
+      "xdg-toplevel",
       "custom-surface",
    };
 
@@ -356,7 +358,7 @@ attach_surface_to_view_or_create(struct wlc_compositor *compositor, struct wlc_s
 }
 
 static void
-attach_popup_to_view_or_create(struct wlc_compositor *compositor, struct wlc_surface *surface, struct wlc_surface *parent, struct wlc_point *origin, wlc_resource resource)
+attach_popup_to_view_or_create(struct wlc_compositor *compositor, struct wlc_surface *surface, struct wlc_surface *parent, wlc_resource role)
 {
    assert(compositor && surface && parent);
 
@@ -364,11 +366,10 @@ attach_popup_to_view_or_create(struct wlc_compositor *compositor, struct wlc_sur
    if (!(view = wlc_compositor_view_for_surface(compositor, surface)))
       return;
 
-   view->xdg_popup = resource;
-   view->pending.geometry.origin = *origin;
+   view->xdg_popup = role;
    wlc_view_set_parent_ptr(view, convert_from_wlc_handle(parent->view, "view"));
    wlc_view_set_type_ptr(view, WLC_BIT_POPUP, true);
-   wl_resource_set_user_data(wl_resource_from_wlc_resource(resource, "xdg-popup"), (void*)convert_to_wlc_handle(view));
+   wl_resource_set_user_data(wl_resource_from_wlc_resource(role, "xdg-popup"), (void*)convert_to_wlc_handle(view));
 }
 
 static void
@@ -384,7 +385,7 @@ surface_event(struct wl_listener *listener, void *data)
          break;
 
       case WLC_SURFACE_EVENT_REQUEST_VIEW_POPUP:
-         attach_popup_to_view_or_create(compositor, ev->surface, ev->popup.parent, &ev->popup.origin, ev->popup.resource);
+         attach_popup_to_view_or_create(compositor, ev->surface, ev->popup.parent, ev->popup.role);
          break;
 
       case WLC_SURFACE_EVENT_DESTROYED:

@@ -9,7 +9,7 @@
 #include "macros.h"
 #include "visibility.h"
 #include "output.h"
-#include "resources/types/xdg-surface.h"
+#include "resources/types/xdg-toplevel.h"
 #include "resources/types/shell-surface.h"
 #include "resources/types/surface.h"
 
@@ -42,15 +42,19 @@ configure_view(struct wlc_view *view, uint32_t edges, const struct wlc_geometry 
    assert(view && g);
 
    struct wl_resource *r;
-   if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
-      const uint32_t serial = wl_display_next_serial(wlc_display());
+   if (view->xdg_toplevel && (r = wl_resource_from_wlc_resource(view->xdg_toplevel, "xdg-toplevel"))) {
       struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
-      xdg_surface_send_configure(r, g->size.w, g->size.h, &states, serial);
+      zxdg_toplevel_v6_send_configure(r, g->size.w, g->size.h, &states);
+   } else if (view->xdg_popup && (r = wl_resource_from_wlc_resource(view->xdg_popup, "xdg-popup"))) {
+      zxdg_popup_v6_send_configure(r, g->origin.x, g->origin.y, g->size.w, g->size.h);
    } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
       wl_shell_surface_send_configure(r, edges, g->size.w, g->size.h);
    } else if (is_x11_view(view)) {
       wlc_x11_window_configure(&view->x11, g);
    }
+
+   if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface")))
+      zxdg_surface_v6_send_configure(r, wl_display_next_serial(wlc_display()));
 }
 
 void
@@ -129,10 +133,10 @@ wlc_view_commit_state(struct wlc_view *view, struct wlc_view_state *pending, str
          enum wlc_view_state_bit bit;
          uint32_t state;
       } map[] = {
-         { WLC_BIT_MAXIMIZED, XDG_SURFACE_STATE_MAXIMIZED },
-         { WLC_BIT_FULLSCREEN, XDG_SURFACE_STATE_FULLSCREEN },
-         { WLC_BIT_RESIZING, XDG_SURFACE_STATE_RESIZING },
-         { WLC_BIT_ACTIVATED, XDG_SURFACE_STATE_ACTIVATED },
+         { WLC_BIT_MAXIMIZED, ZXDG_TOPLEVEL_V6_STATE_MAXIMIZED },
+         { WLC_BIT_FULLSCREEN, ZXDG_TOPLEVEL_V6_STATE_FULLSCREEN },
+         { WLC_BIT_RESIZING, ZXDG_TOPLEVEL_V6_STATE_RESIZING },
+         { WLC_BIT_ACTIVATED, ZXDG_TOPLEVEL_V6_STATE_ACTIVATED },
       };
 
       chck_iter_pool_flush(&view->wl_state);
@@ -187,7 +191,7 @@ wlc_view_get_bounds(struct wlc_view *view, struct wlc_geometry *out_bounds, stru
    if (!(surface = convert_from_wlc_resource(view->surface, "surface")))
       return;
 
-   if (view->xdg_surface && !wlc_size_equals(&view->surface_commit.visible.size, &wlc_size_zero)) {
+   if (view->xdg_toplevel && !wlc_size_equals(&view->surface_commit.visible.size, &wlc_size_zero)) {
       // xdg-surface client that draws drop shadows or other stuff.
       struct wlc_geometry v = view->surface_commit.visible;
       v.origin.x = chck_clamp32(v.origin.x, 0, surface->size.w);
@@ -462,12 +466,12 @@ wlc_view_close_ptr(struct wlc_view *view)
       return;
 
    struct wl_resource *r;
-   if (view->xdg_surface && (r = wl_resource_from_wlc_resource(view->xdg_surface, "xdg-surface"))) {
-      xdg_surface_send_close(r);
+   if (view->xdg_toplevel && (r = wl_resource_from_wlc_resource(view->xdg_toplevel, "xdg-toplevel"))) {
+      zxdg_toplevel_v6_send_close(r);
    } else if (is_x11_view(view)) {
       wlc_x11_window_close(&view->x11);
    } else if (view->xdg_popup && (r = wl_resource_from_wlc_resource(view->xdg_popup, "xdg-popup"))) {
-      xdg_popup_send_popup_done(r);
+      zxdg_popup_v6_send_popup_done(r);
    } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
       if (view->type & WLC_BIT_POPUP) {
          wl_shell_surface_send_popup_done(r);
@@ -691,7 +695,7 @@ wlc_view_release(struct wlc_view *view)
 
    wlc_view_set_parent_ptr(view, NULL);
    wlc_resource_release(view->shell_surface);
-   wlc_resource_release(view->xdg_surface);
+   wlc_resource_release(view->xdg_toplevel);
    wlc_resource_release(view->xdg_popup);
 
    chck_string_release(&view->data.title);

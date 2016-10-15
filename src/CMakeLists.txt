@@ -52,7 +52,7 @@ set(sources
    resources/types/region.c
    resources/types/shell-surface.c
    resources/types/surface.c
-   resources/types/xdg-surface.c
+   resources/types/xdg-toplevel.c
    session/fd.c
    session/tty.c
    session/udev.c

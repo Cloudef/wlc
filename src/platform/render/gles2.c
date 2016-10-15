@@ -14,7 +14,7 @@
 #include "compositor/view.h"
 #include "xwayland/xwm.h"
 #include "resources/types/surface.h"
-#include "resources/types/xdg-surface.h"
+#include "resources/types/xdg-toplevel.h"
 #include "resources/types/buffer.h"
 
 static bool DRAW_OPAQUE = false;

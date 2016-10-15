@@ -188,6 +188,7 @@ struct wlc_surface_event {
          enum wlc_surface_role {
             WLC_SHELL_SURFACE,
             WLC_XDG_SURFACE,
+            WLC_XDG_TOPLEVEL_SURFACE,
             WLC_CUSTOM_SURFACE,
             WLC_SURFACE_ROLE_LAST
          } type;
@@ -197,8 +198,7 @@ struct wlc_surface_event {
       // WLC_SURFACE_EVENT_REQUEST_VIEW_POPUP
       struct wlc_surface_event_request_view_popup {
          struct wlc_surface *parent;
-         struct wlc_point origin;
-         wlc_resource resource;
+         wlc_resource role;
       } popup;
    };
 
