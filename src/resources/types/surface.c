@@ -363,7 +363,7 @@ wlc_surface_attach_to_output(struct wlc_surface *surface, struct wlc_output *out
    if (buffer)
       size = buffer->size;
 
-   wlc_size_max(&size, &size, &(struct wlc_size){1, 1});
+   wlc_size_max(&size, &(struct wlc_size){1, 1}, &size);
    size.w /= surface->commit.scale;
    size.h /= surface->commit.scale;
    surface->size = size;
