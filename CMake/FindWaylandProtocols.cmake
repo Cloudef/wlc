@@ -35,5 +35,5 @@ if (PKG_CONFIG_FOUND)
 endif ()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(wlproto DEFAULT_MSG WLPROTO_PATH)
+find_package_handle_standard_args(WaylandProtocols DEFAULT_MSG WLPROTO_PATH WLPROTO_PATH)
 mark_as_advanced(WLPROTO_PATH)
