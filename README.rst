@@ -133,7 +133,7 @@ And the following depends:
 - libEGL (GPU drivers and mesa provide this)
 - libGLESv2 (GPU drivers and mesa provide this)
 
-1: Also bundled as submodule. Using submodule is recommended, as updates to unstable protocols won't break build. To force building from submodule even though wayland-protocols is installed in system use CMake option -DSOURCE_WLPROTO=ON.
+1: Also bundled as submodule. To build from submodule use -DSOURCE_WLPROTO=ON.
 
 And optionally:
 
