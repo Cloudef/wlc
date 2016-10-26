@@ -1,5 +1,4 @@
 include(Wayland)
-find_package(WaylandProtocols)
 
 if (WLPROTO_FOUND AND NOT SOURCE_WLPROTO)
    set(prefix "${WLPROTO_PATH}")
