@@ -1,7 +1,7 @@
 include(Wayland)
 
-if (WLPROTO_FOUND AND NOT SOURCE_WLPROTO)
-   set(prefix "${WLPROTO_PATH}")
+if (WAYLANDPROTOCOLS_FOUND AND NOT SOURCE_WLPROTO)
+   set(prefix "${WAYLANDPROTOCOLS_PATH}")
 else ()
    set(prefix "wayland-protocols")
 endif ()
