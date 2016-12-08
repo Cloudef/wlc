@@ -21,6 +21,7 @@
 
 #define LOCK_FMT "/tmp/.X%d-lock"
 #define SOCKET_FMT "/tmp/.X11-unix/X%d"
+#define SOCKET2_FMT "/tmp/.X11-unix/X%d_"
 static const char *socket_dir = "/tmp/.X11-unix";
 
 static struct {
@@ -131,8 +132,12 @@ retry:
    close(lock_fd);
 
    struct sockaddr_un addr = { .sun_family = AF_LOCAL };
+#ifdef __linux__
    addr.sun_path[0] = '\0';
    size_t path_size = snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, SOCKET_FMT, dpy);
+#else
+   size_t path_size = snprintf(addr.sun_path, sizeof(addr.sun_path), SOCKET2_FMT, dpy);
+#endif
    if ((socks[0] = open_socket(&addr, path_size)) < 0) {
       unlink(lock_name);
       unlink(addr.sun_path + 1);

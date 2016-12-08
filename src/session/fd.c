@@ -10,7 +10,9 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#ifdef __linux__
 #include <linux/major.h>
+#endif
 #include <xf86drm.h>
 #include "internal.h"
 #include "macros.h"
@@ -171,6 +173,7 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
    }
 
    /* we will only open allowed paths */
+#ifdef __linux__
 #define FILTER(x, m) { x, (sizeof(x) > 32 ? 32 : sizeof(x)) - 1, m }
    static struct {
       const char *base;
@@ -181,11 +184,14 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
       FILTER("/dev/dri/card", DRM_MAJOR), // WLC_FD_DRM
    };
 #undef FILTER
+#endif
 
+#ifdef __linux__
    if (type > WLC_FD_LAST || memcmp(path, allow[type].base, allow[type].size)) {
       wlc_log(WLC_LOG_WARN, "Denying open from: %s", path);
       return -1;
    }
+#endif
 
    struct stat st;
    if (stat(path, &st) < 0)
