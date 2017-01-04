@@ -105,6 +105,7 @@ WLC_NONULL bool wlc_output(struct wlc_output *output);
 
 void wlc_output_focus_ptr(struct wlc_output *output);
 void wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep);
+void wlc_output_set_gamma_ptr(struct wlc_output *output, uint16_t size, uint16_t *r, uint16_t *g, uint16_t *b);
 WLC_NONULLV(2) bool wlc_output_set_resolution_ptr(struct wlc_output *output, const struct wlc_size *resolution, uint32_t scale);
 void wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask);
 WLC_NONULLV(2) void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);

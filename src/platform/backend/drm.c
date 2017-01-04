@@ -191,6 +191,20 @@ surface_sleep(struct wlc_backend_surface *bsurface, bool sleep)
 }
 
 static void
+set_gamma(struct wlc_backend_surface *bsurface, uint16_t size, uint16_t *r, uint16_t *g, uint16_t *b)
+{
+   struct drm_surface *dsurface = bsurface->internal;
+   drmModeCrtcSetGamma(drm.fd, dsurface->crtc->crtc_id, size, r, g, b);
+}
+
+static uint16_t
+get_gamma_size(struct wlc_backend_surface *bsurface)
+{
+   struct drm_surface *dsurface = bsurface->internal;
+   return dsurface->crtc->gamma_size;
+}
+
+static void
 surface_release(struct wlc_backend_surface *bsurface)
 {
    struct drm_surface *dsurface = bsurface->internal;
@@ -232,6 +246,8 @@ add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_ou
    bsurface.window = (EGLNativeWindowType)surface;
    bsurface.api.sleep = surface_sleep;
    bsurface.api.page_flip = page_flip;
+   bsurface.api.set_gamma = set_gamma;
+   bsurface.api.get_gamma_size = get_gamma_size;
 
    struct wlc_output_event ev = { .add = { &bsurface, &info->info }, .type = WLC_OUTPUT_EVENT_ADD };
    wl_signal_emit(&wlc_system_signals()->output, &ev);

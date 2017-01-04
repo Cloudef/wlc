@@ -280,6 +280,12 @@ bool wlc_output_get_sleep(wlc_handle output);
 /** Wake up / sleep. */
 void wlc_output_set_sleep(wlc_handle output, bool sleep);
 
+/** Set gamma. R, G, and B are color ramp arrays of size elements. */
+void wlc_output_set_gamma(wlc_handle output, uint16_t size, uint16_t *r, uint16_t *g, uint16_t *b);
+
+/** Get gamma size */
+uint16_t wlc_output_get_gamma_size(wlc_handle output);
+
 /**
  * Get real resolution.
  * Resolution applied by either wlc_output_set_resolution call or initially.

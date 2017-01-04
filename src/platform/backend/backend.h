@@ -17,6 +17,8 @@ struct wlc_backend_surface {
       WLC_NONULL void (*terminate)(struct wlc_backend_surface *surface);
       WLC_NONULL void (*sleep)(struct wlc_backend_surface *surface, bool sleep);
       WLC_NONULL bool (*page_flip)(struct wlc_backend_surface *surface);
+      WLC_NONULL void (*set_gamma)(struct wlc_backend_surface *bsurface, uint16_t size, uint16_t *r, uint16_t *g, uint16_t *b);
+      WLC_NONULL uint16_t (*get_gamma_size)(struct wlc_backend_surface *bsurface);
    } api;
 };
 
