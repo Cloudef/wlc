@@ -818,6 +818,16 @@ wlc_output_set_sleep_ptr(struct wlc_output *output, bool sleep)
 }
 
 void
+wlc_output_set_gamma_ptr(struct wlc_output *output, uint16_t size, uint16_t *r, uint16_t *g, uint16_t *b)
+{
+   if (!output)
+      return;
+
+   if (output->bsurface.api.set_gamma)
+      output->bsurface.api.set_gamma(&output->bsurface, size, r, g, b);
+}
+
+void
 wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask)
 {
    if (!output)
@@ -911,6 +921,23 @@ WLC_API void
 wlc_output_set_sleep(wlc_handle output, bool sleep)
 {
    wlc_output_set_sleep_ptr(convert_from_wlc_handle(output, "output"), sleep);
+}
+
+WLC_API void
+wlc_output_set_gamma(wlc_handle output, uint16_t size, uint16_t *r, uint16_t *g, uint16_t *b)
+{
+   wlc_output_set_gamma_ptr(convert_from_wlc_handle(output, "output"), size, r, g, b);
+}
+
+WLC_API uint16_t
+wlc_output_get_gamma_size(wlc_handle output)
+{
+   struct wlc_output *_output = convert_from_wlc_handle(output, "output");
+
+   if (!_output || _output->bsurface.api.get_gamma_size)
+      return 0;
+
+   return _output->bsurface.api.get_gamma_size(&_output->bsurface);
 }
 
 WLC_API uint32_t
