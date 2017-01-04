@@ -934,7 +934,7 @@ wlc_output_get_gamma_size(wlc_handle output)
 {
    struct wlc_output *_output = convert_from_wlc_handle(output, "output");
 
-   if (!_output || _output->bsurface.api.get_gamma_size)
+   if (!_output || !_output->bsurface.api.get_gamma_size)
       return 0;
 
    return _output->bsurface.api.get_gamma_size(&_output->bsurface);
