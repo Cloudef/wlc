@@ -8,6 +8,7 @@
 #include "compositor/output.h"
 #include "compositor/view.h"
 #include "resources/types/xdg-toplevel.h"
+#include "resources/types/xdg-positioner.h"
 
 struct xdg_surface {
    wlc_resource surface;
@@ -136,8 +137,21 @@ xdg_cb_shell_get_surface(struct wl_client *client, struct wl_resource *resource,
 static void
 xdg_cb_create_positioner(struct wl_client *client, struct wl_resource *resource, uint32_t id)
 {
-   (void)client, (void)id;
-   STUB(resource);
+   struct wlc_xdg_shell *xdg_shell;
+   if (!(xdg_shell = wl_resource_get_user_data(resource)) )
+      return;
+   
+   wlc_resource r;
+   if (!(r = wlc_resource_create(&xdg_shell->positioners, client, &zxdg_positioner_v6_interface, wl_resource_get_version(resource), 1, id)))
+      return;
+   
+   struct wlc_xdg_positioner *positioner = convert_from_wlc_resource(r, "xdg-positioner");
+   positioner->client = client;
+   
+   wlc_resource_implement(r, wlc_xdg_positioner_implementation(), NULL);
+   wl_resource_set_user_data(wl_resource_from_wlc_resource(r, "xdg-positioner"), (void*)positioner);
+   
+   return;
 }
 
 static void
@@ -182,6 +196,7 @@ wlc_xdg_shell_release(struct wlc_xdg_shell *xdg_shell)
    wlc_source_release(&xdg_shell->surfaces);
    wlc_source_release(&xdg_shell->toplevels);
    wlc_source_release(&xdg_shell->popups);
+   wlc_source_release(&xdg_shell->positioners);
    memset(xdg_shell, 0, sizeof(struct wlc_xdg_shell));
 }
 
@@ -196,7 +211,8 @@ wlc_xdg_shell(struct wlc_xdg_shell *xdg_shell)
 
    if (!wlc_source(&xdg_shell->surfaces, "xdg-surface", NULL, NULL, 32, sizeof(struct xdg_surface)) ||
        !wlc_source(&xdg_shell->toplevels, "xdg-toplevel", NULL, NULL, 32, sizeof(struct wlc_resource)) ||
-       !wlc_source(&xdg_shell->popups, "xdg-popup", NULL, NULL, 32, sizeof(struct wlc_resource)))
+       !wlc_source(&xdg_shell->popups, "xdg-popup", NULL, NULL, 32, sizeof(struct wlc_resource)) ||
+       !wlc_source(&xdg_shell->positioners, "xdg-positioner", NULL, NULL, 32, sizeof(struct wlc_xdg_positioner)))
       goto fail;
 
    return xdg_shell;
