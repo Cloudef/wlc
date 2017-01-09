@@ -9,6 +9,7 @@
 #include "compositor/view.h"
 #include "resources/types/xdg-toplevel.h"
 #include "resources/types/xdg-positioner.h"
+#include "resources/types/xdg-popup.h"
 
 struct xdg_surface {
    wlc_resource surface;
@@ -33,18 +34,25 @@ static const struct zxdg_popup_v6_interface zxdg_popup_v6_implementation = {
 };
 
 static void
-xdg_cb_surface_get_popup(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *parent, struct wl_resource *positioner)
+xdg_cb_surface_get_popup(struct wl_client *client, struct wl_resource *resource, uint32_t id, struct wl_resource *parent, struct wl_resource *wl_positioner)
 {
-   (void)positioner;
-
    struct wlc_xdg_shell *xdg_shell;
    struct wlc_surface *surface, *psurface;
    if (!(xdg_shell = wl_resource_get_user_data(resource)) || !(surface = xdg_surface_get_surface(convert_from_wl_resource(resource, "xdg-surface"))) || !(psurface = xdg_surface_get_surface(convert_from_wl_resource(parent, "xdg-surface"))))
+      return;
+   if (!wl_resource_get_user_data(parent) || !convert_from_wlc_handle((wlc_handle)wl_resource_get_user_data(parent), "view"))
       return;
 
    wlc_resource r;
    if (!(r = wlc_resource_create(&xdg_shell->popups, client, &zxdg_popup_v6_interface, wl_resource_get_version(resource), 1, id)))
       return;
+
+   struct wlc_xdg_popup *xdg_popup = convert_from_wlc_resource(r, "xdg-popup");
+   assert(xdg_popup);
+   
+   struct wlc_xdg_positioner *positioner;
+   if ((positioner = wl_resource_get_user_data(wl_positioner)))
+      xdg_popup->xdg_positioner = positioner;
 
    wlc_resource_implement(r, &zxdg_popup_v6_implementation, NULL);
 
@@ -146,12 +154,8 @@ xdg_cb_create_positioner(struct wl_client *client, struct wl_resource *resource,
       return;
    
    struct wlc_xdg_positioner *positioner = convert_from_wlc_resource(r, "xdg-positioner");
-   positioner->client = client;
-   
    wlc_resource_implement(r, wlc_xdg_positioner_implementation(), NULL);
    wl_resource_set_user_data(wl_resource_from_wlc_resource(r, "xdg-positioner"), (void*)positioner);
-   
-   return;
 }
 
 static void
@@ -211,7 +215,7 @@ wlc_xdg_shell(struct wlc_xdg_shell *xdg_shell)
 
    if (!wlc_source(&xdg_shell->surfaces, "xdg-surface", NULL, NULL, 32, sizeof(struct xdg_surface)) ||
        !wlc_source(&xdg_shell->toplevels, "xdg-toplevel", NULL, NULL, 32, sizeof(struct wlc_resource)) ||
-       !wlc_source(&xdg_shell->popups, "xdg-popup", NULL, NULL, 32, sizeof(struct wlc_resource)) ||
+       !wlc_source(&xdg_shell->popups, "xdg-popup", NULL, NULL, 32, sizeof(struct wlc_xdg_popup)) ||
        !wlc_source(&xdg_shell->positioners, "xdg-positioner", NULL, NULL, 32, sizeof(struct wlc_xdg_positioner)))
       goto fail;
 

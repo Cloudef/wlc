@@ -10,6 +10,8 @@
 #include "visibility.h"
 #include "output.h"
 #include "resources/types/xdg-toplevel.h"
+#include "resources/types/xdg-popup.h"
+#include "resources/types/xdg-positioner.h"
 #include "resources/types/shell-surface.h"
 #include "resources/types/surface.h"
 
@@ -46,7 +48,13 @@ configure_view(struct wlc_view *view, uint32_t edges, const struct wlc_geometry 
       struct wl_array states = { .size = view->wl_state.items.used, .alloc = view->wl_state.items.allocated, .data = view->wl_state.items.buffer };
       zxdg_toplevel_v6_send_configure(r, g->size.w, g->size.h, &states);
    } else if (view->xdg_popup && (r = wl_resource_from_wlc_resource(view->xdg_popup, "xdg-popup"))) {
-      zxdg_popup_v6_send_configure(r, g->origin.x, g->origin.y, g->size.w, g->size.h);
+      struct wlc_xdg_popup *xdg_popup = convert_from_wlc_resource(view->xdg_popup, "xdg-popup");
+      struct wlc_size size = g->size;
+      
+      if (xdg_popup->xdg_positioner && (xdg_popup->xdg_positioner->flags & WLC_XDG_POSITIONER_HAS_SIZE))
+         size = xdg_popup->xdg_positioner->size;
+      
+      zxdg_popup_v6_send_configure(r, g->origin.x, g->origin.y, size.w, size.h);
    } else if (view->shell_surface && (r = wl_resource_from_wlc_resource(view->shell_surface, "shell-surface"))) {
       wl_shell_surface_send_configure(r, edges, g->size.w, g->size.h);
    } else if (is_x11_view(view)) {
@@ -527,6 +535,19 @@ get_cstr(struct wlc_view *view, size_t offset)
    return (view && !chck_string_is_empty(string) ? string->data : NULL);
 }
 
+static struct wlc_xdg_positioner*
+get_xdg_positioner_for_handle(wlc_handle view)
+{
+   struct wlc_view *v = convert_from_wlc_handle(view, "view");
+   if ( (v) && (v->xdg_popup) && wl_resource_from_wlc_resource(v->xdg_popup, "xdg-popup") ) {
+      struct wlc_xdg_popup *popup = convert_from_wlc_resource(v->xdg_popup, "xdg-popup");
+      // xdg_positioner object is complete only if it has size and anchor rectangle set
+      if ((popup->xdg_positioner) && (popup->xdg_positioner->flags & (WLC_XDG_POSITIONER_HAS_SIZE | WLC_XDG_POSITIONER_HAS_ANCHOR_RECT)))
+        return popup->xdg_positioner;
+   }
+   return NULL;
+}
+
 WLC_API void
 wlc_view_focus(wlc_handle view)
 {
@@ -592,6 +613,60 @@ WLC_API const struct wlc_geometry*
 wlc_view_get_geometry(wlc_handle view)
 {
    return get(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, pending.geometry));
+}
+
+WLC_API const struct wlc_size*
+wlc_view_positioner_get_size(wlc_handle view)
+{
+   struct wlc_xdg_positioner *ps;
+   if ((ps = get_xdg_positioner_for_handle(view)))
+      return &(ps->size);
+   return NULL;
+}
+
+WLC_API const struct wlc_geometry*
+wlc_view_positioner_get_anchor_rect(wlc_handle view)
+{
+   struct wlc_xdg_positioner *ps;
+   if ((ps = get_xdg_positioner_for_handle(view)))
+      return &(ps->anchor_rect);
+   return NULL;
+}
+
+WLC_API const struct wlc_point*
+wlc_view_positioner_get_offset(wlc_handle view)
+{
+   struct wlc_xdg_positioner *ps;
+   if ((ps = get_xdg_positioner_for_handle(view)))
+      return &(ps->offset);
+   return NULL;
+}
+
+WLC_API enum wlc_positioner_anchor_bit
+wlc_view_positioner_get_anchor(wlc_handle view)
+{
+   struct wlc_xdg_positioner *ps;
+   if ((ps = get_xdg_positioner_for_handle(view)))
+      return ps->anchor;
+   return WLC_BIT_ANCHOR_NONE;
+}
+
+WLC_API enum wlc_positioner_gravity_bit
+wlc_view_positioner_get_gravity(wlc_handle view)
+{
+   struct wlc_xdg_positioner *ps;
+   if ((ps = get_xdg_positioner_for_handle(view)))
+      return ps->gravity;
+   return WLC_BIT_GRAVITY_NONE;
+}
+
+WLC_API enum wlc_positioner_constraint_adjustment_bit
+wlc_view_positioner_get_constraint_adjustment(wlc_handle view)
+{
+   struct wlc_xdg_positioner *ps;
+   if ((ps = get_xdg_positioner_for_handle(view)))
+      return ps->constraint_adjustment;
+   return WLC_BIT_CONSTRAINT_ADJUSTMENT_NONE;
 }
 
 WLC_API void

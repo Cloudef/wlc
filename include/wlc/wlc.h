@@ -124,6 +124,35 @@ enum wlc_touch_type {
    WLC_TOUCH_CANCEL,
 };
 
+/** wlc_view_positioner_get_anchor(); */
+enum wlc_positioner_anchor_bit {
+   WLC_BIT_ANCHOR_NONE = 0,
+   WLC_BIT_ANCHOR_TOP = 1<<0,
+   WLC_BIT_ANCHOR_BOTTOM = 1<<1,
+   WLC_BIT_ANCHOR_LEFT = 1<<2,
+   WLC_BIT_ANCHOR_RIGHT = 1<<3
+};
+
+/** wlc_view_positioner_get_gravity(); */
+enum wlc_positioner_gravity_bit {
+   WLC_BIT_GRAVITY_NONE = 0,
+   WLC_BIT_GRAVITY_TOP = 1<<0,
+   WLC_BIT_GRAVITY_BOTTOM = 1<<1,
+   WLC_BIT_GRAVITY_LEFT = 1<<2,
+   WLC_BIT_GRAVITY_RIGHT = 1<<3
+};
+
+/** wlc_view_positioner_get_gravity(); */
+enum wlc_positioner_constraint_adjustment_bit {
+   WLC_BIT_CONSTRAINT_ADJUSTMENT_NONE = 0,
+   WLC_BIT_CONSTRAINT_ADJUSTMENT_SLIDE_X = 1<<0,
+   WLC_BIT_CONSTRAINT_ADJUSTMENT_SLIDE_Y = 1<<1,
+   WLC_BIT_CONSTRAINT_ADJUSTMENT_FLIP_X = 1<<2,
+   WLC_BIT_CONSTRAINT_ADJUSTMENT_FLIP_Y = 1<<3,
+   WLC_BIT_CONSTRAINT_ADJUSTMENT_RESIZE_X = 1<<4,
+   WLC_BIT_CONSTRAINT_ADJUSTMENT_RESIZE_Y = 1<<5
+};
+
 /** State of keyboard modifiers in various functions. */
 struct wlc_modifiers {
    uint32_t leds, mods;
@@ -362,6 +391,46 @@ void wlc_view_set_mask(wlc_handle view, uint32_t mask);
 
 /** Get current geometry. (what client sees) */
 const struct wlc_geometry* wlc_view_get_geometry(wlc_handle view);
+
+/**
+ * Get size requested by positioner, as defined in xdg-shell v6.
+ * Returns NULL if view has no valid positioner
+ */
+const struct wlc_size* wlc_view_positioner_get_size(wlc_handle view);
+
+/**
+ * Get anchor rectangle requested by positioner, as defined in xdg-shell v6.
+ * Returns NULL if view has no valid positioner.
+ */
+const struct wlc_geometry* wlc_view_positioner_get_anchor_rect(wlc_handle view);
+
+/**
+ * Get offset requested by positioner, as defined in xdg-shell v6.
+ * Returns NULL if view has no valid positioner,
+ * or default value (0, 0) if positioner has no offset set.
+ */
+const struct wlc_point* wlc_view_positioner_get_offset(wlc_handle view);
+
+/**
+ * Get anchor requested by positioner, as defined in xdg-shell v6.
+ * Returns default value WLC_BIT_ANCHOR_NONE if view has no valid positioner
+ * or if positioner has no anchor set.
+ */
+enum wlc_positioner_anchor_bit wlc_view_positioner_get_anchor(wlc_handle view);
+
+/**
+ * Get anchor requested by positioner, as defined in xdg-shell v6.
+ * Returns default value WLC_BIT_GRAVITY_NONE if view has no valid positioner
+ * or if positioner has no gravity set.
+ */
+enum wlc_positioner_gravity_bit wlc_view_positioner_get_gravity(wlc_handle view);
+
+/**
+ * Get constraint adjustment requested by positioner, as defined in xdg-shell v6.
+ * Returns default value WLC_BIT_CONSTRAINT_ADJUSTMENT_NONE if view has no
+ * valid positioner or if positioner has no constraint adjustment set.
+ */
+enum wlc_positioner_constraint_adjustment_bit wlc_view_positioner_get_constraint_adjustment(wlc_handle view);
 
 /** Get visible geometry. (what wlc displays) */
 void wlc_view_get_visible_geometry(wlc_handle view, struct wlc_geometry *out_geometry);
