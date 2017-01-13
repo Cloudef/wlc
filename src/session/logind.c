@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <systemd/sd-login.h>
 #include <chck/string/string.h>
 #include "internal.h"

@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #ifdef __linux__
 #include <linux/major.h>
+#include <sys/sysmacros.h>
 #endif
 #include <xf86drm.h>
 #include "internal.h"

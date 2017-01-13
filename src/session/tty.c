@@ -15,6 +15,7 @@
 #  include <linux/kd.h>
 #  include <linux/major.h>
 #  include <linux/vt.h>
+#  include <sys/sysmacros.h>
 #elif defined(__FreeBSD__)
 #  include <sys/consio.h>
 #  include <sys/kbio.h>
