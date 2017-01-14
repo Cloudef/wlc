@@ -205,7 +205,15 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
          // Class && Name
          // STRING == latin1, but we naively just read it as is. For full support we should convert to utf8.
          if (props[i] == XCB_ATOM_WM_CLASS) {
-            wlc_view_set_class_ptr(view, xcb_get_property_value(reply), xcb_get_property_value_length(reply));
+            char *class = xcb_get_property_value(reply);
+            size_t class_total_len = xcb_get_property_value_length(reply);
+
+            size_t class_class_offset = strnlen(class, class_total_len)+1;
+            if (class_class_offset >= class_total_len) {
+               wlc_view_set_class_ptr(view, class, class_total_len);
+	    } else {
+               wlc_view_set_class_ptr(view, class+class_class_offset, class_total_len-class_class_offset);
+	    }
             wlc_dlog(WLC_DBG_XWM, "WM_CLASS: %s", view->data._class.data);
          } else if (props[i] == XCB_ATOM_WM_NAME || props[i] == x11.atoms[NET_WM_NAME]) {
             if (reply->type != XCB_ATOM_STRING  || !win->has_utf8_title) {
