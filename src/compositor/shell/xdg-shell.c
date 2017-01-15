@@ -23,7 +23,7 @@ static void
 xdg_cb_popup_grab(struct wl_client *client, struct wl_resource *resource, struct wl_resource *seat, uint32_t serial)
 {
    (void)client, (void)seat, (void)serial;
-   STUB(resource);
+   STUBL(resource);
 }
 
 static const struct zxdg_popup_v6_interface zxdg_popup_v6_implementation = {
