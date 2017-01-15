@@ -124,6 +124,16 @@ enum wlc_touch_type {
    WLC_TOUCH_CANCEL,
 };
 
+/** Type in interface.gesture.swipe and interface.gesture.pinch funtions */
+enum wlc_gesture_type {
+   WLC_GESTURE_SWIPE_BEGIN,
+   WLC_GESTURE_SWIPE_UPDATE,
+   WLC_GESTURE_SWIPE_END,
+   WLC_GESTURE_PINCH_BEGIN,
+   WLC_GESTURE_PINCH_UPDATE,
+   WLC_GESTURE_PINCH_END,
+};
+
 /** State of keyboard modifiers in various functions. */
 struct wlc_modifiers {
    uint32_t leds, mods;
@@ -202,6 +212,12 @@ void wlc_set_pointer_motion_cb(bool (*cb)(wlc_handle view, uint32_t time, const 
 
 /** Touch event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
 void wlc_set_touch_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, enum wlc_touch_type, int32_t slot, const struct wlc_point*));
+
+/** Swipe event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
+void wlc_set_swipe_cb(bool (*cb)(wlc_handle view, uint32_t time, int finger_count, double dx, double dy, double dx_unaccel, double dy_unaccel));
+
+/** Pinch event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
+void wlc_set_pinch_cb(bool (*cb)(wlc_handle view, uint32_t time, int finger_count, double dx, double dy, double dx_unaccel, double dy_unaccel, double angle, double scale));
 
 /** Compositor is ready to accept clients. */
 void wlc_set_compositor_ready_cb(void (*cb)(void));

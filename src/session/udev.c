@@ -94,6 +94,30 @@ wlc_touch_type_for_libinput_type(enum libinput_event_type type)
    return WLC_TOUCH_CANCEL;
 }
 
+WLC_PURE static enum wlc_gesture_type
+wlc_gesture_type_for_libinput_type(enum libinput_event_type type)
+{
+   switch (type) {
+      case LIBINPUT_EVENT_GESTURE_SWIPE_BEGIN:
+         return WLC_GESTURE_SWIPE_BEGIN;
+      case LIBINPUT_EVENT_GESTURE_SWIPE_UPDATE:
+         return WLC_GESTURE_SWIPE_UPDATE;
+      case LIBINPUT_EVENT_GESTURE_SWIPE_END:
+         return WLC_GESTURE_SWIPE_END;
+      case LIBINPUT_EVENT_GESTURE_PINCH_BEGIN:
+         return WLC_GESTURE_PINCH_BEGIN;
+      case LIBINPUT_EVENT_GESTURE_PINCH_UPDATE:
+         return WLC_GESTURE_PINCH_UPDATE;
+      case LIBINPUT_EVENT_GESTURE_PINCH_END:
+         return WLC_GESTURE_PINCH_END;
+
+      default: break;
+   }
+
+   assert(0 && "should not happen");
+   return WLC_GESTURE_PINCH_END;
+}
+
 static int
 input_event(int fd, uint32_t mask, void *data)
 {
@@ -235,6 +259,30 @@ input_event(int fd, uint32_t mask, void *data)
             ev.time = libinput_event_touch_get_time(tev);
             ev.touch.type = wlc_touch_type_for_libinput_type(libinput_event_get_type(event));
             wl_signal_emit(&wlc_system_signals()->input, &ev);
+         }
+         break;
+
+         case LIBINPUT_EVENT_GESTURE_SWIPE_BEGIN:
+         case LIBINPUT_EVENT_GESTURE_SWIPE_UPDATE:
+         case LIBINPUT_EVENT_GESTURE_SWIPE_END:
+         case LIBINPUT_EVENT_GESTURE_PINCH_BEGIN:
+         case LIBINPUT_EVENT_GESTURE_PINCH_UPDATE:
+         case LIBINPUT_EVENT_GESTURE_PINCH_END:
+         {
+             struct libinput_event_gesture *tev = libinput_event_get_gesture_event(event);
+             struct wlc_input_event ev = {0};
+             ev.type = WLC_INPUT_EVENT_GESTURE;
+             ev.time = libinput_event_gesture_get_time(tev);
+             ev.gesture.type = wlc_gesture_type_for_libinput_type(libinput_event_get_type(event));
+             ev.gesture.dx = libinput_event_gesture_get_dx(tev);
+             ev.gesture.dy = libinput_event_gesture_get_dy(tev);
+             ev.gesture.dx_unaccel = libinput_event_gesture_get_dx_unaccelerated(tev);
+             ev.gesture.dy_unaccel = libinput_event_gesture_get_dy_unaccelerated(tev);
+             ev.gesture.scale = libinput_event_gesture_get_scale(tev);
+             ev.gesture.angle = libinput_event_gesture_get_angle_delta(tev);
+             ev.gesture.finger_count = libinput_event_gesture_get_finger_count(tev);
+             ev.gesture.cancelled = libinput_event_gesture_get_cancelled(tev);
+             wl_signal_emit(&wlc_system_signals()->input, &ev);
          }
          break;
 

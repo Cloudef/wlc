@@ -213,6 +213,7 @@ enum wlc_input_event_type {
    WLC_INPUT_EVENT_SCROLL,
    WLC_INPUT_EVENT_KEY,
    WLC_INPUT_EVENT_TOUCH,
+   WLC_INPUT_EVENT_GESTURE,
 };
 
 struct wlc_input_event {
@@ -255,6 +256,20 @@ struct wlc_input_event {
          int32_t slot;
          enum wlc_touch_type type;
       } touch;
+
+      // WLC_INPUT_EVENT_GESTURE
+      struct wlc_input_event_gesture {
+         double dx;
+         double dy;
+         double dx_unaccel;
+         double dy_unaccel;
+         double scale;
+         double angle;
+         int finger_count;
+         int cancelled;
+         enum wlc_gesture_type type;
+      } gesture;
+
    };
    struct libinput_device *device;
    uint32_t time;
