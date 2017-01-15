@@ -53,6 +53,7 @@ set(sources
    resources/types/shell-surface.c
    resources/types/surface.c
    resources/types/xdg-toplevel.c
+   resources/types/xdg-positioner.c
    session/fd.c
    session/tty.c
    session/udev.c
