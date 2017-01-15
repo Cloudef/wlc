@@ -78,25 +78,52 @@ relayout(wlc_handle output)
 
    size_t memb;
    const wlc_handle *views = wlc_output_get_views(output, &memb);
-
+   
+   size_t positioned = 0;
+   for (size_t i = 0; i < memb; ++i)
+      if (wlc_view_positioner_get_anchor_rect(views[i]) == NULL)
+         positioned ++;
+   
    bool toggle = false;
    uint32_t y = 0;
-   const uint32_t n = chck_maxu32((1 + memb) / 2, 1);
+   const uint32_t n = chck_maxu32((1 + positioned) / 2, 1);
    const uint32_t w = r->w / 2, h = r->h / n;
    const uint32_t ew = r->w - w * 2, eh = r->h - h * n;
+   size_t j = 0;
    for (size_t i = 0; i < memb; ++i) {
-      const struct wlc_geometry g = {
-         .origin = {
-            .x = (toggle ? w + ew : 0),
-            .y =  y
-         },
-         .size = {
-            .w = (!toggle && i == memb - 1 ? r->w : (toggle ? w : w + ew)),
-            .h = (i < 2 ? h + eh : h)
+      const struct wlc_geometry* anchor_rect = wlc_view_positioner_get_anchor_rect(views[i]);
+      if (anchor_rect == NULL) {
+         const struct wlc_geometry g = {
+            .origin = {
+               .x = (toggle ? w + ew : 0),
+               .y =  y
+            },
+            .size = {
+               .w = (!toggle && j == positioned - 1 ? r->w : (toggle ? w : w + ew)),
+               .h = (j < 2 ? h + eh : h)
+            }
+         };
+         wlc_view_set_geometry(views[i], 0, &g);
+         y = y + (!(toggle = !toggle) ? g.size.h : 0);
+         j ++;
+      } else {
+         struct wlc_size size_req = *wlc_view_positioner_get_size(views[i]);
+         if ((size_req.w <= 0) || (size_req.h <= 0)) {
+             const struct wlc_geometry* current = wlc_view_get_geometry(views[i]);
+             size_req = current->size;
          }
-      };
-      wlc_view_set_geometry(views[i], 0, &g);
-      y = y + (!(toggle = !toggle) ? g.size.h : 0);
+         struct wlc_geometry g = {
+            .origin = anchor_rect->origin,
+            .size = size_req
+         };
+         wlc_handle parent = wlc_view_get_parent(views[i]);
+         if (parent) {
+            const struct wlc_geometry* parent_geometry = wlc_view_get_geometry(parent);
+            g.origin.x += parent_geometry->origin.x;
+            g.origin.y += parent_geometry->origin.y;
+         }
+         wlc_view_set_geometry(views[i], 0, &g);
+     }
    }
 }
 
