@@ -48,6 +48,7 @@ struct wlc_view {
    struct {
       struct chck_string app_id;
       struct chck_string title;
+      struct chck_string _instance;
       struct chck_string _class;
       pid_t pid;
       enum wl_shell_surface_fullscreen_method fullscreen_mode;
@@ -100,6 +101,7 @@ void wlc_view_set_state_ptr(struct wlc_view *view, enum wlc_view_state_bit state
 void wlc_view_set_parent_ptr(struct wlc_view *view, struct wlc_view *parent);
 void wlc_view_set_minimized_ptr(struct wlc_view *view, bool minimized);
 void wlc_view_set_title_ptr(struct wlc_view *view, const char *title, size_t length);
+void wlc_view_set_instance_ptr(struct wlc_view *view, const char *instance_, size_t length);
 void wlc_view_set_class_ptr(struct wlc_view *view, const char *class_, size_t length);
 void wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id);
 void wlc_view_set_pid_ptr(struct wlc_view *view, pid_t pid);

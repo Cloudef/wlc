@@ -442,6 +442,14 @@ wlc_view_set_title_ptr(struct wlc_view *view, const char *title, size_t length)
 }
 
 void
+wlc_view_set_instance_ptr(struct wlc_view *view, const char *instance_, size_t length)
+{
+   if (view && !chck_cstrneq(view->data._instance.data, instance_, length) && chck_string_set_cstr_with_length(&view->data._instance, instance_, length, true)) {
+      WLC_INTERFACE_EMIT(view.properties_updated, convert_to_wlc_handle(view), WLC_BIT_PROPERTY_CLASS);
+   }
+}
+
+void
 wlc_view_set_class_ptr(struct wlc_view *view, const char *class_, size_t length)
 {
    if (view && !chck_cstrneq(view->data._class.data, class_, length) && chck_string_set_cstr_with_length(&view->data._class, class_, length, true)) {
@@ -733,6 +741,12 @@ wlc_view_get_title(wlc_handle view)
 }
 
 WLC_API const char*
+wlc_view_get_instance(wlc_handle view)
+{
+   return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data._instance));
+}
+
+WLC_API const char*
 wlc_view_get_class(wlc_handle view)
 {
    return get_cstr(convert_from_wlc_handle(view, "view"), offsetof(struct wlc_view, data._class));
@@ -774,6 +788,7 @@ wlc_view_release(struct wlc_view *view)
    wlc_resource_release(view->xdg_popup);
 
    chck_string_release(&view->data.title);
+   chck_string_release(&view->data._instance);
    chck_string_release(&view->data._class);
    chck_string_release(&view->data.app_id);
 

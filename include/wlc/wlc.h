@@ -459,6 +459,9 @@ void wlc_view_set_parent(wlc_handle view, wlc_handle parent);
 /** Get title. */
 const char* wlc_view_get_title(wlc_handle view);
 
+/** Get instance. (shell-surface only) */
+const char* wlc_view_get_instance(wlc_handle view);
+
 /** Get class. (shell-surface only) */
 const char* wlc_view_get_class(wlc_handle view);
 
