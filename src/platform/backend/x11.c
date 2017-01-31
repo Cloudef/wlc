@@ -69,6 +69,7 @@ add_output(xcb_window_t window, struct wlc_output_information *info)
 
    bsurface.window = window;
    bsurface.display = x11.display;
+   bsurface.display_type = EGL_PLATFORM_X11_EXT;
    bsurface.api.page_flip = page_flip;
 
    struct wlc_output_event ev = { .add = { &bsurface, info }, .type = WLC_OUTPUT_EVENT_ADD };
