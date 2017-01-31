@@ -12,6 +12,7 @@ struct wlc_backend_surface {
    size_t internal_size;
    EGLNativeDisplayType display;
    EGLNativeWindowType window;
+   EGLint display_type;
 
    struct {
       WLC_NONULL void (*terminate)(struct wlc_backend_surface *surface);

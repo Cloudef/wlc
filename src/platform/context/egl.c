@@ -148,6 +148,47 @@ terminate(struct ctx *context)
    free(context);
 }
 
+/*
+ * Taken from glamor_egl.c from the Xorg xserver, which is MIT licensed like wlc
+ *
+ * Create an EGLDisplay from a native display type. This is a little quirky
+ * for a few reasons.
+ *
+ * 1: GetPlatformDisplayEXT and GetPlatformDisplay are the API you want to
+ * use, note these have different function signatures in the third argument.
+ *
+ * 2: You can't tell whether you have EGL 1.5 at this point, because
+ * eglQueryString(EGL_VERSION) is a property of the display, which we don't
+ * have yet. So you have to query for extensions no matter what.
+ *
+ * 3. There is no EGL_KHR_platform_base to complement the EXT one, thus one
+ * needs to know EGL 1.5 is supported in order to use the eglGetPlatformDisplay
+ * function pointer.
+ *
+ * We can workaround this (circular dependency) by probing for the EGL 1.5
+ * platform extensions (EGL_KHR_platform_gbm and friends) yet it doesn't seem
+ * like mesa will be able to adverise these (even though it can do EGL 1.5).
+ */
+static EGLDisplay
+get_display(struct ctx *context, EGLint type, void *native)
+{
+   PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplayEXT;
+
+   /* Initialize extensions to those of the NULL display, for has_extension */
+   context->extensions = EGL_CALL(eglQueryString(NULL, EGL_EXTENSIONS));
+
+   /* In practise any EGL 1.5 implementation would support the EXT extension */
+   if (has_extension(context, "EGL_EXT_platform_base")) {
+      PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplayEXT =
+            (void *) eglGetProcAddress("eglGetPlatformDisplayEXT");
+      if (getPlatformDisplayEXT)
+          return getPlatformDisplayEXT(type, native, NULL);
+   }
+
+   /* Welp, everything is awful. */
+   return eglGetDisplay(native);
+}
+
 static struct ctx*
 create_context(struct wlc_backend_surface *bsurface)
 {
@@ -157,7 +198,8 @@ create_context(struct wlc_backend_surface *bsurface)
    if (!(context = calloc(1, sizeof(struct ctx))))
       return NULL;
 
-   if (!(context->display = eglGetDisplay(bsurface->display)))
+   context->display = get_display(context, bsurface->display_type, bsurface->display);
+   if (!context->display)
       goto egl_fail;
 
    EGLint major, minor;

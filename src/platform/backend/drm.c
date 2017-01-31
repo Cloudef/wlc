@@ -243,6 +243,7 @@ add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_ou
    dsurface->device = device;
 
    bsurface.display = (EGLNativeDisplayType)device;
+   bsurface.display_type = EGL_PLATFORM_GBM_MESA;
    bsurface.window = (EGLNativeWindowType)surface;
    bsurface.api.sleep = surface_sleep;
    bsurface.api.page_flip = page_flip;
