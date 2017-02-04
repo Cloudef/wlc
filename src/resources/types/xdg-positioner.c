@@ -103,12 +103,12 @@ wlc_xdg_positioner_protocol_set_constraint_adjustment(struct wl_client *client, 
       return;
    
    positioner->constraint_adjustment = WLC_BIT_CONSTRAINT_ADJUSTMENT_NONE;
-   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_SLIDE_X) positioner->anchor |= WLC_BIT_CONSTRAINT_ADJUSTMENT_SLIDE_X;
-   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_SLIDE_Y) positioner->anchor |= WLC_BIT_CONSTRAINT_ADJUSTMENT_SLIDE_Y;
-   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_FLIP_X) positioner->anchor |= WLC_BIT_CONSTRAINT_ADJUSTMENT_FLIP_X;
-   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_FLIP_Y) positioner->anchor |= WLC_BIT_CONSTRAINT_ADJUSTMENT_FLIP_Y;
-   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_RESIZE_X) positioner->anchor |= WLC_BIT_CONSTRAINT_ADJUSTMENT_RESIZE_X;
-   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_RESIZE_Y) positioner->anchor |= WLC_BIT_CONSTRAINT_ADJUSTMENT_RESIZE_Y;
+   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_SLIDE_X) positioner->constraint_adjustment |= WLC_BIT_CONSTRAINT_ADJUSTMENT_SLIDE_X;
+   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_SLIDE_Y) positioner->constraint_adjustment |= WLC_BIT_CONSTRAINT_ADJUSTMENT_SLIDE_Y;
+   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_FLIP_X) positioner->constraint_adjustment |= WLC_BIT_CONSTRAINT_ADJUSTMENT_FLIP_X;
+   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_FLIP_Y) positioner->constraint_adjustment |= WLC_BIT_CONSTRAINT_ADJUSTMENT_FLIP_Y;
+   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_RESIZE_X) positioner->constraint_adjustment |= WLC_BIT_CONSTRAINT_ADJUSTMENT_RESIZE_X;
+   if (constraint_adjustment & ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_RESIZE_Y) positioner->constraint_adjustment |= WLC_BIT_CONSTRAINT_ADJUSTMENT_RESIZE_Y;
 }
 
 static void
