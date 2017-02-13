@@ -174,6 +174,7 @@ BINDINGS
 - `ocaml-wlc <https://github.com/Armael/ocaml-wlc>`_ - OCaml (experimental)
 - `go-wlc <https://github.com/mikkeloscar/go-wlc>`_ - Go
 - `rust-wlc <https://github.com/Immington-Industries/rust-wlc>`_ - Rust
+- `wlc.rs <https://github.com/Drakulix/wlc.rs>`_ - Rust
 
 SOFTWARE USING WLC
 ------------------
@@ -182,6 +183,7 @@ SOFTWARE USING WLC
 - `ocaml-loliwm <https://github.com/Armael/ocaml-loliwm>`_ - Translation of loliwm to OCaml
 - `sway <https://github.com/SirCmpwn/sway>`_ - i3-compatible window manager for Wayland
 - `way-cooler <https://github.com/Immington-Industries/way-cooler>`_ - customizeable window manager written in Rust
+- `fireplace <https://github.com/Drakulix/fireplace>`_ - Modular wayland window manager written in Rust
 
 SIMILAR SOFTWARE
 ----------------
