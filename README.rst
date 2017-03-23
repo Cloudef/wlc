@@ -175,6 +175,7 @@ BINDINGS
 - `go-wlc <https://github.com/mikkeloscar/go-wlc>`_ - Go
 - `rust-wlc <https://github.com/Immington-Industries/rust-wlc>`_ - Rust
 - `wlc.rs <https://github.com/Drakulix/wlc.rs>`_ - Rust
+- `jwlc <https://github.com/Enerccio/jwlc>`_ - Java - work in progress
 
 SOFTWARE USING WLC
 ------------------
