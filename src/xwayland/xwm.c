@@ -13,6 +13,7 @@
 #include "macros.h"
 #include "xwm.h"
 #include "xwayland.h"
+#include "xmotif.h"
 #include "compositor/compositor.h"
 #include "compositor/view.h"
 #include "resources/types/surface.h"
@@ -253,11 +254,14 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU] ||
                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_COMBO]) {
                wlc_view_set_type_ptr(view, WLC_BIT_UNMANAGED, true);
+               wlc_view_set_type_ptr(view, WLC_BIT_BORDERLESS, true);
             }
             if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DIALOG])
                wlc_view_set_type_ptr(view, WLC_BIT_MODAL, true);
-            if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH])
+            if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH]) {
                wlc_view_set_type_ptr(view, WLC_BIT_SPLASH, true);
+               wlc_view_set_type_ptr(view, WLC_BIT_UNMANAGED, true);
+            }
          }
          wlc_dlog(WLC_DBG_XWM, "NET_WM_WINDOW_TYPE: %u", view->type);
       } else if (props[i] == x11.atoms[WM_PROTOCOLS]) {
@@ -274,6 +278,16 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
          wlc_dlog(WLC_DBG_XWM, "NET_WM_STATE");
       } else if (props[i] == x11.atoms[MOTIF_WM_HINTS]) {
          // Motif hints
+         if (reply->length == 5) {
+            MotifWmHints* hints = (MotifWmHints*)xcb_get_property_value(reply);
+            if (hints->flags & MWM_HINTS_DECORATIONS) {
+               // decorations are specified
+               if ( !(hints->decorations & (MWM_DECOR_ALL | MWM_DECOR_TITLE)) ) {
+                   // Window with no (usable) decorations
+                   wlc_view_set_type_ptr(view, WLC_BIT_BORDERLESS, true);
+               }
+            }
+         }
          wlc_dlog(WLC_DBG_XWM, "MOTIF_WM_HINTS");
       }
 
@@ -376,7 +390,10 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
    wlc_dlog(WLC_DBG_XWM, "-> Paired collisions (%u)", chck_hash_table_collisions(&xwm->paired));
 
    view->x11.paired = true;
-   wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, view->x11.override_redirect);
+   if (view->x11.override_redirect) {
+      wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, true);
+      wlc_view_set_type_ptr(view, WLC_BIT_BORDERLESS, true);
+   }
    get_properties(xwm, &view->x11);
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))

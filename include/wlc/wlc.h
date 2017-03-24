@@ -56,6 +56,7 @@ enum wlc_view_type_bit {
    WLC_BIT_MODAL = 1<<3, // Modal windows (x11)
    WLC_BIT_POPUP = 1<<4, // xdg-shell, wl-shell popups
    WLC_BIT_X11 = 1<<5, // Any x11 window
+   WLC_BIT_BORDERLESS = 1<<6, // Borderless (undecorated) window (x11)
 };
 
 /** wlc_set_view_properties_updated_cb(); */
