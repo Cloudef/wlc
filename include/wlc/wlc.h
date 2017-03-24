@@ -445,6 +445,13 @@ uint32_t wlc_view_get_type(wlc_handle view);
 
 
 /**
+ * Returns true if xwayland window is deletable (support WM_DELETE_WINDOW protocol).
+ * This kind of window should be closed using wlc_x11_delete_window.
+ * If window is not xwayland, returns false.
+ */
+bool wlc_x11_view_is_deletable(wlc_handle view);
+
+/**
  * Asks xwayland window to close gracefully.
  */
 void wlc_x11_window_delete(uint32_t window);
