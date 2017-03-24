@@ -9,6 +9,7 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include <chck/overflow/overflow.h>
+#include "visibility.h"
 #include "internal.h"
 #include "macros.h"
 #include "xwm.h"
@@ -435,8 +436,8 @@ focus_window(xcb_window_t window, bool force)
    x11.focus = window;
 }
 
-static void
-delete_window(xcb_window_t window)
+WLC_API void
+wlc_x11_window_delete(xcb_window_t window)
 {
    xcb_client_message_event_t ev = {0};
    ev.response_type = XCB_CLIENT_MESSAGE;
@@ -471,7 +472,7 @@ wlc_x11_window_close(struct wlc_x11_window *win)
       return;
 
    if (win->has_delete_window) {
-      delete_window(win->id);
+      wlc_x11_window_delete(win->id);
    } else {
       XCB_CALL(xcb_kill_client_checked(x11.connection, win->id));
    }
