@@ -450,6 +450,13 @@ wlc_x11_window_delete(xcb_window_t window)
    XCB_CALL(xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_NO_EVENT, (char*)&ev));
 }
 
+WLC_API void
+wlc_x11_window_kill(xcb_window_t window)
+{
+   XCB_CALL(xcb_kill_client_checked(x11.connection, window));
+}
+
+
 static WLC_PURE enum wlc_surface_format
 wlc_x11_window_get_surface_format(struct wlc_x11_window *win)
 {
@@ -474,7 +481,7 @@ wlc_x11_window_close(struct wlc_x11_window *win)
    if (win->has_delete_window) {
       wlc_x11_window_delete(win->id);
    } else {
-      XCB_CALL(xcb_kill_client_checked(x11.connection, win->id));
+      wlc_x11_window_kill(win->id);
    }
 
    xcb_flush(x11.connection);

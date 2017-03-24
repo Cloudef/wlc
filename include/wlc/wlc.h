@@ -449,6 +449,11 @@ uint32_t wlc_view_get_type(wlc_handle view);
  */
 void wlc_x11_window_delete(uint32_t window);
 
+/**
+ * Kills xwayland window unconditionally.
+ */
+void wlc_x11_window_kill(uint32_t window);
+
 /** Set type bit. Toggle indicates whether it is set or not. */
 void wlc_view_set_type(wlc_handle view, enum wlc_view_type_bit type, bool toggle);
 
