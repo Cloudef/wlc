@@ -55,6 +55,7 @@ enum wlc_view_type_bit {
    WLC_BIT_SPLASH = 1<<2, // Splash screens (x11)
    WLC_BIT_MODAL = 1<<3, // Modal windows (x11)
    WLC_BIT_POPUP = 1<<4, // xdg-shell, wl-shell popups
+   WLC_BIT_X11 = 1<<5, // Any x11 window
 };
 
 /** wlc_set_view_properties_updated_cb(); */
@@ -440,6 +441,7 @@ WLC_NONULL void wlc_view_set_geometry(wlc_handle view, uint32_t edges, const str
 
 /** Get type bitfield. */
 uint32_t wlc_view_get_type(wlc_handle view);
+
 
 /** Set type bit. Toggle indicates whether it is set or not. */
 void wlc_view_set_type(wlc_handle view, enum wlc_view_type_bit type, bool toggle);

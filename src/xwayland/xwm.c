@@ -193,6 +193,8 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
    if (!(cookies = chck_calloc_of(nmemb, sizeof(xcb_get_property_cookie_t))))
       return;
 
+   wlc_view_set_type_ptr(view, WLC_BIT_X11, true);
+
    for (uint32_t i = 0; i < nmemb; ++i)
       cookies[i] = xcb_get_property(x11.connection, 0, win->id, props[i], XCB_ATOM_ANY, 0, 2048);
 
