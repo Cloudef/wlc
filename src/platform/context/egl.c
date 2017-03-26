@@ -14,12 +14,49 @@
 #include "compositor/output.h"
 #include "platform/backend/backend.h"
 
+#ifndef EGL_NV_stream_attrib
+#define EGL_NV_stream_attrib 1
+#ifdef EGL_EGLEXT_PROTOTYPES
+EGLAPI EGLStreamKHR EGLAPIENTRY eglCreateStreamAttribNV(EGLDisplay dpy, const EGLAttrib *attrib_list);
+EGLAPI EGLBoolean EGLAPIENTRY eglSetStreamAttribNV(EGLDisplay dpy, EGLStreamKHR stream, EGLenum attribute, EGLAttrib value);
+EGLAPI EGLBoolean EGLAPIENTRY eglQueryStreamAttribNV(EGLDisplay dpy, EGLStreamKHR stream, EGLenum attribute, EGLAttrib *value);
+EGLAPI EGLBoolean EGLAPIENTRY eglStreamConsumerAcquireAttribNV(EGLDisplay dpy, EGLStreamKHR stream, const EGLAttrib *attrib_list);
+EGLAPI EGLBoolean EGLAPIENTRY eglStreamConsumerReleaseAttribNV(EGLDisplay dpy, EGLStreamKHR stream, const EGLAttrib *attrib_list);
+#endif
+typedef EGLStreamKHR (EGLAPIENTRYP PFNEGLCREATESTREAMATTRIBNVPROC)(EGLDisplay dpy, const EGLAttrib *attrib_list);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLSETSTREAMATTRIBNVPROC)(EGLDisplay dpy, EGLStreamKHR stream, EGLenum attribute, EGLAttrib value);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLQUERYSTREAMATTRIBNVPROC)(EGLDisplay dpy, EGLStreamKHR stream, EGLenum attribute, EGLAttrib *value);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLSTREAMCONSUMERACQUIREATTRIBNVPROC)(EGLDisplay dpy, EGLStreamKHR stream, const EGLAttrib *attrib_list);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLSTREAMCONSUMERRELEASEATTRIBNVPROC)(EGLDisplay dpy, EGLStreamKHR stream, const EGLAttrib *attrib_list);
+#endif /* EGL_NV_stream_attrib */
+
+#ifndef EGL_EXT_stream_acquire_mode
+#define EGL_EXT_stream_acquire_mode 1
+#define EGL_CONSUMER_AUTO_ACQUIRE_EXT         0x332B
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLSTREAMCONSUMERACQUIREATTRIBEXTPROC)(EGLDisplay dpy, EGLStreamKHR stream, const EGLAttrib *attrib_list);
+#ifdef EGL_EGLEXT_PROTOTYPES
+EGLAPI EGLBoolean EGLAPIENTRY eglStreamConsumerAcquireAttribEXT(EGLDisplay dpy, EGLStreamKHR stream, const EGLAttrib *attrib_list);
+#endif
+#endif /* EGL_EXT_stream_acquire_mode */
+
+#ifndef EGL_NV_output_drm_flip_event
+#define EGL_NV_output_drm_flip_event 1
+#define EGL_DRM_FLIP_EVENT_DATA_NV            0x333E
+#endif /* EGL_NV_output_drm_flip_event */
+
+/* XXX khronos eglext.h does not yet have EGL_DRM_MASTER_FD_EXT */
+#ifndef EGL_DRM_MASTER_FD_EXT
+#define EGL_DRM_MASTER_FD_EXT                   0x333C
+#endif
+
 struct ctx {
    const char *extensions;
+   const char *device_extensions;
    struct wl_display *wl_display;
    EGLDisplay display;
    EGLContext context;
    EGLSurface surface;
+   EGLStreamKHR stream;
    EGLConfig config;
    bool flip_failed;
 
@@ -31,6 +68,13 @@ struct ctx {
       PFNEGLBINDWAYLANDDISPLAYWL eglBindWaylandDisplayWL;
       PFNEGLUNBINDWAYLANDDISPLAYWL eglUnbindWaylandDisplayWL;
       PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC eglSwapBuffersWithDamage;
+      // Needed for EGL streams
+      PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT;
+      PFNEGLGETOUTPUTLAYERSEXTPROC eglGetOutputLayersEXT;
+      PFNEGLCREATESTREAMKHRPROC eglCreateStreamKHR;
+      PFNEGLSTREAMCONSUMEROUTPUTEXTPROC eglStreamConsumerOutputEXT;
+      PFNEGLCREATESTREAMPRODUCERSURFACEKHRPROC eglCreateStreamProducerSurfaceKHR;
+      PFNEGLSTREAMCONSUMERACQUIREATTRIBNVPROC eglStreamConsumerAcquireAttribNV;
    } api;
 };
 
@@ -98,15 +142,15 @@ egl_call(const char *func, uint32_t line, const char *eglfunc)
 #define EGL_CALL(x) x; egl_call(__PRETTY_FUNCTION__, __LINE__, __STRING(x))
 
 WLC_PURE static bool
-has_extension(const struct ctx *context, const char *extension)
+is_extension_supported(const char *extensions, const char *extension)
 {
-   assert(context && extension);
+   assert(extension);
 
-   if (!context->extensions)
+   if (!extensions)
       return false;
 
    size_t len = strlen(extension), pos;
-   const char *s = context->extensions;
+   const char *s = extensions;
    while ((pos = strcspn(s, " ")) != 0) {
       size_t next = pos + (s[pos] != 0);
 
@@ -117,6 +161,50 @@ has_extension(const struct ctx *context, const char *extension)
    }
 
    return false;
+}
+
+WLC_PURE static bool
+has_extension(const struct ctx *context, const char *extension)
+{
+   assert(context && extension);
+   return is_extension_supported(context->extensions, extension);
+}
+
+WLC_PURE static bool
+has_device_extension(const struct ctx *context, const char *extension)
+{
+   assert(context && extension);
+   return is_extension_supported(context->device_extensions, extension);
+}
+
+EGLDeviceEXT
+get_egl_device()
+{
+   PFNEGLQUERYDEVICESEXTPROC eglQueryDevicesEXT = (void*)eglGetProcAddress("eglQueryDevicesEXT");
+   PFNEGLQUERYDEVICESTRINGEXTPROC eglQueryDeviceStringEXT = (void*)eglGetProcAddress("eglQueryDeviceStringEXT");
+
+   const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+   if (!is_extension_supported(extensions, "EGL_EXT_device_base") &&
+       (!is_extension_supported(extensions, "EGL_EXT_device_enumeration") ||
+        !is_extension_supported(extensions, "EGL_EXT_device_query")))
+      return NULL;
+
+   EGLint num_devices;
+   if (!eglQueryDevicesEXT(0, NULL, &num_devices) || num_devices < 1)
+      return NULL;
+
+   EGLDeviceEXT devices[255];
+   if (!eglQueryDevicesEXT(num_devices, devices, &num_devices))
+      return NULL;
+
+   for (int i = 0; i < num_devices; i++) {
+      EGLDeviceEXT device = devices[i];
+      const char *device_extensions = eglQueryDeviceStringEXT(device, EGL_EXTENSIONS);
+      if (is_extension_supported(device_extensions, "EGL_EXT_device_drm") && device != EGL_NO_DEVICE_EXT)
+         return device;
+   }
+
+   return NULL;
 }
 
 static void
@@ -170,23 +258,65 @@ terminate(struct ctx *context)
  * like mesa will be able to adverise these (even though it can do EGL 1.5).
  */
 static EGLDisplay
-get_display(struct ctx *context, EGLint type, void *native)
+get_display(struct ctx *context, EGLint type, void *native, int drm_fd)
 {
-   PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplayEXT;
+   /* In practice any EGL 1.5 implementation would support the EXT extension */
+   if (context->api.eglGetPlatformDisplayEXT) {
+      if (has_extension(context, "EGL_EXT_platform_device") && has_device_extension(context, "EGL_EXT_device_drm")) {
+         /*
+          * Provide the DRM fd when creating the EGLDisplay, so that the
+          * EGL implementation can make any necessary DRM calls using the
+          * same fd as the application.
+          */
+         EGLint attribs[] = {
+            EGL_DRM_MASTER_FD_EXT, drm_fd,
+            EGL_NONE
+         };
 
-   /* Initialize extensions to those of the NULL display, for has_extension */
-   context->extensions = EGL_CALL(eglQueryString(NULL, EGL_EXTENSIONS));
+         return context->api.eglGetPlatformDisplayEXT(type, native, attribs);
+      }
 
-   /* In practise any EGL 1.5 implementation would support the EXT extension */
-   if (has_extension(context, "EGL_EXT_platform_base")) {
-      PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplayEXT =
-            (void *) eglGetProcAddress("eglGetPlatformDisplayEXT");
-      if (getPlatformDisplayEXT)
-          return getPlatformDisplayEXT(type, native, NULL);
+      return context->api.eglGetPlatformDisplayEXT(type, native, NULL);
    }
 
    /* Welp, everything is awful. */
    return eglGetDisplay(native);
+}
+
+static EGLSurface
+create_surface_egl_device(struct ctx *context, struct wlc_backend_surface *bsurface)
+{
+   struct wlc_output *output;
+   output = wl_container_of(bsurface, output, bsurface);
+
+   EGLint n = 0;
+   EGLOutputLayerEXT egl_layer;
+   EGLAttrib layer_attribs[] = {
+      EGL_DRM_CRTC_EXT, output->information.crtc_id,
+      EGL_NONE,
+   };
+
+   if (!context->api.eglGetOutputLayersEXT(context->display, layer_attribs, &egl_layer, 1, &n) || !n) {
+      return EGL_NO_SURFACE;
+   }
+
+   if (!context->api.eglStreamConsumerOutputEXT(context->display, context->stream, egl_layer)) {
+      return EGL_NO_SURFACE;
+   }
+
+   EGLint surface_attribs[] = {
+      EGL_WIDTH, output->mode.w,
+      EGL_HEIGHT, output->mode.h,
+      EGL_NONE
+   };
+
+   return context->api.eglCreateStreamProducerSurfaceKHR(context->display, context->config, context->stream, surface_attribs);
+}
+
+static EGLSurface
+create_surface_gbm(EGLDisplay display, EGLConfig config, EGLNativeWindowType window)
+{
+   return eglCreateWindowSurface(display, config, window, NULL);
 }
 
 static struct ctx*
@@ -198,7 +328,24 @@ create_context(struct wlc_backend_surface *bsurface)
    if (!(context = calloc(1, sizeof(struct ctx))))
       return NULL;
 
-   context->display = get_display(context, bsurface->display_type, bsurface->display);
+   /* Initialize extensions to those of the NULL display, for has_extension */
+   context->extensions = EGL_CALL(eglQueryString(NULL, EGL_EXTENSIONS));
+   if (has_extension(context, "EGL_EXT_platform_base")) {
+      context->api.eglGetPlatformDisplayEXT = (void*)eglGetProcAddress("eglGetPlatformDisplayEXT");
+   }
+
+   if (bsurface->use_egldevice) {
+      PFNEGLQUERYDEVICESTRINGEXTPROC eglQueryDeviceStringEXT = (void*)eglGetProcAddress("eglQueryDeviceStringEXT");
+      context->device_extensions = EGL_CALL(eglQueryDeviceStringEXT(bsurface->display, EGL_EXTENSIONS));
+
+      context->api.eglGetOutputLayersEXT = (void*)eglGetProcAddress("eglGetOutputLayersEXT");
+      context->api.eglCreateStreamKHR = (void*)eglGetProcAddress("eglCreateStreamKHR");
+      context->api.eglStreamConsumerOutputEXT = (void*)eglGetProcAddress("eglStreamConsumerOutputEXT");
+      context->api.eglCreateStreamProducerSurfaceKHR = (void*)eglGetProcAddress("eglCreateStreamProducerSurfaceKHR");
+      context->api.eglStreamConsumerAcquireAttribNV = (void*)eglGetProcAddress("eglStreamConsumerAcquireAttribNV");
+   }
+
+   context->display = get_display(context, bsurface->display_type, bsurface->display, bsurface->drm_fd);
    if (!context->display)
       goto egl_fail;
 
@@ -214,7 +361,7 @@ create_context(struct wlc_backend_surface *bsurface)
    } configs[] = {
       {
          (const EGLint[]){
-            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+            EGL_SURFACE_TYPE, bsurface->use_egldevice ? EGL_STREAM_BIT_KHR : EGL_WINDOW_BIT,
             EGL_RED_SIZE, 1,
             EGL_GREEN_SIZE, 1,
             EGL_BLUE_SIZE, 1,
@@ -245,7 +392,20 @@ create_context(struct wlc_backend_surface *bsurface)
    if ((context->context = eglCreateContext(context->display, context->config, EGL_NO_CONTEXT, context_attribs)) == EGL_NO_CONTEXT)
       goto egl_fail;
 
-   if ((context->surface = eglCreateWindowSurface(context->display, context->config, bsurface->window, NULL)) == EGL_NO_SURFACE)
+   if (bsurface->use_egldevice) {
+      EGLint stream_attribs[] = {
+         EGL_STREAM_FIFO_LENGTH_KHR, 1,
+         EGL_CONSUMER_AUTO_ACQUIRE_EXT, EGL_FALSE,
+         EGL_NONE
+      };
+
+      context->stream = context->api.eglCreateStreamKHR(context->display, stream_attribs);
+      if (context->stream == EGL_NO_STREAM_KHR)
+         goto egl_fail;
+   }
+
+   context->surface = bsurface->use_egldevice ? create_surface_egl_device(context, bsurface) : create_surface_gbm(context->display, context->config, bsurface->window);
+   if (context->surface == EGL_NO_SURFACE)
       goto egl_fail;
 
    if (!eglMakeCurrent(context->display, context->surface, context->surface, context->context))
@@ -357,6 +517,21 @@ bind_to_wl_display(struct ctx *context, struct wl_display *wl_display)
    return (context->wl_display ? true : false);
 }
 
+static bool
+output_stream_flip(struct ctx *context, struct wlc_backend_surface *bsurface)
+{
+   EGLAttrib acquire_attribs[] = {
+      EGL_DRM_FLIP_EVENT_DATA_NV, (EGLAttrib)bsurface,
+      EGL_NONE
+   };
+
+   if (context->stream != EGL_NO_STREAM_KHR) {
+      return context->api.eglStreamConsumerAcquireAttribNV(context->display, context->stream, acquire_attribs) == EGL_TRUE;
+   }
+
+   return true;
+}
+
 static void
 swap(struct ctx *context, struct wlc_backend_surface *bsurface)
 {
@@ -372,7 +547,9 @@ swap(struct ctx *context, struct wlc_backend_surface *bsurface)
    if (!context->flip_failed)
       ret = EGL_CALL(eglSwapBuffers(context->display, context->surface));
 
-   if (ret == EGL_TRUE && bsurface->api.page_flip)
+   if (ret == EGL_TRUE && bsurface->use_egldevice) {
+      output_stream_flip(context, bsurface);
+   } else if (ret == EGL_TRUE && bsurface->api.page_flip)
       context->flip_failed = !bsurface->api.page_flip(bsurface);
 }
 

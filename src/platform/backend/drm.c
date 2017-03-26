@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/select.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -17,6 +18,7 @@
 #include "backend.h"
 #include "compositor/compositor.h"
 #include "compositor/output.h"
+#include "platform/context/egl.h"
 #include "session/fd.h"
 
 // FIXME: Contains global state (event_source && fd)
@@ -27,13 +29,14 @@ struct drm_output_information {
    drmModeConnector *connector;
    drmModeEncoder *encoder;
    drmModeCrtc *crtc;
+   drmModeModeInfo mode;
    struct wlc_output_information info;
    uint32_t width, height;
 };
 
 struct drm_surface {
-   struct gbm_device *device;
-   struct gbm_surface *surface;
+   void *device;
+   struct gbm_surface *gbm_surface;
    drmModeConnector *connector;
    drmModeEncoder *encoder;
    drmModeCrtc *crtc;
@@ -50,10 +53,8 @@ struct drm_surface {
 };
 
 static struct {
-   struct gbm_device *device;
-} gbm;
-
-static struct {
+   bool use_egldevice;
+   void *device;
    int fd;
    struct wl_event_source *event_source;
 } drm;
@@ -61,12 +62,12 @@ static struct {
 static void
 release_fb(struct gbm_surface *surface, struct drm_fb *fb)
 {
-   assert(surface && fb);
+   assert(fb);
 
    if (fb->fd > 0)
       drmModeRmFB(drm.fd, fb->fd);
 
-   if (fb->bo)
+   if (surface && fb->bo)
       gbm_surface_release_buffer(surface, fb->bo);
 
    fb->bo = NULL;
@@ -81,9 +82,11 @@ page_flip_handler(int fd, unsigned int frame, unsigned int sec, unsigned int use
    struct wlc_backend_surface *bsurface = data;
    struct drm_surface *dsurface = bsurface->internal;
 
-   uint8_t next = (dsurface->index + 1) % NUM_FBS;
-   release_fb(dsurface->surface, &dsurface->fb[next]);
-   dsurface->index = next;
+   if (!drm.use_egldevice) {
+      uint8_t next = (dsurface->index + 1) % NUM_FBS;
+      release_fb(dsurface->gbm_surface, &dsurface->fb[next]);
+      dsurface->index = next;
+   }
 
    struct timespec ts;
    ts.tv_sec = sec;
@@ -107,7 +110,7 @@ drm_event(int fd, uint32_t mask, void *data)
 }
 
 static bool
-create_fb(struct gbm_surface *surface, struct drm_fb *fb)
+create_gbm_fb(struct gbm_surface *surface, struct drm_fb *fb)
 {
    assert(surface && fb);
 
@@ -141,6 +144,56 @@ fail:
    return false;
 }
 
+static uint32_t
+create_dumb_fb(uint32_t width, uint32_t height)
+{
+   struct drm_mode_destroy_dumb destroy_request = { 0 };
+   struct drm_mode_create_dumb create_request = { 0 };
+   create_request.width = width;
+   create_request.height = height;
+   create_request.bpp = 32; /* RGBX8888 */
+
+   if (drmIoctl(drm.fd, DRM_IOCTL_MODE_CREATE_DUMB, &create_request) < 0) {
+      goto failed_ioctl;
+   }
+
+   uint32_t fd;
+   if (drmModeAddFB(drm.fd, width, height, 24, 32, create_request.pitch, create_request.handle, &fd)) {
+      goto fail_add_fb;
+   }
+
+   struct drm_mode_map_dumb map_request = { 0 };
+   map_request.handle = create_request.handle;
+   if (drmIoctl(drm.fd, DRM_IOCTL_MODE_MAP_DUMB, &map_request)) {
+      goto fail_map;
+   }
+
+   uint8_t *map;
+   map = mmap(0, create_request.size, PROT_READ | PROT_WRITE, MAP_SHARED, drm.fd, map_request.offset);
+   if (map == MAP_FAILED) {
+      goto fail_map;
+   }
+
+   memset(map, 0, create_request.size);
+
+   return fd;
+
+failed_ioctl:
+   wlc_log(WLC_LOG_WARN, "Failed ioctl to create dumb fb");
+   goto fail;
+fail_add_fb:
+   wlc_log(WLC_LOG_WARN, "Failed to add dumb fb");
+   goto fail_destroy_dumb;
+fail_map:
+   wlc_log(WLC_LOG_WARN, "Failed ioctl to map dumb fb");
+   drmModeRmFB(drm.fd, fd);
+fail_destroy_dumb:
+   destroy_request.handle = create_request.handle;
+   drmIoctl(drm.fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_request);
+fail:
+   return 0;
+}
+
 static bool
 page_flip(struct wlc_backend_surface *bsurface)
 {
@@ -148,12 +201,12 @@ page_flip(struct wlc_backend_surface *bsurface)
    struct drm_surface *dsurface = bsurface->internal;
    assert(!dsurface->flipping);
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
-   release_fb(dsurface->surface, fb);
+   release_fb(dsurface->gbm_surface, fb);
 
    struct wlc_output *o;
    except((o = wl_container_of(bsurface, o, bsurface)));
 
-   if (!create_fb(dsurface->surface, fb))
+   if (!create_gbm_fb(dsurface->gbm_surface, fb))
       return false;
 
    if (fb->stride != dsurface->stride) {
@@ -175,7 +228,7 @@ set_crtc_fail:
 failed_to_page_flip:
    wlc_log(WLC_LOG_WARN, "Failed to page flip: %m");
 fail:
-   release_fb(dsurface->surface, fb);
+   release_fb(dsurface->gbm_surface, fb);
    return false;
 }
 
@@ -209,15 +262,15 @@ surface_release(struct wlc_backend_surface *bsurface)
 {
    struct drm_surface *dsurface = bsurface->internal;
    struct drm_fb *fb = &dsurface->fb[dsurface->index];
-   release_fb(dsurface->surface, fb);
+   release_fb(dsurface->gbm_surface, fb);
 
    drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, dsurface->crtc->buffer_id, dsurface->crtc->x, dsurface->crtc->y, &dsurface->connector->connector_id, 1, &dsurface->crtc->mode);
 
    if (dsurface->crtc)
       drmModeFreeCrtc(dsurface->crtc);
 
-   if (dsurface->surface)
-      gbm_surface_destroy(dsurface->surface);
+   if (!drm.use_egldevice && dsurface->gbm_surface)
+      gbm_surface_destroy(dsurface->gbm_surface);
 
    if (dsurface->encoder)
       drmModeFreeEncoder(dsurface->encoder);
@@ -229,7 +282,16 @@ surface_release(struct wlc_backend_surface *bsurface)
 }
 
 static bool
-add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_output_information *info)
+set_crtc_default_mode(struct drm_output_information *info)
+{
+   int fb = 0;
+   if (!(fb = create_dumb_fb(info->width, info->height)))
+      return false;
+   return drmModeSetCrtc(drm.fd, info->crtc->crtc_id, fb, 0, 0, &info->connector->connector_id, 1, &info->mode) == 0;
+}
+
+static bool
+add_output(void *device, struct gbm_surface *surface, struct drm_output_information *info)
 {
    struct wlc_backend_surface bsurface;
    if (!wlc_backend_surface(&bsurface, surface_release, sizeof(struct drm_surface)))
@@ -239,11 +301,13 @@ add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_ou
    dsurface->connector = info->connector;
    dsurface->encoder = info->encoder;
    dsurface->crtc = info->crtc;
-   dsurface->surface = surface;
+   dsurface->gbm_surface = surface;
    dsurface->device = device;
 
+   bsurface.use_egldevice = drm.use_egldevice;
+   bsurface.drm_fd = drm.fd;
    bsurface.display = (EGLNativeDisplayType)device;
-   bsurface.display_type = EGL_PLATFORM_GBM_MESA;
+   bsurface.display_type = (drm.use_egldevice ? EGL_PLATFORM_DEVICE_EXT : EGL_PLATFORM_GBM_KHR);
    bsurface.window = (EGLNativeWindowType)surface;
    bsurface.api.sleep = surface_sleep;
    bsurface.api.page_flip = page_flip;
@@ -256,13 +320,12 @@ add_output(struct gbm_device *device, struct gbm_surface *surface, struct drm_ou
 }
 
 static drmModeEncoder*
-find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *connector, int32_t *out_crtc_id)
+find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *connector)
 {
-   assert(resources && connector && out_crtc_id);
+   assert(resources && connector);
    drmModeEncoder *encoder = drmModeGetEncoder(fd, connector->encoder_id);
 
    if (encoder) {
-      *out_crtc_id = encoder->crtc_id;
       return encoder;
    } else {
       drmModeFreeEncoder(encoder);
@@ -273,15 +336,36 @@ find_encoder_for_connector(int fd, drmModeRes *resources, drmModeConnector *conn
       if (!(encoder = drmModeGetEncoder(fd, resources->encoders[e])))
          continue;
 
-      for (int c = 0; c < resources->count_crtcs; ++c) {
-         if (!(encoder->possible_crtcs & (1 << c)))
-            continue;
+      return encoder;
+   }
 
-         *out_crtc_id = resources->crtcs[c];
-         return encoder;
+   return NULL;
+}
+
+static drmModeCrtc*
+find_crtc_for_encoder(int fd, drmModeRes *resources, drmModeEncoder *encoder, uint32_t *used_crtcs, int used_crtcs_num)
+{
+   assert(resources && encoder);
+
+   drmModeCrtc *crtc = drmModeGetCrtc(fd, encoder->crtc_id);
+   if (crtc)
+      return crtc;
+
+   for (int c = 0; c < resources->count_crtcs; ++c) {
+      uint32_t crtc_id = resources->crtcs[c];
+
+      bool used = false;
+      for (int i = 0; i < used_crtcs_num; i++) {
+         if (used_crtcs[i] == crtc_id) {
+            used = true;
+            break;
+         }
       }
 
-      drmModeFreeEncoder(encoder);
+      if (used || !(encoder->possible_crtcs & (1 << c)) || !(crtc = drmModeGetCrtc(fd, crtc_id)))
+         continue;
+
+      return crtc;
    }
 
    return NULL;
@@ -323,6 +407,11 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
       goto resources_fail;
    }
 
+   int used_crtcs_num = 0;
+   uint32_t *used_crtcs;
+   if (!(used_crtcs = malloc(resources->count_crtcs * sizeof(uint32_t))))
+      goto resources_fail;
+
    for (int c = 0; c < resources->count_connectors; c++) {
       drmModeConnector *connector;
       if (!(connector = drmModeGetConnector(fd, resources->connectors[c]))) {
@@ -336,17 +425,16 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
          continue;
       }
 
-      int32_t crtc_id;
       drmModeEncoder *encoder;
-      if (!(encoder = find_encoder_for_connector(fd, resources, connector, &crtc_id))) {
+      if (!(encoder = find_encoder_for_connector(fd, resources, connector))) {
          wlc_log(WLC_LOG_WARN, "Failed to find encoder for connector %d", c);
          drmModeFreeConnector(connector);
          continue;
       }
 
       drmModeCrtc *crtc;
-      if (!(crtc = drmModeGetCrtc(drm.fd, crtc_id))) {
-         wlc_log(WLC_LOG_WARN, "Failed to get crtc for connector %d (with id: %d)", c, crtc_id);
+      if (!(crtc = find_crtc_for_encoder(fd, resources, encoder, used_crtcs, used_crtcs_num))) {
+         wlc_log(WLC_LOG_WARN, "Failed to get crtc for connector %d", c);
          drmModeFreeEncoder(encoder);
          drmModeFreeConnector(connector);
          continue;
@@ -367,6 +455,7 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
       info->info.physical_height = connector->mmHeight;
       info->info.subpixel = connector->subpixel;
       info->info.connector_id = connector->connector_type_id;
+      info->info.crtc_id = crtc->crtc_id;
       info->info.connector = wlc_connector_for_drm_connector(connector->connector_type);
 
       for (int i = 0; i < connector->count_modes; ++i) {
@@ -380,6 +469,7 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
             if (!info->width && !info->height) {
                info->width = connector->modes[i].hdisplay;
                info->height = connector->modes[i].vdisplay;
+               info->mode = connector->modes[i];
             }
          }
 
@@ -387,16 +477,31 @@ query_drm(int fd, struct chck_iter_pool *out_infos)
             mode.flags |= WL_OUTPUT_MODE_CURRENT;
             info->width = connector->modes[i].hdisplay;
             info->height = connector->modes[i].vdisplay;
+            info->mode = connector->modes[i];
          }
 
          wlc_log(WLC_LOG_INFO, "MODE: (%d) %ux%u@%u %s", c, mode.width, mode.height, mode.refresh, (mode.flags & WL_OUTPUT_MODE_CURRENT ? "*" : (mode.flags & WL_OUTPUT_MODE_PREFERRED ? "!" : "")));
          wlc_output_information_add_mode(&info->info, &mode);
       }
 
+      if (!info->width && !info->height && connector->count_modes) {
+         struct wlc_output_mode *mode;
+         mode = chck_iter_pool_get(&info->info.modes, 0);
+         mode->flags |= WL_OUTPUT_MODE_PREFERRED;
+         info->width = mode->width;
+         info->height = mode->height;
+         info->mode = connector->modes[0];
+      }
+
       info->crtc = crtc;
       info->encoder = encoder;
       info->connector = connector;
+
+      used_crtcs[used_crtcs_num] = crtc->crtc_id;
+      used_crtcs_num++;
    }
+
+   free(used_crtcs);
 
    return true;
 
@@ -412,13 +517,12 @@ terminate(void)
    if (drm.event_source)
       wl_event_source_remove(drm.event_source);
 
-   if (gbm.device)
-      gbm_device_destroy(gbm.device);
+   if (!drm.use_egldevice && drm.device)
+      gbm_device_destroy(drm.device);
 
    wlc_fd_close(drm.fd);
 
    memset(&drm, 0, sizeof(drm));
-   memset(&gbm, 0, sizeof(gbm));
 
    wlc_log(WLC_LOG_INFO, "Closed drm");
 }
@@ -473,11 +577,14 @@ update_outputs(struct chck_pool *outputs)
       if (outputs && output_exists_for_connector(outputs, info->connector))
          continue;
 
-      struct gbm_surface *surface;
-      if (!(surface = gbm_surface_create(gbm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
+      if (drm.use_egldevice && !set_crtc_default_mode(info))
          continue;
 
-      count += (add_output(gbm.device, surface, info) ? 1 : 0);
+      struct gbm_surface *surface;
+      if (!drm.use_egldevice && !(surface = gbm_surface_create(drm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
+         continue;
+
+      count += (add_output(drm.device, surface, info) ? 1 : 0);
    }
 
    chck_iter_pool_release(&infos);
@@ -487,6 +594,7 @@ update_outputs(struct chck_pool *outputs)
 bool
 wlc_drm(struct wlc_backend *backend)
 {
+   chck_cstr_to_bool(getenv("WLC_USE_EGLDEVICE"), &drm.use_egldevice);
    drm.fd = -1;
 
    const char *device = getenv("WLC_DRM_DEVICE");
@@ -503,15 +611,20 @@ wlc_drm(struct wlc_backend *backend)
    if (drm.fd < 0)
       goto card_open_fail;
 
-   /* GBM will load a dri driver, but even though they need symbols from
-    * libglapi, in some version of Mesa they are not linked to it. Since
-    * only the gl-renderer module links to it, the call above won't make
-    * these symbols globally available, and loading the DRI driver fails.
-    * Workaround this by dlopen()'ing libglapi with RTLD_GLOBAL. */
-   dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
+   if (!drm.use_egldevice) {
+      /* GBM will load a dri driver, but even though they need symbols from
+       * libglapi, in some version of Mesa they are not linked to it. Since
+       * only the gl-renderer module links to it, the call above won't make
+       * these symbols globally available, and loading the DRI driver fails.
+       * Workaround this by dlopen()'ing libglapi with RTLD_GLOBAL. */
+      dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
 
-   if (!(gbm.device = gbm_create_device(drm.fd)))
-      goto gbm_device_fail;
+      if (!(drm.device = gbm_create_device(drm.fd)))
+         goto gbm_device_fail;
+   } else {
+      if (!(drm.device = get_egl_device()))
+         goto egl_device_fail;
+   }
 
    if (!(drm.event_source = wl_event_loop_add_fd(wlc_event_loop(), drm.fd, WL_EVENT_READABLE, drm_event, NULL)))
       goto fail;
@@ -525,6 +638,9 @@ card_open_fail:
    goto fail;
 gbm_device_fail:
    wlc_log(WLC_LOG_WARN, "gbm_create_device failed");
+   goto fail;
+egl_device_fail:
+   wlc_log(WLC_LOG_WARN, "Failed to get EGL device");
 fail:
    terminate();
    return false;

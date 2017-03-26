@@ -34,6 +34,7 @@ struct wlc_output_information {
    int32_t physical_width, physical_height;
    int32_t subpixel;
    uint32_t connector_id;
+   uint32_t crtc_id;
    enum wl_output_transform transform;
    enum wlc_connector_type connector;
 };
