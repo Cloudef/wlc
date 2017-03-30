@@ -182,26 +182,34 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
    (void)time, (void)key;
    const uint32_t sym = wlc_keyboard_get_keysym_for_key(key, NULL);
 
-   if (state == WLC_KEY_STATE_PRESSED) {
-      if (view) {
-         if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_q) {
+   if (view) {
+      if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_q) {
+         if (state == WLC_KEY_STATE_PRESSED) {
             wlc_view_close(view);
-            return true;
-         } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Down) {
+         }
+         return true;
+      } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Down) {
+         if (state == WLC_KEY_STATE_PRESSED) {
             wlc_view_send_to_back(view);
             wlc_view_focus(get_topmost(wlc_view_get_output(view), 0));
-            return true;
          }
-      }
-
-      if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Escape) {
-         wlc_terminate();
          return true;
-      } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Return) {
+      }
+   }
+   
+   if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Escape) {
+      if (state == WLC_KEY_STATE_PRESSED) {
+         wlc_terminate();
+      }
+      return true;
+   } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Return) {
+      if (state == WLC_KEY_STATE_PRESSED) {
          char *terminal = (getenv("TERMINAL") ? getenv("TERMINAL") : "weston-terminal");
          wlc_exec(terminal, (char *const[]){ terminal, NULL });
-         return true;
-      } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym >= XKB_KEY_1 && sym <= XKB_KEY_9) {
+      }
+      return true;
+   } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym >= XKB_KEY_1 && sym <= XKB_KEY_9) {
+      if (state == WLC_KEY_STATE_PRESSED) {
          size_t memb;
          const wlc_handle *outputs = wlc_get_outputs(&memb);
          const uint32_t scale = (sym - XKB_KEY_1) + 1;
@@ -210,8 +218,8 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
             wlc_output_set_resolution(outputs[i], wlc_output_get_resolution(outputs[i]), scale);
 
          printf("scale: %u\n", scale);
-         return true;
       }
+      return true;
    }
 
    return false;
