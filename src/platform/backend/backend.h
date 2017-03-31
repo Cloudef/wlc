@@ -13,6 +13,8 @@ struct wlc_backend_surface {
    EGLNativeDisplayType display;
    EGLNativeWindowType window;
    EGLint display_type;
+   int drm_fd;
+   bool use_egldevice;
 
    struct {
       WLC_NONULL void (*terminate)(struct wlc_backend_surface *surface);

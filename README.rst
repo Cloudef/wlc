@@ -12,6 +12,8 @@ FEATURES
 +------------------+-----------------------+
 | Renderers        | EGL, GLESv2           |
 +------------------+-----------------------+
+| Buffer API       | GBM, EGL streams      |
++------------------+-----------------------+
 | TTY session      | logind, legacy (suid) |
 +------------------+-----------------------+
 | Input            | libinput, xkb         |
@@ -70,23 +72,25 @@ ENV VARIABLES
 
 ``wlc`` reads the following env variables.
 
-+----------------------+------------------------------------------------------+
-| ``WLC_DRM_DEVICE``   | Device to use in DRM mode. (card0 default)           |
-+----------------------+------------------------------------------------------+
-| ``WLC_SHM``          | Set 1 to force EGL clients to use shared memory.     |
-+----------------------+------------------------------------------------------+
-| ``WLC_OUTPUTS``      | Number of fake outputs in X11 mode.                  |
-+----------------------+------------------------------------------------------+
-| ``WLC_XWAYLAND``     | Set 0 to disable Xwayland.                           |
-+----------------------+------------------------------------------------------+
-| ``WLC_LIBINPUT``     | Set 1 to force libinput. (Even on X11)               |
-+----------------------+------------------------------------------------------+
-| ``WLC_REPEAT_DELAY`` | Keyboard repeat delay.                               |
-+----------------------+------------------------------------------------------+
-| ``WLC_REPEAT_RATE``  | Keyboard repeat rate.                                |
-+----------------------+------------------------------------------------------+
-| ``WLC_DEBUG``        | Enable debug channels (comma separated)              |
-+----------------------+------------------------------------------------------+
++-----------------------+-----------------------------------------------------+
+| ``WLC_DRM_DEVICE``    | Device to use in DRM mode. (card0 default)          |
++-----------------------+-----------------------------------------------------+
+| ``WLC_USE_EGLDEVICE`` | Set 1 to force EGL streams instead of GBM.          |
++-----------------------+-----------------------------------------------------+
+| ``WLC_SHM``           | Set 1 to force EGL clients to use shared memory.    |
++-----------------------+-----------------------------------------------------+
+| ``WLC_OUTPUTS``       | Number of fake outputs in X11 mode.                 |
++-----------------------+-----------------------------------------------------+
+| ``WLC_XWAYLAND``      | Set 0 to disable Xwayland.                          |
++-----------------------+-----------------------------------------------------+
+| ``WLC_LIBINPUT``      | Set 1 to force libinput. (Even on X11)              |
++-----------------------+-----------------------------------------------------+
+| ``WLC_REPEAT_DELAY``  | Keyboard repeat delay.                              |
++-----------------------+-----------------------------------------------------+
+| ``WLC_REPEAT_RATE``   | Keyboard repeat rate.                               |
++-----------------------+-----------------------------------------------------+
+| ``WLC_DEBUG``         | Enable debug channels (comma separated)             |
++-----------------------+-----------------------------------------------------+
 
 KEYBOARD LAYOUT
 ---------------
@@ -102,6 +106,16 @@ If you have ``logind``, you don't have to do anything.
 
 Without ``logind`` you need to suid your binary to root user.
 The permissions will be dropped runtime.
+
+BUFFER API
+----------
+
+``wlc`` supports both ``GBM`` and ``EGL streams`` buffer APIs. ``GBM`` is used by default and is supported by most GPU drivers except the NVIDIA proprietary driver.
+
+If you have a NVIDIA GPU using the proprietary driver you need to:
+
+- enable DRM KMS using the ``nvidia-drm.modeset=1`` kernel parameter
+- enable the ``EGL streams`` support by setting the ``WLC_USE_EGLDEVICE`` environment variable: ``export WLC_USE_EGLDEVICE=1``
 
 ISSUES
 ------
