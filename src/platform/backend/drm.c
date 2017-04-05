@@ -591,10 +591,26 @@ update_outputs(struct chck_pool *outputs)
    return count;
 }
 
+static bool
+use_egldevice(int drm_fd)
+{
+   const char *buffer_api = getenv("WLC_BUFFER_API");
+   if (chck_cstr_is_empty(buffer_api)) {
+      drmVersion *version;
+      if (!(version = drmGetVersion(drm_fd)))
+         return false;
+
+      bool use_egl = chck_cstreq(version->name, "nvidia-drm");
+      drmFreeVersion(version);
+      return use_egl;
+   }
+
+   return chck_cstreq(buffer_api, "EGL");
+}
+
 bool
 wlc_drm(struct wlc_backend *backend)
 {
-   chck_cstr_to_bool(getenv("WLC_USE_EGLDEVICE"), &drm.use_egldevice);
    drm.fd = -1;
 
    const char *device = getenv("WLC_DRM_DEVICE");
@@ -610,6 +626,8 @@ wlc_drm(struct wlc_backend *backend)
 
    if (drm.fd < 0)
       goto card_open_fail;
+
+   drm.use_egldevice = use_egldevice(drm.fd);
 
    if (!drm.use_egldevice) {
       /* GBM will load a dri driver, but even though they need symbols from
