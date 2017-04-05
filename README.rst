@@ -75,7 +75,7 @@ ENV VARIABLES
 +-----------------------+-----------------------------------------------------+
 | ``WLC_DRM_DEVICE``    | Device to use in DRM mode. (card0 default)          |
 +-----------------------+-----------------------------------------------------+
-| ``WLC_USE_EGLDEVICE`` | Set 1 to force EGL streams instead of GBM.          |
+| ``WLC_BUFFER_API``    | Force buffer API to ``GBM`` or ``EGL``.             |
 +-----------------------+-----------------------------------------------------+
 | ``WLC_SHM``           | Set 1 to force EGL clients to use shared memory.    |
 +-----------------------+-----------------------------------------------------+
@@ -110,12 +110,12 @@ The permissions will be dropped runtime.
 BUFFER API
 ----------
 
-``wlc`` supports both ``GBM`` and ``EGL streams`` buffer APIs. ``GBM`` is used by default and is supported by most GPU drivers except the NVIDIA proprietary driver.
+``wlc`` supports both ``GBM`` and ``EGL`` streams buffer APIs. The buffer API is auto-detected based on the driver used by the DRM device.
 
-If you have a NVIDIA GPU using the proprietary driver you need to:
+- ``GBM`` is supported by most GPU drivers except the NVIDIA proprietary driver.
+- ``EGL`` is only supported by the NVIDIA proprietary. If you have a NVIDIA GPU using the proprietary driver you need to enable DRM KMS using the ``nvidia-drm.modeset=1`` kernel parameter.
 
-- enable DRM KMS using the ``nvidia-drm.modeset=1`` kernel parameter
-- enable the ``EGL streams`` support by setting the ``WLC_USE_EGLDEVICE`` environment variable: ``export WLC_USE_EGLDEVICE=1``
+You can force a given buffer API by setting the ``WLC_BUFFER_API`` environment variable to ``GBM`` or ``EGL``.
 
 ISSUES
 ------
