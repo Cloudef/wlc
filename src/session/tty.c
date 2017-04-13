@@ -237,10 +237,10 @@ wlc_tty_terminate(void)
          if (ioctl(wlc.tty, KDSKBMUTE, 0) == -1 &&
              ioctl(wlc.tty, KDSKBMODE, wlc.old_state.kb_mode) == -1 &&
              ioctl(wlc.tty, KDSKBMODE, K_UNICODE) == -1)
-            wlc_log(WLC_LOG_ERROR, "Failed to restore vt%d KDSKMODE", wlc.vt);
+            wlc_log(WLC_LOG_ERROR, "Failed to restore vt%d KDSKBMODE", wlc.vt);
 
          if (ioctl(wlc.tty, KDSETMODE, KD_TEXT) == -1)
-            wlc_log(WLC_LOG_ERROR, "Failed to restore vt%d mode to VT_AUTO", wlc.vt);
+            wlc_log(WLC_LOG_ERROR, "Failed to restore vt%d mode to KD_TEXT", wlc.vt);
 
          struct vt_mode mode = { .mode = VT_AUTO };
          if (ioctl(wlc.tty, VT_SETMODE, &mode) == -1)
