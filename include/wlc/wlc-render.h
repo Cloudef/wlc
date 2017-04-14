@@ -20,7 +20,7 @@ extern "C" {
 
 /** Allowed pixel formats. */
 enum wlc_pixel_format {
-   WLC_RGBA8888,
+   WLC_RGBA8888
 };
 
 /**
@@ -69,6 +69,7 @@ enum wlc_surface_format {
     SURFACE_Y_UV,
     SURFACE_Y_U_V,
     SURFACE_Y_XUXV,
+	 INVALID,
 };
 
 /**
@@ -77,6 +78,14 @@ enum wlc_surface_format {
  * Note that these are not only OpenGL textures but rather render-specific.
  * For more info what they are check the renderer's source code */
 bool wlc_surface_get_textures(wlc_resource surface, uint32_t out_textures[3], enum wlc_surface_format *out_format);
+
+/**
+ * Fills out_textures[] with the texture(s) of a current pointer specified for output.
+ * Returns false, if there is no current texture, however, out_textures can still contain default pointer
+ * provided by wlc. If there was an error, it will return false and out_texture[1] will be 0 and out_format 
+ * will be INVALID. Tip will contain the pixel offset of the actual tip inside the texture,
+ * size will contain the texture size information. */
+bool wlc_get_active_pointer(wlc_handle output, uint32_t out_textures[3], enum wlc_surface_format *out_format, struct wlc_point *tip, struct wlc_size *size);
 
 #ifdef __cplusplus
 }
