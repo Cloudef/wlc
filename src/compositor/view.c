@@ -731,7 +731,7 @@ wlc_view_get_parent(wlc_handle view)
 WLC_API void
 wlc_view_set_parent(wlc_handle view, wlc_handle parent)
 {
-   wlc_view_set_parent_ptr(convert_from_wlc_handle(view, "view"), convert_from_wlc_handle(parent, "parent"));
+   wlc_view_set_parent_ptr(convert_from_wlc_handle(view, "view"), convert_from_wlc_handle(parent, "view"));
 }
 
 WLC_API const char*
