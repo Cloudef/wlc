@@ -870,7 +870,7 @@ get_pointer(struct ctx *context, struct wlc_size *size, enum wlc_surface_format 
    
    size->w = 14;
    size->h = 14;
-   *out_format = SURFACE_RGBA;
+   *out_format = SURFACE_WLC_POINTER;
    
    return context->textures[TEXTURE_CURSOR];
 }
