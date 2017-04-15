@@ -20,7 +20,7 @@ extern "C" {
 
 /** Allowed pixel formats. */
 enum wlc_pixel_format {
-   WLC_RGBA8888
+   WLC_RGBA8888,
 };
 
 /**
@@ -69,7 +69,8 @@ enum wlc_surface_format {
     SURFACE_Y_UV,
     SURFACE_Y_U_V,
     SURFACE_Y_XUXV,
-	 INVALID,
+	SURFACE_WLC_POINTER,
+    INVALID,
 };
 
 /**
