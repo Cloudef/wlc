@@ -69,7 +69,7 @@ enum wlc_surface_format {
     SURFACE_Y_UV,
     SURFACE_Y_U_V,
     SURFACE_Y_XUXV,
-	SURFACE_WLC_POINTER,
+    SURFACE_WLC_POINTER,
     INVALID,
 };
 
