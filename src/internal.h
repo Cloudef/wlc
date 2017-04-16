@@ -48,7 +48,7 @@ struct wlc_interface {
          /** Pre swap. */
          void (*pre_swap)(wlc_handle output);
 
-         /** Pre swap. */
+         /** Post swap. */
          void (*post_swap)(wlc_handle output);
       } render;
    } output;
