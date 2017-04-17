@@ -4,6 +4,9 @@
 :IRC: #orbment @ freenode
 :Build: |build|_
 
+**Project is in low-maintenance mode and will be abadoned in future.
+Consider forking if you want to keep using the codebase.**
+
 FEATURES
 --------
 
