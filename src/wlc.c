@@ -5,6 +5,8 @@
 #include "internal.h"
 #include "visibility.h"
 #include "compositor/compositor.h"
+#include "compositor/seat/seat.h"
+#include "compositor/seat/pointer.h"
 #include "session/tty.h"
 #include "session/fd.h"
 #include "session/udev.h"
@@ -380,6 +382,12 @@ wlc_init(void)
       die("Failed to init compositor");
 
    return true;
+}
+
+WLC_API void 
+wlc_pointer_get_tip(struct wlc_point *position)
+{
+   *position = wlc.compositor.seat.pointer.tip;
 }
 
 WLC_API void

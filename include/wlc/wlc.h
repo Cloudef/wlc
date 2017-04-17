@@ -499,6 +499,9 @@ void wlc_pointer_get_position(struct wlc_point *out_position);
 /** Set current pointer position. */
 void wlc_pointer_set_position(const struct wlc_point *position);
 
+/** Get current pointer tip */
+void wlc_pointer_get_tip(struct wlc_point *position);
+
 #ifdef __cplusplus
 }
 #endif
