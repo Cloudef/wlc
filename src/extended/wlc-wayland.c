@@ -89,7 +89,7 @@ wlc_view_get_wl_client(wlc_handle view)
 }
 
 WLC_API wlc_resource 
-wlc_get_pointer_surface() 
+wlc_get_pointer_surface(void) 
 {   
    struct wlc_pointer *pointer = &wlc_get_compositor()->seat.pointer;
    struct wlc_surface *surface = convert_from_wlc_resource(pointer->surface, "surface");

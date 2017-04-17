@@ -55,7 +55,7 @@ struct wl_client* wlc_view_get_wl_client(wlc_handle view);
 struct wl_resource* wlc_view_get_role(wlc_handle view);
 
 /** Returns surface containing pointer */
-wlc_resource wlc_get_pointer_surface();
+wlc_resource wlc_get_pointer_surface(void);
 
 #ifdef __cplusplus
 }

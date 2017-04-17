@@ -9,7 +9,7 @@
 #include <wayland-server.h>
 #include "resources/resources.h"
 
-#if __GNUC__
+#if __GNUC__ 
 #  define WLC_LOG_ATTR(x, y) __attribute__((format(printf, x, y)))
 #else
 #  define WLC_LOG_ATTR(x, y)
@@ -44,6 +44,9 @@ struct wlc_interface {
 
          /** Post render hook. */
          void (*post)(wlc_handle output);
+         
+         /** Repaint hook */
+         bool (*repaint)(wlc_handle output);
       } render;
    } output;
 

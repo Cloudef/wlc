@@ -420,6 +420,12 @@ wlc_set_output_resolution_cb(void (*cb)(wlc_handle output, const struct wlc_size
    wlc.interface.output.resolution = cb;
 }
 
+WLC_API void 
+wlc_set_output_repaint_cb(bool (*cb)(wlc_handle output))
+{
+   wlc.interface.output.render.repaint = cb;
+}
+
 WLC_API void
 wlc_set_output_render_pre_cb(void (*cb)(wlc_handle output))
 {

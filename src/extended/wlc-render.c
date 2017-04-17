@@ -89,6 +89,16 @@ surface_flush_frame_callbacks_recursive(struct wlc_surface *surface, struct wlc_
          surface_flush_frame_callbacks_recursive(subsurface, output);
 }
 
+static void
+wlc_surface_flush_frame_callbacks_internal(struct wlc_surface *surf, struct wlc_output *output)
+{
+   surface_flush_frame_callbacks_recursive(surf, output);
+
+   struct wlc_view *v;
+   if ((v = convert_from_wlc_handle(surf->parent_view, "view")))
+      wlc_view_commit_state(v, &v->pending, &v->commit);
+}
+
 WLC_API void
 wlc_surface_flush_frame_callbacks(wlc_resource surface)
 {
@@ -99,9 +109,34 @@ wlc_surface_flush_frame_callbacks(wlc_resource surface)
       return;
    }
 
-   surface_flush_frame_callbacks_recursive(surf, output);
+   wlc_surface_flush_frame_callbacks_internal(surf, output);
+}
 
-   struct wlc_view *v;
-   if ((v = convert_from_wlc_handle(surf->parent_view, "view")))
-      wlc_view_commit_state(v, &v->pending, &v->commit);
+WLC_API void
+wlc_surface_flush_frame_callbacks_for_output(wlc_resource surface, wlc_handle out)
+{
+   struct wlc_surface *surf;
+   struct wlc_output *output;
+   if (!(surf = convert_from_wlc_resource(surface, "surface")) ||
+         !(output = convert_from_wlc_handle(out, "output"))) {
+      return;
+   }
+
+   wlc_surface_flush_frame_callbacks_internal(surf, output);
+}
+
+WLC_API bool 
+wlc_output_attach_surface(wlc_handle out, wlc_resource surf, bool force)
+{
+   struct wlc_output *output;
+   if (!(output = convert_from_wlc_handle(out, "output"))) {
+      return false;
+   }
+   
+   struct wlc_surface *surface;
+   if ((surface = convert_from_wlc_resource(surf, "surface"))) {
+      if (!surface->commit.attached || force)
+         return wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface));
+   }
+   return false;
 }
