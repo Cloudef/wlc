@@ -105,5 +105,6 @@ void wlc_view_set_instance_ptr(struct wlc_view *view, const char *instance_, siz
 void wlc_view_set_class_ptr(struct wlc_view *view, const char *class_, size_t length);
 void wlc_view_set_app_id_ptr(struct wlc_view *view, const char *app_id);
 void wlc_view_set_pid_ptr(struct wlc_view *view, pid_t pid);
+bool wlc_view_is_minimized_ptr(struct wlc_view *view);
 
 #endif /* _WLC_VIEW_H_ */
