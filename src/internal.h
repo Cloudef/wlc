@@ -72,6 +72,9 @@ struct wlc_interface {
 
          /** Request to resize itself with the given edges. Start a interactive resize to agree. */
          WLC_NONULL void (*resize)(wlc_handle view, uint32_t edges, const struct wlc_point*);
+         
+         /** Request to be minimized */
+         bool (*minimize)(wlc_handle view, bool minimized);
       } request;
 
       struct {

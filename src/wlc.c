@@ -549,3 +549,9 @@ wlc_set_input_destroyed_cb(void (*cb)(struct libinput_device *device))
 {
    wlc.interface.input.destroyed = cb;
 }
+
+WLC_API void 
+wlc_set_view_minimized_cb(bool (*cb)(wlc_handle view, bool minimized))
+{
+   wlc.interface.view.request.minimize = cb;
+}

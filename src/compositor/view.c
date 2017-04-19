@@ -429,8 +429,20 @@ wlc_view_set_minimized_ptr(struct wlc_view *view, bool minimized)
 {
    if (!view)
       return;
-
+      
+   if WLC_INTERFACE_EMIT_EXCEPT(view.request.minimize, false, convert_to_wlc_handle(view), minimized)
+      return;
+      
    view->data.minimized = minimized;
+}
+
+bool
+wlc_view_is_minimized_ptr(struct wlc_view *view)
+{
+   if (!view)
+      return false;
+   
+   return view->data.minimized;
 }
 
 void
@@ -772,6 +784,16 @@ wlc_view_get_pid(wlc_handle handle)
       wl_client_get_credentials(wlc_view_get_client_ptr(view), &pid, NULL, NULL);
       return pid;
    }
+}
+
+WLC_API bool 
+wlc_view_is_minimized(wlc_handle handle)
+{
+   struct wlc_view *view;
+   if(!(view = convert_from_wlc_handle(handle, "view")))
+      return false;
+      
+   return wlc_view_is_minimized_ptr(view);
 }
 
 void

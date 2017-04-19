@@ -217,6 +217,12 @@ void wlc_set_view_render_post_cb(void (*cb)(wlc_handle view));
 /** View properties (title, class, app_id) was updated */
 void wlc_set_view_properties_updated_cb(void (*cb)(wlc_handle view, uint32_t mask));
 
+/** 
+* View requested to be minimized. Return true if you allow the request, false if not. 
+* Actual minimization is compositor dependent.
+*/
+void wlc_set_view_minimized_cb(bool (*cb)(wlc_handle view, bool minimized));
+
 /** Key event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
 void wlc_set_keyboard_key_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint32_t key, enum wlc_key_state));
 
@@ -470,6 +476,9 @@ const char* wlc_view_get_app_id(wlc_handle view);
 
 /** Get pid. */
 pid_t wlc_view_get_pid(wlc_handle view);
+
+/** Returns whether view is minimized or not */
+bool wlc_view_is_minimized(wlc_handle view);
 
 /** --  Input API
  * Very recent stuff, things may change.
