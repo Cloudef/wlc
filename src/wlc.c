@@ -295,7 +295,6 @@ wlc_init(void)
 
    wl_log_set_handler_server(wl_cb_log);
 
-   unsetenv("TERM");
    const char *x11display = getenv("DISPLAY");
    bool privileged = false;
    const bool has_logind = wlc_logind_available();
