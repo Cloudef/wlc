@@ -16,7 +16,6 @@
 #include "compositor/seat/keymap.h"
 
 struct wayland_surface {
-   struct wlc_compositor *compositor;
    struct wl_surface *surface;
    struct wl_shell_surface *shell_surface;
    struct wl_egl_window *egl_window;
@@ -107,8 +106,10 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
            uint32_t serial, struct wl_surface *surface,
            wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
-   struct wayland_surface *wsurface = data;
-   struct wlc_compositor *compositor = wsurface->compositor;
+   (void)data, (void)serial, (void)surface_x, (void)surface_y;
+
+   struct wlc_compositor *compositor;
+   except((compositor = wl_container_of(wayland.backend, compositor, backend)));
 
    struct wlc_output *output = output_for_wl_surface(&compositor->outputs.pool, surface);
    if (!output)
@@ -124,12 +125,14 @@ static void
 pointer_handle_leave(void *data, struct wl_pointer *pointer,
            uint32_t serial, struct wl_surface *surface)
 {
+   (void)data, (void)pointer, (void)serial, (void)surface;
 }
 
 static void
 pointer_handle_motion(void *data, struct wl_pointer *pointer,
             uint32_t time, wl_fixed_t fixed_x, wl_fixed_t fixed_y)
 {
+   (void)data, (void)pointer;
    struct wlc_input_event ev = {0};
    struct xy_event motion = {
       .x = wl_fixed_to_double(fixed_x),
@@ -147,6 +150,7 @@ static void
 pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial,
             uint32_t time, uint32_t button, uint32_t state)
 {
+   (void)data, (void)pointer, (void)serial;
    struct wlc_input_event ev = {0};
    ev.type = WLC_INPUT_EVENT_BUTTON;
    ev.time = time;
@@ -159,6 +163,7 @@ static void
 pointer_handle_axis(void *data, struct wl_pointer *pointer,
           uint32_t time, uint32_t axis, wl_fixed_t value)
 {
+   (void)data, (void)pointer;
    struct wlc_input_event ev = {0};
    ev.type = WLC_INPUT_EVENT_SCROLL;
    ev.time = time;
@@ -184,6 +189,7 @@ static void
 keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
              uint32_t format, int fd, uint32_t size)
 {
+   (void)data, (void)keyboard, (void)format, (void)fd, (void)size;
 }
 
 static void
@@ -191,18 +197,21 @@ keyboard_handle_enter(void *data, struct wl_keyboard *keyboard,
             uint32_t serial, struct wl_surface *surface,
             struct wl_array *keys)
 {
+   (void)data, (void)keyboard, (void)serial, (void)surface, (void)keys;
 }
 
 static void
 keyboard_handle_leave(void *data, struct wl_keyboard *keyboard,
             uint32_t serial, struct wl_surface *surface)
 {
+   (void)data, (void)keyboard, (void)serial, (void)surface;
 }
 
 static void
 keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
           uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
 {
+   (void)data, (void)keyboard, (void)serial;
    struct wlc_input_event ev = {0};
    ev.type = WLC_INPUT_EVENT_KEY;
    ev.time = time;
@@ -217,6 +226,7 @@ keyboard_handle_modifiers(void *data, struct wl_keyboard *keyboard,
            uint32_t mods_latched, uint32_t mods_locked,
            uint32_t group)
 {
+   (void)data, (void)keyboard, (void)serial;
    struct wlc_keyboard *kbd = get_keyboard();
 
    if (!kbd->keymap)
@@ -263,6 +273,7 @@ touch_handle_down(void *data, struct wl_touch *wl_touch,
         uint32_t serial, uint32_t time, struct wl_surface *surface,
         int32_t id, wl_fixed_t fixed_x, wl_fixed_t fixed_y)
 {
+   (void)data, (void)wl_touch, (void)serial, (void)surface;
    touch_event_xy(time, fixed_x, fixed_y, id, WLC_TOUCH_DOWN);
 }
 
@@ -270,6 +281,7 @@ static void
 touch_handle_up(void *data, struct wl_touch *wl_touch,
       uint32_t serial, uint32_t time, int32_t id)
 {
+   (void)data, (void)wl_touch, (void)serial;
    struct wlc_input_event ev = {0};
    ev.type = WLC_INPUT_EVENT_TOUCH;
    ev.time = time;
@@ -282,12 +294,14 @@ static void
 touch_handle_motion(void *data, struct wl_touch *wl_touch,
           uint32_t time, int32_t id, wl_fixed_t fixed_x, wl_fixed_t fixed_y)
 {
+   (void)data, (void)wl_touch;
    touch_event_xy(time, fixed_x, fixed_y, id, WLC_TOUCH_MOTION);
 }
 
 static void
 touch_handle_frame(void *data, struct wl_touch *wl_touch)
 {
+   (void)data, (void)wl_touch;
    struct wlc_input_event ev = {0};
    ev.type = WLC_INPUT_EVENT_TOUCH;
    ev.touch.type = WLC_TOUCH_FRAME;
@@ -297,6 +311,7 @@ touch_handle_frame(void *data, struct wl_touch *wl_touch)
 static void
 touch_handle_cancel(void *data, struct wl_touch *wl_touch)
 {
+   (void)data, (void)wl_touch;
    struct wlc_input_event ev = {0};
    ev.type = WLC_INPUT_EVENT_TOUCH;
    ev.touch.type = WLC_TOUCH_CANCEL;
@@ -304,11 +319,11 @@ touch_handle_cancel(void *data, struct wl_touch *wl_touch)
 }
 
 static const struct wl_touch_listener touch_listener = {
-   touch_handle_down,
-   touch_handle_up,
-   touch_handle_motion,
-   touch_handle_frame,
-   touch_handle_cancel,
+   .down = touch_handle_down,
+   .up = touch_handle_up,
+   .motion = touch_handle_motion,
+   .frame = touch_handle_frame,
+   .cancel = touch_handle_cancel,
 };
 
 static void
@@ -347,6 +362,7 @@ input_handle_capabilities(void *data, struct wl_seat *seat, enum wl_seat_capabil
 static void
 input_handle_name(void *data, struct wl_seat *seat, const char *name)
 {
+   (void)data, (void)seat, (void)name;
 }
 
 static const struct wl_seat_listener seat_listener = {
@@ -357,17 +373,20 @@ static const struct wl_seat_listener seat_listener = {
 static void
 handle_ping(void *data, struct wl_shell_surface *shell_surface, uint32_t serial)
 {
+   (void)data;
    wl_shell_surface_pong(shell_surface, serial);
 }
 
 static void
 handle_configure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
+   (void)data, (void)shell_surface, (void)edges, (void)width, (void)height;
 }
 
 static void
 handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
 {
+   (void)data, (void)shell_surface;
 }
 
 static const struct wl_shell_surface_listener shell_surface_listener = {
@@ -379,6 +398,7 @@ static const struct wl_shell_surface_listener shell_surface_listener = {
 static void
 registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
 {
+   (void)version;
    struct wayland_backend *wayland = data;
 
    if (!strcmp(interface, "wl_compositor")) {
@@ -395,6 +415,7 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, 
 static void
 registry_handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 {
+   (void)data, (void)registry, (void)name;
 }
 
 static const struct wl_registry_listener registry_listener = {
@@ -502,7 +523,6 @@ update_outputs(struct chck_pool *outputs)
       wl_shell_surface_set_toplevel(surface.shell_surface);
 
       surface.egl_window = wl_egl_window_create(surface.surface, 800, 480);
-      surface.compositor = wayland.compositor;
 
       struct wlc_output_information info;
       fake_information(&info, i + 1);
