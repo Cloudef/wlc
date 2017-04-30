@@ -563,7 +563,7 @@ wlc_wayland(struct wlc_backend *backend)
 {
    wayland.backend = backend;
 
-   if (!(wayland.display = wl_display_connect("wayland-0")))
+   if (!(wayland.display = wl_display_connect(NULL)))
       goto display_open_fail;
 
    if (!(wayland.registry = wl_display_get_registry(wayland.display)))
