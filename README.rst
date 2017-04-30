@@ -11,7 +11,7 @@ FEATURES
 --------
 
 +------------------+-----------------------+
-| Backends         | DRM, X11              |
+| Backends         | DRM, X11, Wayland     |
 +------------------+-----------------------+
 | Renderers        | EGL, GLESv2           |
 +------------------+-----------------------+
@@ -82,11 +82,11 @@ ENV VARIABLES
 +-----------------------+-----------------------------------------------------+
 | ``WLC_SHM``           | Set 1 to force EGL clients to use shared memory.    |
 +-----------------------+-----------------------------------------------------+
-| ``WLC_OUTPUTS``       | Number of fake outputs in X11 mode.                 |
+| ``WLC_OUTPUTS``       | Number of fake outputs in X11/Wayland mode.         |
 +-----------------------+-----------------------------------------------------+
 | ``WLC_XWAYLAND``      | Set 0 to disable Xwayland.                          |
 +-----------------------+-----------------------------------------------------+
-| ``WLC_LIBINPUT``      | Set 1 to force libinput. (Even on X11)              |
+| ``WLC_LIBINPUT``      | Set 1 to force libinput. (Even on X11/Wayland)      |
 +-----------------------+-----------------------------------------------------+
 | ``WLC_REPEAT_DELAY``  | Keyboard repeat delay.                              |
 +-----------------------+-----------------------------------------------------+
