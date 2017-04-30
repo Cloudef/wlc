@@ -75,7 +75,6 @@ include(GCCCompatibleCompilerOptions)
 
 if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
    set(ldflags -O1 --sort-common --as-needed -z,relro -z,now)
-   set(cflags -flto -fuse-linker-plugin)
 endif ()
 
 check_c_compiler_flag(-fstack-protector-strong has_fstack_protector_strong)
@@ -90,9 +89,7 @@ create_custom_compiler_flags(Upstream -g -O2 ${cflags})
 
 add_compiler_warnings(-Wall -Wextra -Wno-variadic-macros -Wno-long-long -Wformat=2 -Winit-self -Wfloat-equal -Wcast-align -Wpointer-arith -Wmissing-prototypes -Wno-nonnull-compare)
 
-if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
-   add_compiler_warnings(-Wsuggest-attribute=pure -Wsuggest-attribute=const)
-elseif (CMAKE_C_COMPILER_ID MATCHES "Clang")
+if (CMAKE_C_COMPILER_ID MATCHES "Clang")
    add_compiler_warnings(-Wno-pointer-bool-conversion -Wno-missing-field-initializers -Wno-missing-braces)
 endif ()
 
