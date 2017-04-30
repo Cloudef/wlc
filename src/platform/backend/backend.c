@@ -5,6 +5,10 @@
 #include "backend.h"
 #include "drm.h"
 
+#ifdef ENABLE_WAYLAND_BACKEND
+#  include "wayland.h"
+#endif
+
 #ifdef ENABLE_X11_BACKEND
 #  include "x11.h"
 #endif
@@ -68,6 +72,9 @@ wlc_backend(struct wlc_backend *backend)
    memset(backend, 0, sizeof(struct wlc_backend));
 
    bool (*init[])(struct wlc_backend*) = {
+#ifdef ENABLE_WAYLAND_BACKEND
+      wlc_wayland,
+#endif
 #ifdef ENABLE_X11_BACKEND
       wlc_x11,
 #endif
@@ -76,6 +83,9 @@ wlc_backend(struct wlc_backend *backend)
    };
 
    enum wlc_backend_type types[] = {
+#ifdef ENABLE_WAYLAND_BACKEND
+      WLC_BACKEND_WAYLAND,
+#endif
 #ifdef ENABLE_X11_BACKEND
       WLC_BACKEND_X11,
 #endif

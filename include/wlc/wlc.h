@@ -29,6 +29,7 @@ enum wlc_backend_type {
    WLC_BACKEND_NONE,
    WLC_BACKEND_DRM,
    WLC_BACKEND_X11,
+   WLC_BACKEND_WAYLAND,
 };
 
 /** mask in wlc_event_loop_add_fd(); */
@@ -217,8 +218,8 @@ void wlc_set_view_render_post_cb(void (*cb)(wlc_handle view));
 /** View properties (title, class, app_id) was updated */
 void wlc_set_view_properties_updated_cb(void (*cb)(wlc_handle view, uint32_t mask));
 
-/** 
-* View requested to be minimized. Return true if you allow the request, false if not. 
+/**
+* View requested to be minimized. Return true if you allow the request, false if not.
 * Actual minimization is compositor dependent.
 */
 void wlc_set_view_minimized_cb(bool (*cb)(wlc_handle view, bool minimized));
