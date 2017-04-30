@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-#include <wlc/defines.h>
-#include <wlc/geometry.h>
-#include <wlc/wlc-wayland.h>
+#include "defines.h"
+#include "geometry.h"
+#include "wlc-wayland.h"
 
 /**
  * The functions in this file provide some basic rendering capabilities.

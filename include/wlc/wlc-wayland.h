@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-#include <wlc/defines.h>
-#include <wlc/geometry.h>
+#include "defines.h"
+#include "geometry.h"
 #include <wayland-server.h>
 
 typedef uintptr_t wlc_resource;
