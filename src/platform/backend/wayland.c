@@ -519,7 +519,7 @@ update_outputs(struct chck_pool *outputs)
       surface.shell_surface = wl_shell_get_shell_surface(wayland.shell, surface.surface);
 
       wl_shell_surface_add_listener(surface.shell_surface, &shell_surface_listener, &surface);
-      wl_shell_surface_set_title(surface.shell_surface, "sway-wayland");
+      wl_shell_surface_set_title(surface.shell_surface, "wlc-wayland");
       wl_shell_surface_set_toplevel(surface.shell_surface);
 
       surface.egl_window = wl_egl_window_create(surface.surface, 800, 480);
