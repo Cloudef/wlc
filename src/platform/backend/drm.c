@@ -580,7 +580,7 @@ update_outputs(struct chck_pool *outputs)
       if (drm.use_egldevice && !set_crtc_default_mode(info))
          continue;
 
-      struct gbm_surface *surface;
+      struct gbm_surface *surface = NULL;
       if (!drm.use_egldevice && !(surface = gbm_surface_create(drm.device, info->width, info->height, GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)))
          continue;
 
