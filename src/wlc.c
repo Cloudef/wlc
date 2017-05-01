@@ -360,9 +360,6 @@ wlc_init(void)
    if (!(socket_name = wl_display_add_socket_auto(wlc.display)))
       die("Failed to add socket to wayland display");
 
-   if (socket_name) // shut up static analyze
-      setenv("WAYLAND_DISPLAY", socket_name, true);
-
    if (wl_display_init_shm(wlc.display) != 0)
       die("Failed to init shm");
 
@@ -377,6 +374,11 @@ wlc_init(void)
 
    if (!wlc_compositor(&wlc.compositor))
       die("Failed to init compositor");
+
+   // This must be done after wlc_compositor() so the Wayland backend
+   // can start successfully without trying to connect to itself.
+   if (socket_name) // shut up static analyze
+      setenv("WAYLAND_DISPLAY", socket_name, true);
 
    return true;
 }
@@ -549,7 +551,7 @@ wlc_set_input_destroyed_cb(void (*cb)(struct libinput_device *device))
    wlc.interface.input.destroyed = cb;
 }
 
-WLC_API void 
+WLC_API void
 wlc_set_view_minimized_cb(bool (*cb)(wlc_handle view, bool minimized))
 {
    wlc.interface.view.request.minimize = cb;

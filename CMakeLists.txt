@@ -24,7 +24,7 @@ include(test)
 
 # Options
 OPTION(WLC_X11_SUPPORT "Build X11 backend and XWayland support" ON)
-OPTION(WLC_WAYLAND_BACKEND_SUPPORT "Build Wayland backend" OFF)
+OPTION(WLC_WAYLAND_BACKEND_SUPPORT "Build Wayland backend" ON)
 OPTION(WLC_BUILD_STATIC "Build wlc as static library" OFF)
 OPTION(WLC_BUILD_EXAMPLES "Build wlc examples" ON)
 OPTION(WLC_BUILD_TESTS "Build wlc tests" ON)
