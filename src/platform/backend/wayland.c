@@ -561,6 +561,9 @@ terminate(void)
 bool
 wlc_wayland(struct wlc_backend *backend)
 {
+   if (!getenv("WAYLAND_DISPLAY") && !getenv("WAYLAND_SOCKET"))
+      return false;
+
    wayland.backend = backend;
 
    if (!(wayland.display = wl_display_connect(NULL)))
