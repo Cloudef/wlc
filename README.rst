@@ -1,11 +1,5 @@
-.. |build| image:: http://build.cloudef.pw/build/wlc/master/linux%20x86_64/current/status.svg
-.. _build: http://build.cloudef.pw/build/wlc/master/linux%20x86_64
-
-:IRC: #orbment @ freenode
-:Build: |build|_
-
-**Project is in low-maintenance mode and will be abadoned in future.
-Consider forking if you want to keep using the codebase.**
+**See official fork of the project here:**
+https://github.com/Enerccio/wlc
 
 FEATURES
 --------
