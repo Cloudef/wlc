@@ -1,5 +1,5 @@
-**See official fork of the project here:**
-https://github.com/Enerccio/wlc
+**See fork of the project here:**
+https://github.com/Enerccio/ewlc
 
 FEATURES
 --------
