@@ -159,6 +159,13 @@ struct wlc_modifiers {
    uint32_t leds, mods;
 };
 
+/** Dispaly mode settings **/
+struct wlc_output_mode {
+   int32_t refresh;
+   int32_t width, height;
+   uint32_t flags; // WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED
+};
+
 /** -- Callbacks API */
 
 /** Output was created. Return false if you want to destroy the output. (e.g. failed to allocate data related to view) */
@@ -363,6 +370,15 @@ bool wlc_output_set_views(wlc_handle output, const wlc_handle *views, size_t mem
 
 /** Focus output. Pass zero for no focus. */
 void wlc_output_focus(wlc_handle output);
+
+/** Get output modes */
+const struct wlc_output_mode* wlc_output_get_modes(wlc_handle output, size_t *out_memb);
+
+/**
+ * Set output modes. Returns false on failure.
+ * The parameter mode_index is the index of the results retrieved from wlc_output_get_modes.
+ */
+bool wlc_output_set_mode(wlc_handle output, uint32_t mode_index);
 
 /** -- View API */
 

@@ -299,6 +299,30 @@ pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_point *positio
    return (compositor.action.view ? true : false);
 }
 
+static bool
+output_created(wlc_handle output)
+{
+   const char *name = wlc_output_get_name(output);
+
+   size_t nmodes;
+   const struct wlc_output_mode *modes = wlc_output_get_modes(output, &nmodes);
+   printf("Output %s created, %zu modes found:\n", name, nmodes);
+
+   for (size_t i = 0; i < nmodes; i++) {
+      printf("mode %zu: %ux%u@%u\n", i, modes[i].width, modes[i].height, modes[i].refresh);
+   }
+   if (!strcmp(name, "LVDS-1")) {
+      size_t idx = (size_t)-1;
+      for (idx = 0; idx < nmodes; idx++) {
+         if (modes[idx].width == 1366)
+            break;
+      }
+      printf("Setting mode to %ux%u\n", modes[idx].width, modes[idx].height);
+      wlc_output_set_mode(output, idx);
+   }
+   return true;
+}
+
 static void
 cb_log(enum wlc_log_type type, const char *str)
 {
@@ -312,6 +336,7 @@ main(void)
    wlc_log_set_handler(cb_log);
 
    wlc_set_output_resolution_cb(output_resolution);
+   wlc_set_output_created_cb(output_created);
    wlc_set_view_created_cb(view_created);
    wlc_set_view_destroyed_cb(view_destroyed);
    wlc_set_view_focus_cb(view_focus);

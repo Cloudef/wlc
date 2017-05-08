@@ -21,12 +21,6 @@ enum output_link {
    LINK_ABOVE,
 };
 
-struct wlc_output_mode {
-   int32_t refresh;
-   int32_t width, height;
-   uint32_t flags; // WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED
-};
-
 struct wlc_output_information {
    struct chck_iter_pool modes;
    struct chck_string name, make, model;
@@ -112,6 +106,7 @@ void wlc_output_set_mask_ptr(struct wlc_output *output, uint32_t mask);
 WLC_NONULLV(2) void wlc_output_get_pixels_ptr(struct wlc_output *output, bool (*pixels)(const struct wlc_size *size, uint8_t *rgba, void *arg), void *arg);
 bool wlc_output_set_views_ptr(struct wlc_output *output, const wlc_handle *views, size_t memb);
 const wlc_handle* wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb);
+const wlc_handle* wlc_output_get_modes_ptr(struct wlc_output *output, size_t *out_memb);
 wlc_handle* wlc_output_get_mutable_views_ptr(struct wlc_output *output, size_t *out_memb);
 
 /** for wlc-render.h */
