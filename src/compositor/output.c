@@ -606,14 +606,12 @@ wlc_output_update_mode(struct wlc_output *output)
 
    bool set_resolution = false;
 
-   {
-      struct wlc_output_mode *mode;
-      except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
-      wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
-      output->mode = (struct wlc_size){ mode->width, mode->height };
-      mode->flags |= WL_OUTPUT_MODE_CURRENT;
-      set_resolution = wlc_output_set_resolution_ptr(output, &output->mode, output->scale);
-   }
+   struct wlc_output_mode *mode;
+   except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
+   wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
+   output->mode = (struct wlc_size){ mode->width, mode->height };
+   mode->flags |= WL_OUTPUT_MODE_CURRENT;
+   set_resolution = wlc_output_set_resolution_ptr(output, &output->mode, output->scale);
 
    if (!set_resolution)
       output_push_to_resources(output);
