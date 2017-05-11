@@ -27,6 +27,7 @@ struct wlc_render_api {
    WLC_NONULL void (*pointer_paint)(struct ctx *render, const struct wlc_point *pos);
    WLC_NONULL void (*read_pixels)(struct ctx *render, enum wlc_pixel_format format, const struct wlc_geometry *geometry, struct wlc_geometry *out_geometry, void *out_data);
    WLC_NONULL void (*write_pixels)(struct ctx *render, enum wlc_pixel_format format, const struct wlc_geometry *geometry, const void *data);
+   WLC_NONULL uint32_t (*get_pointer)(struct ctx *render, struct wlc_size *size, enum wlc_surface_format *out_format);
    WLC_NONULL void (*flush_fakefb)(struct ctx *render);
    WLC_NONULL void (*clear)(struct ctx *render);
 };
@@ -46,6 +47,7 @@ WLC_NONULL void wlc_render_read_pixels(struct wlc_render *render, struct wlc_con
 WLC_NONULL void wlc_render_write_pixels(struct wlc_render *render, struct wlc_context *bound, enum wlc_pixel_format format, const struct wlc_geometry *geometry, const void *data);
 WLC_NONULL void wlc_render_flush_fakefb(struct wlc_render *render, struct wlc_context *bound); // only relevant to GLES2
 WLC_NONULL void wlc_render_clear(struct wlc_render *render, struct wlc_context *bound);
+WLC_NONULL uint32_t wlc_render_get_pointer_texture(struct wlc_render *render, struct wlc_size *size, enum wlc_surface_format *out_format);
 void wlc_render_release(struct wlc_render *render, struct wlc_context *context);
 WLC_NONULL bool wlc_render(struct wlc_render *render, struct wlc_context *context);
 

@@ -1,10 +1,25 @@
 #include "internal.h"
 #include "visibility.h"
+#include "macros.h"
 #include "resources/types/surface.h"
 #include "compositor/output.h"
 #include "compositor/view.h"
+#include "compositor/compositor.h"
+#include "compositor/seat/seat.h"
+#include "compositor/seat/pointer.h"
+#include "platform/context/context.h"
+#include "platform/context/egl.h"
 #include "platform/render/render.h"
 #include <wlc/wlc-render.h>
+
+static struct wlc_output*
+active_output(struct wlc_pointer *pointer)
+{
+   struct wlc_seat *seat;
+   struct wlc_compositor *compositor;
+   except((seat = wl_container_of(pointer, seat, pointer)) && (compositor = wl_container_of(seat, compositor, seat)));
+   return convert_from_wlc_handle(compositor->active.output, "output");
+}
 
 WLC_API void
 wlc_surface_render(wlc_resource surface, const struct wlc_geometry *geometry)
@@ -104,4 +119,52 @@ wlc_surface_flush_frame_callbacks(wlc_resource surface)
    struct wlc_view *v;
    if ((v = convert_from_wlc_handle(surf->parent_view, "view")))
       wlc_view_commit_state(v, &v->pending, &v->commit);
+}
+
+WLC_API bool 
+wlc_get_active_pointer(wlc_handle out, uint32_t out_textures[3], enum wlc_surface_format *out_format, struct wlc_point *tip, struct wlc_size *size) 
+{
+   out_textures[0] = 0;
+   *out_format = INVALID;
+   
+   struct wlc_output *output;
+   if (!(output = convert_from_wlc_handle(out, "output"))) {
+      return false;
+   }
+   
+   struct wlc_pointer *pointer = &wlc_get_compositor()->seat.pointer;
+   if (!pointer) {
+      return false;
+   }
+   
+   if (output != active_output(pointer)) {
+      return false;
+   }
+   
+   struct wlc_surface *surface;
+   if ((surface = convert_from_wlc_resource(pointer->surface, "surface"))) {
+      if (surface->output != convert_to_wlc_handle(output) && !wlc_surface_attach_to_output(surface, output, wlc_surface_get_buffer(surface))) {
+         // fallback
+         out_textures[0] = wlc_render_get_pointer_texture(&output->render, size, out_format);
+         tip->x = 0;
+         tip->y = 0;
+         return false;
+	  } else {
+         tip->x = pointer->tip.x;
+         tip->y = pointer->tip.y;
+         size->w = surface->size.w;
+         size->h = surface->size.h;
+         
+         memcpy(out_textures, surface->textures, 3 * sizeof(surface->textures[0]));
+         *out_format = surface->format;
+         
+         return true;
+     }
+   } else {
+      // fallback
+      out_textures[0] = wlc_render_get_pointer_texture(&output->render, size, out_format);
+      tip->x = 0;
+      tip->y = 0;
+      return false;
+   }
 }

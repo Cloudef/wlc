@@ -863,6 +863,18 @@ flush_fakefb(struct ctx *context)
    context->fakefb_dirty = false;
 }
 
+static uint32_t 
+get_pointer(struct ctx *context, struct wlc_size *size, enum wlc_surface_format *out_format)
+{
+   assert(context && out_format && size);
+   
+   size->w = 14;
+   size->h = 14;
+   *out_format = SURFACE_WLC_POINTER;
+   
+   return context->textures[TEXTURE_CURSOR];
+}
+
 static void
 clear(struct ctx *context)
 {
@@ -904,6 +916,7 @@ wlc_gles2(struct wlc_render_api *api)
    api->pointer_paint = pointer_paint;
    api->read_pixels = read_pixels;
    api->write_pixels = write_pixels;
+   api->get_pointer = get_pointer;
    api->flush_fakefb = flush_fakefb;
    api->clear = clear;
 

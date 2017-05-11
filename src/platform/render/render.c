@@ -104,6 +104,18 @@ wlc_render_flush_fakefb(struct wlc_render *render, struct wlc_context *bound)
    render->api.flush_fakefb(render->render);
 }
 
+uint32_t
+wlc_render_get_pointer_texture(struct wlc_render *render, struct wlc_size *size, enum wlc_surface_format *out_format)
+{
+   assert(render);
+   
+   if (render->api.pointer_paint) {
+      return render->api.get_pointer(render->render, size, out_format);
+   }
+   
+   return 0;
+}
+
 void
 wlc_render_clear(struct wlc_render *render, struct wlc_context *bound)
 {

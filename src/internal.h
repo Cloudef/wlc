@@ -373,6 +373,9 @@ struct wl_event_loop* wlc_event_loop(void);
 /** Pointer to the wayland display. */
 struct wl_display* wlc_display(void);
 
+/** Pointer to the wayland compositor. */
+struct wlc_compositor *wlc_get_compositor(void);
+
 /** Emit interface callback with variable arguments. */
 #define WLC_INTERFACE_EMIT(x, ...) { if (wlc_interface()->x) wlc_interface()->x(__VA_ARGS__); }
 

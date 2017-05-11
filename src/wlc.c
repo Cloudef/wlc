@@ -138,6 +138,12 @@ wlc_display(void)
    return wlc.display;
 }
 
+WLC_CONST struct wlc_compositor *
+wlc_get_compositor(void) 
+{
+   return &wlc.compositor;
+}
+
 static void
 compositor_event(struct wl_listener *listener, void *data)
 {
