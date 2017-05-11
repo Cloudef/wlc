@@ -9,10 +9,12 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include <chck/overflow/overflow.h>
+#include "visibility.h"
 #include "internal.h"
 #include "macros.h"
 #include "xwm.h"
 #include "xwayland.h"
+#include "xmotif.h"
 #include "compositor/compositor.h"
 #include "compositor/view.h"
 #include "resources/types/surface.h"
@@ -193,6 +195,8 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
    if (!(cookies = chck_calloc_of(nmemb, sizeof(xcb_get_property_cookie_t))))
       return;
 
+   wlc_view_set_type_ptr(view, WLC_BIT_X11, true);
+
    for (uint32_t i = 0; i < nmemb; ++i)
       cookies[i] = xcb_get_property(x11.connection, 0, win->id, props[i], XCB_ATOM_ANY, 0, 2048);
 
@@ -251,11 +255,14 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_POPUP_MENU] ||
                   atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_COMBO]) {
                wlc_view_set_type_ptr(view, WLC_BIT_UNMANAGED, true);
+               wlc_view_set_type_ptr(view, WLC_BIT_BORDERLESS, true);
             }
             if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_DIALOG])
                wlc_view_set_type_ptr(view, WLC_BIT_MODAL, true);
-            if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH])
+            if (atoms[i] == x11.atoms[NET_WM_WINDOW_TYPE_SPLASH]) {
                wlc_view_set_type_ptr(view, WLC_BIT_SPLASH, true);
+               wlc_view_set_type_ptr(view, WLC_BIT_UNMANAGED, true);
+            }
          }
          wlc_dlog(WLC_DBG_XWM, "NET_WM_WINDOW_TYPE: %u", view->type);
       } else if (props[i] == x11.atoms[WM_PROTOCOLS]) {
@@ -272,6 +279,16 @@ read_properties(struct wlc_xwm *xwm, struct wlc_x11_window *win, const xcb_atom_
          wlc_dlog(WLC_DBG_XWM, "NET_WM_STATE");
       } else if (props[i] == x11.atoms[MOTIF_WM_HINTS]) {
          // Motif hints
+         if (reply->length == 5) {
+            MotifWmHints* hints = (MotifWmHints*)xcb_get_property_value(reply);
+            if (hints->flags & MWM_HINTS_DECORATIONS) {
+               // decorations are specified
+               if ( !(hints->decorations & (MWM_DECOR_ALL | MWM_DECOR_TITLE)) ) {
+                   // Window with no (usable) decorations
+                   wlc_view_set_type_ptr(view, WLC_BIT_BORDERLESS, true);
+               }
+            }
+         }
          wlc_dlog(WLC_DBG_XWM, "MOTIF_WM_HINTS");
       }
 
@@ -374,7 +391,10 @@ link_surface(struct wlc_xwm *xwm, struct wlc_x11_window *win, struct wl_resource
    wlc_dlog(WLC_DBG_XWM, "-> Paired collisions (%u)", chck_hash_table_collisions(&xwm->paired));
 
    view->x11.paired = true;
-   wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, view->x11.override_redirect);
+   if (view->x11.override_redirect) {
+      wlc_view_set_type_ptr(view, WLC_BIT_OVERRIDE_REDIRECT, true);
+      wlc_view_set_type_ptr(view, WLC_BIT_BORDERLESS, true);
+   }
    get_properties(xwm, &view->x11);
 
    if (!wlc_geometry_equals(&geometry, &wlc_geometry_zero))
@@ -416,8 +436,8 @@ focus_window(xcb_window_t window, bool force)
    x11.focus = window;
 }
 
-static void
-delete_window(xcb_window_t window)
+WLC_API void
+wlc_x11_window_delete(xcb_window_t window)
 {
    xcb_client_message_event_t ev = {0};
    ev.response_type = XCB_CLIENT_MESSAGE;
@@ -429,6 +449,13 @@ delete_window(xcb_window_t window)
    ev.data.data32[1] = XCB_CURRENT_TIME;
    XCB_CALL(xcb_send_event_checked(x11.connection, 0, window, XCB_EVENT_MASK_NO_EVENT, (char*)&ev));
 }
+
+WLC_API void
+wlc_x11_window_kill(xcb_window_t window)
+{
+   XCB_CALL(xcb_kill_client_checked(x11.connection, window));
+}
+
 
 static WLC_PURE enum wlc_surface_format
 wlc_x11_window_get_surface_format(struct wlc_x11_window *win)
@@ -452,9 +479,9 @@ wlc_x11_window_close(struct wlc_x11_window *win)
       return;
 
    if (win->has_delete_window) {
-      delete_window(win->id);
+      wlc_x11_window_delete(win->id);
    } else {
-      XCB_CALL(xcb_kill_client_checked(x11.connection, win->id));
+      wlc_x11_window_kill(win->id);
    }
 
    xcb_flush(x11.connection);
