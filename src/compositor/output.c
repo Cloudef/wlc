@@ -364,10 +364,13 @@ repaint(struct wlc_output *output)
    struct wlc_render_event ev = { .output = output, .type = WLC_RENDER_EVENT_POINTER };
    wl_signal_emit(&wlc_system_signals()->render, &ev);
 
+   WLC_INTERFACE_EMIT(output.render.pre_swap, convert_to_wlc_handle(output));
    rendering_output = NULL;
 
    output->state.pending = true;
    wlc_context_swap(&output->context, &output->bsurface);
+
+   WLC_INTERFACE_EMIT(output.render.post_swap, convert_to_wlc_handle(output));
 
    {
       wlc_resource *r;

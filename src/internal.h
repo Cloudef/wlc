@@ -44,6 +44,12 @@ struct wlc_interface {
 
          /** Post render hook. */
          void (*post)(wlc_handle output);
+
+         /** Pre swap. */
+         void (*pre_swap)(wlc_handle output);
+
+         /** Post swap. */
+         void (*post_swap)(wlc_handle output);
       } render;
    } output;
 

@@ -179,6 +179,12 @@ void wlc_set_output_render_pre_cb(void (*cb)(wlc_handle output));
 /** Output post render hook. */
 void wlc_set_output_render_post_cb(void (*cb)(wlc_handle output));
 
+/** Output pre swap render hook */
+void wlc_set_output_render_pre_swap_cb(void (*cb)(wlc_handle output));
+
+/** Output post swap render hook */
+void wlc_set_output_render_post_swap_cb(void (*cb)(wlc_handle output));
+
 /** Output context is created. This generally happens on startup and when current tty changes */
 void wlc_set_output_context_created_cb(void (*cb)(wlc_handle output));
 

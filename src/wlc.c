@@ -420,6 +420,18 @@ wlc_set_output_render_post_cb(void (*cb)(wlc_handle output))
 }
 
 WLC_API void
+wlc_set_output_render_pre_swap_cb(void (*cb)(wlc_handle output))
+{
+   wlc.interface.output.render.pre_swap = cb;
+}
+
+WLC_API void
+wlc_set_output_render_post_swap_cb(void (*cb)(wlc_handle output))
+{
+   wlc.interface.output.render.post_swap = cb;
+}
+
+WLC_API void
 wlc_set_output_context_created_cb(void (*cb)(wlc_handle output))
 {
    wlc.interface.output.context.created = cb;
