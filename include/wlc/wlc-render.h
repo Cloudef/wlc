@@ -53,6 +53,11 @@ void wlc_output_schedule_render(wlc_handle output);
  */
 void wlc_surface_flush_frame_callbacks(wlc_resource surface);
 
+/**
+ * Same as wlc_surface_flush_frame_callbacks, but you specify the output
+ */
+void wlc_surface_flush_frame_callbacks_for_output(wlc_resource surface, wlc_handle output);
+
 /** Enabled renderers */
 enum wlc_renderer {
     WLC_RENDERER_GLES2,
@@ -77,6 +82,12 @@ enum wlc_surface_format {
  * Note that these are not only OpenGL textures but rather render-specific.
  * For more info what they are check the renderer's source code */
 bool wlc_surface_get_textures(wlc_resource surface, uint32_t out_textures[3], enum wlc_surface_format *out_format);
+
+/** 
+ * Attaches surface to the output, returns false on failure.
+ * If force is true, it will force attach to output, otherwise, if surface is already attached,
+ * it will not be attached again. */
+bool wlc_output_attach_surface(wlc_handle output, wlc_resource surface, bool force);
 
 #ifdef __cplusplus
 }

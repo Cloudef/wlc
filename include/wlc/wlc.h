@@ -173,6 +173,9 @@ void wlc_set_output_focus_cb(void (*cb)(wlc_handle output, bool focus));
 /** Output resolution changed. */
 void wlc_set_output_resolution_cb(void (*cb)(wlc_handle output, const struct wlc_size *from, const struct wlc_size *to));
 
+/** Output repaint callback. Return true to cancel internal wlc repaint. */
+void wlc_set_output_repaint_cb(bool (*cb)(wlc_handle output));
+
 /** Output pre render hook. */
 void wlc_set_output_render_pre_cb(void (*cb)(wlc_handle output));
 
@@ -508,6 +511,9 @@ void wlc_pointer_get_position(struct wlc_point *out_position);
 
 /** Set current pointer position. */
 void wlc_pointer_set_position(const struct wlc_point *position);
+
+/** Get current pointer tip */
+void wlc_pointer_get_tip(struct wlc_point *position);
 
 #ifdef __cplusplus
 }

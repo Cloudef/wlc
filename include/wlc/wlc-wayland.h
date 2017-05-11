@@ -54,6 +54,9 @@ struct wl_client* wlc_view_get_wl_client(wlc_handle view);
 /** Returns surface role resource from view handle. Return value will be NULL if the view was not assigned role or created with wlc_view_create_from_surface(). */
 struct wl_resource* wlc_view_get_role(wlc_handle view);
 
+/** Returns surface containing pointer */
+wlc_resource wlc_get_pointer_surface(void);
+
 #ifdef __cplusplus
 }
 #endif

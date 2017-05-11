@@ -9,7 +9,7 @@
 #include <wayland-server.h>
 #include "resources/resources.h"
 
-#if __GNUC__
+#if __GNUC__ 
 #  define WLC_LOG_ATTR(x, y) __attribute__((format(printf, x, y)))
 #else
 #  define WLC_LOG_ATTR(x, y)
@@ -44,6 +44,9 @@ struct wlc_interface {
 
          /** Post render hook. */
          void (*post)(wlc_handle output);
+         
+         /** Repaint hook */
+         bool (*repaint)(wlc_handle output);
       } render;
    } output;
 
@@ -372,6 +375,9 @@ struct wl_event_loop* wlc_event_loop(void);
 
 /** Pointer to the wayland display. */
 struct wl_display* wlc_display(void);
+
+/** Pointer to the wayland compositor. */
+struct wlc_compositor *wlc_get_compositor(void);
 
 /** Emit interface callback with variable arguments. */
 #define WLC_INTERFACE_EMIT(x, ...) { if (wlc_interface()->x) wlc_interface()->x(__VA_ARGS__); }

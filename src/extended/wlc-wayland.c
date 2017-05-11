@@ -1,6 +1,7 @@
 #include "internal.h"
 #include "visibility.h"
 #include "resources/types/surface.h"
+#include "compositor/compositor.h"
 #include "compositor/output.h"
 #include "compositor/view.h"
 #include <wlc/wlc-wayland.h>
@@ -85,4 +86,13 @@ WLC_API struct wl_client*
 wlc_view_get_wl_client(wlc_handle view)
 {
    return wlc_view_get_client_ptr(convert_from_wlc_handle(view, "view"));
+}
+
+WLC_API wlc_resource 
+wlc_get_pointer_surface(void) 
+{   
+   struct wlc_pointer *pointer = &wlc_get_compositor()->seat.pointer;
+   struct wlc_surface *surface = convert_from_wlc_resource(pointer->surface, "surface");
+   
+   return convert_to_wlc_resource(surface);
 }

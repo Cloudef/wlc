@@ -5,6 +5,8 @@
 #include "internal.h"
 #include "visibility.h"
 #include "compositor/compositor.h"
+#include "compositor/seat/seat.h"
+#include "compositor/seat/pointer.h"
 #include "session/tty.h"
 #include "session/fd.h"
 #include "session/udev.h"
@@ -136,6 +138,12 @@ WLC_PURE struct wl_display*
 wlc_display(void)
 {
    return wlc.display;
+}
+
+WLC_CONST struct wlc_compositor *
+wlc_get_compositor(void) 
+{
+   return &wlc.compositor;
 }
 
 static void
@@ -383,6 +391,12 @@ wlc_init(void)
    return true;
 }
 
+WLC_API void 
+wlc_pointer_get_tip(struct wlc_point *position)
+{
+   *position = wlc.compositor.seat.pointer.tip;
+}
+
 WLC_API void
 wlc_set_output_created_cb(bool (*cb)(wlc_handle output))
 {
@@ -405,6 +419,12 @@ WLC_API void
 wlc_set_output_resolution_cb(void (*cb)(wlc_handle output, const struct wlc_size *from, const struct wlc_size *to))
 {
    wlc.interface.output.resolution = cb;
+}
+
+WLC_API void 
+wlc_set_output_repaint_cb(bool (*cb)(wlc_handle output))
+{
+   wlc.interface.output.render.repaint = cb;
 }
 
 WLC_API void
