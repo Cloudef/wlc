@@ -138,6 +138,34 @@ target_link_libraries(wlc
    ${libs}
    )
 
+if (DBUS_FOUND)
+  target_link_libraries(wlc
+    PRIVATE
+    ${DBUS_LIBRARIES}
+    )
+endif()
+
+if (SYSTEMD_FOUND)
+  target_link_libraries(wlc
+    PRIVATE
+    ${SYSTEMD_LIBRARIES}
+    )
+endif()
+
+if (DRM_FOUND)
+  target_link_libraries(wlc
+    PRIVATE
+    ${DRM_LIBRARIES}
+    )
+endif()
+
+if (X11_FOUND)
+  target_link_libraries(wlc
+    PRIVATE
+    ${X11_LIBRARIES}
+    )
+endif()
+
 # Combine wlc-tests for tests, it's static so it has all symbols visible
 add_library(wlc-tests STATIC $<TARGET_OBJECTS:wlc-object>)
 target_link_libraries(wlc-tests
