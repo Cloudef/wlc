@@ -1,6 +1,3 @@
-**See fork of the project here:**
-https://github.com/Enerccio/ewlc
-
 FEATURES
 --------
 
@@ -200,6 +197,7 @@ SOFTWARE USING WLC
 SIMILAR SOFTWARE
 ----------------
 
+- `ewlc <https://github.com/Enerccio/ewlc>`_ - A separately maintained fork of wlc
 - `swc <https://github.com/michaelforney/swc>`_ - A library for making a simple Wayland compositor
 - `libwlb <https://github.com/jekstrand/libwlb>`_ - A Wayland back-end library
 - `libweston <https://github.com/giucam/weston/tree/libweston>`_ - Weston as a library
