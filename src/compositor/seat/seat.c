@@ -207,7 +207,14 @@ input_event(struct wl_listener *listener, void *data)
             pos.y = ev->touch.y(ev->touch.internal, resolution.h);
          }
 
-         const bool handled = (wlc_interface()->touch.touch ? wlc_interface()->touch.touch(seat->pointer.focused.view, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos) : false);
+         wlc_handle focused;
+         if ((ev->touch.type == WLC_TOUCH_DOWN) && (ev->touch.slot == 0)) {
+            focused = view_under_touch(&seat->touch, &pos);
+         } else {
+            focused = seat->touch.focus;
+         }
+
+         const bool handled = (wlc_interface()->touch.touch ? wlc_interface()->touch.touch(focused, ev->time, &seat->keyboard.modifiers, ev->touch.type, ev->touch.slot, &pos) : false);
 
          if (ev->touch.type == WLC_TOUCH_MOTION || ev->touch.type == WLC_TOUCH_DOWN)
             wlc_pointer_motion(&seat->pointer, ev->time, !handled);
