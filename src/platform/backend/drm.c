@@ -212,6 +212,8 @@ page_flip(struct wlc_backend_surface *bsurface)
    if (fb->stride != dsurface->stride) {
       if (drmModeSetCrtc(drm.fd, dsurface->crtc->crtc_id, fb->fd, 0, 0, &dsurface->connector->connector_id, 1, &dsurface->connector->modes[o->active.mode]))
          goto set_crtc_fail;
+	  // Remove hardware cursor (fixes gdm issues)
+	  drmModeSetCursor(drm.fd, dsurface->crtc->crtc_id, 0, 0, 0);
 
       dsurface->stride = fb->stride;
    }
