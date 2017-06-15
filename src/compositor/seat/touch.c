@@ -26,13 +26,16 @@ view_visible(struct wlc_view *view, uint32_t mask)
    return (view->mask & mask);
 }
 
-static struct wlc_view*
-view_under_touch(const struct wlc_point *pos, struct wlc_output *output)
+wlc_handle
+view_under_touch(struct wlc_touch *touch, const struct wlc_point *pos)
 {
    assert(pos);
+   struct wlc_output *output = active_output(touch);
 
-   if (!output)
-      return NULL;
+   if (!output) {
+      touch->focus = 0;
+      return 0;
+   }
 
    wlc_handle *h;
    chck_iter_pool_for_each_reverse(&output->views, h) {
@@ -44,11 +47,13 @@ view_under_touch(const struct wlc_point *pos, struct wlc_output *output)
       wlc_view_get_bounds(view, &b, NULL);
       if (pos->x >= b.origin.x && pos->x <= b.origin.x + (int32_t)b.size.w &&
           pos->y >= b.origin.y && pos->y <= b.origin.y + (int32_t)b.size.h) {
-         return view;
+         touch->focus = *h;
+         return touch->focus;
       }
    }
 
-   return NULL;
+   touch->focus = 0;
+   return 0;
 }
 
 void
@@ -56,8 +61,8 @@ wlc_touch_touch(struct wlc_touch *touch, uint32_t time, enum wlc_touch_type type
 {
    assert(touch);
 
-   struct wlc_view *focused;
-   if (!(focused = view_under_touch(pos, active_output(touch))))
+   struct wlc_view *focused = convert_from_wlc_handle(touch->focus, "view");
+   if (focused == NULL)
       return;
 
    struct wl_client *client;
