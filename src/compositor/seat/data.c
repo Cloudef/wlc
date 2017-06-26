@@ -17,7 +17,7 @@ wl_cb_data_offer_accept(struct wl_client *client, struct wl_resource *resource, 
 {
    (void)client, (void)serial;
 
-   struct wlc_data_source* source;
+   struct wlc_data_source *source;
    if (!(source = (struct wlc_data_source*)wl_resource_get_user_data(resource)))
       return;
 
@@ -29,7 +29,7 @@ wl_cb_data_offer_receive(struct wl_client *client, struct wl_resource *resource,
 {
    (void)client;
 
-   struct wlc_data_source* source;
+   struct wlc_data_source *source;
    if (!(source = (struct wlc_data_source*)wl_resource_get_user_data(resource)))
       return;
 
@@ -239,7 +239,7 @@ fail:
 
 struct custom_data_source {
    struct wlc_data_source source;
-   void* data;
+   void *data;
    void (*send)(void *data, const char *type, int fd);
 };
 
