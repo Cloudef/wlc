@@ -14,8 +14,9 @@ wlc_data_source_release(struct wlc_data_source *source)
 }
 
 bool
-wlc_data_source(struct wlc_data_source *source)
+wlc_data_source(struct wlc_data_source *source, const struct wlc_data_source_impl *impl)
 {
    assert(source);
+   source->impl = impl;
    return chck_iter_pool(&source->types, 32, 0, sizeof(struct chck_string));
 }

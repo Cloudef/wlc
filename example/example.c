@@ -3,6 +3,7 @@
 #include <wlc/wlc.h>
 #include <chck/math/math.h>
 #include <linux/input.h>
+#include <unistd.h>
 
 static struct {
    struct {
@@ -78,12 +79,12 @@ relayout(wlc_handle output)
 
    size_t memb;
    const wlc_handle *views = wlc_output_get_views(output, &memb);
-   
+
    size_t positioned = 0;
    for (size_t i = 0; i < memb; ++i)
       if (wlc_view_positioner_get_anchor_rect(views[i]) == NULL)
          positioned ++;
-   
+
    bool toggle = false;
    uint32_t y = 0;
    const uint32_t n = chck_maxu32((1 + positioned) / 2, 1);
@@ -196,7 +197,7 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
          return true;
       }
    }
-   
+
    if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_Escape) {
       if (state == WLC_KEY_STATE_PRESSED) {
          wlc_terminate();
@@ -300,6 +301,15 @@ pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_point *positio
 }
 
 static void
+cb_data_source(void *data, const char *type, int fd)
+{
+   ((void) type);
+   const char *str = data;
+   write(fd, str, strlen(str));
+   close(fd);
+}
+
+static void
 cb_log(enum wlc_log_type type, const char *str)
 {
    (void)type;
@@ -324,6 +334,9 @@ main(void)
 
    if (!wlc_init())
       return EXIT_FAILURE;
+
+   const char *type = "text/plain;charset=utf-8";
+   wlc_set_selection("wlc", &type, 1, &cb_data_source);
 
    wlc_run();
    return EXIT_SUCCESS;

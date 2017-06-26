@@ -346,6 +346,7 @@ wlc_init(void)
    wl_signal_init(&wlc.signals.surface);
    wl_signal_init(&wlc.signals.input);
    wl_signal_init(&wlc.signals.output);
+   wl_signal_init(&wlc.signals.selection);
    wl_signal_init(&wlc.signals.render);
    wl_signal_init(&wlc.signals.xwayland);
    wl_signal_add(&wlc.signals.compositor, &compositor_listener);
@@ -555,4 +556,10 @@ WLC_API void
 wlc_set_view_minimized_cb(bool (*cb)(wlc_handle view, bool minimized))
 {
    wlc.interface.view.request.minimize = cb;
+}
+
+WLC_API void
+wlc_set_selection(void *data, const char *const *types, size_t types_count, void (*send)(void *data, const char *type, int fd))
+{
+   wlc_data_device_manager_set_custom_selection(&wlc.compositor.seat.manager, data, types, types_count, send);
 }

@@ -509,6 +509,10 @@ void wlc_pointer_get_position(struct wlc_point *out_position);
 /** Set current pointer position. */
 void wlc_pointer_set_position(const struct wlc_point *position);
 
+/** Set current default selection source.
+ *  The given callback shall send the data for the requested types over the fd and close it then */
+void wlc_set_selection(void *data, const char *const *types, size_t types_count, void (*send)(void *data, const char *type, int fd));
+
 #ifdef __cplusplus
 }
 #endif
