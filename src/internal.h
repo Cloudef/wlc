@@ -72,7 +72,7 @@ struct wlc_interface {
 
          /** Request to resize itself with the given edges. Start a interactive resize to agree. */
          WLC_NONULL void (*resize)(wlc_handle view, uint32_t edges, const struct wlc_point*);
-         
+
          /** Request to be minimized */
          bool (*minimize)(wlc_handle view, bool minimized);
       } request;
@@ -320,6 +320,7 @@ struct wlc_system_signals {
    struct wl_signal surface;   // data: struct wlc_surface_event (compositor/compositor.c, shell/shell.c, shell/xdg-shell.c, resources/types/surface.c)
    struct wl_signal input;     // data: struct wlc_input_event (session/udev.c, backend/x11.c)
    struct wl_signal output;    // data: struct wlc_output_event (backend/x11.c, backend/drm.c, session/udev.c)
+   struct wl_signal selection; // data: struct wlc_data_source  (compositor/seat/data.c)
    struct wl_signal render;    // data: struct wlc_render (compositor/output.c)
    struct wl_signal xwayland;  // data: bool <false/true> (xwayland/xwayland.c)
 };

@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <wayland-server.h>
 #include <chck/string/string.h>
+#include "visibility.h"
+#include "macros.h"
 #include "internal.h"
 #include "macros.h"
 #include "data.h"
@@ -15,11 +17,11 @@ wl_cb_data_offer_accept(struct wl_client *client, struct wl_resource *resource, 
 {
    (void)client, (void)serial;
 
-   wlc_resource source;
-   if (!(source = (wlc_resource)wl_resource_get_user_data(resource)))
+   struct wlc_data_source* source;
+   if (!(source = (struct wlc_data_source*)wl_resource_get_user_data(resource)))
       return;
 
-   wl_data_source_send_target(wl_resource_from_wlc_resource(source, "data-source"), type);
+   source->impl->accept(source, type);
 }
 
 static void
@@ -27,18 +29,43 @@ wl_cb_data_offer_receive(struct wl_client *client, struct wl_resource *resource,
 {
    (void)client;
 
-   wlc_resource source;
-   if (!(source = (wlc_resource)wl_resource_get_user_data(resource)))
+   struct wlc_data_source* source;
+   if (!(source = (struct wlc_data_source*)wl_resource_get_user_data(resource)))
       return;
 
-   wl_data_source_send_send(wl_resource_from_wlc_resource(source, "data-source"), type, fd);
-   close(fd);
+   source->impl->send(source, type, fd);
 }
 
 static struct wl_data_offer_interface wl_data_offer_implementation = {
    .accept = wl_cb_data_offer_accept,
    .receive = wl_cb_data_offer_receive,
    .destroy = wlc_cb_resource_destructor
+};
+
+static void
+data_source_client_send(struct wlc_data_source *data_source, const char *type, int fd)
+{
+   struct wl_resource *res = convert_to_wl_resource(data_source, "data-source");
+   wl_data_source_send_send(res, type, fd);
+   close(fd);
+}
+
+static void
+data_source_client_accept(struct wlc_data_source *data_source, const char *type)
+{
+   wl_data_source_send_target(convert_to_wl_resource(data_source, "data-source"), type);
+}
+
+static void
+data_source_client_cancel(struct wlc_data_source *data_source)
+{
+   wl_data_source_send_cancelled(convert_to_wl_resource(data_source, "data-source"));
+}
+
+static struct wlc_data_source_impl data_source_client_impl = {
+   .accept = data_source_client_accept,
+   .send = data_source_client_send,
+   .cancel = data_source_client_cancel,
 };
 
 static void
@@ -73,6 +100,8 @@ wl_cb_manager_create_data_source(struct wl_client *client, struct wl_resource *r
    if (!(r = wlc_resource_create(&manager->sources, client, &wl_data_source_interface, wl_resource_get_version(resource), 2, id)))
       return;
 
+   struct wlc_data_source *source = convert_from_wlc_resource(r, "data-source");
+   source->impl = &data_source_client_impl;
    wlc_resource_implement(r, &wl_data_source_implementation, manager);
 }
 
@@ -92,14 +121,15 @@ wl_cb_data_device_set_selection(struct wl_client *client, struct wl_resource *re
    if (!(manager = wl_resource_get_user_data(resource)))
       return;
 
-   struct wl_resource *current = wl_resource_from_wlc_resource(manager->source, "data-source");
-   if (source_resource == current)
+   struct wlc_data_source *source = (struct wlc_data_source*) convert_from_wl_resource(source_resource, "data-source");
+   if (source == manager->source)
       return;
 
-   if (current)
-      wl_data_source_send_cancelled(current);
+   if (manager->source)
+      manager->source->impl->cancel(manager->source);
 
-   manager->source = wlc_resource_from_wl_resource(source_resource);
+   manager->source = source;
+   wl_signal_emit(&wlc_system_signals()->selection, manager->source);
    wlc_data_device_manager_offer(manager, client);
 }
 
@@ -147,7 +177,7 @@ wlc_data_device_manager_offer(struct wlc_data_device_manager *manager, struct wl
    if (!client || !(resource = wl_resource_for_client(&manager->devices, client)))
       return;
 
-   struct wlc_data_source *source = convert_from_wlc_resource(manager->source, "data-source");
+   struct wlc_data_source *source = manager->source;
 
    wlc_resource offer = 0;
    if (source && !(offer = wlc_resource_create(&manager->offers, client, &wl_data_offer_interface, wl_resource_get_version(resource), 2, 0)))
@@ -204,4 +234,56 @@ manager_interface_fail:
 fail:
    wlc_data_device_manager_release(manager);
    return false;
+}
+
+
+struct custom_data_source {
+   struct wlc_data_source source;
+   void* data;
+   void (*send)(void *data, const char *type, int fd);
+};
+
+static void custom_data_source_send(struct wlc_data_source *data_source, const char *type, int fd)
+{
+   struct custom_data_source *source = wl_container_of(data_source, source, source);
+   assert(source && source->send);
+   source->send(source->data, type, fd);
+}
+
+static void custom_data_source_accept(struct wlc_data_source *data_source, const char *type)
+{
+   ((void) type);
+   ((void) data_source);
+}
+
+static void custom_data_source_cancel(struct wlc_data_source *data_source)
+{
+   struct custom_data_source *source = wl_container_of(data_source, source, source);
+   wlc_data_source_release(data_source);
+   free(source);
+}
+
+static const struct wlc_data_source_impl custom_data_source_impl = {
+   .accept = &custom_data_source_accept,
+   .send = &custom_data_source_send,
+   .cancel = &custom_data_source_cancel
+};
+
+
+void wlc_data_device_manager_set_custom_selection(struct wlc_data_device_manager *manager, void *data,
+      const char *const *types, size_t types_count, void (*send)(void *data, const char *type, int fd))
+{
+   struct custom_data_source *source = calloc(1, sizeof(*source));
+   wlc_data_source(&source->source, &custom_data_source_impl);
+   source->data = data;
+   source->send = send;
+
+   for(size_t i = 0; i < types_count; ++i) {
+      struct chck_string *destination;
+      destination = chck_iter_pool_push_back(&source->source.types, NULL);
+      chck_string_set_cstr(destination, types[i], true);
+   }
+
+   manager->source = &source->source;
+   wl_signal_emit(&wlc_system_signals()->selection, source);
 }
