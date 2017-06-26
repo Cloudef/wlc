@@ -304,7 +304,6 @@ static void
 cb_data_source(void *data, const char *type, int fd)
 {
    ((void) type);
-   printf("cb_data_source");
    const char *str = data;
    write(fd, str, strlen(str));
    close(fd);
