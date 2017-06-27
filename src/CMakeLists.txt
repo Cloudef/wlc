@@ -72,7 +72,7 @@ endif ()
 if (XCB_FOUND)
    add_definitions(-DENABLE_XWAYLAND ${XCB_DEFINITIONS})
    include_directories(${XCB_INCLUDE_DIRS})
-   list(APPEND sources xwayland/xwayland.c xwayland/xwm.c)
+   list(APPEND sources xwayland/xwayland.c xwayland/xwm.c xwayland/selection.c)
    list(APPEND libs ${XCB_LIBRARIES})
 endif ()
 

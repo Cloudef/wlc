@@ -7,12 +7,14 @@
 
 #include <stdint.h>
 #include <chck/lut/lut.h>
+#include <xcb/xcb.h>
 
 enum wlc_view_state_bit;
 
 struct wlc_x11_window {
    uint32_t id; // xcb_window_t
    uint32_t surface_id;
+   struct wlc_xwm *xwm;
    bool override_redirect;
    bool has_utf8_title;
    bool has_delete_window;
@@ -39,9 +41,24 @@ wlc_x11_set_window_hidden(struct wlc_x11_window *w, bool hidden)
    w->hidden = hidden;
 }
 
+struct wlc_xwm_selection {
+   xcb_window_t clipboard_owner;
+   struct wl_listener listener;
+   const xcb_query_extension_reply_t *xfixes;
+};
+
 struct wlc_xwm {
    struct wl_event_source *event_source;
    struct chck_hash_table paired, unpaired;
+   struct wlc_seat *seat;
+   struct wlc_xwm_selection selection;
+
+   xcb_connection_t *connection;
+   xcb_screen_t *screen;
+
+   xcb_atom_t atoms[200]; // XXX
+   xcb_window_t window, focus;
+   xcb_cursor_t cursor;
 
    struct {
       struct wl_listener surface;
@@ -54,8 +71,12 @@ WLC_NONULL void wlc_x11_window_set_state(struct wlc_x11_window *win, enum wlc_vi
 WLC_NONULL bool wlc_x11_window_set_active(struct wlc_x11_window *win, bool active);
 WLC_NONULL void wlc_x11_window_close(struct wlc_x11_window *win);
 
-WLC_NONULL bool wlc_xwm(struct wlc_xwm *xwm);
+WLC_NONULL bool wlc_xwm(struct wlc_xwm *xwm, struct wlc_seat *seat);
 void wlc_xwm_release(struct wlc_xwm *xwm);
+
+WLC_NONULL bool wlc_xwm_selection_init(struct wlc_xwm *xwm);
+WLC_NONULL void wlc_xwm_selection_release(struct wlc_xwm *xwm);
+WLC_NONULL bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *event);
 
 #else /* !ENABLE_XWAYLAND */
 
