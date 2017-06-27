@@ -17,6 +17,15 @@ static void data_source_cancel(struct wlc_data_source *source)
 
 static void data_source_send(struct wlc_data_source *source, const char *type, int fd)
 {
+   struct wlc_xwm *xwm = wl_container_of(source, xwm, selection.data_source);
+
+   if (strcmp(type, "text/plain;charset=utf-8") == 0) {
+      xcb_convert_selection(xwm->connection, xwm->window, xwm->atoms[CLIPBOARD], xwm->atoms[UTF8_STRING], xwm->atoms[UTF8_STRING], XCB_TIME_CURRENT_TIME);
+      xcb_flush(xwm->connection);
+
+		// fcntl(fd, F_SETFL, O_WRONLY | O_NONBLOCK);
+      xwm->selection.fd = fd;
+   }
 }
 
 static const struct wlc_data_source_impl data_source_impl = {
@@ -47,15 +56,45 @@ static void handle_xfixes_selection_notify(struct wlc_xwm *xwm, xcb_generic_even
    if (notify->owner == XCB_WINDOW_NONE && notify->owner != xwm->window) {
       xwm->seat->manager.source = NULL;
       wl_signal_emit(&wlc_system_signals()->selection, NULL);
+      return;
    }
+
+   xcb_convert_selection(xwm->connection, xwm->window, xwm->atoms[CLIPBOARD], xwm->atoms[TARGETS], xwm->atoms[TARGETS], notify->timestamp);
+}
+
+static void get_selection_targets(struct wlc_xwm *xwm) {
+
+}
+
+static void get_selection_data(struct wlc_xwm *xwm) {
+   
 }
 
 static void handle_selection_notify(struct wlc_xwm *xwm, xcb_generic_event_t *event) {
    wlc_dlog(WLC_DBG_XWM, "XCB_SELECTION_NOTIFY");
+
+   xcb_selection_notify_event_t *selection_notify =
+   (xcb_selection_notify_event_t *) event;
+
+   if (selection_notify->property == XCB_ATOM_NONE) {
+      wlc_log(WLC_LOG_INFO, "xselection: selection conversion failed");
+   } else if (selection_notify->target == xwm->atoms[TARGETS]) {
+      get_selection_targets(xwm);
+   } else if (selection_notify->target == xwm->atoms[UTF8_STRING]) {
+      get_selection_data(xwm);
+   } else {
+      wlc_log(WLC_LOG_INFO, "xselection: unknown selection notify target");
+   }
 }
 
 static void handle_selection_request(struct wlc_xwm *xwm, xcb_generic_event_t *event) {
    wlc_dlog(WLC_DBG_XWM, "XCB_SELECTION_REQUEST");
+
+   // answer the request, i.e. set the property and send selection notify
+}
+
+void wlc_xwm_selection_handle_property_notify(struct wlc_xwm *xwm, xcb_property_notify_event_t *event) {
+   // only needed for incr/large data chunks
 }
 
 bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *event) {
@@ -88,6 +127,9 @@ void wlc_xwm_selection_release(struct wlc_xwm *xwm)
 
 bool wlc_xwm_selection_init(struct wlc_xwm *xwm)
 {
+   xwm->selection.fd = -1;
+   xwm->selection.clipboard_owner = 0;
+
    wl_signal_add(&wlc_system_signals()->selection, &xwm->selection.listener);
    xwm->selection.listener.notify = selection_changed;
 

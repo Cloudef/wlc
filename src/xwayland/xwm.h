@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <chck/lut/lut.h>
 #include <xcb/xcb.h>
+#include "resources/types/data-source.h"
 
 enum wlc_view_state_bit;
 
@@ -45,6 +46,8 @@ struct wlc_xwm_selection {
    xcb_window_t clipboard_owner;
    struct wl_listener listener;
    const xcb_query_extension_reply_t *xfixes;
+   struct wlc_data_source data_source;
+   int fd;
 };
 
 struct wlc_xwm {
@@ -77,6 +80,7 @@ void wlc_xwm_release(struct wlc_xwm *xwm);
 WLC_NONULL bool wlc_xwm_selection_init(struct wlc_xwm *xwm);
 WLC_NONULL void wlc_xwm_selection_release(struct wlc_xwm *xwm);
 WLC_NONULL bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *event);
+WLC_NONULL void wlc_xwm_selection_handle_property_notify(struct wlc_xwm *xwm, xcb_property_notify_event_t *event);
 
 #else /* !ENABLE_XWAYLAND */
 

@@ -14,6 +14,7 @@ enum atom_name {
    UTF8_STRING,
    CLIPBOARD,
    CLIPBOARD_MANAGER,
+   TARGETS,
    PRIMARY,
    WM_S0,
    NET_WM_S0,
