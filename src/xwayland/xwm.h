@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <chck/lut/lut.h>
 #include <xcb/xcb.h>
+#include <wayland-server.h>
 #include "resources/types/data-source.h"
 
 enum wlc_view_state_bit;
@@ -44,10 +45,14 @@ wlc_x11_set_window_hidden(struct wlc_x11_window *w, bool hidden)
 
 struct wlc_xwm_selection {
    xcb_window_t clipboard_owner;
+   xcb_window_t data_requestor;
+   xcb_atom_t data_requestor_property;
    struct wl_listener listener;
    const xcb_query_extension_reply_t *xfixes;
    struct wlc_data_source data_source;
-   int fd;
+   struct wl_event_source *data_event_source;
+   int send_fd;
+   int recv_fd;
 };
 
 struct wlc_xwm {

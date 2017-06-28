@@ -680,6 +680,7 @@ x11_init(struct wlc_xwm *xwm)
       { "WM_PROTOCOLS", WM_PROTOCOLS },
       { "WM_NORMAL_HINTS", WM_NORMAL_HINTS },
       { "_MOTIF_WM_HINTS", MOTIF_WM_HINTS },
+      { "TEXT", TEXT },
       { "UTF8_STRING", UTF8_STRING },
       { "CLIPBOARD", CLIPBOARD },
       { "CLIPBOARD_MANAGER", CLIPBOARD_MANAGER },
