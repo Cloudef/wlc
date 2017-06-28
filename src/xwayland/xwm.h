@@ -47,6 +47,7 @@ struct wlc_xwm_selection {
    xcb_window_t clipboard_owner;
    xcb_window_t data_requestor;
    xcb_atom_t data_requestor_property;
+   xcb_atom_t data_requestor_target;
    struct wl_listener listener;
    const xcb_query_extension_reply_t *xfixes;
    struct wlc_data_source data_source;
@@ -85,7 +86,6 @@ void wlc_xwm_release(struct wlc_xwm *xwm);
 WLC_NONULL bool wlc_xwm_selection_init(struct wlc_xwm *xwm);
 WLC_NONULL void wlc_xwm_selection_release(struct wlc_xwm *xwm);
 WLC_NONULL bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *event);
-WLC_NONULL void wlc_xwm_selection_handle_property_notify(struct wlc_xwm *xwm, xcb_property_notify_event_t *event);
 
 #else /* !ENABLE_XWAYLAND */
 

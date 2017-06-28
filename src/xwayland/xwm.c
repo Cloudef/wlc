@@ -558,8 +558,6 @@ x11_event(int fd, uint32_t mask, void *data)
             struct wlc_x11_window *win;
             if ((win = paired_for_id(xwm, ev->window)) || (win = unpaired_for_id(xwm, ev->window)))
                read_properties(xwm, win, &ev->atom, 1);
-
-            wlc_xwm_selection_handle_property_notify(xwm, ev);
          }
          break;
 
