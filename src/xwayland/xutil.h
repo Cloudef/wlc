@@ -18,6 +18,7 @@ enum atom_name {
    TARGETS,
    PRIMARY,
    WM_S0,
+   WLC_SELECTION,
    NET_WM_S0,
    NET_WM_PID,
    NET_WM_NAME,

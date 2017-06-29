@@ -53,6 +53,7 @@ struct wlc_xwm_selection {
    struct wlc_data_source data_source;
    struct wl_event_source *data_event_source;
    int send_fd;
+   const char *send_type;
    int recv_fd;
 };
 

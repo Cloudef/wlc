@@ -122,14 +122,10 @@ wl_cb_data_device_set_selection(struct wl_client *client, struct wl_resource *re
       return;
 
    struct wlc_data_source *source = (struct wlc_data_source*) convert_from_wl_resource(source_resource, "data-source");
-   if (source == manager->source)
+   if (!source || source == manager->source)
       return;
 
-   if (manager->source)
-      manager->source->impl->cancel(manager->source);
-
-   manager->source = source;
-   wl_signal_emit(&wlc_system_signals()->selection, manager->source);
+   wlc_data_device_manager_set_source(manager, source);
    wlc_data_device_manager_offer(manager, client);
 }
 
@@ -236,6 +232,15 @@ fail:
    return false;
 }
 
+void wlc_data_device_manager_set_source(struct wlc_data_device_manager *manager, struct wlc_data_source *source)
+{
+   if (manager->source)
+      manager->source->impl->cancel(manager->source);
+
+   manager->source = source;
+   wl_signal_emit(&wlc_system_signals()->selection, source);
+}
+
 
 struct custom_data_source {
    struct wlc_data_source source;
@@ -284,6 +289,5 @@ void wlc_data_device_manager_set_custom_selection(struct wlc_data_device_manager
       chck_string_set_cstr(destination, types[i], true);
    }
 
-   manager->source = &source->source;
-   wl_signal_emit(&wlc_system_signals()->selection, source);
+   wlc_data_device_manager_set_source(manager, &source->source);
 }

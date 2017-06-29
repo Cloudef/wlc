@@ -41,7 +41,6 @@ static void data_source_cancel(struct wlc_data_source *source)
 
 static void data_source_send(struct wlc_data_source *source, const char *type, int fd)
 {
-   printf("data source send\n");
    struct wlc_xwm *xwm = wl_container_of(source, xwm, selection.data_source);
    xcb_atom_t target;
 
@@ -56,7 +55,7 @@ static void data_source_send(struct wlc_data_source *source, const char *type, i
    }
 
    // request the data in the clipboard property of our window
-   XCB_CALL(xwm, xcb_convert_selection_checked(xwm->connection, xwm->window, xwm->atoms[CLIPBOARD], target, xwm->atoms[CLIPBOARD], XCB_TIME_CURRENT_TIME));
+   XCB_CALL(xwm, xcb_convert_selection_checked(xwm->connection, xwm->window, xwm->atoms[CLIPBOARD], target, xwm->atoms[WLC_SELECTION], XCB_TIME_CURRENT_TIME));
    xcb_flush(xwm->connection);
 
    if (xwm->selection.send_fd != -1)
@@ -74,12 +73,11 @@ static const struct wlc_data_source_impl data_source_impl = {
 
 static void selection_changed(struct wl_listener *listener, void *data)
 {
-   printf("selection changed\n");
-
    struct wlc_data_source *source = data;
    struct wlc_xwm *xwm = wl_container_of(listener, xwm, selection.listener);
-   if (source == NULL && xwm->selection.clipboard_owner != XCB_WINDOW_NONE) {
+   if (source == NULL && xwm->selection.clipboard_owner == xwm->window) {
       XCB_CALL(xwm, xcb_set_selection_owner_checked(xwm->connection, XCB_WINDOW_NONE, xwm->atoms[CLIPBOARD], XCB_TIME_CURRENT_TIME));
+      xwm->selection.clipboard_owner = 0;
    } else if(source && source->impl != &data_source_impl) {
       XCB_CALL(xwm, xcb_set_selection_owner_checked(xwm->connection, xwm->window, xwm->atoms[CLIPBOARD], XCB_CURRENT_TIME));
    }
@@ -87,8 +85,6 @@ static void selection_changed(struct wl_listener *listener, void *data)
 
 static void handle_xfixes_selection_notify(struct wlc_xwm *xwm, xcb_generic_event_t *event)
 {
-   printf("xfixes selection notify\n");
-
    wlc_dlog(WLC_DBG_XWM, "XCB_XFIXES_SELECTION_NOTIFY");
    xcb_xfixes_selection_notify_event_t *notify = (xcb_xfixes_selection_notify_event_t*) event;
 
@@ -97,52 +93,58 @@ static void handle_xfixes_selection_notify(struct wlc_xwm *xwm, xcb_generic_even
 
    xwm->selection.clipboard_owner = notify->owner;
    if (notify->owner == XCB_WINDOW_NONE && xwm->selection.clipboard_owner != xwm->window) {
-      xwm->seat->manager.source = NULL;
-
-      wl_signal_emit(&wlc_system_signals()->selection, NULL);
+      wlc_data_device_manager_set_source(&xwm->seat->manager, NULL);
       return;
    }
 
-   // TODO: right here?
-   if (xwm->selection.send_fd != -1)
-      close(xwm->selection.send_fd);
-
-   if (xwm->selection.data_event_source)
-      wl_event_source_remove(xwm->selection.data_event_source);
-
-   XCB_CALL(xwm, xcb_convert_selection_checked(xwm->connection, xwm->window, xwm->atoms[CLIPBOARD], xwm->atoms[TARGETS], xwm->atoms[TARGETS], notify->timestamp));
+   XCB_CALL(xwm, xcb_convert_selection_checked(xwm->connection, xwm->window, xwm->atoms[CLIPBOARD], xwm->atoms[TARGETS], xwm->atoms[WLC_SELECTION], notify->timestamp));
 }
 
 static void get_selection_targets(struct wlc_xwm *xwm)
 {
-   xcb_get_property_cookie_t cookie = xcb_get_property(xwm->connection, 1, xwm->window, xwm->atoms[TARGETS], XCB_GET_PROPERTY_TYPE_ANY, 0, 1024);
+   xcb_get_property_cookie_t cookie = xcb_get_property(xwm->connection, 1, xwm->window, xwm->atoms[WLC_SELECTION], XCB_GET_PROPERTY_TYPE_ANY, 0, 1024);
    xcb_get_property_reply_t *reply = xcb_get_property_reply(xwm->connection, cookie, NULL);
    if (reply == NULL) {
-      wlc_log(WLC_LOG_WARN, "Failed to retreive property reply");
+      wlc_dlog(WLC_DBG_XWM, "Failed to retrieve xselecion targets property");
    	return;
    }
 
    if (reply->type != XCB_ATOM_ATOM) {
-      wlc_log(WLC_LOG_WARN, "Invalid property type");
+      wlc_dlog(WLC_DBG_XWM, "Invalid xselection targets property type");
    	free(reply);
    	return;
    }
 
-   struct wlc_data_source *source = &xwm->selection.data_source;
-   xwm->seat->manager.source = source;
-   wl_signal_emit(&wlc_system_signals()->selection, source);
+   // we set a new data source, clean up everything from old sources
+   xwm->selection.send_type = "text/plain;charset=utf-8";
+   if (xwm->selection.send_fd != -1) {
+      close(xwm->selection.send_fd);
+      xwm->selection.send_fd = -1;
+   }
+
+   if (xwm->selection.recv_fd != -1) {
+      close(xwm->selection.recv_fd);
+      xwm->selection.recv_fd = -1;
+   }
+
+   if (xwm->selection.data_event_source) {
+      wl_event_source_remove(xwm->selection.data_event_source);
+      xwm->selection.data_event_source = NULL;
+   }
+
+   wlc_data_device_manager_set_source(&xwm->seat->manager, &xwm->selection.data_source);
 
    xcb_atom_t *value = xcb_get_property_value(reply);
    xcb_atom_t *end = value + (xcb_get_property_value_length(reply) / sizeof(xcb_atom_t));
    struct chck_string *destination;
    while (value < end) {
       if (*value == xwm->atoms[UTF8_STRING]) {
-         destination = chck_iter_pool_push_back(&source->types, NULL);
+         destination = chck_iter_pool_push_back(&xwm->selection.data_source.types, NULL);
          chck_string_set_cstr(destination, "text/plain;charset=utf-8", true);
       }
 
       if (*value == xwm->atoms[TEXT]) {
-         destination = chck_iter_pool_push_back(&source->types, NULL);
+         destination = chck_iter_pool_push_back(&xwm->selection.data_source.types, NULL);
          chck_string_set_cstr(destination, "text/plain", true);
       }
 
@@ -157,7 +159,7 @@ static void get_selection_data(struct wlc_xwm *xwm)
    if(xwm->selection.send_fd == -1)
       return;
 
- 	xcb_get_property_cookie_t cookie = xcb_get_property(xwm->connection, 1, xwm->window, xwm->atoms[CLIPBOARD], XCB_GET_PROPERTY_TYPE_ANY, 0, 65536);
+ 	xcb_get_property_cookie_t cookie = xcb_get_property(xwm->connection, 1, xwm->window, xwm->atoms[WLC_SELECTION], XCB_GET_PROPERTY_TYPE_ANY, 0, 65536);
  	xcb_get_property_reply_t *reply = xcb_get_property_reply(xwm->connection, cookie, NULL);
 
  	if (reply == NULL) {
@@ -174,14 +176,13 @@ static void handle_selection_notify(struct wlc_xwm *xwm, xcb_generic_event_t *ev
 {
    wlc_dlog(WLC_DBG_XWM, "XCB_SELECTION_NOTIFY");
 
-   xcb_selection_notify_event_t *selection_notify =
-   (xcb_selection_notify_event_t *) event;
+   xcb_selection_notify_event_t *notify = (xcb_selection_notify_event_t *) event;
 
-   if (selection_notify->property == XCB_ATOM_NONE) {
+   if (notify->property == XCB_ATOM_NONE) {
       wlc_log(WLC_LOG_INFO, "xselection: selection conversion failed");
-   } else if (selection_notify->target == xwm->atoms[TARGETS]) {
+   } else if (notify->target == xwm->atoms[TARGETS]) {
       get_selection_targets(xwm);
-   } else if (selection_notify->target == xwm->atoms[UTF8_STRING]) {
+   } else if (notify->target == xwm->atoms[UTF8_STRING] || notify->target == xwm->atoms[TEXT]) {
       get_selection_data(xwm);
    } else {
       wlc_log(WLC_LOG_INFO, "xselection: unknown selection notify target");
@@ -212,7 +213,7 @@ static int recv_data_source(int fd, uint32_t mask, void *data)
 
    XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, xwm->selection.data_requestor, xwm->selection.data_requestor_property, xwm->selection.data_requestor_target, 8, size, array.data));
 	send_selection_notify(xwm, xwm->selection.data_requestor, xwm->selection.data_requestor_property, xwm->selection.data_requestor_target);
-   printf("successfully sent data!\n");
+   wlc_dlog(WLC_DBG_XWM, "Successfully sent data\n");
    goto cleanup;
 
 fail:
@@ -228,14 +229,34 @@ cleanup:
 
 static void send_selection_targets(struct wlc_xwm *xwm, xcb_window_t requestor, xcb_atom_t property)
 {
+   if (!xwm->seat->manager.source) {
+      wlc_log(WLC_LOG_WARN, "cannot send selection targets, no source");
+      return;
+   }
+
+   size_t targets_count = 1;
    xcb_atom_t targets[] = {
+      xwm->atoms[TARGETS],
       xwm->atoms[UTF8_STRING],
-      xwm->atoms[TEXT],
-      xwm->atoms[TARGETS]
+      xwm->atoms[TEXT]
    };
 
-   int size = sizeof(targets) / sizeof(targets[0]);
-   XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, requestor, property, XCB_ATOM, 32, size, targets));
+   struct chck_string *type;
+   chck_iter_pool_for_each(&xwm->seat->manager.source->types, type) {
+      if (strcmp(type->data, "text/plain") == 0) {
+         targets_count = 3;
+         xwm->selection.send_type = "text/plain";
+         continue;
+      }
+
+      if (strcmp(type->data, "text/plain;charset=utf-8") == 0) {
+         targets_count = 3;
+         xwm->selection.send_type = "text/plain;charset=utf-8";
+         break;
+      }
+   }
+
+   XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, requestor, property, XCB_ATOM_ATOM, 32, targets_count, targets));
 	send_selection_notify(xwm, requestor, property, xwm->atoms[TARGETS]);
 }
 
@@ -257,29 +278,29 @@ static void send_selection_data(struct wlc_xwm *xwm, xcb_window_t requestor, xcb
    xwm->selection.data_requestor = requestor;
    xwm->selection.data_requestor_property = property;
    xwm->selection.data_requestor_target = target;
-   xwm->selection.data_event_source = wl_event_loop_add_fd(wlc_event_loop(), pipes[0], WL_EVENT_READABLE, &recv_data_source, xwm);
-
-   // TODO: don't hardcode mime type
-   xwm->seat->manager.source->impl->send(xwm->seat->manager.source, "text/plain;charset=utf-8", pipes[1]);
+   xwm->seat->manager.source->impl->send(xwm->seat->manager.source, xwm->selection.send_type, pipes[1]);
    close(pipes[1]);
+
+   xwm->selection.data_event_source = wl_event_loop_add_fd(wlc_event_loop(), pipes[0], WL_EVENT_READABLE, &recv_data_source, xwm);
 }
 
 static void handle_selection_request(struct wlc_xwm *xwm, xcb_generic_event_t *event)
 {
    wlc_dlog(WLC_DBG_XWM, "XCB_SELECTION_REQUEST");
 
-   // answer the request, i.e. set the property and send selection notify
    xcb_selection_request_event_t *request = (xcb_selection_request_event_t *) event;
+
    if (request->selection != xwm->atoms[CLIPBOARD]) {
       wlc_log(WLC_LOG_WARN, "selection request for invalid selection");
+		send_selection_notify(xwm, request->requestor, XCB_ATOM_NONE, request->target);
       return;
    }
 
-   xcb_get_atom_name_cookie_t cookie = xcb_get_atom_name(xwm->connection, request->target);
-   xcb_get_atom_name_reply_t *reply = xcb_get_atom_name_reply(xwm->connection, cookie, NULL);
-   const char *name = xcb_get_atom_name_name(reply);
-   if(reply)
-      printf("selection request: %s\n", name);
+   if (request->requestor == xwm->window) {
+      wlc_log(WLC_LOG_WARN, "received selection request from own window");
+		send_selection_notify(xwm, request->requestor, XCB_ATOM_NONE, request->target);
+      return;
+   }
 
    if (request->target == xwm->atoms[TARGETS]) {
       send_selection_targets(xwm, request->requestor, request->property);
@@ -298,21 +319,21 @@ bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *ev
          handle_xfixes_selection_notify(xwm, event);
          return true;
       default:
-         break;
+         return false;
    }
 
    switch(event->response_type & ~0x80) {
    case XCB_SELECTION_NOTIFY:
       handle_selection_notify(xwm, event);
-      break;
+      return true;
    case XCB_SELECTION_REQUEST:
       handle_selection_request(xwm, event);
-      break;
+      return true;
    default:
       return false;
    }
 
-   return true;
+   return false;
 }
 
 void wlc_xwm_selection_release(struct wlc_xwm *xwm)
