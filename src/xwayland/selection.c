@@ -319,7 +319,7 @@ bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *ev
          handle_xfixes_selection_notify(xwm, event);
          return true;
       default:
-         return false;
+	 break;
    }
 
    switch(event->response_type & ~0x80) {
