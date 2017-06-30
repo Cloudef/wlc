@@ -59,7 +59,9 @@ data_source_client_accept(struct wlc_data_source *data_source, const char *type)
 static void
 data_source_client_cancel(struct wlc_data_source *data_source)
 {
-   wl_data_source_send_cancelled(convert_to_wl_resource(data_source, "data-source"));
+   struct wl_resource *res = convert_to_wl_resource(data_source, "data-source");
+   if (res)
+      wl_data_source_send_cancelled(res);
 }
 
 static struct wlc_data_source_impl data_source_client_impl = {
@@ -84,9 +86,19 @@ wl_cb_data_source_offer(struct wl_client *client, struct wl_resource *resource, 
    chck_string_set_cstr(destination, type, true);
 }
 
+static void
+wl_cb_data_source_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   struct wlc_data_device_manager *manager = wl_resource_get_user_data(resource);
+   struct wlc_data_source *source = convert_from_wl_resource(resource, "data-source");
+   if (source && manager->source == source)
+      wlc_data_device_manager_set_source(manager, NULL);
+   wlc_cb_resource_destructor(client, resource);
+}
+
 static struct wl_data_source_interface wl_data_source_implementation = {
    .offer = wl_cb_data_source_offer,
-   .destroy = wlc_cb_resource_destructor
+   .destroy = wl_cb_data_source_destroy
 };
 
 static void

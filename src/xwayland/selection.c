@@ -41,7 +41,7 @@ static const char *name_for_atom(struct wlc_xwm *xwm, xcb_atom_t atom)
       return name;
    }
 
-   snprintf(name, sizeof name, "%.*s", xcb_get_atom_name_name_length (reply), xcb_get_atom_name_name (reply));
+   snprintf(name, sizeof name, "%.*s", xcb_get_atom_name_name_length(reply), xcb_get_atom_name_name(reply));
    free(reply);
 
    return name;
@@ -197,7 +197,7 @@ static void get_selection_targets(struct wlc_xwm *xwm)
    struct chck_string *destination;
 
    bool first = false;
-   while (value < end) {
+   for (; value < end; ++value) {
       bool found = false;
       for (unsigned int i = 0; i < sizeof(conversions_map) / sizeof(conversions_map[0]); ++i) {
          struct conversion_candidate *entry = &conversions_map[i];
@@ -222,11 +222,13 @@ static void get_selection_targets(struct wlc_xwm *xwm)
             continue;
          }
 
+         // check if could be a mime-type
+         if (strchr(name, '/') == NULL)
+            continue;
+
          destination = chck_iter_pool_push_back(&xwm->selection.data_source.types, NULL);
          chck_string_set_cstr(destination, name, true);
       }
-
-      ++value;
    }
 
    free(reply);
@@ -369,12 +371,14 @@ static void send_selection_data(struct wlc_xwm *xwm, xcb_window_t requestor, xcb
    }
 
    if (!xwm->selection.send_type) {
-      xwm->selection.send_type = name_for_atom(xwm, target);
-      if (xwm->selection.send_type[0] == '\0') {
+      const char *name = name_for_atom(xwm, target);
+      if (name[0] == '\0' || strchr(name, '/') == NULL) {
          wlc_log(WLC_LOG_WARN, "cannot send selection data, invalid target atom");
          send_selection_notify(xwm, requestor, XCB_ATOM_NONE, target);
          return;
       }
+
+      xwm->selection.send_type = name;
    }
 
    xwm->selection.recv_fd = pipes[0];
