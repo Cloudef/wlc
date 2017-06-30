@@ -11,6 +11,57 @@
 #include "xwm.h"
 #include "xutil.h"
 
+// Tried conversions map, ordered by importance
+static struct conversion_candidate {
+   bool x11_to_wl; // whether to use it when converting from atom name to mime_type
+   bool wl_to_x11; // whether to use it when converting from mime_type to atom name
+   unsigned int atom_name; // the atom name from the atom_name enum (xutil.h)
+   const char *mime_type;
+   bool used; // temporary custom data
+} conversions_map[] = {
+   {true, true, TEXT, "text/plain", false},
+   {true, true, UTF8_STRING, "text/plain;charset=utf-8", false},
+   {true, true, STRING, "text/plain;charset=iso-8859-1", false},
+   {false, true, STRING, "text/plain", false},
+   {false, true, TEXT, "text/plain;charset=iso-8859-1", false},
+   {true, false, UTF8_STRING, "text/plain", false},
+   {false, true, TEXT, "text/plain;charset=utf-8", false}
+};
+
+static const char *name_for_atom(struct wlc_xwm *xwm, xcb_atom_t atom)
+{
+   static char name[256];
+
+   xcb_get_atom_name_cookie_t cookie = xcb_get_atom_name(xwm->connection, atom);
+   xcb_get_atom_name_reply_t *reply = xcb_get_atom_name_reply(xwm->connection, cookie, NULL);
+
+   if (!reply) {
+      wlc_log(WLC_LOG_WARN, "Failed to retrieve atom name of %d", atom);
+      name[0] = '\0';
+      return name;
+   }
+
+   snprintf(name, sizeof name, "%.*s", xcb_get_atom_name_name_length (reply), xcb_get_atom_name_name (reply));
+   free(reply);
+
+   return name;
+}
+
+static xcb_atom_t atom_for_name(struct wlc_xwm *xwm, const char *name)
+{
+   xcb_intern_atom_cookie_t cookie = xcb_intern_atom(xwm->connection, 1, strlen(name), name);
+   xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply(xwm->connection, cookie, NULL);
+
+   if (!reply) {
+      wlc_log(WLC_LOG_WARN, "Failed to retrieve atom %s", name);
+      return XCB_ATOM_NONE;
+   }
+
+   xcb_atom_t atom = reply->atom;
+   free(reply);
+   return atom;
+}
+
 static void send_selection_notify(struct wlc_xwm *xwm, xcb_window_t requestor, xcb_atom_t property, xcb_atom_t target)
 {
    xcb_selection_notify_event_t notify;
@@ -42,16 +93,23 @@ static void data_source_cancel(struct wlc_data_source *source)
 static void data_source_send(struct wlc_data_source *source, const char *type, int fd)
 {
    struct wlc_xwm *xwm = wl_container_of(source, xwm, selection.data_source);
-   xcb_atom_t target;
 
-   if (strcmp(type, "text/plain;charset=utf-8") == 0) {
-      target = xwm->atoms[UTF8_STRING];
-   } else if (strcmp(type, "text/plain") == 0) {
-      target = xwm->atoms[TEXT];
-   } else {
-      wlc_log(WLC_LOG_WARN, "Unsupported data source mime type given: %s", type);
-      close(fd);
-      return;
+   xcb_atom_t target = XCB_ATOM_NONE;
+   for (unsigned int i = 0; i < sizeof(conversions_map) / sizeof(conversions_map[0]); ++i) {
+      struct conversion_candidate *entry = &conversions_map[i];
+      if (entry->x11_to_wl && strcmp(type, entry->mime_type) && entry->used) {
+         target = xwm->atoms[entry->atom_name];
+         break;
+      }
+   }
+
+   if (target == XCB_ATOM_NONE) {
+      target = atom_for_name(xwm, type);
+      if (target == XCB_ATOM_NONE) {
+         wlc_log(WLC_LOG_WARN, "cannot send selection data, invalid mime type '%s' requested", type);
+         close(fd);
+         return;
+      }
    }
 
    // request the data in the clipboard property of our window
@@ -137,15 +195,35 @@ static void get_selection_targets(struct wlc_xwm *xwm)
    xcb_atom_t *value = xcb_get_property_value(reply);
    xcb_atom_t *end = value + (xcb_get_property_value_length(reply) / sizeof(xcb_atom_t));
    struct chck_string *destination;
+
+   bool first = false;
    while (value < end) {
-      if (*value == xwm->atoms[UTF8_STRING]) {
-         destination = chck_iter_pool_push_back(&xwm->selection.data_source.types, NULL);
-         chck_string_set_cstr(destination, "text/plain;charset=utf-8", true);
+      bool found = false;
+      for (unsigned int i = 0; i < sizeof(conversions_map) / sizeof(conversions_map[0]); ++i) {
+         struct conversion_candidate *entry = &conversions_map[i];
+         if (entry->x11_to_wl && xwm->atoms[entry->atom_name] == *value) {
+            destination = chck_iter_pool_push_back(&xwm->selection.data_source.types, NULL);
+            chck_string_set_cstr(destination, entry->mime_type, true);
+            found = true;
+            entry->used = true;
+
+            if (!first)
+               break;
+         } else if (first) {
+            entry->used = false;
+         }
       }
 
-      if (*value == xwm->atoms[TEXT]) {
+      first = false;
+      if (!found) {
+         const char *name = name_for_atom(xwm, *value);
+         if (name[0] == '\0') {
+            wlc_log(WLC_LOG_WARN, "received invalid supported target atom");
+            continue;
+         }
+
          destination = chck_iter_pool_push_back(&xwm->selection.data_source.types, NULL);
-         chck_string_set_cstr(destination, "text/plain", true);
+         chck_string_set_cstr(destination, name, true);
       }
 
       ++value;
@@ -211,18 +289,19 @@ static int recv_data_source(int fd, uint32_t mask, void *data)
       size += ret;
    }
 
-   XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, xwm->selection.data_requestor, xwm->selection.data_requestor_property, xwm->selection.data_requestor_target, 8, size, array.data));
-   send_selection_notify(xwm, xwm->selection.data_requestor, xwm->selection.data_requestor_property, xwm->selection.data_requestor_target);
+   XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, xwm->selection.data_requestor, xwm->selection.data_request_property, xwm->selection.data_request_target, 8, size, array.data));
+   send_selection_notify(xwm, xwm->selection.data_requestor, xwm->selection.data_request_property, xwm->selection.data_request_target);
    wlc_dlog(WLC_DBG_XWM, "Successfully sent data\n");
    goto cleanup;
 
 fail:
-   send_selection_notify(xwm, xwm->selection.data_requestor, XCB_ATOM_NONE, xwm->selection.data_requestor_target);
+   send_selection_notify(xwm, xwm->selection.data_requestor, XCB_ATOM_NONE, xwm->selection.data_request_target);
 
 cleanup:
    wl_event_source_remove(xwm->selection.data_event_source);
    xwm->selection.data_event_source = NULL;
-   xwm->selection.data_requestor_property = 0;
+   xwm->selection.data_request_property = 0;
+   xwm->selection.data_request_target = 0;
    xwm->selection.data_requestor = 0;
    return size;
 }
@@ -234,29 +313,34 @@ static void send_selection_targets(struct wlc_xwm *xwm, xcb_window_t requestor, 
       return;
    }
 
-   size_t targets_count = 1;
-   xcb_atom_t targets[] = {
-      xwm->atoms[TARGETS],
-      xwm->atoms[UTF8_STRING],
-      xwm->atoms[TEXT]
-   };
+   struct wl_array targets;
+   wl_array_init(&targets);
+   *((xcb_atom_t*) wl_array_add(&targets, sizeof(xcb_atom_t))) = xwm->atoms[TARGETS];
 
    struct chck_string *type;
+   bool first = true;
    chck_iter_pool_for_each(&xwm->seat->manager.source->types, type) {
-      if (strcmp(type->data, "text/plain") == 0) {
-         targets_count = 3;
-         xwm->selection.send_type = "text/plain";
-         continue;
+      bool found = false;
+      for (unsigned int i = 0; i < sizeof(conversions_map) / sizeof(conversions_map[0]); ++i) {
+         struct conversion_candidate *entry = &conversions_map[i];
+         if (entry->wl_to_x11 && strcmp(type->data, entry->mime_type) == 0) {
+            *((xcb_atom_t*) wl_array_add(&targets, sizeof(xcb_atom_t))) = xwm->atoms[entry->atom_name];
+            found = true;
+            entry->used = true;
+
+            if (!first)
+               break;
+         } else if (first) {
+            entry->used = false;
+         }
       }
 
-      if (strcmp(type->data, "text/plain;charset=utf-8") == 0) {
-         targets_count = 3;
-         xwm->selection.send_type = "text/plain;charset=utf-8";
-         break;
-      }
+      first = false;
+      if (!found)
+         *((xcb_atom_t*) wl_array_add(&targets, sizeof(xcb_atom_t))) = atom_for_name(xwm, type->data);
    }
 
-   XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, requestor, property, XCB_ATOM_ATOM, 32, targets_count, targets));
+   XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, requestor, property, XCB_ATOM_ATOM, 32, targets.size, targets.data));
    send_selection_notify(xwm, requestor, property, xwm->atoms[TARGETS]);
 }
 
@@ -264,6 +348,7 @@ static void send_selection_data(struct wlc_xwm *xwm, xcb_window_t requestor, xcb
 {
    if (!xwm->seat->manager.source) {
       wlc_log(WLC_LOG_WARN, "cannot send selection data, no source");
+      send_selection_notify(xwm, requestor, XCB_ATOM_NONE, target);
       return;
    }
 
@@ -274,10 +359,28 @@ static void send_selection_data(struct wlc_xwm *xwm, xcb_window_t requestor, xcb
       return;
    }
 
+   xwm->selection.send_type = NULL;
+   for (unsigned int i = 0; i < sizeof(conversions_map) / sizeof(conversions_map[0]); ++i) {
+      struct conversion_candidate *entry = &conversions_map[i];
+      if (entry->wl_to_x11 && target == xwm->atoms[entry->atom_name] && entry->used) {
+         xwm->selection.send_type = entry->mime_type;
+         break;
+      }
+   }
+
+   if (!xwm->selection.send_type) {
+      xwm->selection.send_type = name_for_atom(xwm, target);
+      if (xwm->selection.send_type[0] == '\0') {
+         wlc_log(WLC_LOG_WARN, "cannot send selection data, invalid target atom");
+         send_selection_notify(xwm, requestor, XCB_ATOM_NONE, target);
+         return;
+      }
+   }
+
    xwm->selection.recv_fd = pipes[0];
    xwm->selection.data_requestor = requestor;
-   xwm->selection.data_requestor_property = property;
-   xwm->selection.data_requestor_target = target;
+   xwm->selection.data_request_property = property;
+   xwm->selection.data_request_target = target;
    xwm->seat->manager.source->impl->send(xwm->seat->manager.source, xwm->selection.send_type, pipes[1]);
    close(pipes[1]);
 
@@ -304,11 +407,8 @@ static void handle_selection_request(struct wlc_xwm *xwm, xcb_generic_event_t *e
 
    if (request->target == xwm->atoms[TARGETS]) {
       send_selection_targets(xwm, request->requestor, request->property);
-   } else if (request->target == xwm->atoms[UTF8_STRING] || request->target == xwm->atoms[TEXT]) {
-      send_selection_data(xwm, request->requestor, request->property, request->target);
    } else {
-      wlc_log(WLC_LOG_WARN, "selection request with invalid target");
-      send_selection_notify(xwm, request->requestor, XCB_ATOM_NONE, request->target);
+      send_selection_data(xwm, request->requestor, request->property, request->target);
    }
 }
 

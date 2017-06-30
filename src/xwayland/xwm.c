@@ -684,6 +684,7 @@ x11_init(struct wlc_xwm *xwm)
       { "CLIPBOARD_MANAGER", CLIPBOARD_MANAGER },
       { "PRIMARY", PRIMARY },
       { "TARGETS", TARGETS },
+      { "STRING", STRING },
       { "WM_S0", WM_S0 },
       { "WLC_SELECTION", WLC_SELECTION },
       { "_NET_WM_CM_S0", NET_WM_S0 },
