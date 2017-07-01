@@ -49,7 +49,7 @@ static const char *name_for_atom(struct wlc_xwm *xwm, xcb_atom_t atom)
 
 static xcb_atom_t atom_for_name(struct wlc_xwm *xwm, const char *name)
 {
-   xcb_intern_atom_cookie_t cookie = xcb_intern_atom(xwm->connection, 1, strlen(name), name);
+   xcb_intern_atom_cookie_t cookie = xcb_intern_atom(xwm->connection, 0, strlen(name), name);
    xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply(xwm->connection, cookie, NULL);
 
    if (!reply) {
@@ -338,11 +338,15 @@ static void send_selection_targets(struct wlc_xwm *xwm, xcb_window_t requestor, 
       }
 
       first = false;
-      if (!found)
-         *((xcb_atom_t*) wl_array_add(&targets, sizeof(xcb_atom_t))) = atom_for_name(xwm, type->data);
+      if (!found) {
+         xcb_atom_t atom = atom_for_name(xwm, type->data);
+         if (atom != XCB_ATOM_NONE)
+            *((xcb_atom_t*) wl_array_add(&targets, sizeof(xcb_atom_t))) = atom;
+      }
    }
 
-   XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, requestor, property, XCB_ATOM_ATOM, 32, targets.size, targets.data));
+   int length = targets.size / sizeof(xcb_atom_t);
+   XCB_CALL(xwm, xcb_change_property_checked(xwm->connection, XCB_PROP_MODE_REPLACE, requestor, property, XCB_ATOM_ATOM, 32, length, targets.data));
    send_selection_notify(xwm, requestor, property, xwm->atoms[TARGETS]);
 }
 
