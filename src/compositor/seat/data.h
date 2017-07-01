@@ -22,6 +22,7 @@ WLC_NONULLV(1) void wlc_data_device_manager_offer(struct wlc_data_device_manager
 void wlc_data_device_manager_release(struct wlc_data_device_manager *manager);
 WLC_NONULL bool wlc_data_device_manager(struct wlc_data_device_manager *manager);
 
+void wlc_data_device_manager_set_source(struct wlc_data_device_manager *manager, struct wlc_data_source *source);
 void wlc_data_device_manager_set_custom_selection(struct wlc_data_device_manager *manager, void *data,
         const char *const *types, size_t types_count, void (*send)(void *data, const char *type, int fd));
 

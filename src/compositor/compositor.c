@@ -313,7 +313,7 @@ xwayland_event(struct wl_listener *listener, void *data)
    except(compositor = wl_container_of(listener, compositor, listener.xwayland));
 
    if (activated) {
-      wlc_xwm(&compositor->xwm);
+      wlc_xwm(&compositor->xwm, &compositor->seat);
    } else {
       wlc_xwm_release(&compositor->xwm);
    }
