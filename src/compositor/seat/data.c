@@ -6,6 +6,7 @@
 #include <chck/string/string.h>
 #include "visibility.h"
 #include "macros.h"
+#include "compositor/view.h"
 #include "internal.h"
 #include "macros.h"
 #include "data.h"
@@ -222,11 +223,12 @@ wlc_data_device_manager_release(struct wlc_data_device_manager *manager)
 }
 
 bool
-wlc_data_device_manager(struct wlc_data_device_manager *manager)
+wlc_data_device_manager(struct wlc_data_device_manager *manager, struct wlc_seat *seat)
 {
    assert(manager);
    memset(manager, 0, sizeof(struct wlc_data_device_manager));
 
+   manager->seat = seat;
    if (!(manager->wl.manager = wl_global_create(wlc_display(), &wl_data_device_manager_interface, 2, manager, wl_data_device_manager_bind)))
       goto manager_interface_fail;
 
@@ -251,6 +253,14 @@ void wlc_data_device_manager_set_source(struct wlc_data_device_manager *manager,
 
    manager->source = source;
    wl_signal_emit(&wlc_system_signals()->selection, source);
+
+   if (manager->seat->keyboard.focused.view) {
+      struct wlc_view *focused = convert_from_wlc_handle(manager->seat->keyboard.focused.view, "view");
+      struct wl_client *client = wlc_view_get_client_ptr(focused);
+      assert(client);
+
+      wlc_data_device_manager_offer(manager, client);
+   }
 }
 
 

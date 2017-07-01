@@ -10,6 +10,7 @@ struct wl_global;
 
 struct wlc_data_device_manager {
    struct wlc_source sources, devices, offers;
+   struct wlc_seat *seat;
 
    struct {
       struct wl_global *manager;
@@ -20,7 +21,7 @@ struct wlc_data_device_manager {
 
 WLC_NONULLV(1) void wlc_data_device_manager_offer(struct wlc_data_device_manager *device, struct wl_client *client);
 void wlc_data_device_manager_release(struct wlc_data_device_manager *manager);
-WLC_NONULL bool wlc_data_device_manager(struct wlc_data_device_manager *manager);
+WLC_NONULL bool wlc_data_device_manager(struct wlc_data_device_manager *manager, struct wlc_seat *seat);
 
 void wlc_data_device_manager_set_source(struct wlc_data_device_manager *manager, struct wlc_data_source *source);
 void wlc_data_device_manager_set_custom_selection(struct wlc_data_device_manager *manager, void *data,
