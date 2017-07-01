@@ -248,11 +248,11 @@ fail:
 
 void wlc_data_device_manager_set_source(struct wlc_data_device_manager *manager, struct wlc_data_source *source)
 {
-   manager->source = source;
-   wl_signal_emit(&wlc_system_signals()->selection, source);
-
    if (manager->source)
       manager->source->impl->cancel(manager->source);
+
+   manager->source = source;
+   wl_signal_emit(&wlc_system_signals()->selection, source);
 
    if (manager->seat->keyboard.focused.view) {
       struct wlc_view *focused = convert_from_wlc_handle(manager->seat->keyboard.focused.view, "view");
