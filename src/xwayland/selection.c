@@ -49,7 +49,7 @@ static const char *name_for_atom(struct wlc_xwm *xwm, xcb_atom_t atom)
 
 static xcb_atom_t atom_for_name(struct wlc_xwm *xwm, const char *name)
 {
-   xcb_intern_atom_cookie_t cookie = xcb_intern_atom(xwm->connection, 1, strlen(name), name);
+   xcb_intern_atom_cookie_t cookie = xcb_intern_atom(xwm->connection, 0, strlen(name), name);
    xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply(xwm->connection, cookie, NULL);
 
    if (!reply) {
