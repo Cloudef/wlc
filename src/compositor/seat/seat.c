@@ -301,7 +301,7 @@ wlc_seat(struct wlc_seat *seat)
    assert(seat);
    memset(seat, 0, sizeof(struct wlc_seat));
 
-   if (!wlc_data_device_manager(&seat->manager))
+   if (!wlc_data_device_manager(&seat->manager, seat))
       goto fail;
 
    seat->listener.input.notify = input_event;
