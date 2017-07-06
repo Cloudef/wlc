@@ -563,3 +563,28 @@ wlc_set_selection(void *data, const char *const *types, size_t types_count, void
 {
    wlc_data_device_manager_set_custom_selection(&wlc.compositor.seat.manager, data, types, types_count, send);
 }
+
+WLC_API const char **
+wlc_get_selection_types(size_t *size)
+{
+   assert(size);
+   struct wlc_data_source *source = wlc.compositor.seat.manager.source;
+   if (!source) {
+   	*size = 0;
+   	return NULL
+   }
+
+   *size = source->types.size;
+   return chck_iter_pool_to_c_array(&source->types);
+}
+
+WLC_API bool
+wlc_get_selection_data(const char *mime_type, int fd)
+{
+   struct wlc_data_source *source = wlc.compositor.seat.manager.source;
+   if (!source)
+   	return false;
+
+   source->impl.send(source, mime_type, fd);
+   return true;
+}

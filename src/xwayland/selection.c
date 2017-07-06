@@ -446,8 +446,18 @@ bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *ev
 
 void wlc_xwm_selection_release(struct wlc_xwm *xwm)
 {
-   wl_list_remove(&xwm->selection.listener.link);
+   if (send_fd != -1)
+      close(send_fd);
+
+   if (recv_fd != -1)
+      close(recv_fd);
+
+   if (xwm->selection.data_event_source)
+      wl_event_source_remove(xwm->selection.data_event_source);
+
    wlc_data_source_release(&xwm->selection.data_source);
+   if (xwm->selection.listener.link)
+      wl_list_remove(&xwm->selection.listener.link);
 }
 
 bool wlc_xwm_selection_init(struct wlc_xwm *xwm)
@@ -459,8 +469,8 @@ bool wlc_xwm_selection_init(struct wlc_xwm *xwm)
    if (!(wlc_data_source(&xwm->selection.data_source, &data_source_impl)))
       goto fail;
 
-   wl_signal_add(&wlc_system_signals()->selection, &xwm->selection.listener);
    xwm->selection.listener.notify = selection_changed;
+   wl_signal_add(&wlc_system_signals()->selection, &xwm->selection.listener);
 
    if (!(xwm->selection.xfixes = xcb_get_extension_data(xwm->connection, &xcb_xfixes_id)) || !xwm->selection.xfixes->present)
       goto fail;
