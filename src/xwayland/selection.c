@@ -390,7 +390,6 @@ static void send_selection_data(struct wlc_xwm *xwm, xcb_window_t requestor, xcb
    xwm->selection.data_request_property = property;
    xwm->selection.data_request_target = target;
    xwm->seat->manager.source->impl->send(xwm->seat->manager.source, xwm->selection.send_type, pipes[1]);
-   close(pipes[1]);
 
    xwm->selection.data_event_source = wl_event_loop_add_fd(wlc_event_loop(), pipes[0], WL_EVENT_READABLE, &recv_data_source, xwm);
 }
@@ -446,18 +445,17 @@ bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *ev
 
 void wlc_xwm_selection_release(struct wlc_xwm *xwm)
 {
-   if (send_fd != -1)
-      close(send_fd);
+   if (xwm->selection.send_fd != -1)
+      close(xwm->selection.send_fd);
 
-   if (recv_fd != -1)
-      close(recv_fd);
+   if (xwm->selection.recv_fd != -1)
+      close(xwm->selection.recv_fd);
 
    if (xwm->selection.data_event_source)
       wl_event_source_remove(xwm->selection.data_event_source);
 
    wlc_data_source_release(&xwm->selection.data_source);
-   if (xwm->selection.listener.link)
-      wl_list_remove(&xwm->selection.listener.link);
+   wl_list_remove(&xwm->selection.listener.link);
 }
 
 bool wlc_xwm_selection_init(struct wlc_xwm *xwm)

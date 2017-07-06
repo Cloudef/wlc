@@ -515,10 +515,12 @@ void wlc_set_selection(void *data, const char *const *types, size_t types_count,
 
 /** Receives the supported mime types of the current selection.
  *  The paramater size will be set to hold the number of types, it must not be NULL.
- *  If there is no current selection, NULL is returned and size set to 0. */
+ *  If there is no current selection, NULL is returned and size set to 0.
+ *  The caller is responsible for freeing the return pointer, the const char* values
+ *  are guaranteed to stay valid at least until the data source changes */
  const char **wlc_get_selection_types(size_t *size);
 
- /** Asks the current selection to write its data with the given mime type to the give fd
+ /** Asks the current selection to write its data with the given mime type to the given fd
   *  and close the fd afterwards. Returns false if there is no current selection, does
   *  not close the fd in this case.
   *  mime_type should be a type supported by the selection */
