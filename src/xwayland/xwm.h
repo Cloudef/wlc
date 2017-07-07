@@ -10,6 +10,7 @@
 #include <xcb/xcb.h>
 #include <wayland-server.h>
 #include "resources/types/data-source.h"
+#include "resources/types/surface.h"
 
 enum wlc_view_state_bit;
 

@@ -563,3 +563,37 @@ wlc_set_selection(void *data, const char *const *types, size_t types_count, void
 {
    wlc_data_device_manager_set_custom_selection(&wlc.compositor.seat.manager, data, types, types_count, send);
 }
+
+WLC_API const char **
+wlc_get_selection_types(size_t *size)
+{
+   assert(size);
+   struct wlc_data_source *source = wlc.compositor.seat.manager.source;
+   if (!source) {
+      *size = 0;
+      return NULL;
+   }
+   
+   const char **ret;
+   if (!(ret = calloc(source->types.items.count, sizeof(*ret)))) {
+      wlc_log(WLC_LOG_ERROR, "malloc failed");
+      return NULL;
+   }
+
+   *size = source->types.items.count;
+   for (size_t i = 0; i < source->types.items.count; ++i)
+      ret[i] = ((struct chck_string*) chck_iter_pool_get(&source->types, i))->data;
+
+   return ret;
+}
+
+WLC_API bool
+wlc_get_selection_data(const char *mime_type, int fd)
+{
+   struct wlc_data_source *source = wlc.compositor.seat.manager.source;
+   if (!source)
+   	return false;
+
+   source->impl->send(source, mime_type, fd);
+   return true;
+}

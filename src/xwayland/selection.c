@@ -359,12 +359,14 @@ static void send_selection_data(struct wlc_xwm *xwm, xcb_window_t requestor, xcb
    }
 
    int pipes[2];
-   if (pipe2(pipes, O_CLOEXEC | O_NONBLOCK) == -1) {
-      wlc_log(WLC_LOG_WARN, "pipe2 failed: %d", errno);
+   if (pipe(pipes) == -1) {
+      wlc_log(WLC_LOG_WARN, "pipe failed: %d", errno);
       send_selection_notify(xwm, requestor, XCB_ATOM_NONE, target);
       return;
    }
 
+   fcntl(pipes[0], F_SETFD, O_CLOEXEC | O_NONBLOCK);
+   fcntl(pipes[1], F_SETFD, O_CLOEXEC | O_NONBLOCK);
    xwm->selection.send_type = NULL;
    for (unsigned int i = 0; i < sizeof(conversions_map) / sizeof(conversions_map[0]); ++i) {
       struct conversion_candidate *entry = &conversions_map[i];
@@ -390,7 +392,6 @@ static void send_selection_data(struct wlc_xwm *xwm, xcb_window_t requestor, xcb
    xwm->selection.data_request_property = property;
    xwm->selection.data_request_target = target;
    xwm->seat->manager.source->impl->send(xwm->seat->manager.source, xwm->selection.send_type, pipes[1]);
-   close(pipes[1]);
 
    xwm->selection.data_event_source = wl_event_loop_add_fd(wlc_event_loop(), pipes[0], WL_EVENT_READABLE, &recv_data_source, xwm);
 }
@@ -446,8 +447,17 @@ bool wlc_xwm_selection_handle_event(struct wlc_xwm *xwm, xcb_generic_event_t *ev
 
 void wlc_xwm_selection_release(struct wlc_xwm *xwm)
 {
-   wl_list_remove(&xwm->selection.listener.link);
+   if (xwm->selection.send_fd != -1)
+      close(xwm->selection.send_fd);
+
+   if (xwm->selection.recv_fd != -1)
+      close(xwm->selection.recv_fd);
+
+   if (xwm->selection.data_event_source)
+      wl_event_source_remove(xwm->selection.data_event_source);
+
    wlc_data_source_release(&xwm->selection.data_source);
+   wl_list_remove(&xwm->selection.listener.link);
 }
 
 bool wlc_xwm_selection_init(struct wlc_xwm *xwm)
@@ -459,8 +469,8 @@ bool wlc_xwm_selection_init(struct wlc_xwm *xwm)
    if (!(wlc_data_source(&xwm->selection.data_source, &data_source_impl)))
       goto fail;
 
-   wl_signal_add(&wlc_system_signals()->selection, &xwm->selection.listener);
    xwm->selection.listener.notify = selection_changed;
+   wl_signal_add(&wlc_system_signals()->selection, &xwm->selection.listener);
 
    if (!(xwm->selection.xfixes = xcb_get_extension_data(xwm->connection, &xcb_xfixes_id)) || !xwm->selection.xfixes->present)
       goto fail;

@@ -212,6 +212,9 @@ wlc_data_device_manager_release(struct wlc_data_device_manager *manager)
    if (!manager)
       return;
 
+   if (manager->source)
+      manager->source->impl->cancel(manager->source);
+
    if (manager->wl.manager)
       wl_global_destroy(manager->wl.manager);
 

@@ -4,6 +4,9 @@
 #include <chck/math/math.h>
 #include <linux/input.h>
 #include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 static struct {
    struct {
@@ -177,6 +180,41 @@ view_request_geometry(wlc_handle view, const struct wlc_geometry *g)
    // stub intentionally to ignore geometry requests.
 }
 
+static int
+cb_selection_data(int fd, uint32_t mask, void *data)
+{
+   ((void) data);
+   struct wlc_event_source **sourceptr = (struct wlc_event_source**) data;
+
+   if (!sourceptr || !(*sourceptr)) {
+      printf("error: selection cb, no src pointer\n");
+      return 0;
+   }
+
+   if (mask & WLC_EVENT_ERROR) {
+      printf("selection data fd error\n");
+      goto cleanup;
+   }
+
+   if (mask & WLC_EVENT_READABLE) {
+      char buf[512];
+      int ret = read(fd, buf, 511);
+      if (ret < 0) {
+         printf("reading from selection fd failed: %s\n", strerror(errno));
+         goto cleanup;
+      }
+
+      buf[ret] = '\0';
+      printf("Received clipboard data: %s\n", buf);
+   }
+
+cleanup:
+   wlc_event_source_remove(*sourceptr);
+   close(fd);
+   *sourceptr = NULL;
+   return 0;
+}
+
 static bool
 keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifiers, uint32_t key, enum wlc_key_state state)
 {
@@ -221,6 +259,40 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
          printf("scale: %u\n", scale);
       }
       return true;
+   } else if (modifiers->mods & WLC_BIT_MOD_CTRL && sym == XKB_KEY_comma && state == WLC_KEY_STATE_PRESSED) {
+      size_t size;
+      const char **types = wlc_get_selection_types(&size);
+      for (size_t i = 0; i < size; ++i) {
+         if (strcmp(types[i], "text/plain;charset=utf-8") == 0 || strcmp(types[i], "text/plain") == 0) {
+            int pipes[2];
+            if (pipe(pipes) == -1) {
+               printf("pipe failed: %s\n", strerror(errno));
+               break;
+            }
+
+            fcntl(pipes[0], F_SETFD, O_CLOEXEC | O_NONBLOCK);
+            fcntl(pipes[1], F_SETFD, O_CLOEXEC | O_NONBLOCK);
+            if (!wlc_get_selection_data(types[i], pipes[1])) {
+               close(pipes[0]);
+               close(pipes[1]);
+               printf("error: get selection data failed for valid selection\n");
+               break;
+            }
+
+            static struct wlc_event_source *src = NULL;
+            static int recv_fd = -1;
+            if (src) {
+               wlc_event_source_remove(src);
+               close(recv_fd);
+            }
+
+            src = wlc_event_loop_add_fd(pipes[0], WLC_EVENT_READABLE | WLC_EVENT_ERROR | WLC_EVENT_HANGUP, cb_selection_data, &src);
+            recv_fd = pipes[0];
+            break;
+         }
+      }
+
+      free(types);
    }
 
    return false;
