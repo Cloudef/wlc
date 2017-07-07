@@ -265,11 +265,13 @@ keyboard_key(wlc_handle view, uint32_t time, const struct wlc_modifiers *modifie
       for (size_t i = 0; i < size; ++i) {
          if (strcmp(types[i], "text/plain;charset=utf-8") == 0 || strcmp(types[i], "text/plain") == 0) {
             int pipes[2];
-            if (pipe2(pipes, O_CLOEXEC | O_NONBLOCK) == -1) {
-               printf("pipe2 failed: %s\n", strerror(errno));
+            if (pipe(pipes) == -1) {
+               printf("pipe failed: %s\n", strerror(errno));
                break;
             }
 
+            fcntl(pipes[0], F_SETFD, O_CLOEXEC | O_NONBLOCK);
+            fcntl(pipes[1], F_SETFD, O_CLOEXEC | O_NONBLOCK);
             if (!wlc_get_selection_data(types[i], pipes[1])) {
                close(pipes[0]);
                close(pipes[1]);

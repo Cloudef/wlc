@@ -359,12 +359,14 @@ static void send_selection_data(struct wlc_xwm *xwm, xcb_window_t requestor, xcb
    }
 
    int pipes[2];
-   if (pipe2(pipes, O_CLOEXEC | O_NONBLOCK) == -1) {
-      wlc_log(WLC_LOG_WARN, "pipe2 failed: %d", errno);
+   if (pipe(pipes) == -1) {
+      wlc_log(WLC_LOG_WARN, "pipe failed: %d", errno);
       send_selection_notify(xwm, requestor, XCB_ATOM_NONE, target);
       return;
    }
 
+   fcntl(pipes[0], F_SETFD, O_CLOEXEC | O_NONBLOCK);
+   fcntl(pipes[1], F_SETFD, O_CLOEXEC | O_NONBLOCK);
    xwm->selection.send_type = NULL;
    for (unsigned int i = 0; i < sizeof(conversions_map) / sizeof(conversions_map[0]); ++i) {
       struct conversion_candidate *entry = &conversions_map[i];
