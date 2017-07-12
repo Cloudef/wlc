@@ -635,11 +635,27 @@ wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers *modifie
 }
 
 WLC_API void
+wlc_pointer_get_position_v2(double *out_x, double *out_y)
+{
+   assert(_g_compositor && out_x && out_y);
+   *out_x = _g_compositor->seat.pointer.pos.x;
+   *out_y = _g_compositor->seat.pointer.pos.y;
+}
+
+WLC_API void
 wlc_pointer_get_position(struct wlc_point *out_position)
 {
    assert(_g_compositor && out_position);
    out_position->x = _g_compositor->seat.pointer.pos.x;
    out_position->y = _g_compositor->seat.pointer.pos.y;
+}
+
+WLC_API void
+wlc_pointer_set_position_v2(double x, double y)
+{
+   assert(_g_compositor);
+   _g_compositor->seat.pointer.pos.x = x;
+   _g_compositor->seat.pointer.pos.y = y;
 }
 
 WLC_API void

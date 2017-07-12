@@ -233,7 +233,10 @@ void wlc_set_pointer_button_cb(bool (*cb)(wlc_handle view, uint32_t time, const 
 /** Scroll event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
 void wlc_set_pointer_scroll_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_modifiers*, uint8_t axis_bits, double amount[2]));
 
-/** Motion event was triggered, view handle will be zero if there was no focus. Apply with wlc_pointer_set_position to agree. Return true to prevent sending the event to clients. */
+/** Motion event was triggered, view handle will be zero if there was no focus. Apply with wlc_pointer_set_position_v2 to agree. Return true to prevent sending the event to clients. */
+void wlc_set_pointer_motion_cb_v2(bool (*cb)(wlc_handle view, uint32_t time, double x, double y));
+
+WLC_DEPRECATED
 void wlc_set_pointer_motion_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_point*));
 
 /** Touch event was triggered, view handle will be zero if there was no focus. Return true to prevent sending the event to clients. */
@@ -504,9 +507,15 @@ uint32_t wlc_keyboard_get_keysym_for_key(uint32_t key, const struct wlc_modifier
 uint32_t wlc_keyboard_get_utf32_for_key(uint32_t key, const struct wlc_modifiers *modifiers);
 
 /** Get current pointer position. */
+void wlc_pointer_get_position_v2(double *out_x, double *out_y);
+
+WLC_DEPRECATED
 void wlc_pointer_get_position(struct wlc_point *out_position);
 
 /** Set current pointer position. */
+void wlc_pointer_set_position_v2(double x, double y);
+
+WLC_DEPRECATED
 void wlc_pointer_set_position(const struct wlc_point *position);
 
 /** Set current default selection source.
