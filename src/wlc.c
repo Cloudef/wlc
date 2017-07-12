@@ -517,6 +517,12 @@ wlc_set_pointer_scroll_cb(bool (*cb)(wlc_handle view, uint32_t time, const struc
 }
 
 WLC_API void
+wlc_set_pointer_motion_cb_v2(bool (*cb)(wlc_handle view, uint32_t time, double x, double y))
+{
+   wlc.interface.pointer.motion_v2 = cb;
+}
+
+WLC_API void
 wlc_set_pointer_motion_cb(bool (*cb)(wlc_handle view, uint32_t time, const struct wlc_point*))
 {
    wlc.interface.pointer.motion = cb;
