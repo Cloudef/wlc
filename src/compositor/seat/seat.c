@@ -156,7 +156,12 @@ input_event(struct wl_listener *listener, void *data)
             chck_clamp(seat->pointer.pos.y + ev->motion.dy, 0, resolution.h),
          };
 
-         const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_point){ pos.x, pos.y }) : false);
+         bool handled = false;
+         if (wlc_interface()->pointer.motion_v2) {
+            handled = wlc_interface()->pointer.motion_v2(seat->pointer.focused.view, ev->time, pos.x, pos.y);
+         } else if (wlc_interface()->pointer.motion) {
+            handled = wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_point){ pos.x, pos.y });
+         }
          wlc_pointer_motion(&seat->pointer, ev->time, !handled);
       }
       break;
@@ -168,7 +173,12 @@ input_event(struct wl_listener *listener, void *data)
             ev->motion_abs.y(ev->motion_abs.internal, resolution.h)
          };
 
-         const bool handled = (wlc_interface()->pointer.motion ? wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_point){ pos.x, pos.y }) : false);
+         bool handled = false;
+         if (wlc_interface()->pointer.motion_v2) {
+            handled = wlc_interface()->pointer.motion_v2(seat->pointer.focused.view, ev->time, pos.x, pos.y);
+         } else if (wlc_interface()->pointer.motion) {
+            handled = wlc_interface()->pointer.motion(seat->pointer.focused.view, ev->time, &(struct wlc_point){ pos.x, pos.y });
+         }
          wlc_pointer_motion(&seat->pointer, ev->time, !handled);
       }
       break;
