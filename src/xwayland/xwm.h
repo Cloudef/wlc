@@ -3,16 +3,17 @@
 
 #include <stdbool.h>
 
-#ifdef ENABLE_XWAYLAND
-
 #include <stdint.h>
 #include <chck/lut/lut.h>
-#include <xcb/xcb.h>
 #include <wayland-server.h>
+#include "compositor/seat/seat.h"
 #include "resources/types/data-source.h"
 #include "resources/types/surface.h"
 
 enum wlc_view_state_bit;
+
+#ifdef ENABLE_XWAYLAND
+#include <xcb/xcb.h>
 
 struct wlc_x11_window {
    uint32_t id; // xcb_window_t
@@ -152,9 +153,10 @@ wlc_x11_window_close(struct wlc_x11_window *win)
 }
 
 WLC_NONULL static inline bool
-wlc_xwm(struct wlc_xwm *xwm)
+wlc_xwm(struct wlc_xwm *xwm, struct wlc_seat *seat)
 {
    (void)xwm;
+   (void)seat;
    return true;
 }
 

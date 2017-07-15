@@ -62,18 +62,22 @@ set(sources
    extended/wlc-render.c
    )
 
-if (X11_FOUND)
+if (ENABLE_X11_BACKEND OR ENABLE_XWAYLAND_SUPPORT)
+   add_definitions(${XCB_DEFINITIONS})
+   include_directories(${XCB_INCLUDE_DIRS})
+   list(APPEND libs ${XCB_LIBRARIES})
+endif ()
+
+if (ENABLE_X11_BACKEND)
    add_definitions(-DENABLE_X11_BACKEND)
    include_directories(${X11_INCLUDE_DIR})
    list(APPEND sources platform/backend/x11.c)
    list(APPEND libs ${X11_LIBRARIES})
 endif ()
 
-if (XCB_FOUND)
-   add_definitions(-DENABLE_XWAYLAND ${XCB_DEFINITIONS})
-   include_directories(${XCB_INCLUDE_DIRS})
+if (ENABLE_XWAYLAND_SUPPORT)
+   add_definitions(-DENABLE_XWAYLAND)
    list(APPEND sources xwayland/xwayland.c xwayland/xwm.c xwayland/selection.c)
-   list(APPEND libs ${XCB_LIBRARIES})
 endif ()
 
 if (DBUS_FOUND)
