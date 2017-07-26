@@ -185,9 +185,7 @@ fd_open(const char *path, int flags, enum wlc_fd_type type)
       FILTER("/dev/dri/card", DRM_MAJOR), // WLC_FD_DRM
    };
 #undef FILTER
-#endif
 
-#ifdef __linux__
    if (type > WLC_FD_LAST || memcmp(path, allow[type].base, allow[type].size)) {
       wlc_log(WLC_LOG_WARN, "Denying open from: %s", path);
       return -1;
