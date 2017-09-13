@@ -6,8 +6,14 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
-#include <systemd/sd-login.h>
 #include <chck/string/string.h>
+
+#if SYSTEMD_FOUND
+   #include <systemd/sd-login.h>
+#elif ELOGIND_FOUND
+   #include <elogind/sd-login.h>
+#endif
+
 #include "internal.h"
 #include "dbus.h"
 #include "logind.h"
