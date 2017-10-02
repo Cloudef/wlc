@@ -171,7 +171,7 @@ static void
 wl_data_device_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create_checked(client, &wl_data_device_manager_interface, version, 2, id)))
+   if (!(resource = wl_resource_create_checked(client, &wl_data_device_manager_interface, version, 3, id)))
       return;
 
    wl_resource_set_implementation(resource, &wl_data_device_manager_implementation, data, NULL);
@@ -232,7 +232,7 @@ wlc_data_device_manager(struct wlc_data_device_manager *manager, struct wlc_seat
    memset(manager, 0, sizeof(struct wlc_data_device_manager));
 
    manager->seat = seat;
-   if (!(manager->wl.manager = wl_global_create(wlc_display(), &wl_data_device_manager_interface, 2, manager, wl_data_device_manager_bind)))
+   if (!(manager->wl.manager = wl_global_create(wlc_display(), &wl_data_device_manager_interface, 3, manager, wl_data_device_manager_bind)))
       goto manager_interface_fail;
 
    if (!wlc_source(&manager->sources, "data-source", wlc_data_source, wlc_data_source_release, 32, sizeof(struct wlc_data_source)) ||
