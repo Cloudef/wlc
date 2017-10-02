@@ -457,7 +457,9 @@ void wlc_xwm_selection_release(struct wlc_xwm *xwm)
       wl_event_source_remove(xwm->selection.data_event_source);
 
    wlc_data_source_release(&xwm->selection.data_source);
-   wl_list_remove(&xwm->selection.listener.link);
+
+   if (xwm->selection.listener.notify)
+      wl_list_remove(&xwm->selection.listener.link);
 }
 
 bool wlc_xwm_selection_init(struct wlc_xwm *xwm)
