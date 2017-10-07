@@ -319,13 +319,13 @@ pointer_button(wlc_handle view, uint32_t time, const struct wlc_modifiers *modif
 }
 
 static bool
-pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_point *position)
+pointer_motion(wlc_handle handle, uint32_t time, double x, double y)
 {
    (void)handle, (void)time;
 
    if (compositor.action.view) {
-      const int32_t dx = position->x - compositor.action.grab.x;
-      const int32_t dy = position->y - compositor.action.grab.y;
+      const int32_t dx = x - compositor.action.grab.x;
+      const int32_t dy = y - compositor.action.grab.y;
       struct wlc_geometry g = *wlc_view_get_geometry(compositor.action.view);
 
       if (compositor.action.edges) {
@@ -363,12 +363,13 @@ pointer_motion(wlc_handle handle, uint32_t time, const struct wlc_point *positio
          wlc_view_set_geometry(compositor.action.view, 0, &g);
       }
 
-      compositor.action.grab = *position;
+      compositor.action.grab.x = x;
+      compositor.action.grab.y = y;
    }
 
    // In order to give the compositor control of the pointer placement it needs
    // to be explicitly set after receiving the motion event:
-   wlc_pointer_set_position(position);
+   wlc_pointer_set_position_v2(x, y);
    return (compositor.action.view ? true : false);
 }
 
@@ -402,7 +403,7 @@ main(void)
    wlc_set_view_request_geometry_cb(view_request_geometry);
    wlc_set_keyboard_key_cb(keyboard_key);
    wlc_set_pointer_button_cb(pointer_button);
-   wlc_set_pointer_motion_cb(pointer_motion);
+   wlc_set_pointer_motion_cb_v2(pointer_motion);
 
    if (!wlc_init())
       return EXIT_FAILURE;
