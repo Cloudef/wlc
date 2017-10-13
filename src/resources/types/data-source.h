@@ -9,6 +9,7 @@ struct wlc_data_source_impl {
    void (*send)(struct wlc_data_source *data_source, const char *type, int fd);
    void (*accept)(struct wlc_data_source *data_source, const char *type);
    void (*cancel)(struct wlc_data_source *data_source);
+   void (*dnd_finished)(struct wlc_data_source *data_source);
 };
 
 struct wlc_data_source {

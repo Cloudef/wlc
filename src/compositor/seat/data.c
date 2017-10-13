@@ -37,10 +37,23 @@ wl_cb_data_offer_receive(struct wl_client *client, struct wl_resource *resource,
    source->impl->send(source, type, fd);
 }
 
+static void
+wl_cb_data_offer_finish(struct wl_client *client, struct wl_resource *resource)
+{
+   (void)client;
+
+   struct wlc_data_source *source;
+   if (!(source = (struct wlc_data_source*)wl_resource_get_user_data(resource)))
+      return;
+
+   source->impl->dnd_finished(source);
+}
+
 static struct wl_data_offer_interface wl_data_offer_implementation = {
-   .accept = wl_cb_data_offer_accept,
-   .receive = wl_cb_data_offer_receive,
-   .destroy = wlc_cb_resource_destructor
+   .accept      = wl_cb_data_offer_accept,
+   .receive     = wl_cb_data_offer_receive,
+   .finish      = wl_cb_data_offer_finish,
+   .destroy     = wlc_cb_resource_destructor,
 };
 
 static void
@@ -65,16 +78,24 @@ data_source_client_cancel(struct wlc_data_source *data_source)
       wl_data_source_send_cancelled(res);
 }
 
+static void
+data_source_client_dnd_finished(struct wlc_data_source *data_source)
+{
+   struct wl_resource *res = convert_to_wl_resource(data_source, "data-source");
+   wl_data_source_send_dnd_finished(res);
+}
+
 static struct wlc_data_source_impl data_source_client_impl = {
-   .accept = data_source_client_accept,
-   .send = data_source_client_send,
-   .cancel = data_source_client_cancel,
+   .accept       = data_source_client_accept,
+   .send         = data_source_client_send,
+   .cancel       = data_source_client_cancel,
+   .dnd_finished = data_source_client_dnd_finished,
 };
 
 static void
 wl_cb_data_source_offer(struct wl_client *client, struct wl_resource *resource, const char *type)
 {
-   (void)client, (void)resource, (void)type;
+   (void)client;
 
    struct wlc_data_source *source;
    if (!(source = convert_from_wl_resource(resource, "data-source")))
