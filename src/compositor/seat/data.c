@@ -38,6 +38,19 @@ wl_cb_data_offer_receive(struct wl_client *client, struct wl_resource *resource,
 }
 
 static void
+wl_cb_data_offer_set_actions(struct wl_client *client, struct wl_resource *resource, uint32_t dnd_actions, uint32_t preferred_action)
+{
+   (void)client;
+
+   struct wlc_data_source *source;
+   if (!(source = (struct wlc_data_source*)wl_resource_get_user_data(resource)))
+      return;
+
+   source->dst_dnd_actions = dnd_actions;
+   source->prf_dnd_action  = preferred_action;
+}
+
+static void
 wl_cb_data_offer_finish(struct wl_client *client, struct wl_resource *resource)
 {
    (void)client;
@@ -52,6 +65,7 @@ wl_cb_data_offer_finish(struct wl_client *client, struct wl_resource *resource)
 static struct wl_data_offer_interface wl_data_offer_implementation = {
    .accept      = wl_cb_data_offer_accept,
    .receive     = wl_cb_data_offer_receive,
+   .set_actions = wl_cb_data_offer_set_actions,
    .finish      = wl_cb_data_offer_finish,
    .destroy     = wlc_cb_resource_destructor,
 };
@@ -118,9 +132,22 @@ wl_cb_data_source_destroy(struct wl_client *client, struct wl_resource *resource
    wlc_cb_resource_destructor(client, resource);
 }
 
+static void
+wl_cb_data_source_set_actions(struct wl_client *client, struct wl_resource *resource, uint32_t dnd_actions)
+{
+   (void)client;
+
+   struct wlc_data_source *source;
+   if (!(source = convert_from_wl_resource(resource, "data-source")))
+      return;
+
+   source->src_dnd_actions = dnd_actions;
+}
+
 static struct wl_data_source_interface wl_data_source_implementation = {
-   .offer = wl_cb_data_source_offer,
-   .destroy = wl_cb_data_source_destroy
+   .offer       = wl_cb_data_source_offer,
+   .destroy     = wl_cb_data_source_destroy,
+   .set_actions = wl_cb_data_source_set_actions
 };
 
 static void
