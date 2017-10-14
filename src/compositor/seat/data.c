@@ -37,10 +37,37 @@ wl_cb_data_offer_receive(struct wl_client *client, struct wl_resource *resource,
    source->impl->send(source, type, fd);
 }
 
+static void
+wl_cb_data_offer_set_actions(struct wl_client *client, struct wl_resource *resource, uint32_t dnd_actions, uint32_t preferred_action)
+{
+   (void)client;
+
+   struct wlc_data_source *source;
+   if (!(source = (struct wlc_data_source*)wl_resource_get_user_data(resource)))
+      return;
+
+   source->dst_dnd_actions = dnd_actions;
+   source->prf_dnd_action  = preferred_action;
+}
+
+static void
+wl_cb_data_offer_finish(struct wl_client *client, struct wl_resource *resource)
+{
+   (void)client;
+
+   struct wlc_data_source *source;
+   if (!(source = (struct wlc_data_source*)wl_resource_get_user_data(resource)))
+      return;
+
+   source->impl->dnd_finished(source);
+}
+
 static struct wl_data_offer_interface wl_data_offer_implementation = {
-   .accept = wl_cb_data_offer_accept,
-   .receive = wl_cb_data_offer_receive,
-   .destroy = wlc_cb_resource_destructor
+   .accept      = wl_cb_data_offer_accept,
+   .receive     = wl_cb_data_offer_receive,
+   .set_actions = wl_cb_data_offer_set_actions,
+   .finish      = wl_cb_data_offer_finish,
+   .destroy     = wlc_cb_resource_destructor,
 };
 
 static void
@@ -65,16 +92,24 @@ data_source_client_cancel(struct wlc_data_source *data_source)
       wl_data_source_send_cancelled(res);
 }
 
+static void
+data_source_client_dnd_finished(struct wlc_data_source *data_source)
+{
+   struct wl_resource *res = convert_to_wl_resource(data_source, "data-source");
+   wl_data_source_send_dnd_finished(res);
+}
+
 static struct wlc_data_source_impl data_source_client_impl = {
-   .accept = data_source_client_accept,
-   .send = data_source_client_send,
-   .cancel = data_source_client_cancel,
+   .accept       = data_source_client_accept,
+   .send         = data_source_client_send,
+   .cancel       = data_source_client_cancel,
+   .dnd_finished = data_source_client_dnd_finished,
 };
 
 static void
 wl_cb_data_source_offer(struct wl_client *client, struct wl_resource *resource, const char *type)
 {
-   (void)client, (void)resource, (void)type;
+   (void)client;
 
    struct wlc_data_source *source;
    if (!(source = convert_from_wl_resource(resource, "data-source")))
@@ -97,9 +132,22 @@ wl_cb_data_source_destroy(struct wl_client *client, struct wl_resource *resource
    wlc_cb_resource_destructor(client, resource);
 }
 
+static void
+wl_cb_data_source_set_actions(struct wl_client *client, struct wl_resource *resource, uint32_t dnd_actions)
+{
+   (void)client;
+
+   struct wlc_data_source *source;
+   if (!(source = convert_from_wl_resource(resource, "data-source")))
+      return;
+
+   source->src_dnd_actions = dnd_actions;
+}
+
 static struct wl_data_source_interface wl_data_source_implementation = {
-   .offer = wl_cb_data_source_offer,
-   .destroy = wl_cb_data_source_destroy
+   .offer       = wl_cb_data_source_offer,
+   .destroy     = wl_cb_data_source_destroy,
+   .set_actions = wl_cb_data_source_set_actions
 };
 
 static void
@@ -110,7 +158,7 @@ wl_cb_manager_create_data_source(struct wl_client *client, struct wl_resource *r
       return;
 
    wlc_resource r;
-   if (!(r = wlc_resource_create(&manager->sources, client, &wl_data_source_interface, wl_resource_get_version(resource), 2, id)))
+   if (!(r = wlc_resource_create(&manager->sources, client, &wl_data_source_interface, wl_resource_get_version(resource), 3, id)))
       return;
 
    struct wlc_data_source *source = convert_from_wlc_resource(r, "data-source");
@@ -156,7 +204,7 @@ wl_cb_manager_get_data_device(struct wl_client *client, struct wl_resource *reso
       return;
 
    wlc_resource r;
-   if (!(r = wlc_resource_create(&seat->manager.devices, client, &wl_data_device_interface, wl_resource_get_version(resource), 2, id)))
+   if (!(r = wlc_resource_create(&seat->manager.devices, client, &wl_data_device_interface, wl_resource_get_version(resource), 3, id)))
       return;
 
    wlc_resource_implement(r, &wl_data_device_implementation, &seat->manager);
@@ -171,7 +219,7 @@ static void
 wl_data_device_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *resource;
-   if (!(resource = wl_resource_create_checked(client, &wl_data_device_manager_interface, version, 2, id)))
+   if (!(resource = wl_resource_create_checked(client, &wl_data_device_manager_interface, version, 3, id)))
       return;
 
    wl_resource_set_implementation(resource, &wl_data_device_manager_implementation, data, NULL);
@@ -189,7 +237,7 @@ wlc_data_device_manager_offer(struct wlc_data_device_manager *manager, struct wl
    struct wlc_data_source *source = manager->source;
 
    wlc_resource offer = 0;
-   if (source && !(offer = wlc_resource_create(&manager->offers, client, &wl_data_offer_interface, wl_resource_get_version(resource), 2, 0)))
+   if (source && !(offer = wlc_resource_create(&manager->offers, client, &wl_data_offer_interface, wl_resource_get_version(resource), 3, 0)))
       return;
 
    if (offer) {
@@ -232,7 +280,7 @@ wlc_data_device_manager(struct wlc_data_device_manager *manager, struct wlc_seat
    memset(manager, 0, sizeof(struct wlc_data_device_manager));
 
    manager->seat = seat;
-   if (!(manager->wl.manager = wl_global_create(wlc_display(), &wl_data_device_manager_interface, 2, manager, wl_data_device_manager_bind)))
+   if (!(manager->wl.manager = wl_global_create(wlc_display(), &wl_data_device_manager_interface, 3, manager, wl_data_device_manager_bind)))
       goto manager_interface_fail;
 
    if (!wlc_source(&manager->sources, "data-source", wlc_data_source, wlc_data_source_release, 32, sizeof(struct wlc_data_source)) ||

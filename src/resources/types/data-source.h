@@ -9,10 +9,14 @@ struct wlc_data_source_impl {
    void (*send)(struct wlc_data_source *data_source, const char *type, int fd);
    void (*accept)(struct wlc_data_source *data_source, const char *type);
    void (*cancel)(struct wlc_data_source *data_source);
+   void (*dnd_finished)(struct wlc_data_source *data_source);
 };
 
 struct wlc_data_source {
    struct chck_iter_pool types;
+   uint32_t prf_dnd_action; // preferred
+   uint32_t dst_dnd_actions;
+   uint32_t src_dnd_actions;
    const struct wlc_data_source_impl *impl;
 };
 
