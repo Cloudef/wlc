@@ -9,6 +9,7 @@ extern "C" {
 #include <wlc/geometry.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <sys/types.h>
+#include <wayland-server.h>
 
 struct wlc_event_source;
 
@@ -154,9 +155,22 @@ enum wlc_positioner_constraint_adjustment_bit {
    WLC_BIT_CONSTRAINT_ADJUSTMENT_RESIZE_Y = 1<<5
 };
 
+/** Type in wlc_output_mode struct. */
+enum wlc_output_mode_type {
+   WLC_OUTPUT_MODE_CURRENT = WL_OUTPUT_MODE_CURRENT,
+   WLC_OUTPUT_MODE_PREFERRED = WL_OUTPUT_MODE_PREFERRED,
+};
+
 /** State of keyboard modifiers in various functions. */
 struct wlc_modifiers {
    uint32_t leds, mods;
+};
+
+/** Dispaly mode settings **/
+struct wlc_output_mode {
+   int32_t refresh;
+   int32_t width, height;
+   enum wlc_output_mode_type flags;
 };
 
 /** -- Callbacks API */
@@ -366,6 +380,17 @@ bool wlc_output_set_views(wlc_handle output, const wlc_handle *views, size_t mem
 
 /** Focus output. Pass zero for no focus. */
 void wlc_output_focus(wlc_handle output);
+
+/**
+ * Get output modes. Returned array is a direct reference and has a limited life time, careful when using it. */
+const struct wlc_output_mode* wlc_output_get_modes(wlc_handle output, size_t *out_memb);
+
+/**
+ * Set output modes. Returns false on failure.
+ * The parameter mode_index is the index of the results retrieved from wlc_output_get_modes call.
+ * Calling this function will be accompanied with wlc_output_set_resolution call automatically, and thus trigger output_resolution callback.
+ */
+bool wlc_output_set_mode(wlc_handle output, uint32_t mode_index);
 
 /** -- View API */
 

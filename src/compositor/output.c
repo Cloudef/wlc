@@ -600,6 +600,23 @@ fail:
    return false;
 }
 
+static void
+wlc_output_update_mode(struct wlc_output *output)
+{
+
+   bool set_resolution = false;
+
+   struct wlc_output_mode *mode;
+   except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
+   wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
+   output->mode = (struct wlc_size){ mode->width, mode->height };
+   mode->flags |= WL_OUTPUT_MODE_CURRENT;
+   set_resolution = wlc_output_set_resolution_ptr(output, &output->mode, output->scale);
+
+   if (!set_resolution)
+      output_push_to_resources(output);
+}
+
 void
 wlc_output_set_information(struct wlc_output *output, struct wlc_output_information *info)
 {
@@ -642,19 +659,7 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
    const char *name = name_for_connector(output->information.connector);
    chck_string_set_format(&output->information.name, "%s-%u", name, output->information.connector_id);
 
-   bool set_resolution = false;
-
-   {
-      struct wlc_output_mode *mode;
-      except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
-      wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
-      output->mode = (struct wlc_size){ mode->width, mode->height };
-      mode->flags |= WL_OUTPUT_MODE_CURRENT;
-      set_resolution = wlc_output_set_resolution_ptr(output, &output->mode, output->scale);
-   }
-
-   if (!set_resolution)
-      output_push_to_resources(output);
+   wlc_output_update_mode(output);
 
    // XXX: set_information and set_resolution should probably be double buffered
    //      and commited during start of next render to avoid spurious information updates
@@ -860,6 +865,15 @@ wlc_output_get_views_ptr(struct wlc_output *output, size_t *out_memb)
    return (output ? chck_iter_pool_to_c_array(&output->views, out_memb) : NULL);
 }
 
+const wlc_handle*
+wlc_output_get_modes_ptr(struct wlc_output *output, size_t *out_memb)
+{
+   if (out_memb)
+      *out_memb = 0;
+
+   return (output ? chck_iter_pool_to_c_array(&output->information.modes, out_memb) : NULL);
+}
+
 wlc_handle*
 wlc_output_get_mutable_views_ptr(struct wlc_output *output, size_t *out_memb)
 {
@@ -982,6 +996,29 @@ wlc_output_get_name(wlc_handle output)
 {
    struct wlc_output *o = convert_from_wlc_handle(output, "output");
    return (o ? o->information.name.data : NULL);
+}
+
+WLC_API const struct wlc_output_mode*
+wlc_output_get_modes(wlc_handle output, size_t *out_memb)
+{
+   return (struct wlc_output_mode *)wlc_output_get_modes_ptr(convert_from_wlc_handle(output, "output"), out_memb);
+}
+
+WLC_API bool
+wlc_output_set_mode(wlc_handle output, uint32_t mode_index)
+{
+   struct wlc_output *real_output;
+   real_output = convert_from_wlc_handle(output, "output");
+
+   if (!real_output) {
+      wlc_log(WLC_LOG_ERROR, "Output (%" PRIuWLC ") not found in wlc_output_set_mode.", output);
+      return false;
+   }
+
+   real_output->active.mode = mode_index;
+   wlc_output_update_mode(real_output);
+
+   return true;
 }
 
 void
