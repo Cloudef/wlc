@@ -158,7 +158,7 @@ wl_cb_manager_create_data_source(struct wl_client *client, struct wl_resource *r
       return;
 
    wlc_resource r;
-   if (!(r = wlc_resource_create(&manager->sources, client, &wl_data_source_interface, wl_resource_get_version(resource), 2, id)))
+   if (!(r = wlc_resource_create(&manager->sources, client, &wl_data_source_interface, wl_resource_get_version(resource), 3, id)))
       return;
 
    struct wlc_data_source *source = convert_from_wlc_resource(r, "data-source");
@@ -204,7 +204,7 @@ wl_cb_manager_get_data_device(struct wl_client *client, struct wl_resource *reso
       return;
 
    wlc_resource r;
-   if (!(r = wlc_resource_create(&seat->manager.devices, client, &wl_data_device_interface, wl_resource_get_version(resource), 2, id)))
+   if (!(r = wlc_resource_create(&seat->manager.devices, client, &wl_data_device_interface, wl_resource_get_version(resource), 3, id)))
       return;
 
    wlc_resource_implement(r, &wl_data_device_implementation, &seat->manager);
@@ -237,7 +237,7 @@ wlc_data_device_manager_offer(struct wlc_data_device_manager *manager, struct wl
    struct wlc_data_source *source = manager->source;
 
    wlc_resource offer = 0;
-   if (source && !(offer = wlc_resource_create(&manager->offers, client, &wl_data_offer_interface, wl_resource_get_version(resource), 2, 0)))
+   if (source && !(offer = wlc_resource_create(&manager->offers, client, &wl_data_offer_interface, wl_resource_get_version(resource), 3, 0)))
       return;
 
    if (offer) {
