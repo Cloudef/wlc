@@ -642,19 +642,14 @@ wlc_output_set_information(struct wlc_output *output, struct wlc_output_informat
    const char *name = name_for_connector(output->information.connector);
    chck_string_set_format(&output->information.name, "%s-%u", name, output->information.connector_id);
 
-   bool set_resolution = false;
-
    {
       struct wlc_output_mode *mode;
       except(mode = chck_iter_pool_get(&output->information.modes, output->active.mode));
       wlc_log(WLC_LOG_INFO, "%s Chose mode (%u) %dx%d", output->information.name.data, output->active.mode, mode->width, mode->height);
       output->mode = (struct wlc_size){ mode->width, mode->height };
       mode->flags |= WL_OUTPUT_MODE_CURRENT;
-      set_resolution = wlc_output_set_resolution_ptr(output, &output->mode, output->scale);
+      wlc_output_set_resolution_ptr(output, &output->mode, output->scale);
    }
-
-   if (!set_resolution)
-      output_push_to_resources(output);
 
    // XXX: set_information and set_resolution should probably be double buffered
    //      and commited during start of next render to avoid spurious information updates
