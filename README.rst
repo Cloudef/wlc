@@ -1,3 +1,8 @@
+DEPRECATION NOTICE
+------------------
+
+wlc is officially deprecated. Interested users are encouraged to use `wlroots <https://github.com/swaywm/wlroots>`_ instead.
+
 FEATURES
 --------
 
