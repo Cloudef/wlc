@@ -1,0 +1,42 @@
+.TH WLC_KEYBOARD_GET_UTF32_FOR_KEY 3 2016-04-22 WLC "WLC Utility Functions"
+
+.SH NAME
+wlc_keyboard_get_utf32_for_key \- convert keycode to UTF-32 codepoint
+
+.SH SYNOPSIS
+.B # include <wlc/wlc.h>
+
+.nf
+.BI "uint32_t wlc_keyboard_get_utf32_for_key(uint32_t "key , 
+.BI "                                        const struct wlc_modifiers *"modifiers );
+.fi
+
+.SH DESCRIPTION
+.BR wlc_keyboard_get_utf32_for_key ()
+converts raw keycodes to a UTF-32 encoded Unicode codepoint. Additional
+modifiers passed in may change the key and the resulting codepoint.
+
+For example, this allows the programmer to provide a mechanism whereby
+users are able to bind keys by glyph directly.
+
+.SH RETURN VALUE
+.BR wlc_keyboard_get_utf32_for_key () 
+returns a UTF-32 encoded Unicode representation of the raw keycode.
+
+.SH EXAMPLE
+.nf
+#include <wlc/wlc.h>
+
+const uint32_t sym = wlc_keyboard_get_keysym_for_key(key, 0);
+const uint32_t u32 = wlc_keyboard_get_utf32_for_key(key, 0);
+
+char name[64] = {0};
+const uint8_t mb = chck_utf32_encode(u32, name);
+
+if (!mb || (mb == 1 && (!isprint(name[0]) || isspace(name[0])))) {
+    if (xkb_keysym_get_name(sym, name, sizeof(name)) == -1)
+        return false;
+}
+
+pass_key(view, time, modifiers, name);
+.fi

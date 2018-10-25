@@ -1,0 +1,49 @@
+.TH WLC_GET_BACKEND_TYPE 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_get_backend_type \- query which backend wlc is using
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.B enum wlc_backend_type wlc_get_backend_type(void);
+
+.SH DESCRIPTION
+.BR wlc_get_backend_type ()
+can be used to determine which backend the compositor is currently running on.
+This is useful if the compositor needs to know whether it is running nested
+inside an X11 (Xorg) server or directly on DRM.
+
+.SH RETURN VALUE
+.BR wlc_get_backend_type ()
+returns a
+.I wlc_backend_type
+which can be one of
+.IR WLC_BACKEND_X11 ,
+.I WLC_BACKEND_DRM
+or
+.IR WLC_BACKEND_NONE .
+
+.SH NOTES
+.I WLC_BACKEND_NONE
+shall be returned if
+.BR wlc_init (3)
+failed or when
+.BR wlc_get_backend_type ()
+is called before
+.BR wlc_init (3).
+
+.SH EXAMPLE
+.nf
+#include <wlc/wlc.h>
+
+const enum wlc_backend_type backend = wlc_get_backend_type();
+
+switch (backend) {
+    WLC_BACKEND_X11:
+        set_default_prefix(WLC_BIT_MOD_ALT);
+        break;
+    default:
+        set_default_prefix(WLC_BIT_MOD_LOGO);
+}
+.fi

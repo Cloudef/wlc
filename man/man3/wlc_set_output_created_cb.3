@@ -1,0 +1,130 @@
+.TH WLC_SET_OUTPUT_CREATED_CB 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+.nh
+wlc_set_output_created_cb, wlc_set_output_destroyed_cb,
+wlc_set_output_focus_cb, wlc_set_output_resolution_cb,
+wlc_set_output_render_pre_cb, wlc_set_output_render_post_cb,
+wlc_set_output_context_created_cb, wlc_set_output_context_destroyed_cb
+\- output creation, management and deletion
+.hy
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.nf
+.BI "void wlc_set_output_created_cb(bool (*"cb ")(wlc_handle "output "));"
+.br
+.BI "void wlc_set_output_destroyed_cb(void (*"cb ")(wlc_handle "output "));"
+.br
+.BI "void wlc_set_output_focus_cb(void (*"cb ")(wlc_handle "output ", bool "focus "));"
+.br
+.BI "void wlc_set_output_resolution_cb(void (*"cb ")(wlc_handle "output ,
+.BI "                                  const struct wlc_size *"from ,
+.BI "                                  const struct wlc_size *"to "));"
+.br
+.BI "void wlc_set_output_render_pre_cb(void (*cb)(wlc_handle output));
+.br
+.BI "void wlc_set_output_render_post_cb(void (*cb)(wlc_handle output));
+.br
+.BI "void wlc_set_output_context_created_cb(void (*cb)(wlc_handle output));
+.br
+.BI "void wlc_set_output_context_destroyed_cb(void (*cb)(wlc_handle output));
+.fi
+
+.SH DESCRIPTION
+The output functions all take a callback
+.I cb
+which define the creation, management and destruction of the
+.I output
+where an output is typically attached to a physical monitor but can also be a
+virtual display or a render node.
+
+.BR wlc_set_output_created_cb ()
+creates an output on a given wlc_handle.
+The
+.I output
+will be destroyed if the callback returns
+.IR false .
+
+.BR wlc_set_output_destroyed_cb ()
+allows for to monitoring events such as output disconnection. This is called
+whenever an output is being destroyed. The
+.BR wlc_handle (3)
+is invalid once it completes.
+
+.BR wlc_set_output_focus_cb ()
+is triggered on gaining or losing focus of an output.
+
+.BR wlc_set_output_resolution_cb ()
+is called on resolution changes. The new resolution is updated inside the
+.I to
+structure and the old resolution inside the
+.I from
+structure.
+
+The
+.BR wlc_set_output_context_created_cb ()
+events are triggered when the wlc library creates a graphical context such as
+EGL or GL. This is specifically useful when using
+.BR wlc_set_output_render_pre_cb ()
+and
+.BR wlc_set_output_render_post_cb (3)
+to indicate that any EGL or GL resources need to be recreated.
+
+Likewise,
+.BR wlc_set_output_context_destroyed_cb (3)
+triggers on wlc's graphical context destruction indicating one needs to release
+their resources.
+
+.SH EXAMPLE
+These examples are demonstrative and not functional.
+
+.nf
+#include <wlc/wlc.h>
+
+static bool
+handle_output_creation(wlc_handle output)
+{
+    if (!output)
+        return false;
+
+    register_new_output(output);
+}
+
+static void
+handle_output_destruction(wlc_handle output)
+{
+    move_all_windows_to_next_available_output();
+}
+
+static void
+handle_output_focus(wlc_handle output, bool focus)
+{
+    if (focus)
+        set_focus(output);
+}
+
+static void
+handle_resolution_change(wlc_handle output,
+                                     const struct wlc_size *from,
+                                     const struct wlc_size *to)
+{
+    int area_from = from->w * from->h;
+    int area_to = to->w * to->h;
+
+    if (area_from > area_to)
+        fit_views(output, to);
+}
+
+wlc_set_output_created_cb(handle_output_creation);
+wlc_set_output_focus_cb(handle_output_focus);
+wlc_set_output_destroyed_cb(handle_output_destruction);
+wlc_set_output_resolution_cb(handle_resolution_change);
+
+wlc_init();
+.fi
+
+.SH ALSO SEE
+.BR wlc_set_view_created_cb (3),
+.BR wlc_init (3)

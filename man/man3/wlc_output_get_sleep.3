@@ -1,0 +1,24 @@
+.TH WLC_OUTPUT_GET_SLEEP 3 2016-04-22 WLC "WLC API Functions"
+
+.SH NAME
+wlc_output_get_sleep \- get sleep state of the output
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "bool wlc_output_get_sleep(wlc_handle "output );
+
+.SH DESCRIPTION
+.BR wlc_output_get_sleep ()
+is used to determine the sleep state of a given
+.IR output .
+
+.SH RETURN VALUE
+.BR wlc_output_get_sleep ()
+will return
+.I true
+to indicate that the output is sleeping otherwise it will return
+.IR false .
+
+.SH SEE ALSO
+.BR wlc_output_set_sleep (3)

@@ -1,0 +1,39 @@
+.TH WLC_OUTPUT_SET_SLEEP 3 2016-04-22 WLC "WLC API FUNCTIONS"
+
+.SH NAME
+wlc_output_set_sleep \- put an output to sleep
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "void wlc_output_set_sleep(wlc_handle "output ", bool "sleep );
+
+.SH DESCRIPTION
+.BR wlc_output_set_sleep ()
+is used to put a given
+.I output
+to sleep or to wake it up depending on the value of
+.IR sleep .
+
+If it is
+.I true
+then
+.BR wlc_output_set_sleep ()
+will to put the
+.I output
+to sleep, otherwise, it will wake it up with
+.IR false .
+
+.SH RETURN VALUE
+None.
+
+.SH NOTES
+If the given
+.I output
+is NULL, already asleep or pending sleep state then
+.BR wlc_output_set_sleep ()
+will do nothing.
+
+.SH SEE ALSO
+.BR wlc (7),
+.BR wlc_output_get_sleep (3)

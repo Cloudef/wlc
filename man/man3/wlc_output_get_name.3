@@ -1,0 +1,22 @@
+.TH WLC_OUTPUT_GET_NAME 3 2016-04-22 WLC "WLC CORE API FUNCTIONS"
+
+.SH NAME
+wlc_output_get_name \- get the output name
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "const char* wlc_output_get_name(wlc_handle "output );
+
+.SH DESCRIPTION
+Use
+.BR wlc_output_get_name ()
+for a given
+.I output
+to determine its name, such as
+.IR LVDS1 ,
+.IR DP1 ,
+.IR HDMI1 ,
+etc.
+
+.SH RETURN VALUE
+None.

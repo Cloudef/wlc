@@ -1,0 +1,27 @@
+.TH WLC_HANDLE_GET_USER_DATA 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_handle_get_user_data \- get user data associated with the handle
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "void* wlc_handle_get_user_data(wlc_handle "handle ");"
+
+.SH DESCRIPTION
+.BR wlc_handle_get_user_data ()
+provides a mechanism to aquire the user data provided via
+.BR wlc_handle_set_user_data (3)
+allowing for direct access to its contents.
+
+.SH RETURN VALUE
+.BR wlc_handle_get_user_data ()
+returns a pointer to the address of the user data.
+
+If no user data has been set then
+.BR wlc_handle_get_user_data ()
+will return
+.IR NULL .
+
+.SH ALSO SEE
+.BR wlc_handle_set_user_data (3)

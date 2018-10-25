@@ -1,0 +1,97 @@
+.TH WLC_SET_KEYBOARD_KEY_CB 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_set_keyboard_key_cb - keyboard callbacks
+
+.SH SYNOPSIS
+.nf
+.B #include <wlc/wlc.h>
+
+.BI "void wlc_set_keyboard_key_cb(bool (*"cb ")(wlc_handle "view ", uint32_t "time ,
+.BI "                             const struct wlc_modifiers*, uint32_t "key ,
+.BI "                             enum wlc_key_state));"
+.fi
+
+.SH DESCRIPTION
+.BR wlc_set_keyboard_key_cb ()
+configures the callback
+.I cb
+which is triggered on key events for the given view. If the view is not focused
+then
+.I view
+shall be set to
+.IR 0 .
+This is useful to handle key events in situations where focus is or is not
+required. For example global key bindings or view specific keybindings.
+
+The
+.I time
+represents a timestamp of when the key event occured. It is a magical number
+and cannot be relied on.
+
+The
+.I modifiers
+may be one of
+.IR WLC_BIT_MOD_CAPS ,
+.IR WLC_BIT_MOD_CTRL ,
+.IR WLC_BIT_MOD_ALT ,
+.IR WLC_BIT_MOD_MOD2 ,
+.IR WLC_BIT_MOD_MOD3 ,
+.I WLC_BIT_MOD_LOGO
+and
+.IR WLC_BIT_MOD_MOD5 .
+
+The
+.I WLC_BIT_MOD_LOGO
+modifier corresponds to the key which has a system logo drawn onto it such as
+Windows\*R or the Linux\*(Tm penguin. This is also known as the "super" key or
+"mod4".
+
+The
+.I key
+returns the raw keycode which depends on the operating system and
+hardware. This value should be processed via a function such as
+.nh
+.BR wlc_keyboard_get_keysym_for_key (3).
+.hy
+
+The key state provides distinction between pressed and released positions
+with
+.I WLC_KEY_STATE_PRESSED
+and
+.I WLC_KEY_STATE_RELEASED
+respectively.
+
+.SH RETURN VALUE
+The return value of the callback
+.I cb
+dictate what is sent to the client.  If the callback returns
+.I true
+then the client doesn't see the event, if
+.I false
+the events fall through to the client.
+
+.SH EXAMPLE
+.nf
+#include <wlc/wlc.h>
+
+static bool
+handle_key(wlc_handle view, uint32_t time,
+           const struct wlc_modifiers *modifiers, uint32_t key,
+           enum wlc_key_state state)
+{
+    if (state == WLC_KEY_STATE_PRESSED) {
+        uint32_t sym = wlc_keyboard_get_keysym_for_key(key, 0);
+
+        if (bind = match_bind(sym, modifiers->mods, bindings))
+            process(bind);
+    }
+}
+
+wlc_set_keyboard_key_cb(handle_key);
+.fi
+
+.SH ALSO SEE
+.BR wlc_interface.view (3),
+.BR wlc_init (3),
+.BR wlc_keyboard_get_keysym_for_key (3)

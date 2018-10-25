@@ -1,0 +1,22 @@
+.TH WLC_POINTER_SET_POSITION 3 2016-04-22 WLC "WLC API Functions"
+
+.SH NAME
+wlc_pointer_set_position \- sets the mouse pointer position
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "void wlc_pointer_set_position(const struct wlc_point *"position ");"
+
+.SH DESCRIPTION
+.BR wlc_pointer_set_position ()
+is used to set the mouse pointer to a new
+.I position
+relative to the top left corner of the currently focused output.
+
+.SH RETURN VALUE
+None.
+
+.SH NOTES
+The mouse pointer position will be clamped to the focused output if the
+requested position is out of bounds.

@@ -1,0 +1,26 @@
+.TH SET_COMPOSITOR_READY_CB 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_set_compositor_ready_cb, wlc_set_compositor_terminate_cb \- compositor
+readiness callbacks
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.BI "void wlc_set_compositor_ready_cb(void (*"cb ")(void));
+.BI "void wlc_set_compositor_terminate_cb(void (*"cb ")(void));
+
+.SH DESCRIPTION
+.BR wlc_set_compositor_ready_cb ()
+lets one configure a callback
+.I cb
+to trigger when the main compositor is ready to
+accept clients while
+.BR wlc_set_compositor_terminate_cb ()
+provides a mechanism to notify the programmer about imminent compositor
+shutdown where a callback
+.I cb
+can be set to handle any custom teardown routines.
+
+.SH RETURN VALUE
+None.

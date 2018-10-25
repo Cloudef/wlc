@@ -1,0 +1,33 @@
+.TH WLC_TERMINATE 3 2016-04-21 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_terminate \- terminate the compositor
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.B void wlc_terminate(void);
+
+.SH DESCRIPTION
+.BR wlc_terminate ()
+ends any running event loop created with
+.BR wlc_run (3)
+and terminates the wlc library.
+
+.SH RETURN VALUE
+None.
+
+.SH NOTES
+After the first call to
+.BR wlc_terminate ()
+any subsequent calls will have no effect.
+
+Calling
+.BR wlc_terminate ()
+before
+.BR wlc_init (3)
+will have no effect.
+
+.SH ALSO SEE
+.BR wlc_init (3),
+.BR wlc_run (3)

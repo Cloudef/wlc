@@ -1,0 +1,129 @@
+.TH WLC_INIT 3 2016-04-21 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_init \- initialize the wlc library
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.B bool wlc_init(void);
+
+.SH DESCRIPTION
+.BR wlc_init ()
+is used to initialize the wlc library after any necessary callbacks are
+configured and drop permissions when running in a priviledged mode via suid.
+
+.SH RETURN VALUE
+Upon successful initialization
+.BR wlc_init ()
+will return
+.IR true .
+
+.SH ERRORS
+None.
+
+.SH NOTES
+.BR wlc_init ()
+may be called only once during the program's lifetime.
+
+.BR wlc_init ()
+can abort on several exceptional situations. These include:
+.IP *
+Not running from an X11 server with logind support and without access to
+.IR /dev/input/event0 .
+.IP *
+Failures from
+.BR wl_display_create (3).
+.IP *
+Failure to initialize logind.
+.IP *
+Failure to allocate necessary memory.
+.IP *
+Failures from
+.BR wl_display_init_shm (3).
+.IP *
+Failure to initialize udev.
+.IP *
+Failure to initialize libinput.
+.IP *
+Failure to start the compositor itself.
+
+.SH EXAMPLE
+This simple example demonstrates focusing and bringing any client as they
+start to the foreground. A more detailed example is provided with the source
+code in 
+.IR example/example.c .
+
+.SS Program source
+.nf
+#include <stdlib.h>
+#include <wlc/wlc.h>
+
+static bool
+view_created(wlc_handle view)
+{
+    wlc_handle output = wlc_view_get_output(view);
+    wlc_view_set_mask(view, wlc_output_get_mask(output));
+    wlc_view_bring_to_front(view);
+    wlc_view_focus(view);
+
+    return true;
+}
+
+static void
+view_focus(wlc_handle view, bool focus)
+{
+    wlc_view_set_state(view, WLC_BIT_ACTIVATED, focus);
+}
+
+int
+main(int argc, char *argv[])
+{
+    wlc_set_view_created_cb(view_created);
+    wlc_set_view_focus_cb(view_focus);
+
+    if (!wlc_init())
+        exit(EXIT_FAILURE);
+
+    wlc_run();
+    exit(EXIT_SUCCESS);
+}
+.fi
+
+.SH SEE ALSO
+.BR wlc_run (3)
+
+.SS Output Callbacks
+.BR wlc_set_output_created_cb (3),
+.BR wlc_set_output_destroyed_cb (3),
+.BR wlc_set_output_focus_cb (3),
+.BR wlc_set_output_resolution_cb (3),
+.BR wlc_set_output_render_pre_cb (3),
+.BR wlc_set_output_render_post_cb (3),
+.BR wlc_set_output_context_created_cb (3),
+.BR wlc_set_output_context_destroyed_cb (3)
+
+.SS View Callbacks
+.BR wlc_set_view_created_cb (3),
+.BR wlc_set_view_destroyed_cb (3),
+.BR wlc_set_view_focus_cb (3),
+.BR wlc_set_view_move_to_output_cb (3),
+.BR wlc_set_view_request_geometry_cb (3),
+.BR wlc_set_view_request_state_cb (3),
+.BR wlc_set_view_request_move_cb (3),
+.BR wlc_set_view_request_resize_cb (3),
+.BR wlc_set_view_render_pre_cb (3),
+.BR wlc_set_view_render_post_cb (3)
+
+.SS Input Callbacks
+.BR wlc_set_input_created_cb (3),
+.BR wlc_set_input_destroyed_cb (3)
+.BR wlc_set_pointer_button_cb (3),
+.BR wlc_set_pointer_scroll_cb (3),
+.BR wlc_set_pointer_motion_cb (3),
+.BR wlc_set_keyboard_key_cb (3),
+.BR wlc_set_touch_cb (3)
+
+.SS State Callbacks
+.BR wlc_set_compositor_ready_cb (3),
+.BR wlc_set_compositor_terminate_cb (3)

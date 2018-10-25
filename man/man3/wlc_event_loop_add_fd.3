@@ -1,0 +1,58 @@
+.TH WLC_EVENT_LOOP_ADD_FD 3 2016-04-22 WLC "WLC Core API Functions"
+
+.SH NAME
+wlc_event_loop_add_fd - add file descriptor to event loop
+
+.SH SYNOPSIS
+.B #include <wlc/wlc.h>
+
+.nf
+.BI "struct wlc_event_source* wlc_event_loop_add_fd(int "fd ", uint32_t "mask ,
+.BI "                                               int (*"cb ")(int "fd ,
+.BI "                                               uint32_t "mask ", void *"userdata ),
+.BI "                                               void *"userdata ),
+.fi
+
+.SH DESCRIPTION
+.BR wlc_event_loop_add_fd ()
+can be used to add a file descriptor (
+.IR fd )
+to the event loop created by
+.BR wlc_init (3).
+The callback is triggered whenever the condition defined in the
+.I mask
+is met.  These conditions are of type
+.I wlc_event_bit
+and have the following values:
+
+.IP WLC_EVENT_READABLE
+When the file descriptor is available for read operations.
+
+.IP WLC_EVENT_WRITABLE
+When the file descriptor is available for write operations.
+
+.IP WLC_EVENT_HANGUP
+When the hang up event occurred on the file descriptor, usually indicating a
+peer has closed their end of a connection.
+
+.IP WLC_EVENT_ERROR
+An error occurred on the file descriptor.
+
+.SH RETURN VALUE
+.BR wlc_event_loop_add_fd ()
+returns a pointer to a wlc_event_source.
+
+The return value of the callback is ignored.
+
+.SH NOTES
+libwayland's implementation is based on
+.BR epoll (7)
+and much of its functionality is represented here.  For example, a
+.I WLC_EVENT_READABLE
+bit is equivalent to
+.I EPOLLIN
+defined in
+.BR epoll_ctl(3 ).
+
+.SH ALSO SEE
+.BR wlc_init (3)

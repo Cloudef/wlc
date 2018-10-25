@@ -1,0 +1,206 @@
+.TH WLC 7 2016-04-20 WLC "Wayland Library Compositor"
+
+.SH NAME
+wlc \- the wayland library compositor
+
+.SH DESCRIPTION
+.B wlc
+is a library created to make writing wayland compositors easier by providing
+most of the necessary interface to the wayland protocol.
+
+.SS General concepts
+
+.B Views
+.RS
+Surfaces with interactive roles which handling is left to user of wlc library
+(usually windows, handled by window manager).
+.RE
+
+.B Surfaces
+.RS
+Rectangular area that is displayed on the screen. It has a location, size and
+pixel contents. wlc's views are surfaces that have interactive role assigned.
+
+.UR http://wayland.freedesktop.org/docs/html/apa.html#protocol-spec-wl_surface
+.UE
+.RE
+
+.B Outputs
+.RS
+Target which containing surfaces are composed to.  Output may be physical
+monitor, remote desktop, render node, etc.
+.RE
+
+.SS Protocol extensions
+
+.B xdg-surface
+.RS
+Provides surface role for traditional desktop like behaviour.  The extension is
+still in development, but preferred and is the one that will be used by major
+DEs (GNOME, KDE, E*).
+.RE
+
+.B shell-surface
+.RS
+Deprecated surface role built into libwayland.  It's not suitable for desktops
+and is currently only used by legacy programs and by Qt.
+
+.UR http://wayland.freedesktop.org/docs/html/apa.html#protocol-spec-wl_shell_surface
+.UE
+
+.SH ENVIRONMENT
+
+.B WLC_SHM
+.RS
+Takes a boolean
+.I 0
+or
+.IR 1 ,
+true forces EGL clients to fallback on shm. (Default:
+.IR 0 )
+.RE
+
+.B WLC_DEBUG
+.RS
+Takes a comma-separated list of values which enable corresponding debug section
+in wlc. These include:
+
+.B handle
+.RS
+Stub.
+.RE
+
+.B render
+.RS
+Stub.
+.RE
+
+.B render-loop
+.RS
+Stub.
+.RE
+
+.B focus
+.RS
+Stub.
+.RE
+
+.B xwm
+.RS
+Stub.
+.RE
+
+.B keyboard
+.RS
+Stub.
+.RE
+
+.B commit
+.RS
+Stub.
+.RE
+
+.B request
+.RS
+Stub.
+.RE
+.RE
+
+.B WLC_DRM_DEVICE
+.RS
+The DRM device used when running under the DRM backend. (Default:
+.IR card0 )
+.RE
+
+.B WLC_XWAYLAND
+.RS
+Takes a boolean
+.I 0
+or
+.I 1
+which disables or enables the use of xwayland respectively. (Default:
+.IR 1 )
+.RE
+
+.B WLC_DRAW_OPAQUE
+.RS
+Stub.
+.RE
+
+.B WLC_OUTPUTS
+.RS
+Stub.
+.RE
+
+.B WLC_LIBINPUT
+.RS
+Stub.
+.RE
+
+.B WLC_REPEAT_DELAY
+.RS
+The time in milliseconds before keyboard repeat initiates.
+.RE
+
+.B WLC_REPEAT_RATE
+.RS
+The speed in milliseconds at which the keyboard repeats depressed keys.
+.RE
+
+.B WAYLAND_DEBUG
+.RS
+Enables message tracing in libwayland. Possible values are
+.IR 1 , " client"
+and
+.IR server .
+.RE
+
+.B WAYLAND_DISPLAY
+.RS
+Stubby McStub.
+.RE
+
+.B XDG_SEAT
+.RS
+Stubby.
+When using logind this environment is honored during compositor initialization.
+.RE
+
+.B XKB_DEFAULT_LAYOUT
+.RS
+This corresponds to the layout you might use in X11 such as
+.BR gb .
+Use this if you want to select a non-us keyboard layout.
+.RE
+
+.B XKB_DEFAULT_OPTIONS
+.RS
+Sets the keyboard options. The syntax is the same (comma-separated values) as
+within an
+.I xorg.conf
+or when used via
+.IR setxkbmap " " -option .
+For example
+.I compose:ralt,ctrl:nocaps
+would set
+.I ralt
+to the compose key and cause the
+.I Caps Lock
+key to mimic 
+.IR ctrl .
+.RE
+
+.B XKB_DEFAULT_VARIANT
+.RS
+Stub.
+.RE
+
+.B XKB_DEFAULT_RULES
+.RS
+Stub.
+.RE
+
+.B XKB_DEFAULT_MODEL
+.RS
+Stub.
+.RE
