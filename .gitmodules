@@ -1,7 +1,7 @@
 [submodule "lib/chck"]
 	path = lib/chck
-	url = git://github.com/Cloudef/chck.git
+	url = https://github.com/Cloudef/chck
 	branch = master
 [submodule "protos/wayland-protocols"]
 	path = protos/wayland-protocols
-	url = git://anongit.freedesktop.org/wayland/wayland-protocols
+	url = https://anongit.freedesktop.org/git/wayland/wayland-protocols.git
